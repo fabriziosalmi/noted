@@ -18,6 +18,7 @@ import { ToastStack } from './components/Toast';
 import { useToast } from './hooks/useToast';
 import { useTheme } from './hooks/useTheme';
 import { useNoteAdvisor } from './hooks/useNoteAdvisor';
+import type { NoteChunk } from './lib/noteSearch';
 
 function App() {
   const [leftOpen, setLeftOpen] = useState(true);
@@ -53,6 +54,26 @@ function App() {
     : [];
 
   const allNoteNames = notes.map(n => n.name.replace('.md', ''));
+
+  // RAG index: load all note contents in background when right panel opens
+  const [noteChunks, setNoteChunks] = useState<NoteChunk[]>([]);
+  useEffect(() => {
+    if (!rightOpen || !window.electronAPI || notes.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const chunks: NoteChunk[] = [];
+      for (const note of notes.slice(0, 50)) { // cap at 50 notes for perf
+        const res = await window.electronAPI.readNote(note.name, settings.syncDirectory || undefined);
+        if (cancelled) return;
+        if (res.success && res.data) {
+          const text = res.data.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+          chunks.push({ name: note.name, text });
+        }
+      }
+      if (!cancelled) setNoteChunks(chunks);
+    })();
+    return () => { cancelled = true; };
+  }, [rightOpen, notes, settings.syncDirectory]);
 
   useEffect(() => {
     fetchNotes();
@@ -267,7 +288,7 @@ function App() {
               <PanelResizeHandle className="w-1 hover:bg-blue-400 transition-colors cursor-col-resize" />
               <Panel defaultSize={25} minSize={20} maxSize={40} className="bg-gray-50 dark:bg-gray-800 flex flex-col border-l border-gray-200 dark:border-gray-700">
                 <ErrorBoundary>
-                  <AiChat getEditorText={getEditorText} />
+                  <AiChat getEditorText={getEditorText} noteChunks={noteChunks} />
                 </ErrorBoundary>
               </Panel>
             </>

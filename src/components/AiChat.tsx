@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { Bot, Loader2 } from 'lucide-react';
+import { Bot, Loader2, Database } from 'lucide-react';
 import { askLLM } from '../lib/llm';
+import { findRelevantNotes, type NoteChunk } from '../lib/noteSearch';
 
 interface AiChatProps {
   getEditorText: () => string;
+  noteChunks?: NoteChunk[]; // all notes for RAG
 }
 
 interface ChatMessage { role: 'assistant' | 'user'; content: string }
 
 const GREETING = 'Ciao! Sono il tuo assistente. MCP attivato. Posso leggere quello che scrivi e aiutarti. Come posso aiutarti oggi?';
 
-export function AiChat({ getEditorText }: AiChatProps) {
+export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
   // displayHistory includes the greeting bubble shown in the UI
   const [displayHistory, setDisplayHistory] = useState<ChatMessage[]>([
     { role: 'assistant', content: GREETING },
@@ -39,15 +41,24 @@ export function AiChat({ getEditorText }: AiChatProps) {
       const textContext = rawContext.length > MAX_CONTEXT_CHARS
         ? rawContext.slice(0, MAX_CONTEXT_CHARS) + '\n\n[...documento troncato per lunghezza...]'
         : rawContext;
+
+      // RAG: find related notes from the full vault
+      const relevant = noteChunks.length > 0
+        ? findRelevantNotes(userMessage, noteChunks, 3)
+        : [];
+      const ragContext = relevant.length > 0
+        ? relevant.map(n => `### ${n.name.replace('.md', '')}\n${n.text.slice(0, 1500)}`).join('\n\n---\n\n')
+        : '';
+
       const response = await askLLM([
         {
           role: 'system',
-          content: `Sei un assistente integrato in un editor di testo Markdown. Il tuo obiettivo è aiutare l'utente a scrivere e ragionare.
-Ecco il contenuto attuale del documento a cui l'utente sta lavorando (se presente):
-"""
-${textContext}
-"""
-Rispondi in modo conciso e utile.`,
+          content: `Sei un assistente integrato in un editor di note Markdown. Hai accesso al contenuto delle note dell'utente.
+
+${textContext ? `Nota attiva:\n"""\n${textContext}\n"""` : ''}
+${ragContext ? `\nNote correlate dal vault:\n"""\n${ragContext}\n"""` : ''}
+
+Rispondi in modo conciso e utile. Se citi una nota specifica, indica il titolo.`,
         },
         ...nextLlmHistory,
       ]);
@@ -67,9 +78,17 @@ Rispondi in modo conciso e utile.`,
 
   return (
     <>
-      <div className="p-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center space-x-2 border-b border-gray-200 dark:border-gray-700">
-        <Bot size={14} />
-        <span>AI Assistant</span>
+      <div className="p-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center space-x-2">
+          <Bot size={14} />
+          <span>AI Assistant</span>
+        </div>
+        {noteChunks.length > 0 && (
+          <span className="flex items-center gap-1 text-[10px] text-indigo-400 dark:text-indigo-500 font-normal normal-case tracking-normal" title={`RAG attivo su ${noteChunks.length} note`}>
+            <Database size={10} />
+            {noteChunks.length} note
+          </span>
+        )}
       </div>
 
       <div className="flex-1 p-4 text-sm text-gray-600 dark:text-gray-300 overflow-y-auto flex flex-col space-y-3">
