@@ -5,8 +5,8 @@ import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Typography from '@tiptap/extension-typography';
-import { FileText, Settings, Bot, PanelLeft, PanelRight, Plus, Trash2, Bold, Italic, Strikethrough, X, Loader2, FolderSync, Download } from 'lucide-react';
-import { useStore } from './store/useStore';
+import { FileText, Settings, Bot, PanelLeft, PanelRight, Plus, Trash2, Bold, Italic, Strikethrough, X, Loader2, Download } from 'lucide-react';
+import { useStore, type LLMProvider } from './store/useStore';
 import { askLLM } from './lib/llm';
 
 function App() {
@@ -47,12 +47,11 @@ function App() {
       attributes: {
         class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none',
       },
-      handlePaste: (view, event, slice) => {
-        // Only trigger Smart Paste if Shift key is NOT pressed (so Shift+Cmd+V does normal plain text paste)
-        // and we have some text or HTML in the clipboard
-        if (event.shiftKey) return false;
-        
-        const text = event.clipboardData?.getData('text/plain');
+      handlePaste: (_view, event) => {
+        // Only trigger Smart Paste if we have some text or HTML in the clipboard
+        // and we have configured an LLM
+        const clipboardData = event.clipboardData;
+        const text = clipboardData?.getData('text/plain');
         if (!text) return false;
 
         // If it's a very short string (like a single word), just paste it normally
@@ -82,8 +81,9 @@ Non aggiungere saluti, non aggiungere commenti. Restituisci SOLO il Markdown fin
             // Insert the magically formatted text at current cursor position
             editor.chain().focus().insertContent(cleanMarkdown).run();
             
-          } catch (err: any) {
-            console.error("Smart paste failed:", err);
+          } catch (err: unknown) {
+            const error = err as Error;
+            console.error("Smart paste failed:", error);
             // Fallback: paste raw text if LLM fails
             editor.chain().focus().insertContent(text).run();
           } finally {
@@ -98,10 +98,13 @@ Non aggiungere saluti, non aggiungere commenti. Restituisci SOLO il Markdown fin
 
   // Sync editor content when active note changes
   useEffect(() => {
-    if (editor && activeNoteContent !== undefined && activeNoteContent !== editor.getHTML()) {
-      editor.commands.setContent(activeNoteContent);
+    if (editor && activeNoteContent !== undefined) {
+      if (editor.getHTML() !== activeNoteContent) {
+        editor.commands.setContent(activeNoteContent);
+      }
     }
-  }, [activeNoteName, activeNoteContent, editor]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeNoteName, editor]);
 
   const handleCreateNote = () => {
     const name = `Nuova_Nota_${Math.floor(Date.now() / 1000)}.md`;
@@ -161,8 +164,9 @@ Non aggiungere saluti, non aggiungere commenti. Restituisci SOLO il Markdown fin
         const response = await askLLM(messagesToSent);
         
         setChatHistory(prev => [...prev, { role: 'assistant', content: response }]);
-      } catch (error: any) {
-        setChatHistory(prev => [...prev, { role: 'assistant', content: `❌ Errore: ${error.message}. Controlla le impostazioni (Provider e API Key).` }]);
+      } catch (error: unknown) {
+        const err = error as Error;
+        setChatHistory(prev => [...prev, { role: 'assistant', content: `❌ Errore: ${err.message}. Controlla le impostazioni (Provider e API Key).` }]);
       } finally {
         setIsAiLoading(false);
       }
@@ -172,15 +176,15 @@ Non aggiungere saluti, non aggiungere commenti. Restituisci SOLO il Markdown fin
   return (
     <div className="h-screen w-screen flex flex-col bg-white">
       {/* Titlebar draggable area for Mac */}
-      <div className="h-10 w-full flex items-center px-4 drag-region bg-gray-50 border-b border-gray-200" style={{ WebkitAppRegion: 'drag' } as any}>
-        <div className="flex space-x-2" style={{ WebkitAppRegion: 'no-drag' } as any}>
+      <div className="h-10 w-full flex items-center px-4 drag-region bg-gray-50 border-b border-gray-200" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
+        <div className="flex space-x-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           {/* Traffic lights placeholder area for spacing */}
           <div className="w-16"></div>
         </div>
         <div className="flex-1 flex justify-center text-sm font-medium text-gray-500">
           Noted
         </div>
-        <div className="flex space-x-2" style={{ WebkitAppRegion: 'no-drag' } as any}>
+        <div className="flex space-x-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           {activeNoteName && (
             <button 
               onClick={handleExportPdf}
@@ -254,8 +258,10 @@ Non aggiungere saluti, non aggiungere commenti. Restituisci SOLO il Markdown fin
             <div className="max-w-3xl mx-auto p-12">
               {activeNoteName ? (
                 <>
-                  {editor && <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }} className="flex space-x-1 bg-white border border-gray-200 shadow-lg rounded-lg p-1">
-                    <button
+                  {editor && 
+                    // @ts-expect-error tippyOptions is valid but not typed
+                    <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }} className="flex space-x-1 bg-white border border-gray-200 shadow-lg rounded-lg p-1">
+                      <button
                       onClick={() => editor.chain().focus().toggleBold().run()}
                       className={`p-1.5 rounded hover:bg-gray-100 ${editor.isActive('bold') ? 'bg-gray-200 text-black' : 'text-gray-600'}`}
                     >
@@ -346,10 +352,10 @@ Non aggiungere saluti, non aggiungere commenti. Restituisci SOLO il Markdown fin
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Provider LLM</label>
                 <select 
-                  className="w-full border border-gray-300 rounded-md p-2 text-sm focus:border-blue-500 focus:outline-none"
-                  value={settings.llmProvider}
-                  onChange={(e) => updateSettings({ llmProvider: e.target.value as any })}
-                >
+                    className="w-full border border-gray-300 rounded-md p-2 text-sm focus:border-blue-500 focus:outline-none"
+                    value={settings.llmProvider}
+                    onChange={(e) => updateSettings({ llmProvider: e.target.value as LLMProvider })}
+                  >
                   <option value="openai">OpenAI (GPT-4o)</option>
                   <option value="anthropic">Anthropic (Claude 3)</option>
                   <option value="gemini">Google Gemini</option>

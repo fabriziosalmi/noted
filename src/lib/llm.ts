@@ -30,9 +30,10 @@ export async function askLLM(messages: ChatMessage[]): Promise<string> {
       default:
         throw new Error('Provider non supportato');
     }
-  } catch (error: any) {
-    console.error('LLM Error:', error);
-    throw new Error(`Errore LLM: ${error.message}`);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('LLM Error:', err);
+    throw new Error(`Errore LLM: ${err.message}`, { cause: error });
   }
 }
 
@@ -151,7 +152,7 @@ async function fetchGemini(messages: ChatMessage[], apiKey: string) {
   
   const systemMsg = messages.find(m => m.role === 'system')?.content;
 
-  const body: any = { contents: geminiMessages };
+  const body: Record<string, unknown> = { contents: geminiMessages };
   if (systemMsg) {
     body.systemInstruction = { parts: [{ text: systemMsg }] };
   }

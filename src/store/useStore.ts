@@ -64,7 +64,7 @@ export const useStore = create<NoteState>()(
     if (window.electronAPI) {
       const res = await window.electronAPI.getNotesList(get().settings.syncDirectory || undefined);
       if (res.success && res.data) {
-        set({ notes: res.data, isLoading: false });
+        set({ notes: res.data as NoteFile[], isLoading: false });
       } else {
         set({ isLoading: false });
         console.error('Failed to fetch notes:', res.error);

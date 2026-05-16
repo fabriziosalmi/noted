@@ -1,7 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
-import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 // Fix GPU Process crashing in dev mode
@@ -81,8 +80,9 @@ ipcMain.handle('get-notes-list', (_, syncDir?: string) => {
       }))
       .sort((a, b) => b.stats.mtimeMs - a.stats.mtimeMs); // Sort by modified time
     return { success: true, data: files };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    const err = error as Error;
+    return { success: false, error: err.message };
   }
 });
 
@@ -92,8 +92,9 @@ ipcMain.handle('read-note', (_, fileName: string, syncDir?: string) => {
     const filePath = path.join(targetDir, fileName);
     const content = fs.readFileSync(filePath, 'utf-8');
     return { success: true, data: content };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    const err = error as Error;
+    return { success: false, error: err.message };
   }
 });
 
@@ -103,8 +104,9 @@ ipcMain.handle('save-note', (_, fileName: string, content: string, syncDir?: str
     const filePath = path.join(targetDir, fileName);
     fs.writeFileSync(filePath, content, 'utf-8');
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    const err = error as Error;
+    return { success: false, error: err.message };
   }
 });
 
@@ -114,8 +116,9 @@ ipcMain.handle('delete-note', (_, fileName: string, syncDir?: string) => {
     const filePath = path.join(targetDir, fileName);
     fs.unlinkSync(filePath);
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    const err = error as Error;
+    return { success: false, error: err.message };
   }
 });
 
@@ -183,9 +186,10 @@ ipcMain.handle('export-pdf', async (event, htmlContent: string) => {
     pdfWin.close();
 
     return { success: true, data: filePath };
-  } catch (error: any) {
-    console.error('PDF Export Error:', error);
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('PDF Export Error:', err);
+    return { success: false, error: err.message };
   }
 });
 
