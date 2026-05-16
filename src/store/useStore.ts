@@ -36,7 +36,9 @@ interface NoteState {
   openNote: (fileName: string) => Promise<void>;
   saveActiveNote: (content: string) => Promise<void>;
   deleteNote: (fileName: string) => Promise<void>;
+  renameNote: (oldName: string, newName: string) => Promise<void>;
   updateSettings: (newSettings: Partial<SettingsState>) => void;
+  loadApiKey: () => Promise<void>;
 }
 
 export const useStore = create<NoteState>()(
@@ -56,7 +58,20 @@ export const useStore = create<NoteState>()(
       },
 
       updateSettings: (newSettings) => {
+        if (newSettings.llmApiKey !== undefined && window.electronAPI) {
+          window.electronAPI.storeApiKey(newSettings.llmApiKey);
+          newSettings = { ...newSettings, llmApiKey: '' };
+        }
         set({ settings: { ...get().settings, ...newSettings } });
+      },
+
+      loadApiKey: async () => {
+        if (window.electronAPI) {
+          const res = await window.electronAPI.getApiKey();
+          if (res.success && res.data) {
+            set((state) => ({ settings: { ...state.settings, llmApiKey: res.data as string } }));
+          }
+        }
       },
 
       fetchNotes: async () => {
@@ -76,17 +91,14 @@ export const useStore = create<NoteState>()(
 
   createNote: async (fileName: string) => {
     if (!fileName.endsWith('.md')) fileName += '.md';
-    if (window.electronAPI) {
-      const res = await window.electronAPI.saveNote(fileName, '<h1>Nuova Nota</h1><p>Inizia a scrivere qui...</p>', get().settings.syncDirectory || undefined);
-      if (res.success) {
-        await get().fetchNotes();
-        await get().openNote(fileName);
-      } else {
-        console.error('Failed to create note:', res.error);
-      }
-    } else {
-      console.error('electronAPI is not available in window');
-    }
+    if (!window.electronAPI) return;
+    const initialContent = '<h1>Nuova Nota</h1><p>Inizia a scrivere qui...</p>';
+    const res = await window.electronAPI.saveNote(fileName, initialContent, get().settings.syncDirectory || undefined);
+    if (!res.success) return;
+    // Open the note immediately so the user can start editing without waiting for the list refresh
+    await get().openNote(fileName);
+    // Refresh list in background — only updates notes[], never overrides active note
+    get().fetchNotes();
   },
 
   openNote: async (fileName: string) => {
@@ -109,6 +121,17 @@ export const useStore = create<NoteState>()(
     }
   },
 
+  renameNote: async (oldName: string, newName: string) => {
+    if (!newName.endsWith('.md')) newName += '.md';
+    if (!window.electronAPI) return;
+    const res = await window.electronAPI.renameNote(oldName, newName, get().settings.syncDirectory || undefined);
+    if (!res.success) throw new Error(res.error ?? 'Rinomina fallita');
+    if (get().activeNoteName === oldName) {
+      set({ activeNoteName: newName });
+    }
+    await get().fetchNotes();
+  },
+
   deleteNote: async (fileName: string) => {
     if (window.electronAPI) {
       const res = await window.electronAPI.deleteNote(fileName, get().settings.syncDirectory || undefined);
@@ -124,7 +147,10 @@ export const useStore = create<NoteState>()(
 }),
 {
   name: 'noted-storage',
-  partialize: (state) => ({ settings: state.settings }), // Only persist settings, not notes/buffer
+  // Exclude llmApiKey from localStorage — stored encrypted via safeStorage instead
+  partialize: (state) => ({
+    settings: { ...state.settings, llmApiKey: '' }
+  }),
 }
 )
 );

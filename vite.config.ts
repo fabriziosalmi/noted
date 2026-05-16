@@ -40,7 +40,7 @@ export default defineConfig({
         },
         vite: {
           build: {
-            sourcemap: 'inline',
+            sourcemap: process.env.NODE_ENV !== 'production' ? 'inline' : false,
             outDir: 'dist-electron',
             rollupOptions: {
               output: {

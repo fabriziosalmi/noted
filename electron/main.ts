@@ -1,7 +1,8 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, safeStorage } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { validateFileName, stripUnsafeHtml } from './ipc-utils.js';
 
 // Fix GPU Process crashing in dev mode
 app.disableHardwareAcceleration();
@@ -23,6 +24,8 @@ const getTargetDir = (customDir?: string) => {
   }
   return DEFAULT_NOTES_DIR;
 };
+
+let encryptedApiKey: Buffer | null = null;
 
 process.env.DIST = path.join(__dirname, '../dist');
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public');
@@ -70,6 +73,7 @@ ipcMain.handle('ping', () => 'pong');
 // FS IPC Handlers
 ipcMain.handle('get-notes-list', (_, syncDir?: string) => {
   try {
+    if (syncDir !== undefined && typeof syncDir !== 'string') throw new Error('syncDir must be a string');
     const targetDir = getTargetDir(syncDir);
     const files = fs.readdirSync(targetDir)
       .filter(f => f.endsWith('.md'))
@@ -88,6 +92,7 @@ ipcMain.handle('get-notes-list', (_, syncDir?: string) => {
 
 ipcMain.handle('read-note', (_, fileName: string, syncDir?: string) => {
   try {
+    validateFileName(fileName);
     const targetDir = getTargetDir(syncDir);
     const filePath = path.join(targetDir, fileName);
     const content = fs.readFileSync(filePath, 'utf-8');
@@ -100,6 +105,8 @@ ipcMain.handle('read-note', (_, fileName: string, syncDir?: string) => {
 
 ipcMain.handle('save-note', (_, fileName: string, content: string, syncDir?: string) => {
   try {
+    validateFileName(fileName);
+    if (typeof content !== 'string') throw new Error('Content must be a string');
     const targetDir = getTargetDir(syncDir);
     const filePath = path.join(targetDir, fileName);
     fs.writeFileSync(filePath, content, 'utf-8');
@@ -110,12 +117,74 @@ ipcMain.handle('save-note', (_, fileName: string, content: string, syncDir?: str
   }
 });
 
+ipcMain.handle('rename-note', (_, oldName: string, newName: string, syncDir?: string) => {
+  try {
+    validateFileName(oldName);
+    validateFileName(newName);
+    const targetDir = getTargetDir(syncDir);
+    const oldPath = path.join(targetDir, oldName);
+    const newPath = path.join(targetDir, newName);
+    if (fs.existsSync(newPath)) throw new Error(`Una nota con il nome "${newName}" esiste già`);
+    fs.renameSync(oldPath, newPath);
+    return { success: true };
+  } catch (error: unknown) {
+    const err = error as Error;
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('export-markdown', async (_, markdownContent: string) => {
+  try {
+    if (typeof markdownContent !== 'string') throw new Error('Content must be a string');
+    const { filePath } = await dialog.showSaveDialog({
+      title: 'Esporta come Markdown',
+      defaultPath: 'Nota.md',
+      filters: [{ name: 'Markdown', extensions: ['md'] }],
+    });
+    if (!filePath) return { success: false, error: 'Esportazione annullata' };
+    fs.writeFileSync(filePath, markdownContent, 'utf-8');
+    return { success: true, data: filePath };
+  } catch (error: unknown) {
+    const err = error as Error;
+    return { success: false, error: err.message };
+  }
+});
+
 ipcMain.handle('delete-note', (_, fileName: string, syncDir?: string) => {
   try {
+    validateFileName(fileName);
     const targetDir = getTargetDir(syncDir);
     const filePath = path.join(targetDir, fileName);
     fs.unlinkSync(filePath);
     return { success: true };
+  } catch (error: unknown) {
+    const err = error as Error;
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('store-api-key', (_, plaintext: string) => {
+  try {
+    if (typeof plaintext !== 'string') throw new Error('API key must be a string');
+    if (safeStorage.isEncryptionAvailable()) {
+      encryptedApiKey = safeStorage.encryptString(plaintext);
+    } else {
+      encryptedApiKey = Buffer.from(plaintext, 'utf-8');
+    }
+    return { success: true };
+  } catch (error: unknown) {
+    const err = error as Error;
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('get-api-key', () => {
+  try {
+    if (!encryptedApiKey) return { success: true, data: '' };
+    const plaintext = safeStorage.isEncryptionAvailable()
+      ? safeStorage.decryptString(encryptedApiKey)
+      : encryptedApiKey.toString('utf-8');
+    return { success: true, data: plaintext };
   } catch (error: unknown) {
     const err = error as Error;
     return { success: false, error: err.message };
@@ -134,6 +203,8 @@ ipcMain.handle('select-sync-folder', async () => {
 
 ipcMain.handle('export-pdf', async (event, htmlContent: string) => {
   try {
+    if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
+    if (htmlContent.length > 5_000_000) throw new Error('Content too large for PDF export');
     // Show save dialog
     const { filePath } = await dialog.showSaveDialog({
       title: 'Esporta come PDF',
@@ -154,12 +225,13 @@ ipcMain.handle('export-pdf', async (event, htmlContent: string) => {
       }
     });
 
-    // Load basic styling for the PDF
+    const safeContent = stripUnsafeHtml(htmlContent);
     const styledHtml = `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; line-height: 1.6; color: #333; }
             h1, h2, h3 { color: #111; }
@@ -170,7 +242,7 @@ ipcMain.handle('export-pdf', async (event, htmlContent: string) => {
           </style>
         </head>
         <body>
-          ${htmlContent}
+          ${safeContent}
         </body>
       </html>
     `;

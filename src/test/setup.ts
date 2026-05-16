@@ -20,6 +20,8 @@ const localStorageMock = (function () {
   };
 })();
 
+// These globals only exist in jsdom; skip when running in node environment (e.g. ipc-utils tests)
+if (typeof window !== 'undefined') {
 Object.defineProperty(window, 'localStorage', {
   value: localStorageMock
 });
@@ -32,4 +34,9 @@ window.electronAPI = {
   deleteNote: vi.fn().mockResolvedValue({ success: true }),
   selectSyncFolder: vi.fn().mockResolvedValue({ success: true, data: '/mock/path' }),
   exportPdf: vi.fn().mockResolvedValue({ success: true, data: '/mock/path/Nota.pdf' }),
+  renameNote: vi.fn().mockResolvedValue({ success: true }),
+  exportMarkdown: vi.fn().mockResolvedValue({ success: true, data: '/mock/path/Nota.md' }),
+  storeApiKey: vi.fn().mockResolvedValue({ success: true }),
+  getApiKey: vi.fn().mockResolvedValue({ success: true, data: '' }),
 };
+} // end if (typeof window !== 'undefined')

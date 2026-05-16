@@ -157,9 +157,12 @@ async function fetchGemini(messages: ChatMessage[], apiKey: string) {
     body.systemInstruction = { parts: [{ text: systemMsg }] };
   }
 
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
+  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    },
     body: JSON.stringify(body)
   });
   if (!res.ok) throw new Error(await res.text());

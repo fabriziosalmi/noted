@@ -7,4 +7,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteNote: (fileName: string, syncDir?: string) => ipcRenderer.invoke('delete-note', fileName, syncDir),
   selectSyncFolder: () => ipcRenderer.invoke('select-sync-folder'),
   exportPdf: (htmlContent: string) => ipcRenderer.invoke('export-pdf', htmlContent),
+  renameNote: (oldName: string, newName: string, syncDir?: string) => ipcRenderer.invoke('rename-note', oldName, newName, syncDir),
+  exportMarkdown: (content: string) => ipcRenderer.invoke('export-markdown', content),
+  storeApiKey: (key: string) => ipcRenderer.invoke('store-api-key', key),
+  getApiKey: () => ipcRenderer.invoke('get-api-key'),
 });

@@ -35,3 +35,42 @@ body {
   height: 0;
   pointer-events: none;
 }
+
+/* Table styles */
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  font-size: 0.9em;
+  overflow: hidden;
+}
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid #d1d5db;
+  padding: 6px 12px;
+  vertical-align: top;
+  min-width: 80px;
+  position: relative;
+}
+.ProseMirror table th {
+  background: #f3f4f6;
+  font-weight: 600;
+  text-align: left;
+}
+.ProseMirror table .selectedCell::after {
+  background: rgba(99, 102, 241, 0.1);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+.ProseMirror table .column-resize-handle {
+  background: #6366f1;
+  bottom: -2px;
+  pointer-events: none;
+  position: absolute;
+  right: -1px;
+  top: 0;
+  width: 2px;
+}
+.tableWrapper { overflow-x: auto; }
