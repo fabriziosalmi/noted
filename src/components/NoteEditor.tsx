@@ -5,8 +5,12 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Typography from '@tiptap/extension-typography';
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { createLowlight, common } from 'lowlight';
 import { Bold, Italic, Strikethrough, Code, Bot, FileText, CheckCheck } from 'lucide-react';
 import { askLLM } from '../lib/llm';
+
+const lowlight = createLowlight(common);
 
 type SaveStatus = 'idle' | 'saving' | 'saved';
 
@@ -65,13 +69,14 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({ codeBlock: false }),
       Typography,
       Placeholder.configure({ placeholder: 'Scrivi qualcosa...' }),
       Table.configure({ resizable: true }),
       TableRow,
       TableCell,
       TableHeader,
+      CodeBlockLowlight.configure({ lowlight }),
     ],
     content: activeNoteContent,
     onUpdate: ({ editor }) => {
