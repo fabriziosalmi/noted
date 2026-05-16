@@ -4,6 +4,7 @@ import type { LLMProvider } from '../store/useStore';
 interface Settings {
   llmProvider: LLMProvider;
   llmApiKey: string;
+  llmModel: string;
   lmStudioUrl: string;
   syncDirectory: string | null;
   showToolbar: boolean;
@@ -45,6 +46,30 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onClose }: S
               <option value="lmstudio">LM Studio (Local)</option>
               <option value="ollama">Ollama (Local)</option>
             </select>
+          </div>
+
+          {/* Model name — shown for all providers */}
+          <div>
+            <label htmlFor="llm-model" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Modello</label>
+            <input
+              id="llm-model"
+              type="text"
+              value={settings.llmModel}
+              onChange={(e) => onUpdate({ llmModel: e.target.value })}
+              placeholder={
+                settings.llmProvider === 'openai' ? 'gpt-4o' :
+                settings.llmProvider === 'anthropic' ? 'claude-3-5-sonnet-20241022' :
+                settings.llmProvider === 'gemini' ? 'gemini-1.5-pro' :
+                settings.llmProvider === 'openrouter' ? 'anthropic/claude-3.5-sonnet' :
+                settings.llmProvider === 'ollama' ? 'llama3' : 'local-model'
+              }
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+            />
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              {settings.llmProvider === 'openrouter'
+                ? 'Inserisci il model ID di OpenRouter, es. google/gemma-4-e2b'
+                : 'Lascia vuoto per usare il modello predefinito'}
+            </p>
           </div>
 
           {settings.llmProvider === 'lmstudio' && (
