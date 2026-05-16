@@ -9,8 +9,17 @@ import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { createLowlight, common } from 'lowlight';
 import { Bold, Italic, Strikethrough, Code, Bot, FileText, CheckCheck } from 'lucide-react';
 import { askLLM } from '../lib/llm';
+import { WikilinkMark, createWikilinkHighlightPlugin, extractWikilinks } from '../lib/WikilinkExtension';
+import { WikilinkSuggestion } from './WikilinkSuggestion';
+import { BacklinksPanel } from './BacklinksPanel';
+import { Extension } from '@tiptap/core';
 
 const lowlight = createLowlight(common);
+
+const WikilinkPlugin = Extension.create({
+  name: 'wikilinkPlugin',
+  addProseMirrorPlugins() { return [createWikilinkHighlightPlugin()]; },
+});
 
 type SaveStatus = 'idle' | 'saving' | 'saved';
 
@@ -21,9 +30,12 @@ interface NoteEditorProps {
   onEditorReady: (editor: Editor | null) => void;
   onWordCountChange?: (count: number) => void;
   onAiError?: (msg: string) => void;
+  allNoteNames?: string[];      // for wikilink suggestion
+  backlinks?: string[];         // notes that link to this note
+  onSelectNote?: (name: string) => void;
 }
 
-export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError }: NoteEditorProps) {
+export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError, allNoteNames = [], backlinks = [], onSelectNote }: NoteEditorProps) {
   const [isSmartPasting, setIsSmartPasting] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [wordCount, setWordCount] = useState(0);
@@ -77,6 +89,8 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       TableCell,
       TableHeader,
       CodeBlockLowlight.configure({ lowlight }),
+      WikilinkMark,
+      WikilinkPlugin,
     ],
     content: activeNoteContent,
     onUpdate: ({ editor }) => {
@@ -171,7 +185,24 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
         </BubbleMenu>
       )}
 
-      <EditorContent editor={editor} />
+      <div onClick={e => {
+        const target = e.target as HTMLElement;
+        const wl = target.closest('[data-wikilink]');
+        if (wl && onSelectNote) {
+          const name = wl.getAttribute('data-wikilink');
+          if (name) onSelectNote(name.endsWith('.md') ? name : `${name}.md`);
+        }
+      }}>
+        <EditorContent editor={editor} />
+      </div>
+
+      {editor && allNoteNames.length > 0 && (
+        <WikilinkSuggestion editor={editor} notes={allNoteNames} />
+      )}
+
+      {activeNoteName && backlinks.length > 0 && onSelectNote && (
+        <BacklinksPanel activeNoteName={activeNoteName} backlinks={backlinks} onSelectNote={onSelectNote} />
+      )}
 
       {isSmartPasting && (
         <div className="fixed top-14 right-4 bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-full flex items-center space-x-2 shadow-lg animate-pulse z-30">

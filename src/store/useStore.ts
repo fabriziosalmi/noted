@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { NoteTemplate } from '../lib/templates';
+import { extractWikilinks } from '../lib/WikilinkExtension';
 
 export interface NoteFile {
   name: string;
@@ -31,6 +32,7 @@ interface NoteState {
   activeNoteContent: string;
   isLoading: boolean;
   pinnedNotes: string[];
+  noteLinksIndex: Record<string, string[]>; // noteName → outgoing wikilink targets
 
   // Settings
   settings: SettingsState;
@@ -61,6 +63,7 @@ export const useStore = create<NoteState>()(
       isLoading: false,
       pinnedNotes: [],
       customTemplates: [],
+      noteLinksIndex: {},
       
       settings: {
         llmProvider: 'lmstudio',
@@ -119,7 +122,12 @@ export const useStore = create<NoteState>()(
     if (window.electronAPI) {
       const res = await window.electronAPI.readNote(fileName, get().settings.syncDirectory || undefined);
       if (res.success && res.data !== undefined) {
-        set({ activeNoteName: fileName, activeNoteContent: res.data });
+        const links = extractWikilinks(res.data);
+        set(state => ({
+          activeNoteName: fileName,
+          activeNoteContent: res.data as string,
+          noteLinksIndex: { ...state.noteLinksIndex, [fileName]: links },
+        }));
       }
     }
   },
@@ -129,8 +137,12 @@ export const useStore = create<NoteState>()(
     if (activeNoteName && window.electronAPI) {
       const res = await window.electronAPI.saveNote(activeNoteName, content, get().settings.syncDirectory || undefined);
       if (res.success) {
-        set({ activeNoteContent: content });
-        await get().fetchNotes(); // Update modified time in list
+        const links = extractWikilinks(content);
+        set(state => ({
+          activeNoteContent: content,
+          noteLinksIndex: { ...state.noteLinksIndex, [activeNoteName]: links },
+        }));
+        await get().fetchNotes();
       }
     }
   },
@@ -213,6 +225,7 @@ export const useStore = create<NoteState>()(
     settings: { ...state.settings, llmApiKey: '' },
     pinnedNotes: state.pinnedNotes,
     customTemplates: state.customTemplates,
+    noteLinksIndex: state.noteLinksIndex,
   }),
 }
 )

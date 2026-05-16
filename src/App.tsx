@@ -39,7 +39,20 @@ function App() {
     settings, updateSettings, loadApiKey,
     pinnedNotes, togglePin, openOrCreateDaily,
     customTemplates, saveAsTemplate, deleteTemplate, createFromTemplate,
+    noteLinksIndex,
   } = useStore();
+
+  // Compute backlinks: notes that contain [[activeNoteName]] in their links index
+  const backlinks = activeNoteName
+    ? Object.entries(noteLinksIndex)
+        .filter(([noteName, links]) => noteName !== activeNoteName && links.some(l => {
+          const normalized = l.endsWith('.md') ? l : `${l}.md`;
+          return normalized === activeNoteName || l === activeNoteName.replace('.md', '');
+        }))
+        .map(([noteName]) => noteName)
+    : [];
+
+  const allNoteNames = notes.map(n => n.name.replace('.md', ''));
 
   useEffect(() => {
     fetchNotes();
@@ -240,6 +253,9 @@ function App() {
                     saveActiveNote={saveActiveNote}
                     onEditorReady={handleEditorReady}
                     onAiError={msg => toast(msg, 'error')}
+                    allNoteNames={allNoteNames}
+                    backlinks={backlinks}
+                    onSelectNote={openNote}
                   />
                 </ErrorBoundary>
               </div>
