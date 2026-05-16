@@ -11,4 +11,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportMarkdown: (content: string) => ipcRenderer.invoke('export-markdown', content),
   storeApiKey: (key: string) => ipcRenderer.invoke('store-api-key', key),
   getApiKey: () => ipcRenderer.invoke('get-api-key'),
+  llmFetch: (url: string, options: { method: string; headers: Record<string, string>; body: string }) =>
+    ipcRenderer.invoke('llm-fetch', url, options),
 });

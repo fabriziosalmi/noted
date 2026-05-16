@@ -279,3 +279,19 @@ ipcMain.handle('export-pdf', async (event, htmlContent: string) => {
   }
 });
 
+
+// Proxy LLM HTTP requests from renderer — avoids CORS/CSP issues
+ipcMain.handle('llm-fetch', async (_, url: string, options: { method: string; headers: Record<string, string>; body: string }) => {
+  try {
+    if (typeof url !== 'string' || !url.startsWith('http')) throw new Error('Invalid URL');
+    const res = await fetch(url, {
+      method: options.method,
+      headers: options.headers,
+      body: options.body,
+    });
+    const text = await res.text();
+    return { ok: res.ok, status: res.status, text };
+  } catch (err: unknown) {
+    return { ok: false, status: 0, text: (err as Error).message };
+  }
+});

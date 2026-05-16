@@ -1,23 +1,46 @@
 import { useStore } from '../store/useStore';
 
 // ==========================================
+// HTTP helper — uses IPC proxy in Electron to bypass CORS/CSP,
+// falls back to regular fetch in browser dev mode.
+// ==========================================
+
+interface FetchLike {
+  ok: boolean;
+  status: number;
+  text(): Promise<string>;
+}
+
+async function apiFetch(url: string, options: { method: string; headers: Record<string, string>; body: string }): Promise<FetchLike> {
+  if (window.electronAPI?.llmFetch) {
+    const res = await window.electronAPI.llmFetch(url, options);
+    return {
+      ok: res.ok,
+      status: res.status,
+      text: () => Promise.resolve(res.text),
+    };
+  }
+  return fetch(url, options);
+}
+
+// ==========================================
 // Model discovery for local providers
 // ==========================================
 
 export async function fetchAvailableModels(provider: string, lmStudioUrl: string): Promise<string[]> {
   try {
     if (provider === 'lmstudio') {
-      const url = lmStudioUrl.endsWith('/') ? lmStudioUrl.slice(0, -1) : lmStudioUrl;
-      const res = await fetch(`${url}/models`, { signal: AbortSignal.timeout(3000) });
+      const base = lmStudioUrl.endsWith('/') ? lmStudioUrl.slice(0, -1) : lmStudioUrl;
+      const res = await apiFetch(`${base}/models`, { method: 'GET', headers: { 'Content-Type': 'application/json' }, body: '' });
       if (!res.ok) return [];
-      const data = await res.json();
-      return (data.data as Array<{ id: string }>).map(m => m.id);
+      const data = JSON.parse(await res.text()) as { data: Array<{ id: string }> };
+      return data.data.map(m => m.id);
     }
     if (provider === 'ollama') {
-      const res = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(3000) });
+      const res = await apiFetch('http://localhost:11434/api/tags', { method: 'GET', headers: { 'Content-Type': 'application/json' }, body: '' });
       if (!res.ok) return [];
-      const data = await res.json();
-      return (data.models as Array<{ name: string }>).map(m => m.name);
+      const data = JSON.parse(await res.text()) as { models: Array<{ name: string }> };
+      return data.models.map(m => m.name);
     }
   } catch { /* server not running */ }
   return [];
@@ -97,19 +120,19 @@ function normalizeForNoSystemRole(messages: ChatMessage[]): ChatMessage[] {
 }
 
 async function fetchOpenAI(messages: ChatMessage[], apiKey: string, model: string) {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await apiFetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
     body: JSON.stringify({ model, messages, temperature: 0.7 }),
   });
   if (!res.ok) throw new Error(await res.text());
-  const data = await res.json();
-  return data.choices[0].message.content as string;
+  const data = JSON.parse(await res.text()) as { choices: Array<{ message: { content: string } }> };
+  return data.choices[0].message.content;
 }
 
 async function fetchOpenRouter(messages: ChatMessage[], apiKey: string, model: string) {
   const payload = supportsSystemRole(model) ? messages : normalizeForNoSystemRole(messages);
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+  const res = await apiFetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -120,37 +143,43 @@ async function fetchOpenRouter(messages: ChatMessage[], apiKey: string, model: s
     body: JSON.stringify({ model, messages: payload, temperature: 0.7 }),
   });
   if (!res.ok) throw new Error(await res.text());
-  const data = await res.json();
-  return data.choices[0].message.content as string;
+  const data = JSON.parse(await res.text()) as { choices: Array<{ message: { content: string } }> };
+  return data.choices[0].message.content;
 }
 
 async function fetchLMStudio(messages: ChatMessage[], baseUrl: string, model: string) {
   const url = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-  const res = await fetch(`${url}/chat/completions`, {
+  const res = await apiFetch(`${url}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, messages, temperature: 0.7 }),
   });
-  if (!res.ok) throw new Error(await res.text());
-  const data = await res.json();
-  return data.choices[0].message.content as string;
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`LM Studio (${url}): ${res.status === 0 ? 'server non raggiungibile — verifica che LM Studio sia avviato con il server locale attivo' : body}`);
+  }
+  const data = JSON.parse(await res.text()) as { choices: Array<{ message: { content: string } }> };
+  return data.choices[0].message.content;
 }
 
 async function fetchOllama(messages: ChatMessage[], model: string) {
-  const res = await fetch('http://localhost:11434/api/chat', {
+  const res = await apiFetch('http://localhost:11434/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, messages, stream: false }),
   });
-  if (!res.ok) throw new Error(await res.text());
-  const data = await res.json();
-  return data.message.content as string;
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Ollama: ${res.status === 0 ? 'server non raggiungibile — verifica che Ollama sia in esecuzione' : body}`);
+  }
+  const data = JSON.parse(await res.text()) as { message: { content: string } };
+  return data.message.content;
 }
 
 async function fetchAnthropic(messages: ChatMessage[], apiKey: string, model: string) {
   const systemMsg = messages.find(m => m.role === 'system')?.content;
   const chatMsgs = messages.filter(m => m.role !== 'system');
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await apiFetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -161,8 +190,8 @@ async function fetchAnthropic(messages: ChatMessage[], apiKey: string, model: st
     body: JSON.stringify({ model, max_tokens: 4096, system: systemMsg, messages: chatMsgs }),
   });
   if (!res.ok) throw new Error(await res.text());
-  const data = await res.json();
-  return data.content[0].text as string;
+  const data = JSON.parse(await res.text()) as { content: Array<{ text: string }> };
+  return data.content[0].text;
 }
 
 async function fetchGemini(messages: ChatMessage[], apiKey: string, model: string) {
@@ -174,7 +203,7 @@ async function fetchGemini(messages: ChatMessage[], apiKey: string, model: strin
   const body: Record<string, unknown> = { contents: geminiMessages };
   if (systemMsg) body.systemInstruction = { parts: [{ text: systemMsg }] };
 
-  const res = await fetch(
+  const res = await apiFetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
       method: 'POST',
@@ -183,6 +212,6 @@ async function fetchGemini(messages: ChatMessage[], apiKey: string, model: strin
     }
   );
   if (!res.ok) throw new Error(await res.text());
-  const data = await res.json();
-  return data.candidates[0].content.parts[0].text as string;
+  const data = JSON.parse(await res.text()) as { candidates: Array<{ content: { parts: Array<{ text: string }> } }> };
+  return data.candidates[0].content.parts[0].text;
 }

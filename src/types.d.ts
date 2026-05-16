@@ -13,6 +13,7 @@ declare global {
       exportMarkdown: (content: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       storeApiKey: (key: string) => Promise<{ success: boolean; error?: string }>;
       getApiKey: () => Promise<{ success: boolean; data?: string; error?: string }>;
+      llmFetch: (url: string, options: { method: string; headers: Record<string, string>; body: string }) => Promise<{ ok: boolean; status: number; text: string }>;
     };
   }
 }
