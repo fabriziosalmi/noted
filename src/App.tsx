@@ -9,16 +9,19 @@ import { NoteEditor } from './components/NoteEditor';
 import { AiChat } from './components/AiChat';
 import { SettingsModal } from './components/SettingsModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+import { NoteAdvisorBadge, NoteAdvisorPanel } from './components/NoteAdvisor';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastStack } from './components/Toast';
 import { useToast } from './hooks/useToast';
 import { useTheme } from './hooks/useTheme';
+import { useNoteAdvisor } from './hooks/useNoteAdvisor';
 
 function App() {
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
   const editorRef = useRef<Editor | null>(null);
   const { messages: toastMessages, toast, dismiss } = useToast();
   useTheme();
@@ -99,6 +102,12 @@ function App() {
 
   const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
 
+  const { suggestions, dismiss: dismissSuggestion, dismissAll } = useNoteAdvisor({
+    activeNoteName,
+    activeNoteContent,
+    notes,
+  });
+
   return (
     <div className="h-screen w-screen flex flex-col bg-white dark:bg-gray-900">
       {/* Titlebar */}
@@ -129,6 +138,7 @@ function App() {
               </button>
             </>
           )}
+          <NoteAdvisorBadge count={suggestions.length} onClick={() => setIsAdvisorOpen(v => !v)} />
           <button onClick={() => setIsShortcutsOpen(true)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400" title="Scorciatoie (?)">
             <Keyboard size={16} />
           </button>
@@ -192,6 +202,15 @@ function App() {
 
         </PanelGroup>
       </div>
+
+      {isAdvisorOpen && (
+        <NoteAdvisorPanel
+          suggestions={suggestions}
+          onDismiss={dismissSuggestion}
+          onDismissAll={() => { dismissAll(); setIsAdvisorOpen(false); }}
+          onClose={() => setIsAdvisorOpen(false)}
+        />
+      )}
 
       {isShortcutsOpen && (
         <KeyboardShortcutsModal onClose={() => setIsShortcutsOpen(false)} />
