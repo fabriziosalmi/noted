@@ -53,9 +53,9 @@ export const useStore = create<NoteState>()(
       isLoading: false,
       
       settings: {
-        llmProvider: 'openai',
+        llmProvider: 'lmstudio',
         llmApiKey: '',
-        llmModel: 'gpt-4o',
+        llmModel: '',
         lmStudioUrl: 'http://localhost:1234/v1',
         syncDirectory: null,
         showToolbar: true,
