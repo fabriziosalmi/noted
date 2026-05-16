@@ -35,10 +35,16 @@ async function apiFetch(url: string, options: { method: string; headers: Record<
 // Model discovery for local providers
 // ==========================================
 
+function normalizeBaseUrl(url: string): string {
+  const trimmed = url.trim().replace(/\/+$/, '');
+  if (!trimmed) return 'http://localhost:1234/v1';
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+}
+
 export async function fetchAvailableModels(provider: string, lmStudioUrl: string): Promise<string[]> {
   try {
     if (provider === 'lmstudio') {
-      const base = lmStudioUrl.endsWith('/') ? lmStudioUrl.slice(0, -1) : lmStudioUrl;
+      const base = normalizeBaseUrl(lmStudioUrl);
       const res = await apiFetch(`${base}/models`, { method: 'GET', headers: { 'Content-Type': 'application/json' }, body: '' });
       if (!res.ok) return [];
       const data = JSON.parse(await res.text()) as { data: { id: string }[] };
@@ -156,7 +162,7 @@ async function fetchOpenRouter(messages: ChatMessage[], apiKey: string, model: s
 }
 
 async function fetchLMStudio(messages: ChatMessage[], baseUrl: string, model: string) {
-  const url = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  const url = normalizeBaseUrl(baseUrl);
   const res = await apiFetch(`${url}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

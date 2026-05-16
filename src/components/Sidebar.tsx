@@ -119,8 +119,13 @@ export function Sidebar({ notes, activeNoteName, onSelectNote, onCreateNote, onD
             return (
               <div
                 key={note.name}
+                role="button"
+                tabIndex={isRenaming ? -1 : 0}
                 style={{ position: 'absolute', top: virtualRow.start, left: 0, right: 0 }}
                 onClick={() => !isRenaming && onSelectNote(note.name)}
+                onKeyDown={e => { if (!isRenaming && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelectNote(note.name); } }}
+                aria-label={note.name.replace('.md', '')}
+                aria-current={isActive ? 'true' : undefined}
                 className={`flex items-center justify-between p-2 rounded text-sm cursor-pointer mb-1 group ${
                   isActive
                     ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300'

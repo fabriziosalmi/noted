@@ -34,7 +34,11 @@ export function AiChat({ getEditorText }: AiChatProps) {
     setIsLoading(true);
 
     try {
-      const textContext = getEditorText();
+      const MAX_CONTEXT_CHARS = 8_000;
+      const rawContext = getEditorText();
+      const textContext = rawContext.length > MAX_CONTEXT_CHARS
+        ? rawContext.slice(0, MAX_CONTEXT_CHARS) + '\n\n[...documento troncato per lunghezza...]'
+        : rawContext;
       const response = await askLLM([
         {
           role: 'system',

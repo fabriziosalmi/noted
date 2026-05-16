@@ -76,6 +76,14 @@ function App() {
     }
   }, [updateSettings, fetchNotes]);
 
+  const handleDeleteNote = useCallback(async (fileName: string) => {
+    try {
+      await deleteNote(fileName);
+    } catch (err: unknown) {
+      toast((err as Error).message, 'error');
+    }
+  }, [deleteNote, toast]);
+
   const handleRenameNote = useCallback(async (oldName: string, newName: string) => {
     try {
       await renameNote(oldName, newName);
@@ -172,7 +180,7 @@ function App() {
                     activeNoteName={activeNoteName}
                     onSelectNote={openNote}
                     onCreateNote={handleCreateNote}
-                    onDeleteNote={deleteNote}
+                    onDeleteNote={handleDeleteNote}
                     onRenameNote={handleRenameNote}
                     onOpenSettings={() => setIsSettingsOpen(true)}
                   />

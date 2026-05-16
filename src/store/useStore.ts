@@ -102,7 +102,7 @@ export const useStore = create<NoteState>()(
     const res = await window.electronAPI.saveNote(fileName, initialContent, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile creare la nota');
     await get().openNote(fileName);
-    get().fetchNotes();
+    await get().fetchNotes();
   },
 
   openNote: async (fileName: string) => {
@@ -137,16 +137,14 @@ export const useStore = create<NoteState>()(
   },
 
   deleteNote: async (fileName: string) => {
-    if (window.electronAPI) {
-      const res = await window.electronAPI.deleteNote(fileName, get().settings.syncDirectory || undefined);
-      if (res.success) {
-        const { activeNoteName } = get();
-        if (activeNoteName === fileName) {
-          set({ activeNoteName: null, activeNoteContent: '' });
-        }
-        await get().fetchNotes();
-      }
+    if (!window.electronAPI) return;
+    const res = await window.electronAPI.deleteNote(fileName, get().settings.syncDirectory || undefined);
+    if (!res.success) throw new Error(res.error ?? 'Impossibile eliminare la nota');
+    const { activeNoteName } = get();
+    if (activeNoteName === fileName) {
+      set({ activeNoteName: null, activeNoteContent: '' });
     }
+    await get().fetchNotes();
   }
 }),
 {
