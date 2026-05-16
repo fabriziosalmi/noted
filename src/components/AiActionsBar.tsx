@@ -182,7 +182,7 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
         onClick={() => void runAction(action)}
         disabled={isDisabled}
         title={action.label}
-        className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors whitespace-nowrap
+        className={`group/b flex items-center py-1 px-1.5 rounded transition-all duration-150 whitespace-nowrap
           ${isActive
             ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
             : isDisabled
@@ -191,10 +191,12 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
           }`}
       >
         {isActive
-          ? <Loader2 size={12} className="animate-spin shrink-0" />
-          : <Icon size={12} className="shrink-0" />
+          ? <Loader2 size={13} className="animate-spin shrink-0" />
+          : <Icon size={13} className="shrink-0" />
         }
-        <span>{action.label}</span>
+        <span className="max-w-0 overflow-hidden opacity-0 group-hover/b:max-w-[72px] group-hover/b:opacity-100 group-hover/b:ml-1 transition-all duration-150 text-[11px] leading-none">
+          {action.label}
+        </span>
       </button>
     );
   };
