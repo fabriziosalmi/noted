@@ -15,4 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('llm-fetch', url, options),
   getNoteHistory: (fileName: string, syncDir?: string) => ipcRenderer.invoke('get-note-history', fileName, syncDir),
   readNoteSnapshot: (fileName: string, snapshotName: string, syncDir?: string) => ipcRenderer.invoke('read-note-snapshot', fileName, snapshotName, syncDir),
+  saveCapture: (text: string) => ipcRenderer.invoke('save-capture', text),
+  closeCapture: () => ipcRenderer.invoke('close-capture'),
+  onRefreshNotes: (cb: () => void) => ipcRenderer.on('refresh-notes', cb),
 });

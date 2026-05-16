@@ -44,6 +44,7 @@ function App() {
   useEffect(() => {
     fetchNotes();
     loadApiKey();
+    window.electronAPI?.onRefreshNotes(() => { void fetchNotes(); });
   }, [fetchNotes, loadApiKey]);
 
   useEffect(() => {

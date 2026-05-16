@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, safeStorage } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, safeStorage, globalShortcut } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -64,6 +64,55 @@ function createWindow() {
   }
 }
 
+// ==========================================
+// Quick Capture window
+// ==========================================
+
+let captureWin: BrowserWindow | null = null;
+
+function openCaptureWindow() {
+  if (captureWin && !captureWin.isDestroyed()) {
+    captureWin.focus();
+    return;
+  }
+  captureWin = new BrowserWindow({
+    width: 480,
+    height: 180,
+    frame: false,
+    resizable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  captureWin.on('closed', () => { captureWin = null; });
+  const captureUrl = VITE_DEV_SERVER_URL
+    ? `${VITE_DEV_SERVER_URL}capture.html`
+    : `file://${path.join(process.env.DIST!, 'capture.html')}`;
+  captureWin.loadURL(captureUrl);
+}
+
+ipcMain.handle('save-capture', (_, text: string) => {
+  try {
+    if (typeof text !== 'string' || !text.trim()) return { success: false };
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const now = new Date();
+    const fileName = `Capture_${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}.md`;
+    const content = `<p>${text.replace(/\n/g, '</p><p>')}</p>`;
+    fs.writeFileSync(path.join(DEFAULT_NOTES_DIR, fileName), content, 'utf-8');
+    captureWin?.close();
+    win?.webContents.send('refresh-notes');
+    return { success: true, fileName };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
+ipcMain.handle('close-capture', () => { captureWin?.close(); });
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
@@ -79,6 +128,11 @@ app.on('activate', () => {
 app.whenReady().then(() => {
   initNotesDir();
   createWindow();
+  globalShortcut.register('CommandOrControl+Shift+Space', openCaptureWindow);
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
 });
 
 // Example IPC handler for the magical stuff
