@@ -127,11 +127,19 @@ interface AiActionsBarProps {
 
 export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const { from, to } = editor.state.selection;
+  const hasSelection = from !== to;
 
   const runAction = useCallback(async (action: Action) => {
     if (activeId) return;
-    const text = editor.getText();
-    if (!text.trim()) {
+
+    const { from, to } = editor.state.selection;
+    const hasSelection = from !== to;
+    const selectedText = hasSelection
+      ? editor.state.doc.textBetween(from, to, '\n')
+      : editor.getText();
+
+    if (!selectedText.trim()) {
       onError?.('Scrivi qualcosa nella nota prima di usare le azioni AI.');
       return;
     }
@@ -140,13 +148,17 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
     try {
       const result = await askLLM([
         { role: 'system', content: action.system },
-        { role: 'user', content: text },
+        { role: 'user', content: selectedText },
       ]);
 
       const html = mdToHtml(result);
 
       if (action.mode === 'replace') {
-        editor.commands.setContent(html);
+        if (hasSelection) {
+          editor.chain().focus().deleteSelection().insertContent(html).run();
+        } else {
+          editor.commands.setContent(html);
+        }
       } else {
         const headingHtml = action.heading ? `<hr><h2>${action.heading.replace(/^##\s*/, '')}</h2>` : '<hr>';
         editor.commands.focus('end');
@@ -193,6 +205,11 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
       {ACTIONS.map(renderBtn)}
       <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
       {ANALYSIS_ACTIONS.map(renderBtn)}
+      {hasSelection && (
+        <span className="ml-auto text-[10px] text-indigo-400 dark:text-indigo-500 italic shrink-0">
+          selezione attiva
+        </span>
+      )}
     </div>
   );
 }
