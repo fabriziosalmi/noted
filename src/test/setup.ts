@@ -30,4 +30,6 @@ window.electronAPI = {
   saveNote: vi.fn().mockResolvedValue({ success: true }),
   readNote: vi.fn().mockResolvedValue({ success: true, data: 'Test content' }),
   deleteNote: vi.fn().mockResolvedValue({ success: true }),
+  selectSyncFolder: vi.fn().mockResolvedValue({ success: true, data: '/mock/path' }),
+  exportPdf: vi.fn().mockResolvedValue({ success: true, data: '/mock/path/Nota.pdf' }),
 };

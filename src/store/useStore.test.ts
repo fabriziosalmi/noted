@@ -64,7 +64,7 @@ describe('useStore', () => {
 
     await useStore.getState().saveActiveNote('new content');
 
-    expect(window.electronAPI.saveNote).toHaveBeenCalledWith('test.md', 'new content');
+    expect(window.electronAPI.saveNote).toHaveBeenCalledWith('test.md', 'new content', undefined);
     expect(useStore.getState().activeNoteContent).toBe('new content');
   });
 
@@ -74,7 +74,7 @@ describe('useStore', () => {
 
     await useStore.getState().deleteNote('delete_me.md');
 
-    expect(window.electronAPI.deleteNote).toHaveBeenCalledWith('delete_me.md');
+    expect(window.electronAPI.deleteNote).toHaveBeenCalledWith('delete_me.md', undefined);
     expect(useStore.getState().activeNoteName).toBeNull();
     expect(useStore.getState().activeNoteContent).toBe('');
   });

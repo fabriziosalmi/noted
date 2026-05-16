@@ -5,7 +5,7 @@ import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Typography from '@tiptap/extension-typography';
-import { FileText, Settings, Bot, PanelLeft, PanelRight, Plus, Trash2, Bold, Italic, Strikethrough, X, Loader2 } from 'lucide-react';
+import { FileText, Settings, Bot, PanelLeft, PanelRight, Plus, Trash2, Bold, Italic, Strikethrough, X, Loader2, FolderSync, Download } from 'lucide-react';
 import { useStore } from './store/useStore';
 import { askLLM } from './lib/llm';
 
@@ -108,6 +108,29 @@ Non aggiungere saluti, non aggiungere commenti. Restituisci SOLO il Markdown fin
     createNote(name);
   };
 
+  const handleSelectSyncFolder = async () => {
+    if (window.electronAPI) {
+      const res = await window.electronAPI.selectSyncFolder();
+      if (res.success && res.data) {
+        updateSettings({ syncDirectory: res.data });
+        // Immediately fetch notes from the new directory
+        fetchNotes();
+      }
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!editor || !window.electronAPI) return;
+    const htmlContent = editor.getHTML();
+    const res = await window.electronAPI.exportPdf(htmlContent);
+    if (res.success) {
+      // Potentially show a success toast here
+      console.log('PDF exported to', res.data);
+    } else {
+      console.error('PDF export failed:', res.error);
+    }
+  };
+
   const handleAiSubmit = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && aiInput.trim() && !isAiLoading) {
       const userMessage = aiInput;
@@ -158,6 +181,15 @@ Non aggiungere saluti, non aggiungere commenti. Restituisci SOLO il Markdown fin
           Noted
         </div>
         <div className="flex space-x-2" style={{ WebkitAppRegion: 'no-drag' } as any}>
+          {activeNoteName && (
+            <button 
+              onClick={handleExportPdf}
+              className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-indigo-600 transition-colors"
+              title="Esporta come PDF"
+            >
+              <Download size={16} />
+            </button>
+          )}
           <button onClick={() => setLeftOpen(!leftOpen)} className="p-1 hover:bg-gray-200 rounded">
             <PanelLeft size={16} />
           </button>
@@ -360,10 +392,13 @@ Non aggiungere saluti, non aggiungere commenti. Restituisci SOLO il Markdown fin
                   <input 
                     type="text" 
                     disabled 
-                    value="~/Documents/Noted" 
+                    value={settings.syncDirectory || "~/Documents/Noted"} 
                     className="flex-1 border border-gray-300 rounded-l-md p-2 text-sm bg-gray-50 text-gray-500"
                   />
-                  <button className="bg-gray-100 border border-l-0 border-gray-300 px-4 rounded-r-md text-sm text-gray-600 hover:bg-gray-200">
+                  <button 
+                    onClick={handleSelectSyncFolder}
+                    className="bg-gray-100 border border-l-0 border-gray-300 px-4 rounded-r-md text-sm text-gray-600 hover:bg-gray-200"
+                  >
                     Cambia
                   </button>
                 </div>

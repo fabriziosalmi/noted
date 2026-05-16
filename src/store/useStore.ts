@@ -18,6 +18,7 @@ interface SettingsState {
   llmApiKey: string;
   llmModel: string;
   lmStudioUrl: string;
+  syncDirectory: string | null;
 }
 
 interface NoteState {
@@ -50,7 +51,8 @@ export const useStore = create<NoteState>()(
         llmProvider: 'openai',
         llmApiKey: '',
         llmModel: 'gpt-4o',
-        lmStudioUrl: 'http://localhost:1234/v1'
+        lmStudioUrl: 'http://localhost:1234/v1',
+        syncDirectory: null,
       },
 
       updateSettings: (newSettings) => {
@@ -60,7 +62,7 @@ export const useStore = create<NoteState>()(
       fetchNotes: async () => {
     set({ isLoading: true });
     if (window.electronAPI) {
-      const res = await window.electronAPI.getNotesList();
+      const res = await window.electronAPI.getNotesList(get().settings.syncDirectory || undefined);
       if (res.success && res.data) {
         set({ notes: res.data, isLoading: false });
       } else {
@@ -75,7 +77,7 @@ export const useStore = create<NoteState>()(
   createNote: async (fileName: string) => {
     if (!fileName.endsWith('.md')) fileName += '.md';
     if (window.electronAPI) {
-      const res = await window.electronAPI.saveNote(fileName, '<h1>Nuova Nota</h1><p>Inizia a scrivere qui...</p>');
+      const res = await window.electronAPI.saveNote(fileName, '<h1>Nuova Nota</h1><p>Inizia a scrivere qui...</p>', get().settings.syncDirectory || undefined);
       if (res.success) {
         await get().fetchNotes();
         await get().openNote(fileName);
@@ -89,7 +91,7 @@ export const useStore = create<NoteState>()(
 
   openNote: async (fileName: string) => {
     if (window.electronAPI) {
-      const res = await window.electronAPI.readNote(fileName);
+      const res = await window.electronAPI.readNote(fileName, get().settings.syncDirectory || undefined);
       if (res.success && res.data !== undefined) {
         set({ activeNoteName: fileName, activeNoteContent: res.data });
       }
@@ -99,7 +101,7 @@ export const useStore = create<NoteState>()(
   saveActiveNote: async (content: string) => {
     const { activeNoteName } = get();
     if (activeNoteName && window.electronAPI) {
-      const res = await window.electronAPI.saveNote(activeNoteName, content);
+      const res = await window.electronAPI.saveNote(activeNoteName, content, get().settings.syncDirectory || undefined);
       if (res.success) {
         set({ activeNoteContent: content });
         await get().fetchNotes(); // Update modified time in list
@@ -109,7 +111,7 @@ export const useStore = create<NoteState>()(
 
   deleteNote: async (fileName: string) => {
     if (window.electronAPI) {
-      const res = await window.electronAPI.deleteNote(fileName);
+      const res = await window.electronAPI.deleteNote(fileName, get().settings.syncDirectory || undefined);
       if (res.success) {
         const { activeNoteName } = get();
         if (activeNoteName === fileName) {
