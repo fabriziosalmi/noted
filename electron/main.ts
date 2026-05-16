@@ -17,12 +17,16 @@ if (!app.isPackaged) {
   app.setPath('sessionData', path.join(__dirname, '../.electron_session'));
 }
 
-const DEFAULT_NOTES_DIR = app.isPackaged
-  ? path.join(app.getPath('userData'), 'notes')
-  : path.join(__dirname, '../notes_dev');
+// Resolved inside app.whenReady() to ensure app paths are available.
+let DEFAULT_NOTES_DIR: string;
 
-if (!fs.existsSync(DEFAULT_NOTES_DIR)) {
-  fs.mkdirSync(DEFAULT_NOTES_DIR, { recursive: true });
+function initNotesDir() {
+  DEFAULT_NOTES_DIR = app.isPackaged
+    ? path.join(app.getPath('userData'), 'notes')
+    : path.join(__dirname, '../notes_dev');
+  if (!fs.existsSync(DEFAULT_NOTES_DIR)) {
+    fs.mkdirSync(DEFAULT_NOTES_DIR, { recursive: true });
+  }
 }
 
 const getTargetDir = (customDir?: string) => {
@@ -72,7 +76,10 @@ app.on('activate', () => {
   }
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  initNotesDir();
+  createWindow();
+});
 
 // Example IPC handler for the magical stuff
 ipcMain.handle('ping', () => 'pong');

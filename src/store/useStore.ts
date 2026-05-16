@@ -91,13 +91,11 @@ export const useStore = create<NoteState>()(
 
   createNote: async (fileName: string) => {
     if (!fileName.endsWith('.md')) fileName += '.md';
-    if (!window.electronAPI) return;
+    if (!window.electronAPI) throw new Error('electronAPI non disponibile');
     const initialContent = '<h1>Nuova Nota</h1><p>Inizia a scrivere qui...</p>';
     const res = await window.electronAPI.saveNote(fileName, initialContent, get().settings.syncDirectory || undefined);
-    if (!res.success) return;
-    // Open the note immediately so the user can start editing without waiting for the list refresh
+    if (!res.success) throw new Error(res.error ?? 'Impossibile creare la nota');
     await get().openNote(fileName);
-    // Refresh list in background — only updates notes[], never overrides active note
     get().fetchNotes();
   },
 

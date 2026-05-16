@@ -46,9 +46,13 @@ function App() {
     editorRef.current = editor;
   }, []);
 
-  const handleCreateNote = useCallback(() => {
-    createNote(`Nuova_Nota_${Math.floor(Date.now() / 1000)}.md`);
-  }, [createNote]);
+  const handleCreateNote = useCallback(async () => {
+    try {
+      await createNote(`Nuova_Nota_${Math.floor(Date.now() / 1000)}.md`);
+    } catch (err: unknown) {
+      toast((err as Error).message, 'error');
+    }
+  }, [createNote, toast]);
 
   const handleSelectFolder = useCallback(async () => {
     if (!window.electronAPI) return;
