@@ -49,12 +49,16 @@ describe('useStore', () => {
     // Attempt to create two notes at the exact same time
     const p1 = useStore.getState().createNote('concurrent.md');
     const p2 = useStore.getState().createNote('concurrent.md');
-    
-    await Promise.all([p1, p2]);
-    
-    // Only one should succeed, the store should not crash
+
+    // Second call throws "File exists" — settle both, expect exactly one rejection
+    const results = await Promise.allSettled([p1, p2]);
+    const rejected = results.filter(r => r.status === 'rejected');
+    const fulfilled = results.filter(r => r.status === 'fulfilled');
+
     expect(window.electronAPI.saveNote).toHaveBeenCalledTimes(2);
-    // After creating, it fetches notes. Ensure the store isn't left in a bad state
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason.message).toMatch(/File exists|Impossibile/);
     expect(useStore.getState().isLoading).toBe(false);
   });
 

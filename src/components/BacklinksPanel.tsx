@@ -1,0 +1,34 @@
+import { Link2 } from 'lucide-react';
+
+interface BacklinksPanelProps {
+  activeNoteName: string;
+  backlinks: string[]; // note names that link to active note
+  onSelectNote: (name: string) => void;
+}
+
+export function BacklinksPanel({ activeNoteName, backlinks, onSelectNote }: BacklinksPanelProps) {
+  if (backlinks.length === 0) return null;
+  const baseName = activeNoteName.replace('.md', '');
+
+  return (
+    <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
+      <div className="flex items-center gap-1.5 mb-2">
+        <Link2 size={12} className="text-gray-400 dark:text-gray-500" />
+        <span className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+          Backlinks — {backlinks.length} nota{backlinks.length !== 1 ? 'e' : ''} citano "{baseName}"
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {backlinks.map(name => (
+          <button
+            key={name}
+            onClick={() => onSelectNote(name)}
+            className="text-xs px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+          >
+            [[{name.replace('.md', '')}]]
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}

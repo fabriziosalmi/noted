@@ -33,23 +33,7 @@ export default defineConfig({
       {
         entry: 'electron/main.ts',
       },
-      {
-        entry: 'electron/preload.ts',
-        onstart(options) {
-          options.reload();
-        },
-        vite: {
-          build: {
-            sourcemap: 'inline',
-            outDir: 'dist-electron',
-            rollupOptions: {
-              output: {
-                entryFileNames: 'preload.js', // Force .js extension for preload
-              }
-            }
-          }
-        }
-      },
+      // Preload is compiled separately via esbuild (CJS) — see package.json build script
     ]),
     renderer(),
   ],

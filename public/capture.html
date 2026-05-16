@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
+  <title>Quick Capture</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #1a1a2e;
+      color: #e5e7eb;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 12px;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 600;
+      color: #6366f1;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      -webkit-app-region: drag;
+    }
+    .header button { -webkit-app-region: no-drag; background: none; border: none; color: #6b7280; cursor: pointer; font-size: 16px; line-height: 1; }
+    textarea {
+      flex: 1;
+      background: #0f0f1a;
+      border: 1px solid #374151;
+      border-radius: 8px;
+      color: #f3f4f6;
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 10px 12px;
+      resize: none;
+      outline: none;
+      font-family: inherit;
+    }
+    textarea:focus { border-color: #6366f1; }
+    textarea::placeholder { color: #4b5563; }
+    .footer {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: #4b5563;
+    }
+    .save-btn {
+      background: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 5px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .save-btn:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span>⚡ Quick Capture</span>
+    <button onclick="close()">×</button>
+  </div>
+  <textarea id="note" placeholder="Scrivi qui... (⌘↩ per salvare, Esc per chiudere)" autofocus></textarea>
+  <div class="footer">
+    <span>⌘↩ salva · Esc chiudi</span>
+    <button class="save-btn" onclick="save()">Salva nota</button>
+  </div>
+  <script>
+    const ta = document.getElementById('note');
+    ta.focus();
+
+    async function save() {
+      const text = ta.value.trim();
+      if (!text) return;
+      if (window.electronAPI?.saveCapture) {
+        await window.electronAPI.saveCapture(text);
+      }
+    }
+
+    function close() {
+      if (window.electronAPI?.closeCapture) window.electronAPI.closeCapture();
+    }
+
+    document.addEventListener('keydown', e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); save(); }
+      if (e.key === 'Escape') close();
+    });
+  </script>
+</body>
+</html>

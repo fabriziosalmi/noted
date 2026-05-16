@@ -7,4 +7,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteNote: (fileName: string, syncDir?: string) => ipcRenderer.invoke('delete-note', fileName, syncDir),
   selectSyncFolder: () => ipcRenderer.invoke('select-sync-folder'),
   exportPdf: (htmlContent: string) => ipcRenderer.invoke('export-pdf', htmlContent),
+  renameNote: (oldName: string, newName: string, syncDir?: string) => ipcRenderer.invoke('rename-note', oldName, newName, syncDir),
+  exportMarkdown: (content: string) => ipcRenderer.invoke('export-markdown', content),
+  storeApiKey: (key: string) => ipcRenderer.invoke('store-api-key', key),
+  getApiKey: () => ipcRenderer.invoke('get-api-key'),
+  llmFetch: (url: string, options: { method: string; headers: Record<string, string>; body: string }) =>
+    ipcRenderer.invoke('llm-fetch', url, options),
+  getNoteHistory: (fileName: string, syncDir?: string) => ipcRenderer.invoke('get-note-history', fileName, syncDir),
+  readNoteSnapshot: (fileName: string, snapshotName: string, syncDir?: string) => ipcRenderer.invoke('read-note-snapshot', fileName, snapshotName, syncDir),
+  saveCapture: (text: string) => ipcRenderer.invoke('save-capture', text),
+  closeCapture: () => ipcRenderer.invoke('close-capture'),
+  onRefreshNotes: (cb: () => void) => ipcRenderer.on('refresh-notes', cb),
 });

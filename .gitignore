@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 
+# Electron runtime artifacts
+.electron_session/
+dist-electron/
+release/
+notes_dev/
+.claude/launch.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
