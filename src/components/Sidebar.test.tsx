@@ -36,6 +36,7 @@ const defaults = {
   onDeleteNote: vi.fn(),
   onRenameNote: vi.fn().mockResolvedValue(undefined),
   onTogglePin: vi.fn(),
+  onOpenDaily: vi.fn(),
   onOpenSettings: vi.fn(),
 };
 

@@ -33,7 +33,7 @@ function App() {
     notes, activeNoteName, activeNoteContent,
     fetchNotes, createNote, openNote, saveActiveNote, deleteNote, renameNote,
     settings, updateSettings, loadApiKey,
-    pinnedNotes, togglePin,
+    pinnedNotes, togglePin, openOrCreateDaily,
   } = useStore();
 
   useEffect(() => {
@@ -67,6 +67,14 @@ function App() {
       toast((err as Error).message, 'error');
     }
   }, [createNote, toast]);
+
+  const handleOpenDaily = useCallback(async () => {
+    try {
+      await openOrCreateDaily();
+    } catch (err: unknown) {
+      toast((err as Error).message, 'error');
+    }
+  }, [openOrCreateDaily, toast]);
 
   const handleSelectFolder = useCallback(async () => {
     if (!window.electronAPI) return;
@@ -185,6 +193,7 @@ function App() {
                     onDeleteNote={handleDeleteNote}
                     onRenameNote={handleRenameNote}
                     onTogglePin={togglePin}
+                    onOpenDaily={handleOpenDaily}
                     onOpenSettings={() => setIsSettingsOpen(true)}
                   />
                 </ErrorBoundary>

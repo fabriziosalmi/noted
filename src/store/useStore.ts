@@ -44,6 +44,7 @@ interface NoteState {
   updateSettings: (newSettings: Partial<SettingsState>) => void;
   loadApiKey: () => Promise<void>;
   togglePin: (fileName: string) => void;
+  openOrCreateDaily: () => Promise<void>;
 }
 
 export const useStore = create<NoteState>()(
@@ -137,6 +138,26 @@ export const useStore = create<NoteState>()(
       set({ activeNoteName: newName });
     }
     await get().fetchNotes();
+  },
+
+  openOrCreateDaily: async () => {
+    const today = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const fileName = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}.md`;
+    const { notes } = get();
+    if (notes.some(n => n.name === fileName)) {
+      await get().openNote(fileName);
+      return;
+    }
+    const dayNames = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+    const monthNames = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+    const title = `${dayNames[today.getDay()]} ${today.getDate()} ${monthNames[today.getMonth()]} ${today.getFullYear()}`;
+    const initialContent = `<h1>${title}</h1><h2>📝 Note</h2><p></p><h2>✅ Da fare</h2><ul><li><p></p></li></ul><h2>💡 Idee</h2><p></p>`;
+    if (!window.electronAPI) return;
+    const res = await window.electronAPI.saveNote(fileName, initialContent, get().settings.syncDirectory || undefined);
+    if (!res.success) throw new Error(res.error ?? 'Impossibile creare la nota giornaliera');
+    await get().fetchNotes();
+    await get().openNote(fileName);
   },
 
   togglePin: (fileName: string) => {

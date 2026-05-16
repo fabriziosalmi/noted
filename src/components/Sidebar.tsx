@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { FileText, Plus, Trash2, Settings, Search, ArrowUpDown, Star } from 'lucide-react';
+import { FileText, Plus, Trash2, Settings, Search, ArrowUpDown, Star, CalendarDays } from 'lucide-react';
 import type { NoteFile } from '../store/useStore';
 
 type SortBy = 'date' | 'name' | 'size';
@@ -15,12 +15,13 @@ interface SidebarProps {
   onDeleteNote: (name: string) => void;
   onRenameNote: (oldName: string, newName: string) => Promise<void>;
   onTogglePin: (name: string) => void;
+  onOpenDaily: () => void;
   onOpenSettings: () => void;
 }
 
 const ROW_HEIGHT = 36;
 
-export function Sidebar({ notes, activeNoteName, pinnedNotes, onSelectNote, onCreateNote, onDeleteNote, onRenameNote, onTogglePin, onOpenSettings }: SidebarProps) {
+export function Sidebar({ notes, activeNoteName, pinnedNotes, onSelectNote, onCreateNote, onDeleteNote, onRenameNote, onTogglePin, onOpenDaily, onOpenSettings }: SidebarProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('date');
@@ -92,6 +93,9 @@ export function Sidebar({ notes, activeNoteName, pinnedNotes, onSelectNote, onCr
           >
             <ArrowUpDown size={11} />
             <span className="text-[10px]">{SORT_LABELS[sortBy]}</span>
+          </button>
+          <button onClick={onOpenDaily} className="hover:text-gray-800 dark:hover:text-gray-200 p-1" aria-label="Nota del giorno" title="Nota del giorno">
+            <CalendarDays size={14} />
           </button>
           <button onClick={onCreateNote} className="hover:text-gray-800 dark:hover:text-gray-200 p-1" aria-label="Nuova nota">
             <Plus size={14} />
