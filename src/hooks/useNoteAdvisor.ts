@@ -49,7 +49,7 @@ export function useNoteAdvisor({ activeNoteName, activeNoteContent, notes }: Use
       name: activeNoteName,
       text: htmlToText(activeNoteContent),
       html: activeNoteContent,
-      mtimeMs: file?.stats.mtimeMs ?? Date.now(),
+      mtimeMs: file?.stats.mtimeMs ?? 0,
     };
   }, [activeNoteName, activeNoteContent, notes]);
 

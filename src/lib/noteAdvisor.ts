@@ -31,13 +31,13 @@ export interface NoteInput {
 
 // --- Security patterns ---
 
-const SECRET_PATTERNS: Array<{
+const SECRET_PATTERNS: {
   id: string;
   label: string;
   regex: RegExp;
   kind: SuggestionKind;
   severity: SuggestionSeverity;
-}> = [
+}[] = [
   {
     id: 'github-token',
     label: 'token GitHub',

@@ -11,16 +11,24 @@ interface FetchLike {
   text(): Promise<string>;
 }
 
+const LLM_TIMEOUT_MS = 60_000;
+
 async function apiFetch(url: string, options: { method: string; headers: Record<string, string>; body: string }): Promise<FetchLike> {
   if (window.electronAPI?.llmFetch) {
-    const res = await window.electronAPI.llmFetch(url, options);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Richiesta LLM scaduta (timeout 60s)')), LLM_TIMEOUT_MS)
+    );
+    const res = await Promise.race([
+      window.electronAPI.llmFetch(url, options),
+      timeoutPromise,
+    ]);
     return {
       ok: res.ok,
       status: res.status,
       text: () => Promise.resolve(res.text),
     };
   }
-  return fetch(url, options);
+  return fetch(url, { ...options, signal: AbortSignal.timeout(LLM_TIMEOUT_MS) });
 }
 
 // ==========================================
@@ -33,13 +41,13 @@ export async function fetchAvailableModels(provider: string, lmStudioUrl: string
       const base = lmStudioUrl.endsWith('/') ? lmStudioUrl.slice(0, -1) : lmStudioUrl;
       const res = await apiFetch(`${base}/models`, { method: 'GET', headers: { 'Content-Type': 'application/json' }, body: '' });
       if (!res.ok) return [];
-      const data = JSON.parse(await res.text()) as { data: Array<{ id: string }> };
+      const data = JSON.parse(await res.text()) as { data: { id: string }[] };
       return data.data.map(m => m.id);
     }
     if (provider === 'ollama') {
       const res = await apiFetch('http://localhost:11434/api/tags', { method: 'GET', headers: { 'Content-Type': 'application/json' }, body: '' });
       if (!res.ok) return [];
-      const data = JSON.parse(await res.text()) as { models: Array<{ name: string }> };
+      const data = JSON.parse(await res.text()) as { models: { name: string }[] };
       return data.models.map(m => m.name);
     }
   } catch { /* server not running */ }
@@ -126,7 +134,7 @@ async function fetchOpenAI(messages: ChatMessage[], apiKey: string, model: strin
     body: JSON.stringify({ model, messages, temperature: 0.7 }),
   });
   if (!res.ok) throw new Error(await res.text());
-  const data = JSON.parse(await res.text()) as { choices: Array<{ message: { content: string } }> };
+  const data = JSON.parse(await res.text()) as { choices: { message: { content: string } }[] };
   return data.choices[0].message.content;
 }
 
@@ -143,7 +151,7 @@ async function fetchOpenRouter(messages: ChatMessage[], apiKey: string, model: s
     body: JSON.stringify({ model, messages: payload, temperature: 0.7 }),
   });
   if (!res.ok) throw new Error(await res.text());
-  const data = JSON.parse(await res.text()) as { choices: Array<{ message: { content: string } }> };
+  const data = JSON.parse(await res.text()) as { choices: { message: { content: string } }[] };
   return data.choices[0].message.content;
 }
 
@@ -158,7 +166,7 @@ async function fetchLMStudio(messages: ChatMessage[], baseUrl: string, model: st
     const body = await res.text();
     throw new Error(`LM Studio (${url}): ${res.status === 0 ? 'server non raggiungibile — verifica che LM Studio sia avviato con il server locale attivo' : body}`);
   }
-  const data = JSON.parse(await res.text()) as { choices: Array<{ message: { content: string } }> };
+  const data = JSON.parse(await res.text()) as { choices: { message: { content: string } }[] };
   return data.choices[0].message.content;
 }
 
@@ -190,7 +198,7 @@ async function fetchAnthropic(messages: ChatMessage[], apiKey: string, model: st
     body: JSON.stringify({ model, max_tokens: 4096, system: systemMsg, messages: chatMsgs }),
   });
   if (!res.ok) throw new Error(await res.text());
-  const data = JSON.parse(await res.text()) as { content: Array<{ text: string }> };
+  const data = JSON.parse(await res.text()) as { content: { text: string }[] };
   return data.content[0].text;
 }
 
@@ -212,6 +220,6 @@ async function fetchGemini(messages: ChatMessage[], apiKey: string, model: strin
     }
   );
   if (!res.ok) throw new Error(await res.text());
-  const data = JSON.parse(await res.text()) as { candidates: Array<{ content: { parts: Array<{ text: string }> } }> };
+  const data = JSON.parse(await res.text()) as { candidates: { content: { parts: { text: string }[] } }[] };
   return data.candidates[0].content.parts[0].text;
 }
