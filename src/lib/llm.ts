@@ -1,5 +1,38 @@
 import { useStore } from '../store/useStore';
 
+// ==========================================
+// Model discovery for local providers
+// ==========================================
+
+export async function fetchAvailableModels(provider: string, lmStudioUrl: string): Promise<string[]> {
+  try {
+    if (provider === 'lmstudio') {
+      const url = lmStudioUrl.endsWith('/') ? lmStudioUrl.slice(0, -1) : lmStudioUrl;
+      const res = await fetch(`${url}/models`, { signal: AbortSignal.timeout(3000) });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.data as Array<{ id: string }>).map(m => m.id);
+    }
+    if (provider === 'ollama') {
+      const res = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(3000) });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.models as Array<{ name: string }>).map(m => m.name);
+    }
+  } catch { /* server not running */ }
+  return [];
+}
+
+// Auto-resolve model: if llmModel is empty for local providers, fetch and use first available
+async function resolveModel(provider: string, llmModel: string, lmStudioUrl: string): Promise<string> {
+  if (llmModel.trim()) return llmModel.trim();
+  if (provider === 'lmstudio' || provider === 'ollama') {
+    const models = await fetchAvailableModels(provider, lmStudioUrl);
+    if (models.length > 0) return models[0];
+  }
+  return provider === 'ollama' ? 'llama3' : 'local-model';
+}
+
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -14,19 +47,20 @@ export async function askLLM(messages: ChatMessage[]): Promise<string> {
   }
 
   try {
+    const resolvedModel = await resolveModel(llmProvider, llmModel, lmStudioUrl);
     switch (llmProvider) {
       case 'openai':
-        return await fetchOpenAI(messages, llmApiKey, llmModel || 'gpt-4o');
+        return await fetchOpenAI(messages, llmApiKey, resolvedModel || 'gpt-4o');
       case 'anthropic':
-        return await fetchAnthropic(messages, llmApiKey, llmModel || 'claude-3-5-sonnet-20241022');
+        return await fetchAnthropic(messages, llmApiKey, resolvedModel || 'claude-3-5-sonnet-20241022');
       case 'gemini':
-        return await fetchGemini(messages, llmApiKey, llmModel || 'gemini-1.5-pro');
+        return await fetchGemini(messages, llmApiKey, resolvedModel || 'gemini-1.5-pro');
       case 'openrouter':
-        return await fetchOpenRouter(messages, llmApiKey, llmModel || 'anthropic/claude-3.5-sonnet');
+        return await fetchOpenRouter(messages, llmApiKey, resolvedModel || 'anthropic/claude-3.5-sonnet');
       case 'lmstudio':
-        return await fetchLMStudio(messages, lmStudioUrl, llmModel || 'local-model');
+        return await fetchLMStudio(messages, lmStudioUrl, resolvedModel);
       case 'ollama':
-        return await fetchOllama(messages, llmModel || 'llama3');
+        return await fetchOllama(messages, resolvedModel);
       default:
         throw new Error('Provider non supportato');
     }

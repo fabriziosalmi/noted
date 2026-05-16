@@ -40,11 +40,12 @@ interface NoteEditorProps {
   saveActiveNote: (content: string) => Promise<void>;
   onEditorReady: (editor: Editor | null) => void;
   onWordCountChange?: (count: number) => void;
+  onAiError?: (msg: string) => void;
   showToolbar?: boolean;
   showAiBar?: boolean;
 }
 
-export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, showToolbar = true, showAiBar = true }: NoteEditorProps) {
+export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError, showToolbar = true, showAiBar = true }: NoteEditorProps) {
   const [isSmartPasting, setIsSmartPasting] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [wordCount, setWordCount] = useState(0);
@@ -216,7 +217,7 @@ Non aggiungere saluti o commenti. Restituisci SOLO il Markdown finale.`,
   return (
     <>
       {/* AI Actions bar */}
-      {showAiBar && editor && <AiActionsBar editor={editor} />}
+      {showAiBar && editor && <AiActionsBar editor={editor} onError={onAiError} />}
 
       {/* Find bar */}
       {findOpen && (

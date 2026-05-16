@@ -1,5 +1,7 @@
-import { X } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
+import { X, RefreshCw } from 'lucide-react';
 import type { LLMProvider } from '../store/useStore';
+import { fetchAvailableModels } from '../lib/llm';
 
 interface Settings {
   llmProvider: LLMProvider;
@@ -19,7 +21,30 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
+const isLocalProvider = (p: LLMProvider) => p === 'lmstudio' || p === 'ollama';
+
 export function SettingsModal({ settings, onUpdate, onSelectFolder, onClose }: SettingsModalProps) {
+  const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
+  const [discovering, setDiscovering] = useState(false);
+
+  const discoverModels = useCallback(async () => {
+    setDiscovering(true);
+    const models = await fetchAvailableModels(settings.llmProvider, settings.lmStudioUrl);
+    setDiscoveredModels(models);
+    if (models.length === 1) onUpdate({ llmModel: models[0] });
+    setDiscovering(false);
+  }, [settings.llmProvider, settings.lmStudioUrl, onUpdate]);
+
+  // Auto-discover when opening for local providers
+  useEffect(() => {
+    if (isLocalProvider(settings.llmProvider)) {
+      void discoverModels();
+    } else {
+      setDiscoveredModels([]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.llmProvider, settings.lmStudioUrl]);
+
   return (
     <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-[500px] overflow-hidden flex flex-col">
@@ -48,27 +73,57 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onClose }: S
             </select>
           </div>
 
-          {/* Model name — shown for all providers */}
+          {/* Model — dropdown if local models discovered, text input otherwise */}
           <div>
-            <label htmlFor="llm-model" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Modello</label>
-            <input
-              id="llm-model"
-              type="text"
-              value={settings.llmModel}
-              onChange={(e) => onUpdate({ llmModel: e.target.value })}
-              placeholder={
-                settings.llmProvider === 'openai' ? 'gpt-4o' :
-                settings.llmProvider === 'anthropic' ? 'claude-3-5-sonnet-20241022' :
-                settings.llmProvider === 'gemini' ? 'gemini-1.5-pro' :
-                settings.llmProvider === 'openrouter' ? 'anthropic/claude-3.5-sonnet' :
-                settings.llmProvider === 'ollama' ? 'llama3' : 'local-model'
-              }
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
-            />
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="llm-model" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Modello</label>
+              {isLocalProvider(settings.llmProvider) && (
+                <button
+                  onClick={discoverModels}
+                  disabled={discovering}
+                  className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 dark:hover:text-blue-300 disabled:opacity-50"
+                >
+                  <RefreshCw size={11} className={discovering ? 'animate-spin' : ''} />
+                  {discovering ? 'Rilevamento...' : 'Rileva modelli'}
+                </button>
+              )}
+            </div>
+
+            {isLocalProvider(settings.llmProvider) && discoveredModels.length > 0 ? (
+              <select
+                id="llm-model"
+                value={settings.llmModel}
+                onChange={e => onUpdate({ llmModel: e.target.value })}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+              >
+                {discoveredModels.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                id="llm-model"
+                type="text"
+                value={settings.llmModel}
+                onChange={(e) => onUpdate({ llmModel: e.target.value })}
+                placeholder={
+                  settings.llmProvider === 'openai' ? 'gpt-4o' :
+                  settings.llmProvider === 'anthropic' ? 'claude-3-5-sonnet-20241022' :
+                  settings.llmProvider === 'gemini' ? 'gemini-1.5-pro' :
+                  settings.llmProvider === 'openrouter' ? 'anthropic/claude-3.5-sonnet' :
+                  settings.llmProvider === 'ollama' ? 'llama3' : 'auto-detect'
+                }
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+              />
+            )}
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              {settings.llmProvider === 'openrouter'
-                ? 'Inserisci il model ID di OpenRouter, es. google/gemma-4-e2b'
-                : 'Lascia vuoto per usare il modello predefinito'}
+              {isLocalProvider(settings.llmProvider)
+                ? discoveredModels.length === 0
+                  ? 'Avvia LM Studio / Ollama e clicca "Rileva modelli"'
+                  : `${discoveredModels.length} modell${discoveredModels.length === 1 ? 'o trovato' : 'i trovati'}`
+                : settings.llmProvider === 'openrouter'
+                  ? 'Es. google/gemma-4-e2b, anthropic/claude-3.5-sonnet'
+                  : 'Lascia vuoto per usare il modello predefinito'}
             </p>
           </div>
 

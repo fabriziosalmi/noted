@@ -182,6 +182,7 @@ function App() {
                   activeNoteContent={activeNoteContent}
                   saveActiveNote={saveActiveNote}
                   onEditorReady={handleEditorReady}
+                  onAiError={msg => toast(msg, 'error')}
                   showToolbar={settings.showToolbar}
                   showAiBar={settings.showAiBar}
                 />

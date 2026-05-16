@@ -122,15 +122,19 @@ function inlineFormat(text: string): string {
 
 interface AiActionsBarProps {
   editor: Editor;
+  onError?: (msg: string) => void;
 }
 
-export function AiActionsBar({ editor }: AiActionsBarProps) {
+export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const runAction = useCallback(async (action: Action) => {
     if (activeId) return;
     const text = editor.getText();
-    if (!text.trim()) return;
+    if (!text.trim()) {
+      onError?.('Scrivi qualcosa nella nota prima di usare le azioni AI.');
+      return;
+    }
 
     setActiveId(action.id);
     try {
@@ -144,17 +148,17 @@ export function AiActionsBar({ editor }: AiActionsBarProps) {
       if (action.mode === 'replace') {
         editor.commands.setContent(html);
       } else {
-        // append with heading separator
         const headingHtml = action.heading ? `<hr><h2>${action.heading.replace(/^##\s*/, '')}</h2>` : '<hr>';
         editor.commands.focus('end');
         editor.commands.insertContent(headingHtml + html);
       }
     } catch (err) {
-      console.error('AI action error:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      onError?.(msg);
     } finally {
       setActiveId(null);
     }
-  }, [activeId, editor]);
+  }, [activeId, editor, onError]);
 
   const renderBtn = (action: Action) => {
     const isActive = activeId === action.id;
