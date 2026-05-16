@@ -12,6 +12,7 @@ import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastStack } from './components/Toast';
 import { useToast } from './hooks/useToast';
+import { useTheme } from './hooks/useTheme';
 
 function App() {
   const [leftOpen, setLeftOpen] = useState(true);
@@ -20,6 +21,7 @@ function App() {
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const editorRef = useRef<Editor | null>(null);
   const { messages: toastMessages, toast, dismiss } = useToast();
+  useTheme();
 
   const {
     notes, activeNoteName, activeNoteContent,
@@ -98,42 +100,42 @@ function App() {
   const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-white">
+    <div className="h-screen w-screen flex flex-col bg-white dark:bg-gray-900">
       {/* Titlebar */}
       <div
-        className="h-10 w-full flex items-center px-4 drag-region bg-gray-50 border-b border-gray-200"
+        className="h-10 w-full flex items-center px-4 drag-region bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <div className="flex space-x-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <div className="w-16" />
         </div>
-        <div className="flex-1 flex justify-center text-sm font-medium text-gray-500">Noted</div>
+        <div className="flex-1 flex justify-center text-sm font-medium text-gray-500 dark:text-gray-400">Noted</div>
         <div className="flex space-x-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           {activeNoteName && (
             <>
               <button
                 onClick={handleExportMarkdown}
-                className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-indigo-600 transition-colors"
+                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
                 title="Esporta come Markdown"
               >
                 <FileDown size={16} />
               </button>
               <button
                 onClick={handleExportPdf}
-                className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-indigo-600 transition-colors"
+                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
                 title="Esporta come PDF"
               >
                 <Download size={16} />
               </button>
             </>
           )}
-          <button onClick={() => setIsShortcutsOpen(true)} className="p-1 hover:bg-gray-200 rounded text-gray-500" title="Scorciatoie (?)">
+          <button onClick={() => setIsShortcutsOpen(true)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400" title="Scorciatoie (?)">
             <Keyboard size={16} />
           </button>
-          <button onClick={() => setLeftOpen(!leftOpen)} className="p-1 hover:bg-gray-200 rounded">
+          <button onClick={() => setLeftOpen(!leftOpen)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400">
             <PanelLeft size={16} />
           </button>
-          <button onClick={() => setRightOpen(!rightOpen)} className="p-1 hover:bg-gray-200 rounded">
+          <button onClick={() => setRightOpen(!rightOpen)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400">
             <PanelRight size={16} />
           </button>
         </div>
@@ -145,7 +147,7 @@ function App() {
 
           {leftOpen && (
             <>
-              <Panel defaultSize={20} minSize={15} maxSize={30} className="bg-gray-50 flex flex-col border-r border-gray-200">
+              <Panel defaultSize={20} minSize={15} maxSize={30} className="bg-gray-50 dark:bg-gray-800 flex flex-col border-r border-gray-200 dark:border-gray-700">
                 <ErrorBoundary>
                   <Sidebar
                     notes={notes}
@@ -162,7 +164,7 @@ function App() {
             </>
           )}
 
-          <Panel className="bg-white overflow-y-auto relative">
+          <Panel className="bg-white dark:bg-gray-900 overflow-y-auto relative">
             <div className="max-w-3xl mx-auto p-12">
               <ErrorBoundary>
                 <NoteEditor
@@ -180,7 +182,7 @@ function App() {
           {rightOpen && (
             <>
               <PanelResizeHandle className="w-1 hover:bg-blue-400 transition-colors cursor-col-resize" />
-              <Panel defaultSize={25} minSize={20} maxSize={40} className="bg-gray-50 flex flex-col border-l border-gray-200">
+              <Panel defaultSize={25} minSize={20} maxSize={40} className="bg-gray-50 dark:bg-gray-800 flex flex-col border-l border-gray-200 dark:border-gray-700">
                 <ErrorBoundary>
                   <AiChat getEditorText={getEditorText} />
                 </ErrorBoundary>

@@ -63,31 +63,33 @@ Rispondi in modo conciso e utile.`,
 
   return (
     <>
-      <div className="p-3 text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center space-x-2 border-b border-gray-200">
+      <div className="p-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center space-x-2 border-b border-gray-200 dark:border-gray-700">
         <Bot size={14} />
         <span>AI Assistant</span>
       </div>
 
-      <div className="flex-1 p-4 text-sm text-gray-600 overflow-y-auto flex flex-col space-y-3">
+      <div className="flex-1 p-4 text-sm text-gray-600 dark:text-gray-300 overflow-y-auto flex flex-col space-y-3">
         {displayHistory.map((msg, idx) => (
           <div
             key={idx}
-            className={`p-3 rounded-lg shadow-sm border border-gray-100 whitespace-pre-wrap ${
-              msg.role === 'assistant' ? 'bg-white' : 'bg-blue-50 text-blue-900 self-end'
+            className={`p-3 rounded-lg shadow-sm border whitespace-pre-wrap ${
+              msg.role === 'assistant'
+                ? 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
+                : 'bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-200 border-blue-100 dark:border-blue-800 self-end'
             }`}
           >
             {msg.content}
           </div>
         ))}
         {isLoading && (
-          <div className="p-3 rounded-lg shadow-sm border border-gray-100 bg-white flex items-center space-x-2 text-gray-400 self-start">
+          <div className="p-3 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center space-x-2 text-gray-400 dark:text-gray-500 self-start">
             <Loader2 size={14} className="animate-spin" />
             <span>Pensando...</span>
           </div>
         )}
       </div>
 
-      <div className="p-3 border-t border-gray-200 bg-white">
+      <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         <input
           type="text"
           value={aiInput}
@@ -95,7 +97,7 @@ Rispondi in modo conciso e utile.`,
           onKeyDown={handleSubmit}
           disabled={isLoading}
           placeholder={isLoading ? 'Attendi la risposta...' : 'Chiedi qualcosa... (Premi Invio)'}
-          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-blue-500 bg-gray-50 disabled:opacity-50"
+          className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:border-blue-500 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-500 disabled:opacity-50"
         />
       </div>
     </>

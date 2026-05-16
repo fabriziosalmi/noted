@@ -168,10 +168,10 @@ export function AiActionsBar({ editor }: AiActionsBarProps) {
         title={action.label}
         className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors whitespace-nowrap
           ${isActive
-            ? 'bg-indigo-100 text-indigo-700'
+            ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
             : isDisabled
-              ? 'text-gray-300 cursor-not-allowed'
-              : 'text-gray-500 hover:bg-gray-100 hover:text-indigo-600'
+              ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+              : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-indigo-600 dark:hover:text-indigo-400'
           }`}
       >
         {isActive
@@ -184,10 +184,10 @@ export function AiActionsBar({ editor }: AiActionsBarProps) {
   };
 
   return (
-    <div className="flex items-center gap-0.5 mb-3 pb-3 border-b border-indigo-50 flex-wrap">
-      <span className="text-[10px] font-semibold text-indigo-300 uppercase tracking-wider mr-1 shrink-0">AI</span>
+    <div className="flex items-center gap-0.5 mb-3 pb-3 border-b border-indigo-50 dark:border-indigo-900/40 flex-wrap">
+      <span className="text-[10px] font-semibold text-indigo-300 dark:text-indigo-600 uppercase tracking-wider mr-1 shrink-0">AI</span>
       {ACTIONS.map(renderBtn)}
-      <div className="w-px h-4 bg-gray-200 mx-1 shrink-0" />
+      <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
       {ANALYSIS_ACTIONS.map(renderBtn)}
     </div>
   );

@@ -206,7 +206,7 @@ Non aggiungere saluti o commenti. Restituisci SOLO il Markdown finale.`,
 
   if (!activeNoteName) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-gray-400 mt-32">
+      <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-600 mt-32">
         <FileText size={48} className="mb-4 opacity-20" />
         <p>Seleziona una nota o creane una nuova</p>
       </div>
@@ -220,8 +220,8 @@ Non aggiungere saluti o commenti. Restituisci SOLO il Markdown finale.`,
 
       {/* Find bar */}
       {findOpen && (
-        <div className="flex items-center gap-2 mb-3 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-lg">
-          <Search size={13} className="text-gray-400 shrink-0" />
+        <div className="flex items-center gap-2 mb-3 px-2 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+          <Search size={13} className="text-gray-400 dark:text-gray-500 shrink-0" />
           <input
             ref={findInputRef}
             type="text"
@@ -232,22 +232,22 @@ Non aggiungere saluti o commenti. Restituisci SOLO il Markdown finale.`,
               if (e.key === 'Escape') closeFind();
             }}
             placeholder="Cerca nel documento..."
-            className="flex-1 text-sm bg-transparent outline-none text-gray-700 placeholder-gray-400"
+            className="flex-1 text-sm bg-transparent outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-600"
           />
           {findQuery && (
-            <span className="text-xs text-gray-400 shrink-0">
+            <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
               {matches.length > 0 ? `${matchIndex + 1}/${matches.length}` : '0 risultati'}
             </span>
           )}
           <button onClick={() => goToMatch(matchIndex - 1)} disabled={matches.length === 0}
-            className="p-0.5 rounded hover:bg-gray-200 text-gray-500 disabled:opacity-30" aria-label="Precedente">
+            className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 disabled:opacity-30" aria-label="Precedente">
             <ChevronUp size={14} />
           </button>
           <button onClick={() => goToMatch(matchIndex + 1)} disabled={matches.length === 0}
-            className="p-0.5 rounded hover:bg-gray-200 text-gray-500 disabled:opacity-30" aria-label="Successivo">
+            className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 disabled:opacity-30" aria-label="Successivo">
             <ChevronDown size={14} />
           </button>
-          <button onClick={closeFind} className="p-0.5 rounded hover:bg-gray-200 text-gray-500" aria-label="Chiudi ricerca">
+          <button onClick={closeFind} className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400" aria-label="Chiudi ricerca">
             <X size={14} />
           </button>
         </div>
@@ -255,41 +255,41 @@ Non aggiungere saluti o commenti. Restituisci SOLO il Markdown finale.`,
 
       {/* Formatting toolbar */}
       {showToolbar && editor && (
-        <div className="flex items-center gap-0.5 mb-4 pb-3 border-b border-gray-100 flex-wrap">
+        <div className="flex items-center gap-0.5 mb-4 pb-3 border-b border-gray-100 dark:border-gray-700 flex-wrap">
           <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} title="Titolo 1 (Ctrl+Alt+1)"
-            className={`p-1.5 rounded hover:bg-gray-100 ${editor.isActive('heading', { level: 1 }) ? 'bg-gray-200 text-black' : 'text-gray-500'}`}>
+            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('heading', { level: 1 }) ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
             <Heading1 size={15} />
           </button>
           <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} title="Titolo 2 (Ctrl+Alt+2)"
-            className={`p-1.5 rounded hover:bg-gray-100 ${editor.isActive('heading', { level: 2 }) ? 'bg-gray-200 text-black' : 'text-gray-500'}`}>
+            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('heading', { level: 2 }) ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
             <Heading2 size={15} />
           </button>
           <button onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} title="Titolo 3 (Ctrl+Alt+3)"
-            className={`p-1.5 rounded hover:bg-gray-100 ${editor.isActive('heading', { level: 3 }) ? 'bg-gray-200 text-black' : 'text-gray-500'}`}>
+            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('heading', { level: 3 }) ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
             <Heading3 size={15} />
           </button>
-          <div className="w-px h-4 bg-gray-200 mx-1" />
+          <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
           <button onClick={() => editor.chain().focus().toggleBold().run()} title="Grassetto (Ctrl+B)"
-            className={`p-1.5 rounded hover:bg-gray-100 ${editor.isActive('bold') ? 'bg-gray-200 text-black' : 'text-gray-500'}`}>
+            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('bold') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
             <Bold size={15} />
           </button>
           <button onClick={() => editor.chain().focus().toggleItalic().run()} title="Corsivo (Ctrl+I)"
-            className={`p-1.5 rounded hover:bg-gray-100 ${editor.isActive('italic') ? 'bg-gray-200 text-black' : 'text-gray-500'}`}>
+            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('italic') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
             <Italic size={15} />
           </button>
           <button onClick={() => editor.chain().focus().toggleStrike().run()} title="Barrato"
-            className={`p-1.5 rounded hover:bg-gray-100 ${editor.isActive('strike') ? 'bg-gray-200 text-black' : 'text-gray-500'}`}>
+            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('strike') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
             <Strikethrough size={15} />
           </button>
           <button onClick={() => editor.chain().focus().toggleCode().run()} title="Codice inline"
-            className={`p-1.5 rounded hover:bg-gray-100 ${editor.isActive('code') ? 'bg-gray-200 text-black' : 'text-gray-500'}`}>
+            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('code') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
             <Code size={15} />
           </button>
-          <div className="w-px h-4 bg-gray-200 mx-1" />
+          <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
           <button
             onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
             title="Inserisci tabella"
-            className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-indigo-600"
+            className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
           >
             <TableIcon size={15} />
           </button>
@@ -299,21 +299,21 @@ Non aggiungere saluti o commenti. Restituisci SOLO il Markdown finale.`,
       {/* BubbleMenu for quick inline formatting on selection */}
       {editor && (
         // @ts-expect-error tippyOptions valid but untyped
-        <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }} className="flex space-x-1 bg-white border border-gray-200 shadow-lg rounded-lg p-1">
+        <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }} className="flex space-x-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-lg p-1">
           <button onClick={() => editor.chain().focus().toggleBold().run()}
-            className={`p-1.5 rounded hover:bg-gray-100 ${editor.isActive('bold') ? 'bg-gray-200 text-black' : 'text-gray-600'}`}>
+            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('bold') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
             <Bold size={14} />
           </button>
           <button onClick={() => editor.chain().focus().toggleItalic().run()}
-            className={`p-1.5 rounded hover:bg-gray-100 ${editor.isActive('italic') ? 'bg-gray-200 text-black' : 'text-gray-600'}`}>
+            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('italic') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
             <Italic size={14} />
           </button>
           <button onClick={() => editor.chain().focus().toggleStrike().run()}
-            className={`p-1.5 rounded hover:bg-gray-100 ${editor.isActive('strike') ? 'bg-gray-200 text-black' : 'text-gray-600'}`}>
+            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('strike') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
             <Strikethrough size={14} />
           </button>
           <button onClick={() => editor.chain().focus().toggleCode().run()}
-            className={`p-1.5 rounded hover:bg-gray-100 ${editor.isActive('code') ? 'bg-gray-200 text-black' : 'text-gray-600'}`}>
+            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('code') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
             <Code size={14} />
           </button>
         </BubbleMenu>
@@ -331,11 +331,11 @@ Non aggiungere saluti o commenti. Restituisci SOLO il Markdown finale.`,
       {/* Status bar: word count + save indicator */}
       <div className="absolute bottom-4 right-4 flex items-center gap-3">
         {wordCount > 0 && (
-          <span className="text-xs text-gray-300">{wordCount} {wordCount === 1 ? 'parola' : 'parole'}</span>
+          <span className="text-xs text-gray-300 dark:text-gray-600">{wordCount} {wordCount === 1 ? 'parola' : 'parole'}</span>
         )}
         {!isSmartPasting && saveStatus !== 'idle' && (
           <div className={`text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5 ${
-            saveStatus === 'saving' ? 'text-gray-400' : 'text-emerald-600'
+            saveStatus === 'saving' ? 'text-gray-400 dark:text-gray-500' : 'text-emerald-600 dark:text-emerald-400'
           }`}>
             {saveStatus === 'saving' ? <span>Salvando...</span> : <><CheckCheck size={13} /><span>Salvato</span></>}
           </div>

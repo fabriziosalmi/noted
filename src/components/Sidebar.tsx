@@ -37,7 +37,7 @@ export function Sidebar({ notes, activeNoteName, onSelectNote, onCreateNote, onD
     return base.sort((a, b) => {
       if (sortBy === 'name') return a.name.localeCompare(b.name);
       if (sortBy === 'size') return b.stats.size - a.stats.size;
-      return b.stats.mtimeMs - a.stats.mtimeMs; // date desc
+      return b.stats.mtimeMs - a.stats.mtimeMs;
     });
   }, [notes, query, sortBy]);
 
@@ -76,19 +76,19 @@ export function Sidebar({ notes, activeNoteName, onSelectNote, onCreateNote, onD
   return (
     <>
       {/* Header */}
-      <div className="p-3 text-xs font-semibold text-gray-400 uppercase tracking-wider flex justify-between items-center">
+      <div className="p-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex justify-between items-center">
         <span>Files</span>
         <div className="flex items-center gap-1">
           <button
             onClick={cycleSortBy}
-            className="flex items-center gap-0.5 hover:text-gray-800 px-1 py-0.5 rounded hover:bg-gray-200"
+            className="flex items-center gap-0.5 hover:text-gray-800 dark:hover:text-gray-200 px-1 py-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
             title={`Ordina per: ${SORT_LABELS[sortBy]}`}
             aria-label={`Ordina per ${SORT_LABELS[sortBy]}`}
           >
             <ArrowUpDown size={11} />
             <span className="text-[10px]">{SORT_LABELS[sortBy]}</span>
           </button>
-          <button onClick={onCreateNote} className="hover:text-gray-800 p-1" aria-label="Nuova nota">
+          <button onClick={onCreateNote} className="hover:text-gray-800 dark:hover:text-gray-200 p-1" aria-label="Nuova nota">
             <Plus size={14} />
           </button>
         </div>
@@ -96,14 +96,14 @@ export function Sidebar({ notes, activeNoteName, onSelectNote, onCreateNote, onD
 
       {/* Search */}
       <div className="px-2 pb-2">
-        <div className="flex items-center gap-1.5 bg-gray-100 rounded px-2 py-1">
-          <Search size={12} className="text-gray-400 shrink-0" />
+        <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-700 rounded px-2 py-1">
+          <Search size={12} className="text-gray-400 dark:text-gray-500 shrink-0" />
           <input
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Cerca..."
-            className="bg-transparent text-xs text-gray-700 placeholder-gray-400 outline-none w-full"
+            className="bg-transparent text-xs text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 outline-none w-full"
           />
         </div>
       </div>
@@ -122,7 +122,9 @@ export function Sidebar({ notes, activeNoteName, onSelectNote, onCreateNote, onD
                 style={{ position: 'absolute', top: virtualRow.start, left: 0, right: 0 }}
                 onClick={() => !isRenaming && onSelectNote(note.name)}
                 className={`flex items-center justify-between p-2 rounded text-sm cursor-pointer mb-1 group ${
-                  isActive ? 'bg-blue-100 text-blue-800' : 'hover:bg-gray-200 text-gray-700'
+                  isActive
+                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300'
+                    : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
                 }`}
               >
                 <div className="flex items-center space-x-2 truncate flex-1 min-w-0">
@@ -135,7 +137,7 @@ export function Sidebar({ notes, activeNoteName, onSelectNote, onCreateNote, onD
                       onBlur={() => void commitRename()}
                       onKeyDown={handleRenameKeyDown}
                       onClick={e => e.stopPropagation()}
-                      className="flex-1 min-w-0 bg-white border border-blue-400 rounded px-1 text-xs text-gray-800 outline-none"
+                      className="flex-1 min-w-0 bg-white dark:bg-gray-700 border border-blue-400 rounded px-1 text-xs text-gray-800 dark:text-gray-200 outline-none"
                       autoFocus
                     />
                   ) : (
@@ -162,7 +164,7 @@ export function Sidebar({ notes, activeNoteName, onSelectNote, onCreateNote, onD
           })}
         </div>
         {filtered.length === 0 && query && (
-          <p className="text-xs text-gray-400 text-center mt-4">Nessuna nota trovata</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-4">Nessuna nota trovata</p>
         )}
       </div>
 
@@ -171,7 +173,7 @@ export function Sidebar({ notes, activeNoteName, onSelectNote, onCreateNote, onD
         role="button"
         aria-label="Impostazioni"
         tabIndex={0}
-        className="p-3 border-t border-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-800"
+        className="p-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
         style={{ cursor: 'pointer' }}
         onClick={onOpenSettings}
         onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onOpenSettings()}

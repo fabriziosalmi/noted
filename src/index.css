@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Class-based dark mode — applied by useTheme hook on <html> */
+@variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-mac-bg: #ececec;
   --color-mac-border: #d1d1d1;
@@ -74,3 +77,10 @@ body {
   width: 2px;
 }
 .tableWrapper { overflow-x: auto; }
+
+/* Dark mode ProseMirror */
+.dark .ProseMirror { color: #e5e7eb; }
+.dark .ProseMirror table td,
+.dark .ProseMirror table th { border-color: #374151; }
+.dark .ProseMirror table th { background: #1f2937; }
+.dark .ProseMirror p.is-editor-empty:first-child::before { color: #4b5563; }

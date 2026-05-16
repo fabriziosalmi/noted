@@ -21,6 +21,7 @@ interface SettingsState {
   syncDirectory: string | null;
   showToolbar: boolean;
   showAiBar: boolean;
+  theme: 'auto' | 'light' | 'dark';
 }
 
 interface NoteState {
@@ -59,6 +60,7 @@ export const useStore = create<NoteState>()(
         syncDirectory: null,
         showToolbar: true,
         showAiBar: true,
+        theme: 'auto' as const,
       },
 
       updateSettings: (newSettings) => {
