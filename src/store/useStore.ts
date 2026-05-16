@@ -29,10 +29,11 @@ interface NoteState {
   activeNoteName: string | null;
   activeNoteContent: string;
   isLoading: boolean;
-  
+  pinnedNotes: string[];
+
   // Settings
   settings: SettingsState;
-  
+
   // Actions
   fetchNotes: () => Promise<void>;
   createNote: (fileName: string) => Promise<void>;
@@ -42,6 +43,7 @@ interface NoteState {
   renameNote: (oldName: string, newName: string) => Promise<void>;
   updateSettings: (newSettings: Partial<SettingsState>) => void;
   loadApiKey: () => Promise<void>;
+  togglePin: (fileName: string) => void;
 }
 
 export const useStore = create<NoteState>()(
@@ -51,6 +53,7 @@ export const useStore = create<NoteState>()(
       activeNoteName: null,
       activeNoteContent: '',
       isLoading: false,
+      pinnedNotes: [],
       
       settings: {
         llmProvider: 'lmstudio',
@@ -136,6 +139,15 @@ export const useStore = create<NoteState>()(
     await get().fetchNotes();
   },
 
+  togglePin: (fileName: string) => {
+    set(state => {
+      const pinned = state.pinnedNotes.includes(fileName)
+        ? state.pinnedNotes.filter(n => n !== fileName)
+        : [...state.pinnedNotes, fileName];
+      return { pinnedNotes: pinned };
+    });
+  },
+
   deleteNote: async (fileName: string) => {
     if (!window.electronAPI) return;
     const res = await window.electronAPI.deleteNote(fileName, get().settings.syncDirectory || undefined);
@@ -151,7 +163,8 @@ export const useStore = create<NoteState>()(
   name: 'noted-storage',
   // Exclude llmApiKey from localStorage — stored encrypted via safeStorage instead
   partialize: (state) => ({
-    settings: { ...state.settings, llmApiKey: '' }
+    settings: { ...state.settings, llmApiKey: '' },
+    pinnedNotes: state.pinnedNotes,
   }),
 }
 )

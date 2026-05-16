@@ -30,10 +30,12 @@ const NOTES = [
 const defaults = {
   notes: NOTES,
   activeNoteName: 'alpha.md',
+  pinnedNotes: [] as string[],
   onSelectNote: vi.fn(),
   onCreateNote: vi.fn(),
   onDeleteNote: vi.fn(),
   onRenameNote: vi.fn().mockResolvedValue(undefined),
+  onTogglePin: vi.fn(),
   onOpenSettings: vi.fn(),
 };
 

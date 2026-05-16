@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { FileText, Plus, Trash2, Settings, Search, ArrowUpDown } from 'lucide-react';
+import { FileText, Plus, Trash2, Settings, Search, ArrowUpDown, Star } from 'lucide-react';
 import type { NoteFile } from '../store/useStore';
 
 type SortBy = 'date' | 'name' | 'size';
@@ -9,16 +9,18 @@ const SORT_LABELS: Record<SortBy, string> = { date: 'Data', name: 'Nome', size: 
 interface SidebarProps {
   notes: NoteFile[];
   activeNoteName: string | null;
+  pinnedNotes: string[];
   onSelectNote: (name: string) => void;
   onCreateNote: () => void;
   onDeleteNote: (name: string) => void;
   onRenameNote: (oldName: string, newName: string) => Promise<void>;
+  onTogglePin: (name: string) => void;
   onOpenSettings: () => void;
 }
 
 const ROW_HEIGHT = 36;
 
-export function Sidebar({ notes, activeNoteName, onSelectNote, onCreateNote, onDeleteNote, onRenameNote, onOpenSettings }: SidebarProps) {
+export function Sidebar({ notes, activeNoteName, pinnedNotes, onSelectNote, onCreateNote, onDeleteNote, onRenameNote, onTogglePin, onOpenSettings }: SidebarProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('date');
@@ -35,11 +37,14 @@ export function Sidebar({ notes, activeNoteName, onSelectNote, onCreateNote, onD
       ? notes.filter(n => n.name.replace('.md', '').toLowerCase().includes(query.toLowerCase()))
       : [...notes];
     return base.sort((a, b) => {
+      const aPinned = pinnedNotes.includes(a.name) ? 0 : 1;
+      const bPinned = pinnedNotes.includes(b.name) ? 0 : 1;
+      if (aPinned !== bPinned) return aPinned - bPinned;
       if (sortBy === 'name') return a.name.localeCompare(b.name);
       if (sortBy === 'size') return b.stats.size - a.stats.size;
       return b.stats.mtimeMs - a.stats.mtimeMs;
     });
-  }, [notes, query, sortBy]);
+  }, [notes, query, sortBy, pinnedNotes]);
 
   const virtualizer = useVirtualizer({
     count: filtered.length,
@@ -156,13 +161,23 @@ export function Sidebar({ notes, activeNoteName, onSelectNote, onCreateNote, onD
                   )}
                 </div>
                 {!isRenaming && (
-                  <button
-                    onClick={e => { e.stopPropagation(); onDeleteNote(note.name); }}
-                    className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 p-1 shrink-0"
-                    aria-label={`Elimina ${note.name}`}
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <div className="flex items-center shrink-0">
+                    <button
+                      onClick={e => { e.stopPropagation(); onTogglePin(note.name); }}
+                      className={`p-1 transition-colors ${pinnedNotes.includes(note.name) ? 'text-amber-400' : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-amber-400'}`}
+                      aria-label={pinnedNotes.includes(note.name) ? `Rimuovi da preferiti` : `Aggiungi ai preferiti`}
+                      title={pinnedNotes.includes(note.name) ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                    >
+                      <Star size={12} fill={pinnedNotes.includes(note.name) ? 'currentColor' : 'none'} />
+                    </button>
+                    <button
+                      onClick={e => { e.stopPropagation(); onDeleteNote(note.name); }}
+                      className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 p-1"
+                      aria-label={`Elimina ${note.name}`}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 )}
               </div>
             );

@@ -33,6 +33,7 @@ function App() {
     notes, activeNoteName, activeNoteContent,
     fetchNotes, createNote, openNote, saveActiveNote, deleteNote, renameNote,
     settings, updateSettings, loadApiKey,
+    pinnedNotes, togglePin,
   } = useStore();
 
   useEffect(() => {
@@ -178,10 +179,12 @@ function App() {
                   <Sidebar
                     notes={notes}
                     activeNoteName={activeNoteName}
+                    pinnedNotes={pinnedNotes}
                     onSelectNote={openNote}
                     onCreateNote={handleCreateNote}
                     onDeleteNote={handleDeleteNote}
                     onRenameNote={handleRenameNote}
+                    onTogglePin={togglePin}
                     onOpenSettings={() => setIsSettingsOpen(true)}
                   />
                 </ErrorBoundary>
