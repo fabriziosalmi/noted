@@ -13,4 +13,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getApiKey: () => ipcRenderer.invoke('get-api-key'),
   llmFetch: (url: string, options: { method: string; headers: Record<string, string>; body: string }) =>
     ipcRenderer.invoke('llm-fetch', url, options),
+  getNoteHistory: (fileName: string, syncDir?: string) => ipcRenderer.invoke('get-note-history', fileName, syncDir),
+  readNoteSnapshot: (fileName: string, snapshotName: string, syncDir?: string) => ipcRenderer.invoke('read-note-snapshot', fileName, snapshotName, syncDir),
 });

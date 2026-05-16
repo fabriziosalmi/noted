@@ -14,6 +14,8 @@ declare global {
       storeApiKey: (key: string) => Promise<{ success: boolean; error?: string }>;
       getApiKey: () => Promise<{ success: boolean; data?: string; error?: string }>;
       llmFetch: (url: string, options: { method: string; headers: Record<string, string>; body: string }) => Promise<{ ok: boolean; status: number; text: string }>;
+      getNoteHistory: (fileName: string, syncDir?: string) => Promise<{ success: boolean; data?: { name: string; ts: string }[]; error?: string }>;
+      readNoteSnapshot: (fileName: string, snapshotName: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
     };
   }
 }

@@ -117,17 +117,64 @@ ipcMain.handle('read-note', (_, fileName: string, syncDir?: string) => {
   }
 });
 
+const MAX_HISTORY_SNAPSHOTS = 20;
+
+function saveSnapshot(targetDir: string, fileName: string, content: string) {
+  try {
+    const histDir = path.join(targetDir, '.noted_history', fileName);
+    if (!fs.existsSync(histDir)) fs.mkdirSync(histDir, { recursive: true });
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    fs.writeFileSync(path.join(histDir, `${ts}.html`), content, 'utf-8');
+    // Prune oldest beyond limit
+    const snapshots = fs.readdirSync(histDir).filter(f => f.endsWith('.html')).sort();
+    for (const old of snapshots.slice(0, Math.max(0, snapshots.length - MAX_HISTORY_SNAPSHOTS))) {
+      fs.unlinkSync(path.join(histDir, old));
+    }
+  } catch { /* history is best-effort */ }
+}
+
 ipcMain.handle('save-note', (_, fileName: string, content: string, syncDir?: string) => {
   try {
     validateFileName(fileName);
     if (typeof content !== 'string') throw new Error('Content must be a string');
     const targetDir = getTargetDir(syncDir);
     const filePath = path.join(targetDir, fileName);
+    saveSnapshot(targetDir, fileName, content);
     fs.writeFileSync(filePath, content, 'utf-8');
     return { success: true };
   } catch (error: unknown) {
     const err = error as Error;
     return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('get-note-history', (_, fileName: string, syncDir?: string) => {
+  try {
+    validateFileName(fileName);
+    const targetDir = getTargetDir(syncDir);
+    const histDir = path.join(targetDir, '.noted_history', fileName);
+    if (!fs.existsSync(histDir)) return { success: true, data: [] };
+    const snapshots = fs.readdirSync(histDir)
+      .filter(f => f.endsWith('.html'))
+      .sort()
+      .reverse()
+      .map(f => ({ name: f, ts: f.replace('.html', '').replace(/T/, ' ').replace(/-(\d{2})-(\d{2})-(\d{3})Z$/, '.$1.$2').replace('T', ' ') }));
+    return { success: true, data: snapshots };
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+ipcMain.handle('read-note-snapshot', (_, fileName: string, snapshotName: string, syncDir?: string) => {
+  try {
+    validateFileName(fileName);
+    if (!/^[\w\-:.]+\.html$/.test(snapshotName)) throw new Error('Invalid snapshot name');
+    const targetDir = getTargetDir(syncDir);
+    const snapshotPath = path.join(targetDir, '.noted_history', fileName, snapshotName);
+    const content = fs.readFileSync(snapshotPath, 'utf-8');
+    return { success: true, data: content };
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message };
   }
 });
 

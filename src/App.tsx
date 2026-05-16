@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { PanelLeft, PanelRight, Download, FileDown, Keyboard, LayoutTemplate } from 'lucide-react';
+import { PanelLeft, PanelRight, Download, FileDown, Keyboard, LayoutTemplate, History } from 'lucide-react';
 import TurndownService from 'turndown';
 import type { Editor } from '@tiptap/react';
 import { useStore } from './store/useStore';
@@ -12,6 +12,7 @@ import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { NoteAdvisorBadge, NoteAdvisorPanel } from './components/NoteAdvisor';
 import { EditorToolbar } from './components/EditorToolbar';
 import { TemplatesModal } from './components/TemplatesModal';
+import { NoteHistoryModal } from './components/NoteHistoryModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastStack } from './components/Toast';
 import { useToast } from './hooks/useToast';
@@ -25,6 +26,7 @@ function App() {
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
   const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
   const editorRef = useRef<Editor | null>(null);
@@ -151,6 +153,13 @@ function App() {
           {activeNoteName && (
             <>
               <button
+                onClick={() => setIsHistoryOpen(true)}
+                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
+                title="Cronologia versioni"
+              >
+                <History size={16} />
+              </button>
+              <button
                 onClick={handleExportMarkdown}
                 className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
                 title="Esporta come Markdown"
@@ -256,6 +265,18 @@ function App() {
           onDismiss={dismissSuggestion}
           onDismissAll={() => { dismissAll(); setIsAdvisorOpen(false); }}
           onClose={() => setIsAdvisorOpen(false)}
+        />
+      )}
+
+      {isHistoryOpen && activeNoteName && (
+        <NoteHistoryModal
+          fileName={activeNoteName}
+          syncDir={settings.syncDirectory}
+          onRestore={content => {
+            void saveActiveNote(content);
+            setIsHistoryOpen(false);
+          }}
+          onClose={() => setIsHistoryOpen(false)}
         />
       )}
 
