@@ -10,6 +10,7 @@ import { AiChat } from './components/AiChat';
 import { SettingsModal } from './components/SettingsModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { NoteAdvisorBadge, NoteAdvisorPanel } from './components/NoteAdvisor';
+import { EditorToolbar } from './components/EditorToolbar';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastStack } from './components/Toast';
 import { useToast } from './hooks/useToast';
@@ -22,6 +23,8 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
+  const [findOpen, setFindOpen] = useState(false);
+  const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
   const editorRef = useRef<Editor | null>(null);
   const { messages: toastMessages, toast, dismiss } = useToast();
   useTheme();
@@ -42,6 +45,10 @@ function App() {
       if (e.key === '?' && !e.metaKey && !e.ctrlKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
         setIsShortcutsOpen(v => !v);
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault();
+        setFindOpen(v => !v);
+      }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
@@ -49,6 +56,7 @@ function App() {
 
   const handleEditorReady = useCallback((editor: Editor | null) => {
     editorRef.current = editor;
+    setActiveEditor(editor);
   }, []);
 
   const handleCreateNote = useCallback(async () => {
@@ -174,19 +182,31 @@ function App() {
             </>
           )}
 
-          <Panel className="bg-white dark:bg-gray-900 overflow-y-auto relative">
-            <div className="max-w-3xl mx-auto p-12">
-              <ErrorBoundary>
-                <NoteEditor
-                  activeNoteName={activeNoteName}
-                  activeNoteContent={activeNoteContent}
-                  saveActiveNote={saveActiveNote}
-                  onEditorReady={handleEditorReady}
-                  onAiError={msg => toast(msg, 'error')}
-                  showToolbar={settings.showToolbar}
-                  showAiBar={settings.showAiBar}
-                />
-              </ErrorBoundary>
+          <Panel className="bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
+            {/* Sticky toolbar — outside scrollable area */}
+            {activeNoteName && (
+              <EditorToolbar
+                editor={activeEditor}
+                showToolbar={settings.showToolbar}
+                showAiBar={settings.showAiBar}
+                onAiError={msg => toast(msg, 'error')}
+                findOpen={findOpen}
+                onCloseFind={() => setFindOpen(false)}
+              />
+            )}
+            {/* Scrollable writing area — pure content, no chrome */}
+            <div className="flex-1 overflow-y-auto relative">
+              <div className="max-w-3xl mx-auto px-12 py-10">
+                <ErrorBoundary>
+                  <NoteEditor
+                    activeNoteName={activeNoteName}
+                    activeNoteContent={activeNoteContent}
+                    saveActiveNote={saveActiveNote}
+                    onEditorReady={handleEditorReady}
+                    onAiError={msg => toast(msg, 'error')}
+                  />
+                </ErrorBoundary>
+              </div>
             </div>
           </Panel>
 
