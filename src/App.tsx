@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { PanelLeft, PanelRight, Download, FileDown, Keyboard } from 'lucide-react';
+import { PanelLeft, PanelRight, Download, FileDown, Keyboard, LayoutTemplate } from 'lucide-react';
 import TurndownService from 'turndown';
 import type { Editor } from '@tiptap/react';
 import { useStore } from './store/useStore';
@@ -11,6 +11,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { NoteAdvisorBadge, NoteAdvisorPanel } from './components/NoteAdvisor';
 import { EditorToolbar } from './components/EditorToolbar';
+import { TemplatesModal } from './components/TemplatesModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastStack } from './components/Toast';
 import { useToast } from './hooks/useToast';
@@ -23,6 +24,7 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
   const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
   const editorRef = useRef<Editor | null>(null);
@@ -34,6 +36,7 @@ function App() {
     fetchNotes, createNote, openNote, saveActiveNote, deleteNote, renameNote,
     settings, updateSettings, loadApiKey,
     pinnedNotes, togglePin, openOrCreateDaily,
+    customTemplates, saveAsTemplate, deleteTemplate, createFromTemplate,
   } = useStore();
 
   useEffect(() => {
@@ -163,6 +166,9 @@ function App() {
               </button>
             </>
           )}
+          <button onClick={() => setIsTemplatesOpen(v => !v)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors" title="Template">
+            <LayoutTemplate size={16} />
+          </button>
           <NoteAdvisorBadge count={suggestions.length} onClick={() => setIsAdvisorOpen(v => !v)} />
           <button onClick={() => setIsShortcutsOpen(true)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400" title="Scorciatoie (?)">
             <Keyboard size={16} />
@@ -250,6 +256,18 @@ function App() {
           onDismiss={dismissSuggestion}
           onDismissAll={() => { dismissAll(); setIsAdvisorOpen(false); }}
           onClose={() => setIsAdvisorOpen(false)}
+        />
+      )}
+
+      {isTemplatesOpen && (
+        <TemplatesModal
+          customTemplates={customTemplates}
+          activeNoteContent={activeNoteContent}
+          activeNoteName={activeNoteName}
+          onApply={t => { void createFromTemplate(t); }}
+          onSaveCurrent={(name, content) => saveAsTemplate(name, content)}
+          onDelete={deleteTemplate}
+          onClose={() => setIsTemplatesOpen(false)}
         />
       )}
 

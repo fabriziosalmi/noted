@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { NoteTemplate } from '../lib/templates';
 
 export interface NoteFile {
   name: string;
@@ -45,6 +46,10 @@ interface NoteState {
   loadApiKey: () => Promise<void>;
   togglePin: (fileName: string) => void;
   openOrCreateDaily: () => Promise<void>;
+  customTemplates: NoteTemplate[];
+  saveAsTemplate: (name: string, content: string) => void;
+  deleteTemplate: (id: string) => void;
+  createFromTemplate: (template: NoteTemplate) => Promise<void>;
 }
 
 export const useStore = create<NoteState>()(
@@ -55,6 +60,7 @@ export const useStore = create<NoteState>()(
       activeNoteContent: '',
       isLoading: false,
       pinnedNotes: [],
+      customTemplates: [],
       
       settings: {
         llmProvider: 'lmstudio',
@@ -140,6 +146,26 @@ export const useStore = create<NoteState>()(
     await get().fetchNotes();
   },
 
+  saveAsTemplate: (name: string, content: string) => {
+    const id = `custom_${Date.now()}`;
+    set(state => ({
+      customTemplates: [...state.customTemplates, { id, name, icon: '📄', content }],
+    }));
+  },
+
+  deleteTemplate: (id: string) => {
+    set(state => ({ customTemplates: state.customTemplates.filter(t => t.id !== id) }));
+  },
+
+  createFromTemplate: async (template: NoteTemplate) => {
+    const fileName = `${template.name.replace(/\s+/g, '_')}_${Math.floor(Date.now() / 1000)}.md`;
+    if (!window.electronAPI) return;
+    const res = await window.electronAPI.saveNote(fileName, template.content, get().settings.syncDirectory || undefined);
+    if (!res.success) throw new Error(res.error ?? 'Impossibile creare la nota');
+    await get().fetchNotes();
+    await get().openNote(fileName);
+  },
+
   openOrCreateDaily: async () => {
     const today = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -186,6 +212,7 @@ export const useStore = create<NoteState>()(
   partialize: (state) => ({
     settings: { ...state.settings, llmApiKey: '' },
     pinnedNotes: state.pinnedNotes,
+    customTemplates: state.customTemplates,
   }),
 }
 )
