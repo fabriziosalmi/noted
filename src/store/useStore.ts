@@ -19,6 +19,8 @@ interface SettingsState {
   llmModel: string;
   lmStudioUrl: string;
   syncDirectory: string | null;
+  showToolbar: boolean;
+  showAiBar: boolean;
 }
 
 interface NoteState {
@@ -55,6 +57,8 @@ export const useStore = create<NoteState>()(
         llmModel: 'gpt-4o',
         lmStudioUrl: 'http://localhost:1234/v1',
         syncDirectory: null,
+        showToolbar: true,
+        showAiBar: true,
       },
 
       updateSettings: (newSettings) => {

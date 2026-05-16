@@ -6,6 +6,8 @@ interface Settings {
   llmApiKey: string;
   lmStudioUrl: string;
   syncDirectory: string | null;
+  showToolbar: boolean;
+  showAiBar: boolean;
 }
 
 interface SettingsModalProps {
@@ -73,6 +75,31 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onClose }: S
               <p className="text-xs text-gray-400 mt-1">La tua chiave è cifrata con il keychain del sistema operativo.</p>
             </div>
           )}
+
+          {/* Editor appearance toggles */}
+          <div>
+            <p className="block text-sm font-medium text-gray-700 mb-2">Editor</p>
+            <div className="space-y-2">
+              {([
+                { key: 'showToolbar', label: 'Mostra barra formattazione (H1/H2, Grassetto, Corsivo…)' },
+                { key: 'showAiBar',   label: 'Mostra barra AI (Continua, Espandi, Raffina…)' },
+              ] as const).map(({ key, label }) => (
+                <label key={key} className="flex items-center gap-3 cursor-pointer select-none">
+                  <div
+                    role="checkbox"
+                    aria-checked={settings[key]}
+                    tabIndex={0}
+                    onClick={() => onUpdate({ [key]: !settings[key] })}
+                    onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onUpdate({ [key]: !settings[key] })}
+                    className={`w-9 h-5 rounded-full transition-colors flex items-center ${settings[key] ? 'bg-blue-500' : 'bg-gray-300'}`}
+                  >
+                    <span className={`w-4 h-4 bg-white rounded-full shadow transition-transform mx-0.5 ${settings[key] ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </div>
+                  <span className="text-sm text-gray-600">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
 
           <div>
             <label htmlFor="sync-dir" className="block text-sm font-medium text-gray-700 mb-1">Directory Note</label>

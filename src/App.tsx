@@ -170,6 +170,8 @@ function App() {
                   activeNoteContent={activeNoteContent}
                   saveActiveNote={saveActiveNote}
                   onEditorReady={handleEditorReady}
+                  showToolbar={settings.showToolbar}
+                  showAiBar={settings.showAiBar}
                 />
               </ErrorBoundary>
             </div>

@@ -12,6 +12,7 @@ import {
   Search, X, ChevronUp, ChevronDown,
 } from 'lucide-react';
 import { askLLM } from '../lib/llm';
+import { AiActionsBar } from './AiActionsBar';
 
 type SaveStatus = 'idle' | 'saving' | 'saved';
 
@@ -39,9 +40,11 @@ interface NoteEditorProps {
   saveActiveNote: (content: string) => Promise<void>;
   onEditorReady: (editor: Editor | null) => void;
   onWordCountChange?: (count: number) => void;
+  showToolbar?: boolean;
+  showAiBar?: boolean;
 }
 
-export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange }: NoteEditorProps) {
+export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, showToolbar = true, showAiBar = true }: NoteEditorProps) {
   const [isSmartPasting, setIsSmartPasting] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [wordCount, setWordCount] = useState(0);
@@ -212,6 +215,9 @@ Non aggiungere saluti o commenti. Restituisci SOLO il Markdown finale.`,
 
   return (
     <>
+      {/* AI Actions bar */}
+      {showAiBar && editor && <AiActionsBar editor={editor} />}
+
       {/* Find bar */}
       {findOpen && (
         <div className="flex items-center gap-2 mb-3 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-lg">
@@ -247,8 +253,8 @@ Non aggiungere saluti o commenti. Restituisci SOLO il Markdown finale.`,
         </div>
       )}
 
-      {/* Minimal formatting toolbar */}
-      {editor && (
+      {/* Formatting toolbar */}
+      {showToolbar && editor && (
         <div className="flex items-center gap-0.5 mb-4 pb-3 border-b border-gray-100 flex-wrap">
           <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} title="Titolo 1 (Ctrl+Alt+1)"
             className={`p-1.5 rounded hover:bg-gray-100 ${editor.isActive('heading', { level: 1 }) ? 'bg-gray-200 text-black' : 'text-gray-500'}`}>
