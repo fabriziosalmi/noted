@@ -10,10 +10,17 @@ app.disableHardwareAcceleration();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Setup default notes directory (local to project for dev to avoid MacOS EPERM)
-app.setPath('userData', path.join(__dirname, '../.electron_data'));
-app.setPath('sessionData', path.join(__dirname, '../.electron_session')); // Fix for cache directory errors
-const DEFAULT_NOTES_DIR = path.join(__dirname, '../notes_dev');
+// In dev: keep userData/notes local to the project so we don't pollute ~/Library.
+// In production (packaged): userData is already ~/Library/Application Support/Noted — write there.
+if (!app.isPackaged) {
+  app.setPath('userData', path.join(__dirname, '../.electron_data'));
+  app.setPath('sessionData', path.join(__dirname, '../.electron_session'));
+}
+
+const DEFAULT_NOTES_DIR = app.isPackaged
+  ? path.join(app.getPath('userData'), 'notes')
+  : path.join(__dirname, '../notes_dev');
+
 if (!fs.existsSync(DEFAULT_NOTES_DIR)) {
   fs.mkdirSync(DEFAULT_NOTES_DIR, { recursive: true });
 }
