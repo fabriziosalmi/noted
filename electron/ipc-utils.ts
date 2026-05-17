@@ -7,7 +7,21 @@ export function validateFileName(fileName: unknown): asserts fileName is string 
   if (!fileName || typeof fileName !== 'string') throw new Error('File name must be a non-empty string');
   if (isAbsolutePath(fileName)) throw new Error('Absolute paths are not allowed');
   if (fileName.includes('..')) throw new Error('Path traversal is not allowed');
-  if (!/^[\w\- .()]+\.md$/.test(fileName)) throw new Error('Invalid file name: only alphanumeric, spaces, hyphens, underscores, parentheses and .md extension allowed');
+  // Allow single-level subfolder: "folder/note.md" — no nested slashes
+  const segments = fileName.split('/');
+  if (segments.length > 2) throw new Error('Only one level of subfolder is allowed');
+  for (const seg of segments) {
+    if (!/^[\w\- .()]+$/.test(seg.replace(/\.md$/, ''))) {
+      throw new Error('Invalid file name: only alphanumeric, spaces, hyphens, underscores, parentheses allowed');
+    }
+  }
+  if (!fileName.endsWith('.md')) throw new Error('File must have .md extension');
+}
+
+export function validateFolderName(name: unknown): asserts name is string {
+  if (!name || typeof name !== 'string') throw new Error('Folder name must be a non-empty string');
+  if (name.includes('..') || name.includes('/') || name.includes('\\')) throw new Error('Invalid folder name');
+  if (!/^[\w\- .()]+$/.test(name)) throw new Error('Invalid folder name characters');
 }
 
 export function stripUnsafeHtml(html: string): string {

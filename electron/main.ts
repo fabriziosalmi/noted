@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, safeStorage, globalShortcut, nativ
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { validateFileName, stripUnsafeHtml } from './ipc-utils.js';
+import { validateFileName, validateFolderName, stripUnsafeHtml } from './ipc-utils.js';
 
 // Disable hardware acceleration only in dev to avoid GPU process crashes in sandboxed environments.
 // In production we need it for vibrancy/blur effects.
@@ -455,6 +455,140 @@ ipcMain.handle('import-vault', async (_, targetDir?: string) => {
       }
     }
     return { success: true, data: imported };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
+// ─── DOCX export ─────────────────────────────────────────────────────────────
+ipcMain.handle('export-docx', async (_, htmlContent: string, noteTitle: string) => {
+  try {
+    if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
+    const { filePath } = await dialog.showSaveDialog({
+      title: 'Esporta come DOCX',
+      defaultPath: `${noteTitle || 'Nota'}.docx`,
+      filters: [{ name: 'Word Document', extensions: ['docx'] }],
+    });
+    if (!filePath) return { success: false, error: 'Esportazione annullata' };
+
+    const safe = stripUnsafeHtml(htmlContent);
+    // Dynamic import — html-to-docx is CJS
+    const { default: HTMLtoDOCX } = await import('html-to-docx') as { default: (html: string, header: null, opts: object) => Promise<Buffer> };
+    const buf = await HTMLtoDOCX(
+      `<!DOCTYPE html><html><body>${safe}</body></html>`,
+      null,
+      { title: noteTitle, font: 'Helvetica Neue', fontSize: 24, table: { row: { cantSplit: true } } }
+    );
+    fs.writeFileSync(filePath, buf);
+    return { success: true, data: filePath };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
+// ─── Multi-folder / notebooks ─────────────────────────────────────────────────
+
+function scanNotesTree(targetDir: string) {
+  const rootNotes: object[] = [];
+  const folders: { name: string; notes: object[] }[] = [];
+
+  const entries = fs.readdirSync(targetDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue;
+    if (entry.isDirectory()) {
+      const folderPath = path.join(targetDir, entry.name);
+      const folderNotes = fs.readdirSync(folderPath)
+        .filter(f => f.endsWith('.md'))
+        .map(f => {
+          const p = path.join(folderPath, f);
+          return { name: `${entry.name}/${f}`, path: p, stats: fs.statSync(p) };
+        })
+        .sort((a, b) => b.stats.mtimeMs - a.stats.mtimeMs);
+      folders.push({ name: entry.name, notes: folderNotes });
+    } else if (entry.name.endsWith('.md')) {
+      const p = path.join(targetDir, entry.name);
+      rootNotes.push({ name: entry.name, path: p, stats: fs.statSync(p) });
+    }
+  }
+  rootNotes.sort((a: { stats: { mtimeMs: number } }, b: { stats: { mtimeMs: number } }) => b.stats.mtimeMs - a.stats.mtimeMs);
+  return { rootNotes, folders };
+}
+
+ipcMain.handle('get-notes-tree', (_, syncDir?: string) => {
+  try {
+    if (syncDir !== undefined && typeof syncDir !== 'string') throw new Error('syncDir must be a string');
+    const targetDir = getTargetDir(syncDir);
+    return { success: true, data: scanNotesTree(targetDir) };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
+ipcMain.handle('create-folder', (_, folderName: string, syncDir?: string) => {
+  try {
+    validateFolderName(folderName);
+    const targetDir = getTargetDir(syncDir);
+    const folderPath = path.join(targetDir, folderName);
+    if (fs.existsSync(folderPath)) throw new Error(`La cartella "${folderName}" esiste già`);
+    fs.mkdirSync(folderPath);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
+ipcMain.handle('rename-folder', (_, oldName: string, newName: string, syncDir?: string) => {
+  try {
+    validateFolderName(oldName);
+    validateFolderName(newName);
+    const targetDir = getTargetDir(syncDir);
+    const oldPath = path.join(targetDir, oldName);
+    const newPath = path.join(targetDir, newName);
+    if (!fs.existsSync(oldPath)) throw new Error(`Cartella "${oldName}" non trovata`);
+    if (fs.existsSync(newPath)) throw new Error(`Cartella "${newName}" esiste già`);
+    fs.renameSync(oldPath, newPath);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
+ipcMain.handle('delete-folder', (_, folderName: string, syncDir?: string) => {
+  try {
+    validateFolderName(folderName);
+    const targetDir = getTargetDir(syncDir);
+    const folderPath = path.join(targetDir, folderName);
+    if (!fs.existsSync(folderPath)) throw new Error(`Cartella "${folderName}" non trovata`);
+    // Move notes to root before deleting folder
+    for (const f of fs.readdirSync(folderPath).filter(f => f.endsWith('.md'))) {
+      fs.renameSync(path.join(folderPath, f), path.join(targetDir, f));
+    }
+    fs.rmdirSync(folderPath);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
+ipcMain.handle('move-note', (_, fileName: string, toFolder: string, syncDir?: string) => {
+  try {
+    validateFileName(fileName);
+    if (toFolder !== '') validateFolderName(toFolder);
+    const targetDir = getTargetDir(syncDir);
+    // fileName may already include a folder prefix
+    const baseName = path.basename(fileName);
+    const srcPath = path.join(targetDir, fileName);
+    const destPath = toFolder
+      ? path.join(targetDir, toFolder, baseName)
+      : path.join(targetDir, baseName);
+    if (!fs.existsSync(srcPath)) throw new Error(`Nota "${fileName}" non trovata`);
+    if (fs.existsSync(destPath)) throw new Error(`Esiste già una nota "${baseName}" nella destinazione`);
+    if (toFolder) {
+      const folderPath = path.join(targetDir, toFolder);
+      if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath);
+    }
+    fs.renameSync(srcPath, destPath);
+    return { success: true, data: toFolder ? `${toFolder}/${baseName}` : baseName };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }

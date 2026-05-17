@@ -1,5 +1,16 @@
 export {};
 
+interface NoteFileBase {
+  name: string;
+  path: string;
+  stats: { mtimeMs: number; ctimeMs: number; size: number };
+}
+
+interface NotesTree {
+  rootNotes: NoteFileBase[];
+  folders: { name: string; notes: NoteFileBase[] }[];
+}
+
 declare global {
   interface Window {
     electronAPI: {
@@ -22,8 +33,14 @@ declare global {
       getNativeTheme: () => Promise<{ isDark: boolean }>;
       onNativeThemeUpdated?: (cb: (theme: 'dark' | 'light') => void) => void;
       exportHtml: (htmlContent: string, title: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+      exportDocx: (htmlContent: string, title: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       importVault: (targetDir?: string) => Promise<{ success: boolean; data?: number; error?: string }>;
       getICloudPath: () => Promise<{ success: boolean; data?: string; error?: string }>;
+      getNotesTree: (syncDir?: string) => Promise<{ success: boolean; data?: NotesTree; error?: string }>;
+      createFolder: (name: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
+      renameFolder: (oldName: string, newName: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
+      deleteFolder: (name: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
+      moveNote: (fileName: string, toFolder: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
     };
   }
 }

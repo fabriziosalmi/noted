@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { PanelLeft, PanelRight, Download, FileDown, FileCode, Keyboard, LayoutTemplate, History, Focus } from 'lucide-react';
+import { PanelLeft, PanelRight, Download, FileDown, FileCode, FileText as FileDocx, Keyboard, LayoutTemplate, History, Focus } from 'lucide-react';
 import TurndownService from 'turndown';
 import type { Editor } from '@tiptap/react';
 import { useStore } from './store/useStore';
@@ -44,6 +44,8 @@ function App() {
     customTemplates, saveAsTemplate, deleteTemplate, createFromTemplate,
     noteLinksIndex,
     tagIndex,
+    noteFolders,
+    createFolder, renameFolder, deleteFolder, moveNote,
   } = useStore();
 
   const allTags = Object.keys(tagIndex);
@@ -128,9 +130,10 @@ function App() {
     setActiveEditor(editor);
   }, []);
 
-  const handleCreateNote = useCallback(async () => {
+  const handleCreateNote = useCallback(async (folder?: string) => {
     try {
-      await createNote(`Nuova_Nota_${Math.floor(Date.now() / 1000)}.md`);
+      const baseName = `Nuova_Nota_${Math.floor(Date.now() / 1000)}.md`;
+      await createNote(folder ? `${folder}/${baseName}` : baseName);
     } catch (err: unknown) {
       toast((err as Error).message, 'error');
     }
@@ -192,6 +195,15 @@ function App() {
       toast(res.error ?? 'Errore durante l\'esportazione PDF', 'error');
     }
   }, [toast]);
+
+  const handleExportDocx = useCallback(async () => {
+    const editor = editorRef.current;
+    if (!editor || !window.electronAPI) return;
+    const title = activeNoteName?.replace('.md', '') ?? 'Nota';
+    const res = await window.electronAPI.exportDocx(editor.getHTML(), title);
+    if (res.success) toast('DOCX esportato', 'success');
+    else toast(res.error ?? 'Errore esportazione DOCX', 'error');
+  }, [activeNoteName, toast]);
 
   const handleExportHtml = useCallback(async () => {
     const editor = editorRef.current;
@@ -282,6 +294,13 @@ function App() {
               >
                 <FileCode size={16} />
               </button>
+              <button
+                onClick={handleExportDocx}
+                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
+                title="Esporta come DOCX (Word)"
+              >
+                <FileDocx size={16} />
+              </button>
             </>
           )}
           <button onClick={() => setIsTemplatesOpen(v => !v)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors" title="Template">
@@ -310,6 +329,7 @@ function App() {
                 <ErrorBoundary>
                   <Sidebar
                     notes={filteredNotes}
+                    noteFolders={noteFolders}
                     activeNoteName={activeNoteName}
                     pinnedNotes={pinnedNotes}
                     onSelectNote={openNote}
@@ -319,6 +339,10 @@ function App() {
                     onTogglePin={togglePin}
                     onOpenDaily={handleOpenDaily}
                     onOpenSettings={() => setIsSettingsOpen(true)}
+                    onCreateFolder={async (name) => { try { await createFolder(name); } catch (e) { toast((e as Error).message, 'error'); } }}
+                    onRenameFolder={async (o, n) => { try { await renameFolder(o, n); } catch (e) { toast((e as Error).message, 'error'); } }}
+                    onDeleteFolder={async (name) => { try { await deleteFolder(name); } catch (e) { toast((e as Error).message, 'error'); } }}
+                    onMoveNote={async (f, t) => { try { await moveNote(f, t); } catch (e) { toast((e as Error).message, 'error'); } }}
                     allTags={allTags}
                     activeTagFilter={activeTagFilter}
                     onTagFilter={setActiveTagFilter}

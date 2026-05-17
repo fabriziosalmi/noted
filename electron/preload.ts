@@ -22,6 +22,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onNativeThemeUpdated: (cb: (theme: 'dark' | 'light') => void) =>
     ipcRenderer.on('native-theme-updated', (_e, theme: 'dark' | 'light') => cb(theme)),
   exportHtml: (htmlContent: string, title: string) => ipcRenderer.invoke('export-html', htmlContent, title),
+  exportDocx: (htmlContent: string, title: string) => ipcRenderer.invoke('export-docx', htmlContent, title),
   importVault: (targetDir?: string) => ipcRenderer.invoke('import-vault', targetDir),
   getICloudPath: () => ipcRenderer.invoke('get-icloud-path'),
+  getNotesTree: (syncDir?: string) => ipcRenderer.invoke('get-notes-tree', syncDir),
+  createFolder: (name: string, syncDir?: string) => ipcRenderer.invoke('create-folder', name, syncDir),
+  renameFolder: (oldName: string, newName: string, syncDir?: string) => ipcRenderer.invoke('rename-folder', oldName, newName, syncDir),
+  deleteFolder: (name: string, syncDir?: string) => ipcRenderer.invoke('delete-folder', name, syncDir),
+  moveNote: (fileName: string, toFolder: string, syncDir?: string) => ipcRenderer.invoke('move-note', fileName, toFolder, syncDir),
 });

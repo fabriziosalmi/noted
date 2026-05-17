@@ -32,14 +32,20 @@ interface SettingsState {
   typewriterMode: boolean;
 }
 
-interface NoteState {
+export interface FolderInfo {
+  name: string;
   notes: NoteFile[];
+}
+
+interface NoteState {
+  notes: NoteFile[];           // flat list (root + all subfolders) for search/backlinks
+  noteFolders: FolderInfo[];   // subfolders with their notes
   activeNoteName: string | null;
   activeNoteContent: string;
   isLoading: boolean;
   pinnedNotes: string[];
-  noteLinksIndex: Record<string, string[]>; // noteName → outgoing wikilink targets
-  tagIndex: Record<string, string[]>;       // #tag → note names
+  noteLinksIndex: Record<string, string[]>;
+  tagIndex: Record<string, string[]>;
 
   // Settings
   settings: SettingsState;
@@ -59,6 +65,10 @@ interface NoteState {
   saveAsTemplate: (name: string, content: string) => void;
   deleteTemplate: (id: string) => void;
   createFromTemplate: (template: NoteTemplate) => Promise<void>;
+  createFolder: (name: string) => Promise<void>;
+  renameFolder: (oldName: string, newName: string) => Promise<void>;
+  deleteFolder: (name: string) => Promise<void>;
+  moveNote: (fileName: string, toFolder: string) => Promise<void>;
 }
 
 export const useStore = create<NoteState>()(
@@ -72,6 +82,7 @@ export const useStore = create<NoteState>()(
       customTemplates: [],
       noteLinksIndex: {},
       tagIndex: {},
+      noteFolders: [],
 
       settings: {
         llmProvider: 'lmstudio',
@@ -109,12 +120,17 @@ export const useStore = create<NoteState>()(
       fetchNotes: async () => {
     set({ isLoading: true });
     if (window.electronAPI) {
-      const res = await window.electronAPI.getNotesList(get().settings.syncDirectory || undefined);
-      if (res.success && res.data) {
-        set({ notes: res.data as NoteFile[], isLoading: false });
+      const syncDir = get().settings.syncDirectory || undefined;
+      const treeRes = await window.electronAPI.getNotesTree?.(syncDir);
+      if (treeRes?.success && treeRes.data) {
+        const { rootNotes, folders } = treeRes.data as { rootNotes: NoteFile[]; folders: FolderInfo[] };
+        const allNotes = [...rootNotes, ...folders.flatMap(f => f.notes)];
+        set({ notes: allNotes, noteFolders: folders, isLoading: false });
       } else {
-        set({ isLoading: false });
-        console.error('Failed to fetch notes:', res.error);
+        // Fallback to flat list for older preload
+        const res = await window.electronAPI.getNotesList(syncDir);
+        if (res.success && res.data) set({ notes: res.data as NoteFile[], isLoading: false });
+        else set({ isLoading: false });
       }
     } else {
       set({ isLoading: false });
@@ -243,7 +259,39 @@ export const useStore = create<NoteState>()(
       set({ activeNoteName: null, activeNoteContent: '' });
     }
     await get().fetchNotes();
-  }
+  },
+
+  createFolder: async (name: string) => {
+    if (!window.electronAPI) return;
+    const res = await window.electronAPI.createFolder(name, get().settings.syncDirectory || undefined);
+    if (!res.success) throw new Error(res.error ?? 'Impossibile creare la cartella');
+    await get().fetchNotes();
+  },
+
+  renameFolder: async (oldName: string, newName: string) => {
+    if (!window.electronAPI) return;
+    const res = await window.electronAPI.renameFolder(oldName, newName, get().settings.syncDirectory || undefined);
+    if (!res.success) throw new Error(res.error ?? 'Impossibile rinominare la cartella');
+    await get().fetchNotes();
+  },
+
+  deleteFolder: async (name: string) => {
+    if (!window.electronAPI) return;
+    const res = await window.electronAPI.deleteFolder(name, get().settings.syncDirectory || undefined);
+    if (!res.success) throw new Error(res.error ?? 'Impossibile eliminare la cartella');
+    await get().fetchNotes();
+  },
+
+  moveNote: async (fileName: string, toFolder: string) => {
+    if (!window.electronAPI) return;
+    const res = await window.electronAPI.moveNote(fileName, toFolder, get().settings.syncDirectory || undefined);
+    if (!res.success) throw new Error(res.error ?? 'Impossibile spostare la nota');
+    const { activeNoteName } = get();
+    if (activeNoteName === fileName && res.data) {
+      await get().openNote(res.data);
+    }
+    await get().fetchNotes();
+  },
 }),
 {
   name: 'noted-storage',
