@@ -273,7 +273,7 @@ function App() {
               <button
                 onClick={() => updateSettings({ focusMode: !settings.focusMode })}
                 className={`p-1 rounded transition-colors ${settings.focusMode ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600'}`}
-                title="Focus mode (Cmd+Shift+F)"
+                title="Modalità focus (⌘⇧F)"
               >
                 <Focus size={16} />
               </button>
@@ -374,7 +374,7 @@ function App() {
               <div className="mx-auto max-w-3xl px-12 pt-6">
                 <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-xl px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
                   <span className="text-base">✨</span>
-                  <span>Configura un modello AI in <button onClick={() => setIsSettingsOpen(true)} className="underline underline-offset-2 font-medium hover:text-amber-900 dark:hover:text-amber-200">Impostazioni</button> per sbloccare ghost text, slash commands e tag automatici.</span>
+                  <span>Configura un modello AI in <button onClick={() => setIsSettingsOpen(true)} className="underline underline-offset-2 font-medium hover:text-amber-900 dark:hover:text-amber-200">Impostazioni</button> per sbloccare il completamento AI in linea, i comandi rapidi e i tag automatici.</span>
                 </div>
               </div>
             )}

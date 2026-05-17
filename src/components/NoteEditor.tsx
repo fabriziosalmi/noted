@@ -331,7 +331,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       {isSmartPasting && (
         <div className="fixed top-14 right-4 bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-full flex items-center space-x-2 shadow-lg animate-pulse z-30">
           <Bot size={14} />
-          <span>Smart Paste...</span>
+          <span>Incolla intelligente...</span>
         </div>
       )}
 

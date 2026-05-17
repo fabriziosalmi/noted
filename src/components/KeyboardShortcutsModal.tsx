@@ -10,19 +10,19 @@ const SECTIONS: { title: string; rows: ShortcutRow[] }[] = [
   {
     title: 'Generale',
     rows: [
-      { keys: ['⌘', 'P'], description: 'Quick open — cerca e apri nota' },
+      { keys: ['⌘', 'P'], description: 'Apertura rapida — cerca e apri nota' },
       { keys: ['⌘', 'S'], description: 'Salva immediatamente' },
       { keys: ['⌘', 'F'], description: 'Cerca nel documento' },
-      { keys: ['⌘', '⇧', 'F'], description: 'Focus mode (sfuma tutto tranne il paragrafo corrente)' },
+      { keys: ['⌘', '⇧', 'F'], description: 'Modalità focus (sfuma tutto tranne il paragrafo corrente)' },
       { keys: ['?'], description: 'Mostra questa finestra' },
     ],
   },
   {
     title: 'AI',
     rows: [
-      { keys: ['/'], description: 'Slash commands AI — /continua, /espandi, /riassumi, /migliora, /punti, /traduci' },
-      { keys: ['Tab'], description: 'Accetta suggerimento ghost text (appare dopo 1.2s di pausa)' },
-      { keys: ['Esc'], description: 'Scarta ghost text' },
+      { keys: ['/'], description: 'Comandi AI — /continua, /espandi, /riassumi, /migliora, /punti, /traduci' },
+      { keys: ['Tab'], description: 'Accetta il suggerimento AI in linea (appare dopo 1.2s di pausa)' },
+      { keys: ['Esc'], description: 'Scarta il suggerimento AI' },
     ],
   },
   {
