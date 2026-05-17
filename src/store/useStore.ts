@@ -24,6 +24,10 @@ interface SettingsState {
   showToolbar: boolean;
   showAiBar: boolean;
   theme: 'auto' | 'light' | 'dark';
+  focusMode: boolean;
+  editorFont: 'system' | 'serif' | 'mono';
+  editorFontSize: 'sm' | 'md' | 'lg' | 'xl';
+  typewriterMode: boolean;
 }
 
 interface NoteState {
@@ -74,6 +78,10 @@ export const useStore = create<NoteState>()(
         showToolbar: true,
         showAiBar: true,
         theme: 'auto' as const,
+        focusMode: false,
+        editorFont: 'system' as const,
+        editorFontSize: 'md' as const,
+        typewriterMode: false,
       },
 
       updateSettings: (newSettings) => {

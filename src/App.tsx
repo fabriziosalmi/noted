@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { PanelLeft, PanelRight, Download, FileDown, Keyboard, LayoutTemplate, History } from 'lucide-react';
+import { PanelLeft, PanelRight, Download, FileDown, Keyboard, LayoutTemplate, History, Focus } from 'lucide-react';
 import TurndownService from 'turndown';
 import type { Editor } from '@tiptap/react';
 import { useStore } from './store/useStore';
@@ -42,6 +42,11 @@ function App() {
     customTemplates, saveAsTemplate, deleteTemplate, createFromTemplate,
     noteLinksIndex,
   } = useStore();
+
+  const fontClass = `editor-font-${settings.editorFont ?? 'system'}`;
+  const sizeClass = `editor-size-${settings.editorFontSize ?? 'md'}`;
+  const focusClass = settings.focusMode ? 'focus-mode' : '';
+  const typewriterClass = settings.typewriterMode ? 'typewriter-mode' : '';
 
   // Compute backlinks: notes that contain [[activeNoteName]] in their links index
   const backlinks = activeNoteName
@@ -86,14 +91,18 @@ function App() {
       if (e.key === '?' && !e.metaKey && !e.ctrlKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
         setIsShortcutsOpen(v => !v);
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f' && !e.shiftKey) {
         e.preventDefault();
         setFindOpen(v => !v);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'F') {
+        e.preventDefault();
+        updateSettings({ focusMode: !settings.focusMode });
       }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, []);
+  }, [settings.focusMode, updateSettings]);
 
   const handleEditorReady = useCallback((editor: Editor | null) => {
     editorRef.current = editor;
@@ -174,10 +183,10 @@ function App() {
   });
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-white dark:bg-gray-900">
+    <div className={`h-screen w-screen flex flex-col bg-white/85 dark:bg-gray-900/85 ${fontClass} ${sizeClass}`}>
       {/* Titlebar */}
       <div
-        className="h-10 w-full flex items-center px-4 drag-region bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"
+        className="h-10 w-full flex items-center px-4 drag-region vibrancy-titlebar border-b border-gray-200/60 dark:border-gray-700/60"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <div className="flex space-x-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
@@ -193,6 +202,13 @@ function App() {
                 title="Cronologia versioni"
               >
                 <History size={16} />
+              </button>
+              <button
+                onClick={() => updateSettings({ focusMode: !settings.focusMode })}
+                className={`p-1 rounded transition-colors ${settings.focusMode ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600'}`}
+                title="Focus mode (Cmd+Shift+F)"
+              >
+                <Focus size={16} />
               </button>
               <button
                 onClick={handleExportMarkdown}
@@ -232,7 +248,7 @@ function App() {
 
           {leftOpen && (
             <>
-              <Panel defaultSize={20} minSize={15} maxSize={30} className="bg-gray-50 dark:bg-gray-800 flex flex-col border-r border-gray-200 dark:border-gray-700">
+              <Panel defaultSize={20} minSize={15} maxSize={30} className="vibrancy-sidebar flex flex-col border-r border-gray-200/60 dark:border-gray-700/60">
                 <ErrorBoundary>
                   <Sidebar
                     notes={notes}
@@ -265,7 +281,7 @@ function App() {
               />
             )}
             {/* Scrollable writing area — pure content, no chrome */}
-            <div className="flex-1 overflow-y-auto relative">
+            <div className={`flex-1 overflow-y-auto relative ${focusClass} ${typewriterClass}`}>
               <div className="max-w-3xl mx-auto px-12 py-10">
                 <ErrorBoundary>
                   <NoteEditor

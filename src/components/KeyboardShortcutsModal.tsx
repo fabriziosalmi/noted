@@ -12,6 +12,7 @@ const SECTIONS: { title: string; rows: ShortcutRow[] }[] = [
     rows: [
       { keys: ['⌘', 'S'], description: 'Salva immediatamente' },
       { keys: ['⌘', 'F'], description: 'Cerca nel documento' },
+      { keys: ['⌘', '⇧', 'F'], description: 'Focus mode (sfuma tutto tranne il paragrafo corrente)' },
       { keys: ['?'], description: 'Mostra questa finestra' },
     ],
   },

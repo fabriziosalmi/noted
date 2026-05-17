@@ -18,4 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveCapture: (text: string) => ipcRenderer.invoke('save-capture', text),
   closeCapture: () => ipcRenderer.invoke('close-capture'),
   onRefreshNotes: (cb: () => void) => ipcRenderer.on('refresh-notes', cb),
+  getNativeTheme: () => ipcRenderer.invoke('get-native-theme') as Promise<{ isDark: boolean }>,
+  onNativeThemeUpdated: (cb: (theme: 'dark' | 'light') => void) =>
+    ipcRenderer.on('native-theme-updated', (_e, theme: 'dark' | 'light') => cb(theme)),
 });

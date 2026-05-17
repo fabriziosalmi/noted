@@ -1,11 +1,14 @@
-import { app, BrowserWindow, ipcMain, dialog, safeStorage, globalShortcut } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, safeStorage, globalShortcut, nativeTheme } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { validateFileName, stripUnsafeHtml } from './ipc-utils.js';
 
-// Fix GPU Process crashing in dev mode
-app.disableHardwareAcceleration();
+// Disable hardware acceleration only in dev to avoid GPU process crashes in sandboxed environments.
+// In production we need it for vibrancy/blur effects.
+if (!app.isPackaged) {
+  app.disableHardwareAcceleration();
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,13 +51,24 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1200,
     height: 800,
-    titleBarStyle: 'hiddenInset', // Native Apple look
+    minWidth: 720,
+    minHeight: 500,
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 16, y: 13 },
+    vibrancy: 'under-window',
+    visualEffectState: 'active',
+    backgroundColor: '#00000000',
     icon: path.join(process.env.VITE_PUBLIC, 'icon.svg'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
+  });
+
+  // Forward native theme changes to renderer
+  nativeTheme.on('updated', () => {
+    win?.webContents.send('native-theme-updated', nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
   });
 
   if (VITE_DEV_SERVER_URL) {
@@ -380,6 +394,10 @@ ipcMain.handle('export-pdf', async (event, htmlContent: string) => {
   }
 });
 
+
+ipcMain.handle('get-native-theme', () => ({
+  isDark: nativeTheme.shouldUseDarkColors,
+}));
 
 // Proxy LLM HTTP requests from renderer — avoids CORS/CSP issues
 ipcMain.handle('llm-fetch', async (_, url: string, options: { method: string; headers: Record<string, string>; body: string }) => {

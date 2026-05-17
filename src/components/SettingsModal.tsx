@@ -12,6 +12,10 @@ interface Settings {
   showToolbar: boolean;
   showAiBar: boolean;
   theme: 'auto' | 'light' | 'dark';
+  focusMode: boolean;
+  editorFont: 'system' | 'serif' | 'mono';
+  editorFontSize: 'sm' | 'md' | 'lg' | 'xl';
+  typewriterMode: boolean;
 }
 
 interface SettingsModalProps {
@@ -182,13 +186,14 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onClose }: S
             <p className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Editor</p>
             <div className="space-y-2">
               {([
-                { key: 'showToolbar', label: 'Mostra barra formattazione (H1/H2, Grassetto, Corsivo…)' },
-                { key: 'showAiBar',   label: 'Mostra barra AI (Continua, Espandi, Raffina…)' },
+                { key: 'showToolbar',    label: 'Mostra barra formattazione (H1/H2, Grassetto, Corsivo…)' },
+                { key: 'showAiBar',      label: 'Mostra barra AI (Continua, Espandi, Raffina…)' },
+                { key: 'typewriterMode', label: 'Typewriter mode — cursore sempre al centro' },
               ] as const).map(({ key, label }) => (
                 <label key={key} className="flex items-center gap-3 cursor-pointer select-none">
                   <div
                     role="checkbox"
-                    aria-checked={settings[key]}
+                    aria-checked={!!settings[key]}
                     tabIndex={0}
                     onClick={() => onUpdate({ [key]: !settings[key] })}
                     onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onUpdate({ [key]: !settings[key] })}
@@ -198,6 +203,55 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onClose }: S
                   </div>
                   <span className="text-sm text-gray-600 dark:text-gray-300">{label}</span>
                 </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Font family */}
+          <div>
+            <p className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Font editor</p>
+            <div className="flex gap-2">
+              {([
+                { value: 'system', label: 'Sistema', preview: '-apple-system, sans-serif' },
+                { value: 'serif',  label: 'Serif',   preview: 'Georgia, "New York"' },
+                { value: 'mono',   label: 'Mono',    preview: '"SF Mono", Menlo' },
+              ] as const).map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => onUpdate({ editorFont: value })}
+                  className={`flex-1 py-1.5 rounded-md text-sm border transition-colors ${
+                    (settings.editorFont ?? 'system') === value
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                      : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Font size */}
+          <div>
+            <p className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Dimensione testo</p>
+            <div className="flex gap-2">
+              {([
+                { value: 'sm', label: 'Piccolo' },
+                { value: 'md', label: 'Normale' },
+                { value: 'lg', label: 'Grande' },
+                { value: 'xl', label: 'XL' },
+              ] as const).map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => onUpdate({ editorFontSize: value })}
+                  className={`flex-1 py-1.5 rounded-md text-sm border transition-colors ${
+                    (settings.editorFontSize ?? 'md') === value
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                      : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  {label}
+                </button>
               ))}
             </div>
           </div>

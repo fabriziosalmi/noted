@@ -19,6 +19,8 @@ declare global {
       saveCapture: (text: string) => Promise<{ success: boolean; fileName?: string; error?: string }>;
       closeCapture: () => Promise<void>;
       onRefreshNotes: (cb: () => void) => void;
+      getNativeTheme: () => Promise<{ isDark: boolean }>;
+      onNativeThemeUpdated?: (cb: (theme: 'dark' | 'light') => void) => void;
     };
   }
 }

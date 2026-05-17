@@ -39,5 +39,12 @@ window.electronAPI = {
   storeApiKey: vi.fn().mockResolvedValue({ success: true }),
   getApiKey: vi.fn().mockResolvedValue({ success: true, data: '' }),
   llmFetch: vi.fn().mockImplementation(async (url: string, options: { method: string; headers: Record<string, string>; body: string }) => { const res = await globalThis.fetch(url, options); const text = await res.text(); return { ok: res.ok, status: res.status, text }; }),
+  getNoteHistory: vi.fn().mockResolvedValue({ success: true, data: [] }),
+  readNoteSnapshot: vi.fn().mockResolvedValue({ success: true, data: '' }),
+  saveCapture: vi.fn().mockResolvedValue({ success: true }),
+  closeCapture: vi.fn().mockResolvedValue(undefined),
+  onRefreshNotes: vi.fn(),
+  getNativeTheme: vi.fn().mockResolvedValue({ isDark: false }),
+  onNativeThemeUpdated: vi.fn(),
 };
 } // end if (typeof window !== 'undefined')

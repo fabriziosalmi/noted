@@ -9,56 +9,153 @@
   --color-mac-text: #333333;
 }
 
+/* ─── Global ─────────────────────────────────────────────────────────── */
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-color: var(--color-mac-bg);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  background: transparent;
   color: var(--color-mac-text);
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Tiptap styles */
+/* Smooth theme transitions — only on color/bg, not layout */
+*, *::before, *::after {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+/* But never animate transforms/opacity in animations (feels sluggish) */
+.no-transition, .no-transition * { transition: none !important; }
+
+/* ─── Scrollbars (macOS style) ───────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.32); }
+.dark ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); }
+.dark ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.32); }
+
+/* ─── Vibrancy sidebar ───────────────────────────────────────────────── */
+/* Let Electron's vibrancy show through for the sidebar and titlebar */
+.vibrancy-sidebar {
+  background: rgba(246, 246, 246, 0.72) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+.dark .vibrancy-sidebar {
+  background: rgba(30, 30, 34, 0.72) !important;
+}
+.vibrancy-titlebar {
+  background: rgba(246, 246, 246, 0.65) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+.dark .vibrancy-titlebar {
+  background: rgba(26, 26, 30, 0.65) !important;
+}
+
+/* ─── Editor font variants ───────────────────────────────────────────── */
+.editor-font-system .ProseMirror {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+}
+.editor-font-serif .ProseMirror {
+  font-family: "New York", "Georgia", "Times New Roman", serif;
+}
+.editor-font-mono .ProseMirror {
+  font-family: ui-monospace, "SF Mono", Menlo, "Cascadia Code", monospace;
+}
+
+/* ─── Editor font sizes ──────────────────────────────────────────────── */
+.editor-size-sm .ProseMirror { font-size: 14px; line-height: 1.6; }
+.editor-size-md .ProseMirror { font-size: 16px; line-height: 1.7; }
+.editor-size-lg .ProseMirror { font-size: 18px; line-height: 1.75; }
+.editor-size-xl .ProseMirror { font-size: 21px; line-height: 1.8; }
+
+/* ─── Tiptap / ProseMirror ───────────────────────────────────────────── */
 .ProseMirror {
   outline: none;
   min-height: 100vh;
   padding-bottom: 50vh;
+  color: #1a1a1a;
+  caret-color: #6366f1;
 }
-.ProseMirror > * + * {
-  margin-top: 0.75em;
+.dark .ProseMirror { color: #e8e8ed; }
+
+.ProseMirror > * + * { margin-top: 0.75em; }
+
+.ProseMirror h1 {
+  font-size: 2em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: #111;
 }
-.ProseMirror h1 { font-size: 2em; font-weight: bold; }
-.ProseMirror h2 { font-size: 1.5em; font-weight: bold; }
-.ProseMirror h3 { font-size: 1.17em; font-weight: bold; }
-.ProseMirror p { font-size: 1em; line-height: 1.5; }
+.ProseMirror h2 {
+  font-size: 1.45em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: #1a1a1a;
+}
+.ProseMirror h3 {
+  font-size: 1.17em;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+.dark .ProseMirror h1 { color: #f2f2f7; }
+.dark .ProseMirror h2,
+.dark .ProseMirror h3 { color: #e8e8ed; }
+
+.ProseMirror p { margin: 0; }
 
 .ProseMirror p.is-editor-empty:first-child::before {
-  color: #adb5bd;
+  color: #b0b0b8;
   content: attr(data-placeholder);
   float: left;
   height: 0;
   pointer-events: none;
 }
+.dark .ProseMirror p.is-editor-empty:first-child::before { color: #48484a; }
 
-/* Table styles */
+/* ─── Focus / Typewriter mode ───────────────────────────────────────── */
+.focus-mode .ProseMirror > * {
+  opacity: 0.25;
+  transition: opacity 0.2s ease;
+}
+.focus-mode .ProseMirror > *.has-focus,
+.focus-mode .ProseMirror > *:focus-within {
+  opacity: 1;
+}
+/* Typewriter: keep cursor vertically centred */
+.typewriter-mode {
+  scroll-padding-top: 40vh;
+}
+
+/* ─── Tables ─────────────────────────────────────────────────────────── */
 .ProseMirror table {
   border-collapse: collapse;
   width: 100%;
   margin: 1em 0;
   font-size: 0.9em;
   overflow: hidden;
+  border-radius: 8px;
 }
 .ProseMirror table td,
 .ProseMirror table th {
-  border: 1px solid #d1d5db;
+  border: 1px solid #e5e7eb;
   padding: 6px 12px;
   vertical-align: top;
   min-width: 80px;
   position: relative;
 }
 .ProseMirror table th {
-  background: #f3f4f6;
+  background: #f9fafb;
   font-weight: 600;
   text-align: left;
+  color: #374151;
 }
 .ProseMirror table .selectedCell::after {
   background: rgba(99, 102, 241, 0.1);
@@ -78,16 +175,22 @@ body {
 }
 .tableWrapper { overflow-x: auto; }
 
-/* Code block syntax highlighting (lowlight / highlight.js tokens) */
+.dark .ProseMirror table td,
+.dark .ProseMirror table th { border-color: #2c2c2e; }
+.dark .ProseMirror table th { background: #1c1c1e; color: #ebebf5; }
+
+/* ─── Code blocks ────────────────────────────────────────────────────── */
 .ProseMirror pre {
   background: #f3f4f6;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 1em 1.2em;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
   font-size: 0.875em;
   overflow-x: auto;
+  border: 1px solid #e5e7eb;
 }
 .ProseMirror pre code { background: none; padding: 0; }
+.dark .ProseMirror pre { background: #1c1c1e; border-color: #2c2c2e; }
 
 /* Token colours — light */
 .hljs-comment, .hljs-quote { color: #6b7280; font-style: italic; }
@@ -104,37 +207,33 @@ body {
 .hljs-emphasis { font-style: italic; }
 .hljs-strong { font-weight: bold; }
 
-/* Wikilinks */
+/* Token colours — dark */
+.dark .hljs-comment, .dark .hljs-quote { color: #636366; }
+.dark .hljs-keyword, .dark .hljs-selector-tag, .dark .hljs-built_in { color: #bf5af2; }
+.dark .hljs-string, .dark .hljs-attr { color: #30d158; }
+.dark .hljs-number, .dark .hljs-literal { color: #ff9f0a; }
+.dark .hljs-title, .dark .hljs-section, .dark .hljs-name { color: #0a84ff; }
+.dark .hljs-type, .dark .hljs-class { color: #5ac8fa; }
+.dark .hljs-variable, .dark .hljs-params { color: #64d2ff; }
+.dark .hljs-symbol, .dark .hljs-bullet { color: #ff375f; }
+.dark .hljs-meta { color: #636366; }
+
+/* ─── Wikilinks ──────────────────────────────────────────────────────── */
 .ProseMirror .wikilink {
-  color: #6366f1;
-  background: #eef2ff;
-  border-radius: 3px;
+  color: #5856d6;
+  background: rgba(88, 86, 214, 0.08);
+  border-radius: 4px;
   padding: 0 3px;
   cursor: pointer;
   text-decoration: none;
   font-weight: 500;
 }
-.ProseMirror .wikilink:hover { background: #e0e7ff; }
-.ProseMirror .wikilink-raw {
-  color: #6366f1;
-  opacity: 0.7;
-}
-.dark .ProseMirror .wikilink { background: #312e81; color: #a5b4fc; }
-.dark .ProseMirror .wikilink:hover { background: #3730a3; }
+.ProseMirror .wikilink:hover { background: rgba(88, 86, 214, 0.16); }
+.ProseMirror .wikilink-raw { color: #5856d6; opacity: 0.6; }
+.dark .ProseMirror .wikilink { color: #bf5af2; background: rgba(191, 90, 242, 0.12); }
+.dark .ProseMirror .wikilink:hover { background: rgba(191, 90, 242, 0.22); }
 
-/* Dark mode ProseMirror */
-.dark .ProseMirror { color: #e5e7eb; }
-.dark .ProseMirror table td,
-.dark .ProseMirror table th { border-color: #374151; }
-.dark .ProseMirror table th { background: #1f2937; }
-.dark .ProseMirror p.is-editor-empty:first-child::before { color: #4b5563; }
-.dark .ProseMirror pre { background: #1e1e2e; }
-.dark .hljs-comment, .dark .hljs-quote { color: #6b7280; }
-.dark .hljs-keyword, .dark .hljs-selector-tag, .dark .hljs-built_in { color: #a78bfa; }
-.dark .hljs-string, .dark .hljs-attr { color: #34d399; }
-.dark .hljs-number, .dark .hljs-literal { color: #fbbf24; }
-.dark .hljs-title, .dark .hljs-section, .dark .hljs-name { color: #60a5fa; }
-.dark .hljs-type, .dark .hljs-class { color: #22d3ee; }
-.dark .hljs-variable, .dark .hljs-params { color: #93c5fd; }
-.dark .hljs-symbol, .dark .hljs-bullet { color: #f472b6; }
-.dark .hljs-meta { color: #6b7280; }
+/* ─── Panel resize handle ────────────────────────────────────────────── */
+[data-panel-resize-handle-id] {
+  transition: background-color 0.15s ease;
+}
