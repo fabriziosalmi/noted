@@ -14,6 +14,7 @@ import { NoteAdvisorBadge, NoteAdvisorPanel } from './components/NoteAdvisor';
 import { EditorToolbar } from './components/EditorToolbar';
 import { TemplatesModal } from './components/TemplatesModal';
 import { NoteHistoryModal } from './components/NoteHistoryModal';
+import { GitBadge, GitPanel } from './components/GitPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastStack } from './components/Toast';
 import { QuickOpen } from './components/QuickOpen';
@@ -31,6 +32,7 @@ function App() {
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isGitOpen, setIsGitOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
@@ -313,6 +315,7 @@ function App() {
             <LayoutTemplate size={16} />
           </button>
           <NoteAdvisorBadge count={suggestions.length} onClick={() => setIsAdvisorOpen(v => !v)} />
+          {settings.gitEnabled && <GitBadge onClick={() => setIsGitOpen(v => !v)} syncDir={settings.syncDirectory} />}
           <button onClick={() => setIsShortcutsOpen(true)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400" title={t('shortcuts')}>
             <Keyboard size={16} />
           </button>
@@ -420,6 +423,14 @@ function App() {
           onDismiss={dismissSuggestion}
           onDismissAll={() => { dismissAll(); setIsAdvisorOpen(false); }}
           onClose={() => setIsAdvisorOpen(false)}
+        />
+      )}
+
+      {isGitOpen && settings.gitEnabled && (
+        <GitPanel
+          syncDir={settings.syncDirectory}
+          activeNoteName={activeNoteName}
+          onClose={() => setIsGitOpen(false)}
         />
       )}
 

@@ -42,6 +42,45 @@ declare global {
       deleteFolder: (name: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       moveNote: (fileName: string, toFolder: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       setNoteTitle: (noteName: string) => Promise<void>;
+      gitStoreToken: (token: string) => Promise<{ success: boolean; error?: string }>;
+      gitGetToken: () => Promise<{ success: boolean; data?: string; error?: string }>;
+      // Git ops
+      gitStatus: (syncDir?: string) => Promise<GitResult<GitStatusData>>;
+      gitInit: (syncDir?: string) => Promise<GitResult>;
+      gitCommitNote: (noteName: string, message?: string, syncDir?: string) => Promise<GitResult<{ hash: string }>>;
+      gitCommitAll: (message: string, syncDir?: string) => Promise<GitResult<{ hash: string }>>;
+      gitPreparePrBranch: (noteName: string, commitMessage?: string, syncDir?: string) => Promise<GitResult<{ branch: string; hash: string }>>;
+      gitPushBranch: (branch: string, remoteUrl: string, syncDir?: string) => Promise<GitResult>;
+      gitLog: (noteName?: string, syncDir?: string) => Promise<GitResult<GitLogEntry[]>>;
+      gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => Promise<GitResult<PrData>>;
     };
   }
+}
+
+interface GitResult<T = undefined> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
+interface GitStatusData {
+  initialized: boolean;
+  branch: string;
+  dirty: boolean;
+  ahead: number;
+  stagedFiles: string[];
+  modifiedFiles: string[];
+}
+
+interface GitLogEntry {
+  hash: string;
+  date: string;
+  message: string;
+  author: string;
+}
+
+interface PrData {
+  url: string;
+  number: number;
+  title: string;
 }

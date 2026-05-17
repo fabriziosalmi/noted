@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { validateFileName, validateFolderName, stripUnsafeHtml } from './ipc-utils.js';
+import * as gitOps from './git-ops.js';
 
 // Disable hardware acceleration only in dev to avoid GPU process crashes in sandboxed environments.
 // In production we need it for vibrancy/blur effects.
@@ -40,6 +41,7 @@ const getTargetDir = (customDir?: string) => {
 };
 
 let encryptedApiKey: Buffer | null = null;
+let encryptedGhToken: Buffer | null = null;
 
 process.env.DIST = path.join(__dirname, '../dist');
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public');
@@ -649,4 +651,75 @@ ipcMain.handle('set-note-title', (_, noteName: string) => {
   if (!win) return;
   const title = noteName ? `${noteName.replace(/\.md$/, '')} — Noted` : 'Noted';
   win.setTitle(title);
+});
+
+ipcMain.handle('git-store-token', (_, plaintext: string) => {
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      encryptedGhToken = safeStorage.encryptString(plaintext);
+    } else {
+      encryptedGhToken = Buffer.from(plaintext, 'utf-8');
+    }
+    return { success: true };
+  } catch (err) { return { success: false, error: (err as Error).message }; }
+});
+
+ipcMain.handle('git-get-token', () => {
+  try {
+    if (!encryptedGhToken) return { success: true, data: '' };
+    const plaintext = safeStorage.isEncryptionAvailable()
+      ? safeStorage.decryptString(encryptedGhToken)
+      : encryptedGhToken.toString('utf-8');
+    return { success: true, data: plaintext };
+  } catch (err) { return { success: false, error: (err as Error).message }; }
+});
+
+// ─── Git IPC ──────────────────────────────────────────────────────────────────
+
+ipcMain.handle('git-status', async (_, syncDir?: string) => {
+  const dir = getTargetDir(syncDir);
+  return gitOps.getStatus(dir);
+});
+
+ipcMain.handle('git-init', async (_, syncDir?: string) => {
+  const dir = getTargetDir(syncDir);
+  return gitOps.initRepo(dir);
+});
+
+ipcMain.handle('git-commit-note', async (_, noteName: string, message: string | undefined, syncDir?: string) => {
+  if (!noteName || typeof noteName !== 'string') return { success: false, error: 'Note name required' };
+  try { validateFileName(noteName); } catch (e) { return { success: false, error: (e as Error).message }; }
+  const dir = getTargetDir(syncDir);
+  return gitOps.commitNote(dir, noteName, message);
+});
+
+ipcMain.handle('git-commit-all', async (_, message: string, syncDir?: string) => {
+  if (!message || typeof message !== 'string') return { success: false, error: 'Commit message required' };
+  const dir = getTargetDir(syncDir);
+  return gitOps.commitAll(dir, message);
+});
+
+ipcMain.handle('git-prepare-pr-branch', async (_, noteName: string, commitMessage: string | undefined, syncDir?: string) => {
+  if (!noteName || typeof noteName !== 'string') return { success: false, error: 'Note name required' };
+  try { validateFileName(noteName); } catch (e) { return { success: false, error: (e as Error).message }; }
+  const dir = getTargetDir(syncDir);
+  return gitOps.preparePrBranch(dir, noteName, commitMessage);
+});
+
+ipcMain.handle('git-push-branch', async (_, branch: string, remoteUrl: string, syncDir?: string) => {
+  if (!branch || !remoteUrl) return { success: false, error: 'branch and remoteUrl required' };
+  const dir = getTargetDir(syncDir);
+  return gitOps.pushBranch(dir, branch, remoteUrl);
+});
+
+ipcMain.handle('git-log', async (_, noteName: string | undefined, syncDir?: string) => {
+  const dir = getTargetDir(syncDir);
+  return gitOps.getLog(dir, noteName);
+});
+
+ipcMain.handle('git-create-pr', async (_, params: {
+  remoteUrl: string; token: string; branch: string; base: string; title: string; body: string;
+}) => {
+  if (!params || typeof params !== 'object') return { success: false, error: 'Invalid params' };
+  return gitOps.createGitHubPr(params);
 });

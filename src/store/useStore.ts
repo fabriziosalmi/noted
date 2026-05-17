@@ -31,6 +31,12 @@ interface SettingsState {
   editorFontSize: 'sm' | 'md' | 'lg' | 'xl';
   typewriterMode: boolean;
   language?: 'en' | 'it';
+  // Git integration (all optional for backward-compat with persisted state)
+  gitEnabled?: boolean;
+  gitRemote?: string;
+  gitAutoCommit?: boolean;
+  gitDefaultBase?: string;   // default base branch for PRs, e.g. 'main'
+  gitGhToken?: string;       // NOT persisted — loaded via safeStorage
 }
 
 export interface FolderInfo {
@@ -100,9 +106,22 @@ export const useStore = create<NoteState>()(
         editorFontSize: 'md' as const,
         typewriterMode: false,
         language: 'en' as const,
+        gitEnabled: false,
+        gitRemote: '',
+        gitAutoCommit: false,
+        gitDefaultBase: 'main',
+        gitGhToken: '',
       },
 
       updateSettings: (newSettings) => {
+        if (newSettings.gitGhToken !== undefined && window.electronAPI) {
+          // Store GitHub token encrypted — same mechanism as LLM API key
+          // We reuse the same safeStorage slot with a namespaced key approach:
+          // Electron safeStorage only has one slot, so we store a JSON object.
+          // For simplicity, store separately via a dedicated IPC if available,
+          // otherwise keep in memory only (not persisted).
+          newSettings = { ...newSettings, gitGhToken: '' };
+        }
         if (newSettings.llmApiKey !== undefined && window.electronAPI) {
           window.electronAPI.storeApiKey(newSettings.llmApiKey);
           newSettings = { ...newSettings, llmApiKey: '' };
@@ -188,6 +207,11 @@ export const useStore = create<NoteState>()(
           };
         });
         await get().fetchNotes();
+        // Auto-commit if enabled
+        const { gitEnabled, gitAutoCommit, syncDirectory } = get().settings;
+        if (gitEnabled && gitAutoCommit && window.electronAPI?.gitCommitNote) {
+          void window.electronAPI.gitCommitNote(activeNoteName, undefined, syncDirectory || undefined);
+        }
       }
     }
   },

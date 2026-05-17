@@ -56,5 +56,15 @@ window.electronAPI = {
   deleteFolder: vi.fn().mockResolvedValue({ success: true }),
   moveNote: vi.fn().mockResolvedValue({ success: true, data: 'moved.md' }),
   setNoteTitle: vi.fn().mockResolvedValue(undefined),
+  gitStoreToken: vi.fn().mockResolvedValue({ success: true }),
+  gitGetToken: vi.fn().mockResolvedValue({ success: true, data: '' }),
+  gitStatus: vi.fn().mockResolvedValue({ success: true, data: { initialized: false, branch: 'main', dirty: false, ahead: 0, stagedFiles: [], modifiedFiles: [] } }),
+  gitInit: vi.fn().mockResolvedValue({ success: true }),
+  gitCommitNote: vi.fn().mockResolvedValue({ success: true, data: { hash: 'abc1234' } }),
+  gitCommitAll: vi.fn().mockResolvedValue({ success: true, data: { hash: 'abc1234' } }),
+  gitPreparePrBranch: vi.fn().mockResolvedValue({ success: true, data: { branch: 'note/test', hash: 'abc1234' } }),
+  gitPushBranch: vi.fn().mockResolvedValue({ success: true }),
+  gitLog: vi.fn().mockResolvedValue({ success: true, data: [] }),
+  gitCreatePr: vi.fn().mockResolvedValue({ success: true, data: { url: 'https://github.com/x/y/pull/1', number: 1, title: 'Test PR' } }),
 };
 } // end if (typeof window !== 'undefined')

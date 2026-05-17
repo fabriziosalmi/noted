@@ -31,4 +31,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteFolder: (name: string, syncDir?: string) => ipcRenderer.invoke('delete-folder', name, syncDir),
   moveNote: (fileName: string, toFolder: string, syncDir?: string) => ipcRenderer.invoke('move-note', fileName, toFolder, syncDir),
   setNoteTitle: (noteName: string) => ipcRenderer.invoke('set-note-title', noteName),
+  gitStoreToken: (token: string) => ipcRenderer.invoke('git-store-token', token),
+  gitGetToken: () => ipcRenderer.invoke('git-get-token'),
+  // Git ops
+  gitStatus: (syncDir?: string) => ipcRenderer.invoke('git-status', syncDir),
+  gitInit: (syncDir?: string) => ipcRenderer.invoke('git-init', syncDir),
+  gitCommitNote: (noteName: string, message?: string, syncDir?: string) => ipcRenderer.invoke('git-commit-note', noteName, message, syncDir),
+  gitCommitAll: (message: string, syncDir?: string) => ipcRenderer.invoke('git-commit-all', message, syncDir),
+  gitPreparePrBranch: (noteName: string, commitMessage?: string, syncDir?: string) => ipcRenderer.invoke('git-prepare-pr-branch', noteName, commitMessage, syncDir),
+  gitPushBranch: (branch: string, remoteUrl: string, syncDir?: string) => ipcRenderer.invoke('git-push-branch', branch, remoteUrl, syncDir),
+  gitLog: (noteName?: string, syncDir?: string) => ipcRenderer.invoke('git-log', noteName, syncDir),
+  gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => ipcRenderer.invoke('git-create-pr', params),
 });
