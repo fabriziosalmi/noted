@@ -11,7 +11,8 @@ interface Settings {
   syncDirectory: string | null;
   showToolbar: boolean;
   showAiBar: boolean;
-  theme: 'auto' | 'light' | 'dark';
+  theme: 'auto' | 'light' | 'dark' | 'sepia';
+  accentColor: string;
   focusMode: boolean;
   editorFont: 'system' | 'serif' | 'mono';
   editorFontSize: 'sm' | 'md' | 'lg' | 'xl';
@@ -165,19 +166,50 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onClose }: S
           <div>
             <p className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tema</p>
             <div className="flex gap-2">
-              {(['auto', 'light', 'dark'] as const).map(t => (
+              {([
+                { value: 'auto',  label: 'Auto' },
+                { value: 'light', label: 'Chiaro' },
+                { value: 'dark',  label: 'Scuro' },
+                { value: 'sepia', label: 'Sepia' },
+              ] as const).map(({ value, label }) => (
                 <button
-                  key={t}
-                  onClick={() => onUpdate({ theme: t })}
-                  className={`flex-1 py-1.5 rounded-md text-sm border transition-colors capitalize ${
-                    settings.theme === t
+                  key={value}
+                  onClick={() => onUpdate({ theme: value })}
+                  className={`flex-1 py-1.5 rounded-md text-sm border transition-colors ${
+                    settings.theme === value
                       ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                       : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
                 >
-                  {t === 'auto' ? 'Automatico' : t === 'light' ? 'Chiaro' : 'Scuro'}
+                  {label}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Accent color */}
+          <div>
+            <p className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Colore accento</p>
+            <div className="flex items-center gap-3 flex-wrap">
+              {['#6366f1', '#0a84ff', '#30d158', '#ff9f0a', '#ff375f', '#bf5af2', '#5ac8fa', '#636366'].map(color => (
+                <button
+                  key={color}
+                  onClick={() => onUpdate({ accentColor: color })}
+                  title={color}
+                  style={{ background: color }}
+                  className={`w-7 h-7 rounded-full transition-transform hover:scale-110 ${
+                    (settings.accentColor ?? '#6366f1') === color ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : ''
+                  }`}
+                />
+              ))}
+              <label title="Colore personalizzato" className="flex items-center cursor-pointer">
+                <input
+                  type="color"
+                  value={settings.accentColor ?? '#6366f1'}
+                  onChange={e => onUpdate({ accentColor: e.target.value })}
+                  className="w-7 h-7 rounded-full cursor-pointer border-0 p-0"
+                />
+              </label>
             </div>
           </div>
 

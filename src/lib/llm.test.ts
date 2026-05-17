@@ -18,7 +18,7 @@ describe('llm API client', () => {
 
   it('should throw error if API key is missing for protected providers', async () => {
     useStore.setState({
-      settings: { llmProvider: 'openai', llmApiKey: '', llmModel: 'gpt-4o', lmStudioUrl: '', syncDirectory: null, showToolbar: true, showAiBar: true, theme: 'auto' as const, focusMode: false, editorFont: 'system' as const, editorFontSize: 'md' as const, typewriterMode: false }
+      settings: { llmProvider: 'openai', llmApiKey: '', llmModel: 'gpt-4o', lmStudioUrl: '', syncDirectory: null, showToolbar: true, showAiBar: true, theme: 'auto' as const, focusMode: false, editorFont: 'system' as const, editorFontSize: 'md' as const, typewriterMode: false, accentColor: '#6366f1' }
     });
 
     await expect(askLLM([{ role: 'user', content: 'hello' }]))
@@ -27,7 +27,7 @@ describe('llm API client', () => {
 
   it('should format requests correctly for OpenAI', async () => {
     useStore.setState({
-      settings: { llmProvider: 'openai', llmApiKey: 'test-key', llmModel: 'gpt-4o', lmStudioUrl: '', syncDirectory: null, showToolbar: true, showAiBar: true, theme: 'auto' as const, focusMode: false, editorFont: 'system' as const, editorFontSize: 'md' as const, typewriterMode: false }
+      settings: { llmProvider: 'openai', llmApiKey: 'test-key', llmModel: 'gpt-4o', lmStudioUrl: '', syncDirectory: null, showToolbar: true, showAiBar: true, theme: 'auto' as const, focusMode: false, editorFont: 'system' as const, editorFontSize: 'md' as const, typewriterMode: false, accentColor: '#6366f1' }
     });
 
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
@@ -51,7 +51,7 @@ describe('llm API client', () => {
 
   it('should handle local LLM (Ollama) without API key', async () => {
     useStore.setState({
-      settings: { llmProvider: 'ollama', llmApiKey: '', llmModel: 'llama3', lmStudioUrl: '', syncDirectory: null, showToolbar: true, showAiBar: true, theme: 'auto' as const, focusMode: false, editorFont: 'system' as const, editorFontSize: 'md' as const, typewriterMode: false }
+      settings: { llmProvider: 'ollama', llmApiKey: '', llmModel: 'llama3', lmStudioUrl: '', syncDirectory: null, showToolbar: true, showAiBar: true, theme: 'auto' as const, focusMode: false, editorFont: 'system' as const, editorFontSize: 'md' as const, typewriterMode: false, accentColor: '#6366f1' }
     });
 
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
@@ -66,7 +66,7 @@ describe('llm API client', () => {
 
   it('should throw draconian error on fetch failure', async () => {
     useStore.setState({
-      settings: { llmProvider: 'openai', llmApiKey: 'test-key', llmModel: 'gpt-4o', lmStudioUrl: '', syncDirectory: null, showToolbar: true, showAiBar: true, theme: 'auto' as const, focusMode: false, editorFont: 'system' as const, editorFontSize: 'md' as const, typewriterMode: false }
+      settings: { llmProvider: 'openai', llmApiKey: 'test-key', llmModel: 'gpt-4o', lmStudioUrl: '', syncDirectory: null, showToolbar: true, showAiBar: true, theme: 'auto' as const, focusMode: false, editorFont: 'system' as const, editorFontSize: 'md' as const, typewriterMode: false, accentColor: '#6366f1' }
     });
 
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(

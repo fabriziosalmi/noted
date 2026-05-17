@@ -1,18 +1,22 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { useEditor, EditorContent, type Editor } from '@tiptap/react';
+import { useEditor, EditorContent, ReactNodeViewRenderer, type Editor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Typography from '@tiptap/extension-typography';
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import Image from '@tiptap/extension-image';
+import Mathematics from '@tiptap/extension-mathematics';
 import { createLowlight, common } from 'lowlight';
+import 'katex/dist/katex.min.css';
 import { Bold, Italic, Strikethrough, Code, Bot, FileText, CheckCheck } from 'lucide-react';
 import { askLLM } from '../lib/llm';
 import { WikilinkMark, createWikilinkHighlightPlugin, extractWikilinks } from '../lib/WikilinkExtension';
 import { WikilinkSuggestion } from './WikilinkSuggestion';
 import { BacklinksPanel } from './BacklinksPanel';
 import { Extension } from '@tiptap/core';
+import { CodeBlockView } from './CodeBlockView';
 
 const lowlight = createLowlight(common);
 
@@ -88,7 +92,11 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       TableRow,
       TableCell,
       TableHeader,
-      CodeBlockLowlight.configure({ lowlight }),
+      CodeBlockLowlight.extend({
+        addNodeView() { return ReactNodeViewRenderer(CodeBlockView); },
+      }).configure({ lowlight }),
+      Image.configure({ inline: false, allowBase64: true }),
+      Mathematics,
       WikilinkMark,
       WikilinkPlugin,
     ],
@@ -103,6 +111,22 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     editorProps: {
       attributes: { class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none' },
       handlePaste: (_view, event) => {
+        // Image paste — convert to base64 and insert
+        const items = Array.from(event.clipboardData?.items ?? []);
+        const imageItem = items.find(i => i.type.startsWith('image/'));
+        if (imageItem) {
+          event.preventDefault();
+          const file = imageItem.getAsFile();
+          if (!file) return false;
+          const reader = new FileReader();
+          reader.onload = () => {
+            editor?.chain().focus().setImage({ src: reader.result as string }).run();
+          };
+          reader.readAsDataURL(file);
+          return true;
+        }
+
+        // Smart paste for text
         const text = event.clipboardData?.getData('text/plain');
         if (!text || (text.length < 30 && !text.includes('\n'))) return false;
         event.preventDefault();
@@ -124,6 +148,19 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
             if (mountedRef.current) setIsSmartPasting(false);
           }
         })();
+        return true;
+      },
+      handleDrop: (_view, event) => {
+        const files = Array.from(event.dataTransfer?.files ?? []).filter(f => f.type.startsWith('image/'));
+        if (!files.length) return false;
+        event.preventDefault();
+        files.forEach(file => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            editor?.chain().focus().setImage({ src: reader.result as string }).run();
+          };
+          reader.readAsDataURL(file);
+        });
         return true;
       },
     },

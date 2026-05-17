@@ -2,12 +2,33 @@
 
 /* Class-based dark mode — applied by useTheme hook on <html> */
 @variant dark (&:where(.dark, .dark *));
+@variant sepia (&:where(.sepia, .sepia *));
 
 @theme {
   --color-mac-bg: #ececec;
   --color-mac-border: #d1d1d1;
   --color-mac-text: #333333;
 }
+
+/* ─── Accent color (set via JS on :root) ─────────────────────────────── */
+:root {
+  --accent: #6366f1;
+  --accent-light: color-mix(in srgb, var(--accent) 12%, transparent);
+  --accent-mid:   color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* ─── Sepia theme ─────────────────────────────────────────────────────── */
+.sepia body { color: #3d2b1f; }
+.sepia .vibrancy-titlebar { background: rgba(244, 234, 213, 0.72) !important; }
+.sepia .vibrancy-sidebar  { background: rgba(238, 225, 198, 0.72) !important; }
+.sepia .bg-white\/85 { background: rgba(252, 246, 232, 0.92) !important; }
+.sepia .ProseMirror { color: #3d2b1f; caret-color: #8b5e3c; }
+.sepia .ProseMirror h1, .sepia .ProseMirror h2, .sepia .ProseMirror h3 { color: #2c1d14; }
+.sepia .ProseMirror pre { background: #ede3cc; border-color: #d4c5a5; }
+.sepia .ProseMirror table th { background: #ede3cc; }
+.sepia .ProseMirror table td, .sepia .ProseMirror table th { border-color: #d4c5a5; }
+.sepia ::-webkit-scrollbar-thumb { background: rgba(139, 94, 60, 0.25); }
+.sepia ::-webkit-scrollbar-thumb:hover { background: rgba(139, 94, 60, 0.4); }
 
 /* ─── Global ─────────────────────────────────────────────────────────── */
 body {
@@ -232,6 +253,27 @@ body {
 .ProseMirror .wikilink-raw { color: #5856d6; opacity: 0.6; }
 .dark .ProseMirror .wikilink { color: #bf5af2; background: rgba(191, 90, 242, 0.12); }
 .dark .ProseMirror .wikilink:hover { background: rgba(191, 90, 242, 0.22); }
+
+/* ─── Images ─────────────────────────────────────────────────────────── */
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+  margin: 1em 0;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+.ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.ProseMirror img:hover { box-shadow: 0 2px 16px rgba(0,0,0,0.12); }
+
+/* ─── KaTeX math ─────────────────────────────────────────────────────── */
+.ProseMirror .Tiptap-mathematics-editor { font-family: ui-monospace, monospace; background: var(--accent-light); border-radius: 4px; padding: 0 4px; }
+.ProseMirror .Tiptap-mathematics-render { cursor: pointer; }
+.ProseMirror .Tiptap-mathematics-render:hover { background: var(--accent-light); border-radius: 4px; }
 
 /* ─── Panel resize handle ────────────────────────────────────────────── */
 [data-panel-resize-handle-id] {

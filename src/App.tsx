@@ -48,6 +48,11 @@ function App() {
   const focusClass = settings.focusMode ? 'focus-mode' : '';
   const typewriterClass = settings.typewriterMode ? 'typewriter-mode' : '';
 
+  // Apply accent color CSS variable on change
+  useEffect(() => {
+    document.documentElement.style.setProperty('--accent', settings.accentColor ?? '#6366f1');
+  }, [settings.accentColor]);
+
   // Compute backlinks: notes that contain [[activeNoteName]] in their links index
   const backlinks = activeNoteName
     ? Object.entries(noteLinksIndex)

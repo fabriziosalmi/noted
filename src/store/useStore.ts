@@ -23,7 +23,8 @@ interface SettingsState {
   syncDirectory: string | null;
   showToolbar: boolean;
   showAiBar: boolean;
-  theme: 'auto' | 'light' | 'dark';
+  theme: 'auto' | 'light' | 'dark' | 'sepia';
+  accentColor: string;
   focusMode: boolean;
   editorFont: 'system' | 'serif' | 'mono';
   editorFontSize: 'sm' | 'md' | 'lg' | 'xl';
@@ -78,6 +79,7 @@ export const useStore = create<NoteState>()(
         showToolbar: true,
         showAiBar: true,
         theme: 'auto' as const,
+        accentColor: '#6366f1',
         focusMode: false,
         editorFont: 'system' as const,
         editorFontSize: 'md' as const,
