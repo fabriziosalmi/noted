@@ -1,9 +1,10 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react';
-import electron from 'vite-plugin-electron';
 import tailwindcss from '@tailwindcss/vite';
 
 // https://vitejs.dev/config/
+// Note: main.ts and preload.ts are compiled via esbuild (see package.json scripts)
+// to avoid Vite 8/rolldown incompatibilities with Node.js built-in modules.
 export default defineConfig({
   server: {
     port: 8066,
@@ -32,11 +33,5 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     react(),
-    electron([
-      {
-        entry: 'electron/main.ts',
-      },
-      // Preload is compiled separately via esbuild (CJS) — see package.json build script
-    ]),
   ],
 });
