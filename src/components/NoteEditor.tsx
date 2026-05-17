@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import { useI18n } from '../lib/i18n';
 import { useEditor, EditorContent, ReactNodeViewRenderer, type Editor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
@@ -46,6 +47,7 @@ interface NoteEditorProps {
 }
 
 export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError, allNoteNames = [], allTags = [], backlinks = [], onSelectNote }: NoteEditorProps) {
+  const { t } = useI18n();
   const llmProvider = useStore(s => s.settings.llmProvider);
   const llmApiKey = useStore(s => s.settings.llmApiKey);
   const llmReady = llmProvider === 'lmstudio' || llmProvider === 'ollama' || !!llmApiKey;
@@ -109,7 +111,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     extensions: [
       StarterKit.configure({ codeBlock: false }),
       Typography,
-      Placeholder.configure({ placeholder: 'Scrivi qualcosa...' }),
+      Placeholder.configure({ placeholder: t('editorPlaceholder') }),
       Table.configure({ resizable: true }),
       TableRow,
       TableCell,
@@ -261,7 +263,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     return (
       <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-600 mt-32">
         <FileText size={48} className="mb-4 opacity-20" />
-        <p>Seleziona una nota o creane una nuova</p>
+        <p>{t('selectNote')}</p>
       </div>
     );
   }
@@ -331,7 +333,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       {isSmartPasting && (
         <div className="fixed top-14 right-4 bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-full flex items-center space-x-2 shadow-lg animate-pulse z-30">
           <Bot size={14} />
-          <span>Incolla intelligente...</span>
+          <span>{t('smartPaste')}</span>
         </div>
       )}
 
@@ -340,17 +342,17 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
         {ghostActive && (
           <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-full px-2.5 py-1">
             <kbd className="font-mono text-[10px] bg-gray-200 dark:bg-gray-700 rounded px-1">Tab</kbd>
-            accetta
+            {t('tabAccept')}
           </span>
         )}
         {wordCount > 0 && (
-          <span className="text-xs text-gray-300 dark:text-gray-600">{wordCount} {wordCount === 1 ? 'parola' : 'parole'}</span>
+          <span className="text-xs text-gray-300 dark:text-gray-600">{wordCount} {t(wordCount === 1 ? 'word' : 'words')}</span>
         )}
         {!isSmartPasting && saveStatus !== 'idle' && (
           <div className={`text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5 ${
             saveStatus === 'saving' ? 'text-gray-400 dark:text-gray-500' : 'text-emerald-600 dark:text-emerald-400'
           }`}>
-            {saveStatus === 'saving' ? <span>Salvando...</span> : <><CheckCheck size={13} /><span>Salvato</span></>}
+            {saveStatus === 'saving' ? <span>{t('saving')}</span> : <><CheckCheck size={13} /><span>{t('saved')}</span></>}
           </div>
         )}
       </div>

@@ -1,54 +1,57 @@
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useI18n } from '../lib/i18n';
 
 interface ShortcutRow {
   keys: string[];
-  description: string;
+  descriptionKey: string;
 }
-
-const SECTIONS: { title: string; rows: ShortcutRow[] }[] = [
-  {
-    title: 'Generale',
-    rows: [
-      { keys: ['⌘', 'P'], description: 'Apertura rapida — cerca e apri nota' },
-      { keys: ['⌘', 'S'], description: 'Salva immediatamente' },
-      { keys: ['⌘', 'F'], description: 'Cerca nel documento' },
-      { keys: ['⌘', '⇧', 'F'], description: 'Modalità focus (sfuma tutto tranne il paragrafo corrente)' },
-      { keys: ['?'], description: 'Mostra questa finestra' },
-    ],
-  },
-  {
-    title: 'AI',
-    rows: [
-      { keys: ['/'], description: 'Comandi AI — /continua, /espandi, /riassumi, /migliora, /punti, /traduci' },
-      { keys: ['Tab'], description: 'Accetta il suggerimento AI in linea (appare dopo 1.2s di pausa)' },
-      { keys: ['Esc'], description: 'Scarta il suggerimento AI' },
-    ],
-  },
-  {
-    title: 'Formattazione',
-    rows: [
-      { keys: ['⌘', 'B'], description: 'Grassetto' },
-      { keys: ['⌘', 'I'], description: 'Corsivo' },
-      { keys: ['⌘', 'Alt', '1'], description: 'Titolo 1' },
-      { keys: ['⌘', 'Alt', '2'], description: 'Titolo 2' },
-      { keys: ['⌘', 'Alt', '3'], description: 'Titolo 3' },
-      { keys: ['⌘', '`'], description: 'Codice inline' },
-    ],
-  },
-  {
-    title: 'Note',
-    rows: [
-      { keys: ['Doppio clic'], description: 'Rinomina nota' },
-    ],
-  },
-];
 
 interface KeyboardShortcutsModalProps {
   onClose: () => void;
 }
 
 export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps) {
+  const { t } = useI18n();
+
+  const SECTIONS: { titleKey: string; rows: ShortcutRow[] }[] = [
+    {
+      titleKey: 'sectionGeneral',
+      rows: [
+        { keys: ['⌘', 'P'], descriptionKey: 'shortcutQuickOpen' },
+        { keys: ['⌘', 'S'], descriptionKey: 'shortcutSave' },
+        { keys: ['⌘', 'F'], descriptionKey: 'shortcutFind' },
+        { keys: ['⌘', '⇧', 'F'], descriptionKey: 'shortcutFocusMode' },
+        { keys: ['?'], descriptionKey: 'shortcutShowShortcuts' },
+      ],
+    },
+    {
+      titleKey: 'sectionAi',
+      rows: [
+        { keys: ['/'], descriptionKey: 'shortcutSlash' },
+        { keys: ['Tab'], descriptionKey: 'shortcutTab' },
+        { keys: ['Esc'], descriptionKey: 'shortcutEsc' },
+      ],
+    },
+    {
+      titleKey: 'sectionFormatting',
+      rows: [
+        { keys: ['⌘', 'B'], descriptionKey: 'shortcutBold' },
+        { keys: ['⌘', 'I'], descriptionKey: 'shortcutItalic' },
+        { keys: ['⌘', 'Alt', '1'], descriptionKey: 'shortcutH1' },
+        { keys: ['⌘', 'Alt', '2'], descriptionKey: 'shortcutH2' },
+        { keys: ['⌘', 'Alt', '3'], descriptionKey: 'shortcutH3' },
+        { keys: ['⌘', '`'], descriptionKey: 'shortcutCode' },
+      ],
+    },
+    {
+      titleKey: 'sectionNotes',
+      rows: [
+        { keys: ['Doppio clic'], descriptionKey: 'shortcutRename' },
+      ],
+    },
+  ];
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handler);
@@ -65,20 +68,20 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Scorciatoie da tastiera</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded" aria-label="Chiudi">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('keyboardShortcuts')}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded" aria-label={t('close')}>
             <X size={16} />
           </button>
         </div>
 
         <div className="px-5 py-4 space-y-5">
           {SECTIONS.map(section => (
-            <div key={section.title}>
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{section.title}</p>
+            <div key={section.titleKey}>
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t(section.titleKey as any)}</p>
               <div className="space-y-1.5">
                 {section.rows.map(row => (
-                  <div key={row.description} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-300">{row.description}</span>
+                  <div key={row.descriptionKey} className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-300">{t(row.descriptionKey as any)}</span>
                     <div className="flex items-center gap-1">
                       {row.keys.map((k, i) => (
                         <kbd

@@ -4,9 +4,9 @@ import {
   Tag, X, FolderOpen, Folder, FolderPlus, ChevronRight, ChevronDown, MoreHorizontal
 } from 'lucide-react';
 import type { NoteFile, FolderInfo } from '../store/useStore';
+import { useI18n } from '../lib/i18n';
 
 type SortBy = 'date' | 'name' | 'size';
-const SORT_LABELS: Record<SortBy, string> = { date: 'Data', name: 'Nome', size: 'Dim.' };
 
 interface SidebarProps {
   notes: NoteFile[];                     // flat (all notes for search)
@@ -32,7 +32,7 @@ interface SidebarProps {
 function NoteRow({
   note, isActive, isPinned, isRenaming, renameValue, renameInputRef,
   onSelect, onDelete, onTogglePin, onStartRename, onRenameChange, onRenameBlur, onRenameKeyDown,
-  onDragStart,
+  onDragStart, renameHint,
 }: {
   note: NoteFile; isActive: boolean; isPinned: boolean; isRenaming: boolean;
   renameValue: string; renameInputRef: React.RefObject<HTMLInputElement | null>;
@@ -41,6 +41,7 @@ function NoteRow({
   onRenameChange: (v: string) => void; onRenameBlur: () => void;
   onRenameKeyDown: (e: React.KeyboardEvent) => void;
   onDragStart: (e: React.DragEvent) => void;
+  renameHint: string;
 }) {
   const baseName = note.name.includes('/') ? note.name.split('/').pop()! : note.name;
   return (
@@ -71,7 +72,7 @@ function NoteRow({
             autoFocus
           />
         ) : (
-          <span className="truncate" onDoubleClick={onStartRename} title="Doppio clic per rinominare">
+          <span className="truncate" onDoubleClick={onStartRename} title={renameHint}>
             {baseName.replace('.md', '')}
           </span>
         )}
@@ -98,11 +99,14 @@ export function Sidebar({
   onCreateFolder, onRenameFolder, onDeleteFolder, onMoveNote,
   allTags = [], activeTagFilter = null, onTagFilter,
 }: SidebarProps) {
+  const { t } = useI18n();
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('date');
   const [renamingNote, setRenamingNote] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
+
+  const SORT_LABELS: Record<SortBy, string> = { date: t('sortDate'), name: t('sortName'), size: t('sortSize') };
 
   const [showTags, setShowTags] = useState(false);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
@@ -197,6 +201,7 @@ export function Sidebar({
       onRenameBlur={() => void commitNoteRename()}
       onRenameKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void commitNoteRename(); } if (e.key === 'Escape') setRenamingNote(null); }}
       onDragStart={e => handleDragStart(e, note.name)}
+      renameHint={t('renameHint')}
     />
   );
 
@@ -204,23 +209,23 @@ export function Sidebar({
     <>
       {/* Header */}
       <div className="p-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex justify-between items-center">
-        <span>{activeTagFilter ?? 'Note'}</span>
+        <span>{activeTagFilter ?? t('notes')}</span>
         <div className="flex items-center gap-1">
-          <button onClick={cycleSortBy} className="flex items-center gap-0.5 hover:text-gray-800 dark:hover:text-gray-200 px-1 py-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700" title={`Ordina per: ${SORT_LABELS[sortBy]}`}>
+          <button onClick={cycleSortBy} className="flex items-center gap-0.5 hover:text-gray-800 dark:hover:text-gray-200 px-1 py-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700" title={`${t('sortBy')} ${SORT_LABELS[sortBy]}`}>
             <ArrowUpDown size={11} /><span className="text-[10px]">{SORT_LABELS[sortBy]}</span>
           </button>
           {allTags.length > 0 && (
-            <button onClick={() => setShowTags(v => !v)} className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ${showTags ? 'text-[var(--accent)]' : 'hover:text-gray-800 dark:hover:text-gray-200'}`} title="Tag">
+            <button onClick={() => setShowTags(v => !v)} className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ${showTags ? 'text-[var(--accent)]' : 'hover:text-gray-800 dark:hover:text-gray-200'}`} title={t('tags')}>
               <Tag size={13} />
             </button>
           )}
-          <button onClick={() => setNewFolderMode(true)} className="hover:text-gray-800 dark:hover:text-gray-200 p-1" title="Nuova cartella">
+          <button onClick={() => setNewFolderMode(true)} className="hover:text-gray-800 dark:hover:text-gray-200 p-1" title={t('newFolder')}>
             <FolderPlus size={13} />
           </button>
-          <button onClick={onOpenDaily} className="hover:text-gray-800 dark:hover:text-gray-200 p-1" title="Nota del giorno">
+          <button onClick={onOpenDaily} className="hover:text-gray-800 dark:hover:text-gray-200 p-1" title={t('dailyNote')}>
             <CalendarDays size={14} />
           </button>
-          <button onClick={() => onCreateNote()} className="hover:text-gray-800 dark:hover:text-gray-200 p-1" aria-label="Nuova nota">
+          <button onClick={() => onCreateNote()} className="hover:text-gray-800 dark:hover:text-gray-200 p-1" aria-label={t('newNote')}>
             <Plus size={14} />
           </button>
         </div>
@@ -231,7 +236,7 @@ export function Sidebar({
         <div className="px-2 pb-2 flex flex-wrap gap-1">
           {activeTagFilter && (
             <button onClick={() => onTagFilter?.(null)} className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] text-[var(--accent)] border border-[color-mix(in_srgb,var(--accent)_30%,transparent)]">
-              <X size={9} /> tutto
+              <X size={9} /> {t('all')}
             </button>
           )}
           {allTags.slice(0, 20).map(tag => (
@@ -247,7 +252,7 @@ export function Sidebar({
       <div className="px-2 pb-2">
         <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-700/60 rounded px-2 py-1">
           <Search size={12} className="text-gray-400 shrink-0" />
-          <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Cerca..."
+          <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder={t('search')}
             className="bg-transparent text-xs text-gray-700 dark:text-gray-200 placeholder-gray-400 outline-none w-full" />
         </div>
       </div>
@@ -261,7 +266,7 @@ export function Sidebar({
             onChange={e => setNewFolderName(e.target.value)}
             onBlur={() => void commitNewFolder()}
             onKeyDown={e => { if (e.key === 'Enter') void commitNewFolder(); if (e.key === 'Escape') { setNewFolderMode(false); setNewFolderName(''); } }}
-            placeholder="Nome cartella..."
+            placeholder={t('folderNamePlaceholder')}
             className="w-full bg-white dark:bg-gray-700 border border-[var(--accent)] rounded px-2 py-1 text-xs outline-none"
           />
         </div>
@@ -323,11 +328,11 @@ export function Sidebar({
 
                   {/* Folder actions */}
                   <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => onCreateNote(folder.name)} className="p-0.5 hover:text-[var(--accent)] text-gray-400" title="Nuova nota qui">
+                    <button onClick={() => onCreateNote(folder.name)} className="p-0.5 hover:text-[var(--accent)] text-gray-400" title={t('newNoteHere')}>
                       <Plus size={11} />
                     </button>
-                    <button onClick={async () => { if (confirm(`Eliminare cartella "${folder.name}"? Le note verranno spostate nella root.`)) await onDeleteFolder(folder.name); }}
-                      className="p-0.5 hover:text-red-500 text-gray-400" title="Elimina cartella">
+                    <button onClick={async () => { if (confirm(t('deleteFolderConfirm').replace('{name}', folder.name))) await onDeleteFolder(folder.name); }}
+                      className="p-0.5 hover:text-red-500 text-gray-400" title={t('deleteFolder')}>
                       <Trash2 size={11} />
                     </button>
                   </div>
@@ -338,7 +343,7 @@ export function Sidebar({
                   <div className="pl-4">
                     {filteredFolderNotes.map(renderNote)}
                     {filteredFolderNotes.length === 0 && !query && (
-                      <p className="text-[10px] text-gray-400 px-2 py-1 italic">Vuota — trascina una nota qui</p>
+                      <p className="text-[10px] text-gray-400 px-2 py-1 italic">{t('emptyFolder')}</p>
                     )}
                   </div>
                 )}
@@ -348,7 +353,7 @@ export function Sidebar({
 
         {rootNotes.length === 0 && noteFolders.length === 0 && (
           <p className="text-xs text-gray-400 text-center mt-4">
-            {activeTagFilter ? `Nessuna nota con ${activeTagFilter}` : query ? 'Nessuna nota trovata' : 'Nessuna nota'}
+            {activeTagFilter ? t('noNotesWithTag').replace('{tag}', activeTagFilter) : query ? t('noNotesFound') : t('noNotes')}
           </p>
         )}
       </div>

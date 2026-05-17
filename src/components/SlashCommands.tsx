@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 import { askLLM } from '../lib/llm';
 import { Wand2, AlignLeft, List, Languages, Minimize2, Pencil, Loader2 } from 'lucide-react';
+import { useI18n } from '../lib/i18n';
 
 interface SlashCommandsProps {
   editor: Editor;
@@ -11,57 +12,59 @@ interface SlashCommandsProps {
 interface Command {
   id: string;
   icon: React.ReactNode;
-  label: string;
-  description: string;
+  labelKey: string;
+  descKey: string;
   prompt: (context: string) => string;
 }
 
+// Prompts are kept in Italian/English mixed as they are LLM system prompts — not translated
 const COMMANDS: Command[] = [
   {
     id: 'continue',
     icon: <Wand2 size={14} />,
-    label: 'Continua',
-    description: 'Continua a scrivere dal punto corrente',
+    labelKey: 'cmdContinueLabel',
+    descKey: 'cmdContinueDesc',
     prompt: ctx => `Continua questo testo in modo naturale, stesso stile e lingua, 2-4 frasi. NON ripetere il testo esistente, scrivi solo la continuazione:\n\n${ctx}`,
   },
   {
     id: 'expand',
     icon: <AlignLeft size={14} />,
-    label: 'Espandi',
-    description: 'Elabora e approfondisce il paragrafo corrente',
+    labelKey: 'cmdExpandLabel',
+    descKey: 'cmdExpandDesc',
     prompt: ctx => `Espandi e approfondisci questo testo aggiungendo dettagli, esempi e spiegazioni. Mantieni lo stesso stile. Restituisci SOLO il testo espanso:\n\n${ctx}`,
   },
   {
     id: 'summarize',
     icon: <Minimize2 size={14} />,
-    label: 'Riassumi',
-    description: 'Sintetizza la nota in punti chiave',
+    labelKey: 'cmdSummarizeLabel',
+    descKey: 'cmdSummarizeDesc',
     prompt: ctx => `Crea un riassunto conciso in 3-5 punti chiave di questo testo. Usa bullet points. Rispondi nella stessa lingua:\n\n${ctx}`,
   },
   {
     id: 'improve',
     icon: <Pencil size={14} />,
-    label: 'Migliora',
-    description: 'Migliora chiarezza e stile del testo',
+    labelKey: 'cmdImproveLabel',
+    descKey: 'cmdImproveDesc',
     prompt: ctx => `Migliora la chiarezza, scorrevolezza e stile di questo testo mantenendo il significato originale. Restituisci SOLO il testo migliorato:\n\n${ctx}`,
   },
   {
     id: 'bullets',
     icon: <List size={14} />,
-    label: 'Converti in lista',
-    description: 'Trasforma in elenco puntato',
+    labelKey: 'cmdBulletsLabel',
+    descKey: 'cmdBulletsDesc',
     prompt: ctx => `Converti questo testo in un elenco puntato chiaro e conciso. Restituisci SOLO i bullet points:\n\n${ctx}`,
   },
   {
     id: 'translate',
     icon: <Languages size={14} />,
-    label: 'Traduci',
-    description: 'Traduci in inglese (o in italiano se già in inglese)',
+    labelKey: 'cmdTranslateLabel',
+    descKey: 'cmdTranslateDesc',
     prompt: ctx => `Traduci questo testo. Se è in italiano → inglese, se è in inglese → italiano. Restituisci SOLO la traduzione:\n\n${ctx}`,
   },
 ];
 
 export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(0);
@@ -70,7 +73,7 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
   const triggerFromRef = useRef<number | null>(null);
 
   const filtered = COMMANDS.filter(c =>
-    !query || c.label.toLowerCase().includes(query.toLowerCase()) || c.id.includes(query.toLowerCase())
+    !query || t(c.labelKey as any).toLowerCase().includes(query.toLowerCase()) || c.id.includes(query.toLowerCase())
   );
 
   useEffect(() => { setActiveIdx(0); }, [query]);
@@ -149,7 +152,7 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
       <div className="fixed top-14 right-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl px-4 py-3 flex items-center gap-3 z-50">
         <Loader2 size={16} className="animate-spin text-[var(--accent)]" />
         <span className="text-sm text-gray-600 dark:text-gray-300">
-          {COMMANDS.find(c => c.id === running)?.label}...
+          {t(COMMANDS.find(c => c.id === running)?.labelKey as any ?? 'cmdContinueLabel')}...
         </span>
       </div>
     );
@@ -163,7 +166,7 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
       style={{ top: pos.top, left: pos.left }}
     >
       <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800 mb-1">
-        Azioni AI
+        {t('aiActions')}
       </div>
       {filtered.map((cmd, i) => (
         <button
@@ -178,13 +181,13 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
         >
           <span className="mt-0.5 opacity-70 shrink-0">{cmd.icon}</span>
           <div>
-            <div className="text-sm font-medium leading-tight">{cmd.label}</div>
-            <div className="text-xs opacity-60 mt-0.5">{cmd.description}</div>
+            <div className="text-sm font-medium leading-tight">{t(cmd.labelKey as any)}</div>
+            <div className="text-xs opacity-60 mt-0.5">{t(cmd.descKey as any)}</div>
           </div>
         </button>
       ))}
       <div className="px-3 py-1.5 border-t border-gray-100 dark:border-gray-800 mt-1 flex gap-3 text-[10px] text-gray-400">
-        <span>↑↓ naviga</span><span>↵ esegui</span><span>esc chiudi</span>
+        <span>{t('navigate')}</span><span>{t('execute')}</span><span>{t('escClose')}</span>
       </div>
     </div>
   );

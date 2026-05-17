@@ -30,6 +30,7 @@ interface SettingsState {
   editorFont: 'system' | 'serif' | 'mono';
   editorFontSize: 'sm' | 'md' | 'lg' | 'xl';
   typewriterMode: boolean;
+  language?: 'en' | 'it';
 }
 
 export interface FolderInfo {
@@ -98,6 +99,7 @@ export const useStore = create<NoteState>()(
         editorFont: 'system' as const,
         editorFontSize: 'md' as const,
         typewriterMode: false,
+        language: 'en' as const,
       },
 
       updateSettings: (newSettings) => {

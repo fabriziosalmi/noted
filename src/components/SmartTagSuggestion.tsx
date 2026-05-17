@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Tag, X, Check, Loader2 } from 'lucide-react';
 import { askLLM } from '../lib/llm';
+import { useI18n } from '../lib/i18n';
 
 interface SmartTagSuggestionProps {
   content: string;
@@ -9,6 +10,7 @@ interface SmartTagSuggestionProps {
 }
 
 export function SmartTagSuggestion({ content, existingTags, onAccept }: SmartTagSuggestionProps) {
+  const { t } = useI18n();
   const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -67,7 +69,7 @@ export function SmartTagSuggestion({ content, existingTags, onAccept }: SmartTag
     return (
       <div className="fixed bottom-12 right-4 z-30 flex items-center gap-2 text-xs text-gray-400">
         <Loader2 size={11} className="animate-spin" />
-        <span>Analisi tag...</span>
+        <span>{t('analyzingTags')}</span>
       </div>
     );
   }
@@ -86,9 +88,9 @@ export function SmartTagSuggestion({ content, existingTags, onAccept }: SmartTag
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">
           <Tag size={11} />
-          <span>Tag suggeriti dall'AI</span>
+          <span>{t('aiSuggestedTags')}</span>
         </div>
-        <button onClick={() => { setVisible(false); setDismissed(true); }} className="text-gray-400 hover:text-gray-600">
+        <button onClick={() => { setVisible(false); setDismissed(true); }} className="text-gray-400 hover:text-gray-600" aria-label={t('dismissSuggestion')}>
           <X size={12} />
         </button>
       </div>
@@ -120,7 +122,7 @@ export function SmartTagSuggestion({ content, existingTags, onAccept }: SmartTag
           className="flex-1 flex items-center justify-center gap-1.5 bg-[var(--accent)] text-white text-xs py-1.5 rounded-lg disabled:opacity-40 hover:opacity-90 transition-opacity"
         >
           <Check size={11} />
-          Inserisci in nota
+          {t('insertInNote')}
         </button>
       </div>
     </div>

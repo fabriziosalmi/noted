@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Bot, Loader2, Database } from 'lucide-react';
 import { askLLM } from '../lib/llm';
 import { findRelevantNotes, type NoteChunk } from '../lib/noteSearch';
+import { useI18n } from '../lib/i18n';
 
 interface AiChatProps {
   getEditorText: () => string;
@@ -13,6 +14,7 @@ interface ChatMessage { role: 'assistant' | 'user'; content: string }
 const GREETING = 'Ciao! Sono il tuo assistente. MCP attivato. Posso leggere quello che scrivi e aiutarti. Come posso aiutarti oggi?';
 
 export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
+  const { t } = useI18n();
   // displayHistory includes the greeting bubble shown in the UI
   const [displayHistory, setDisplayHistory] = useState<ChatMessage[]>([
     { role: 'assistant', content: GREETING },
@@ -69,7 +71,7 @@ Rispondi in modo conciso e utile. Se citi una nota specifica, indica il titolo.`
       const err = error as Error;
       setDisplayHistory(prev => [
         ...prev,
-        { role: 'assistant', content: `❌ Errore: ${err.message}. Controlla le impostazioni (Provider e API Key).` },
+        { role: 'assistant', content: t('aiError').replace('{msg}', err.message) },
       ]);
     } finally {
       setIsLoading(false);
@@ -81,12 +83,12 @@ Rispondi in modo conciso e utile. Se citi una nota specifica, indica il titolo.`
       <div className="p-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center space-x-2">
           <Bot size={14} />
-          <span>AI Assistant</span>
+          <span>{t('aiAssistant')}</span>
         </div>
         {noteChunks.length > 0 && (
-          <span className="flex items-center gap-1 text-[10px] text-indigo-400 dark:text-indigo-500 font-normal normal-case tracking-normal" title={`RAG attivo su ${noteChunks.length} note`}>
+          <span className="flex items-center gap-1 text-[10px] text-indigo-400 dark:text-indigo-500 font-normal normal-case tracking-normal" title={t('ragActive').replace('{n}', String(noteChunks.length))}>
             <Database size={10} />
-            {noteChunks.length} note
+            {t('ragActive').replace('{n}', String(noteChunks.length))}
           </span>
         )}
       </div>
@@ -107,7 +109,7 @@ Rispondi in modo conciso e utile. Se citi una nota specifica, indica il titolo.`
         {isLoading && (
           <div className="p-3 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center space-x-2 text-gray-400 dark:text-gray-500 self-start">
             <Loader2 size={14} className="animate-spin" />
-            <span>Pensando...</span>
+            <span>{t('thinking')}</span>
           </div>
         )}
       </div>
@@ -119,7 +121,7 @@ Rispondi in modo conciso e utile. Se citi una nota specifica, indica il titolo.`
           onChange={e => setAiInput(e.target.value)}
           onKeyDown={handleSubmit}
           disabled={isLoading}
-          placeholder={isLoading ? 'Attendi la risposta...' : 'Chiedi qualcosa... (Premi Invio)'}
+          placeholder={isLoading ? t('waitingResponse') : t('askSomething')}
           className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:border-blue-500 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-500 disabled:opacity-50"
         />
       </div>

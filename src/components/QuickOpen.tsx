@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Fuse from 'fuse.js';
 import { FileText, Search } from 'lucide-react';
 import type { NoteFile } from '../store/useStore';
+import { useI18n } from '../lib/i18n';
 
 interface QuickOpenProps {
   notes: NoteFile[];
@@ -10,6 +11,7 @@ interface QuickOpenProps {
 }
 
 export function QuickOpen({ notes, onSelect, onClose }: QuickOpenProps) {
+  const { t } = useI18n();
   const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -66,7 +68,7 @@ export function QuickOpen({ notes, onSelect, onClose }: QuickOpenProps) {
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Apri nota..."
+            placeholder={t('openNote')}
             className="flex-1 bg-transparent outline-none text-gray-800 dark:text-gray-200 text-sm placeholder-gray-400"
           />
           <kbd className="text-xs text-gray-400 border border-gray-200 dark:border-gray-700 rounded px-1.5 py-0.5">esc</kbd>
@@ -75,7 +77,7 @@ export function QuickOpen({ notes, onSelect, onClose }: QuickOpenProps) {
         {/* Results */}
         <div ref={listRef} className="max-h-72 overflow-y-auto py-1">
           {results.length === 0 ? (
-            <p className="text-center text-sm text-gray-400 py-8">Nessuna nota trovata</p>
+            <p className="text-center text-sm text-gray-400 py-8">{t('noNotesFound')}</p>
           ) : results.map((note, i) => (
             <button
               key={note.name}
@@ -96,9 +98,9 @@ export function QuickOpen({ notes, onSelect, onClose }: QuickOpenProps) {
 
         {results.length > 0 && (
           <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-800 flex gap-4 text-xs text-gray-400">
-            <span>↑↓ naviga</span>
-            <span>↵ apri</span>
-            <span>esc chiudi</span>
+            <span>{t('navHint')}</span>
+            <span>{t('openHint')}</span>
+            <span>{t('escHint')}</span>
           </div>
         )}
       </div>

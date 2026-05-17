@@ -1,5 +1,6 @@
 import { X, ShieldAlert, FolderOpen, Lightbulb } from 'lucide-react';
 import type { Suggestion, SuggestionSeverity, SuggestionKind } from '../lib/noteAdvisor';
+import { useI18n } from '../lib/i18n';
 
 interface NoteAdvisorProps {
   suggestions: Suggestion[];
@@ -22,20 +23,22 @@ function kindIcon(kind: SuggestionKind) {
   return <FolderOpen size={14} className="text-blue-400 shrink-0" />;
 }
 
-function severityLabel(severity: SuggestionSeverity) {
-  if (severity === 'high') return <span className="text-[10px] font-semibold text-red-500 uppercase">Alta priorità</span>;
-  if (severity === 'medium') return <span className="text-[10px] font-semibold text-amber-500 uppercase">Media</span>;
-  return <span className="text-[10px] font-semibold text-blue-400 uppercase">Suggerimento</span>;
-}
-
 export function NoteAdvisorPanel({ suggestions, onDismiss, onDismissAll, onClose }: NoteAdvisorProps) {
+  const { t } = useI18n();
+
+  function severityLabel(severity: SuggestionSeverity) {
+    if (severity === 'high') return <span className="text-[10px] font-semibold text-red-500 uppercase">{t('highPriority')}</span>;
+    if (severity === 'medium') return <span className="text-[10px] font-semibold text-amber-500 uppercase">{t('medium')}</span>;
+    return <span className="text-[10px] font-semibold text-blue-400 uppercase">{t('suggestion')}</span>;
+  }
+
   return (
     <div className="fixed right-4 bottom-14 z-40 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[70vh]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
         <div className="flex items-center gap-2">
           <Lightbulb size={14} className="text-amber-500" />
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Note Advisor</span>
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('noteAdvisor')}</span>
           {suggestions.length > 0 && (
             <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-full font-medium">
               {suggestions.length}
@@ -45,7 +48,7 @@ export function NoteAdvisorPanel({ suggestions, onDismiss, onDismissAll, onClose
         <button
           onClick={onClose}
           className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-0.5 rounded"
-          aria-label="Chiudi advisor"
+          aria-label={t('closeAdvisor')}
         >
           <X size={14} />
         </button>
@@ -56,8 +59,8 @@ export function NoteAdvisorPanel({ suggestions, onDismiss, onDismissAll, onClose
         {suggestions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <Lightbulb size={28} className="text-gray-200 dark:text-gray-700 mb-2" />
-            <p className="text-sm text-gray-400 dark:text-gray-500">Nessun suggerimento al momento</p>
-            <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">Le note sembrano in ordine</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500">{t('noSuggestions')}</p>
+            <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">{t('notesInOrder')}</p>
           </div>
         ) : (
           suggestions.map(s => (
@@ -87,7 +90,7 @@ export function NoteAdvisorPanel({ suggestions, onDismiss, onDismissAll, onClose
                 <button
                   onClick={() => onDismiss(s.id)}
                   className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-gray-500 dark:hover:text-gray-300 shrink-0 p-0.5 rounded transition-opacity"
-                  aria-label="Ignora suggerimento"
+                  aria-label={t('dismissSuggestion')}
                 >
                   <X size={12} />
                 </button>
@@ -104,7 +107,7 @@ export function NoteAdvisorPanel({ suggestions, onDismiss, onDismissAll, onClose
             onClick={onDismissAll}
             className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 w-full text-center"
           >
-            Ignora tutti i suggerimenti
+            {t('dismissAll')}
           </button>
         </div>
       )}
@@ -118,12 +121,13 @@ interface NoteAdvisorBadgeProps {
 }
 
 export function NoteAdvisorBadge({ count, onClick }: NoteAdvisorBadgeProps) {
+  const { t } = useI18n();
   return (
     <button
       onClick={onClick}
       className="relative p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-amber-500 dark:hover:text-amber-400 transition-colors"
-      title="Note Advisor"
-      aria-label={`Note Advisor${count > 0 ? ` — ${count} suggerimenti` : ''}`}
+      title={t('noteAdvisor')}
+      aria-label={`${t('noteAdvisor')}${count > 0 ? ` — ${count} ${t('noSuggestions')}` : ''}`}
     >
       <Lightbulb size={16} />
       {count > 0 && (

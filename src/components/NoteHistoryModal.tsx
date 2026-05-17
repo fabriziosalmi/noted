@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { X, RotateCcw, Clock } from 'lucide-react';
+import { useI18n } from '../lib/i18n';
 
 interface Snapshot { name: string; ts: string }
 
@@ -11,6 +12,7 @@ interface NoteHistoryModalProps {
 }
 
 export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: NoteHistoryModalProps) {
+  const { t } = useI18n();
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
   const [selected, setSelected] = useState<Snapshot | null>(null);
@@ -41,7 +43,7 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-2">
             <Clock size={15} className="text-gray-400" />
-            <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Cronologia — {fileName.replace('.md', '')}</h2>
+            <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('historyTitle')} — {fileName.replace('.md', '')}</h2>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X size={16} /></button>
         </div>
@@ -49,9 +51,9 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
         <div className="flex flex-1 overflow-hidden">
           {/* Snapshot list */}
           <div className="w-48 border-r border-gray-100 dark:border-gray-700 overflow-y-auto shrink-0">
-            {loading && <p className="text-xs text-gray-400 p-4">Caricamento...</p>}
+            {loading && <p className="text-xs text-gray-400 p-4">{t('loading')}</p>}
             {!loading && snapshots.length === 0 && (
-              <p className="text-xs text-gray-400 p-4">Nessuna versione salvata. Le versioni vengono create automaticamente ad ogni salvataggio.</p>
+              <p className="text-xs text-gray-400 p-4">{t('noVersions')}</p>
             )}
             {snapshots.map(snap => (
               <button
@@ -69,7 +71,7 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
             {preview ? (
               <div className="prose prose-sm dark:prose-invert max-w-none text-xs" dangerouslySetInnerHTML={{ __html: preview }} />
             ) : (
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-8 text-center">Seleziona una versione per visualizzarla</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-8 text-center">{t('selectVersion')}</p>
             )}
           </div>
         </div>
@@ -81,7 +83,7 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
               className="flex items-center gap-2 text-sm px-4 py-1.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors"
             >
               <RotateCcw size={13} />
-              Ripristina questa versione
+              {t('restoreVersion')}
             </button>
           </div>
         )}

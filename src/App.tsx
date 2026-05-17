@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useI18n } from './lib/i18n';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { PanelLeft, PanelRight, Download, FileDown, FileCode, FileText as FileDocx, Keyboard, LayoutTemplate, History, Focus } from 'lucide-react';
 import TurndownService from 'turndown';
@@ -22,6 +23,7 @@ import { useNoteAdvisor } from './hooks/useNoteAdvisor';
 import type { NoteChunk } from './lib/noteSearch';
 
 function App() {
+  const { t } = useI18n();
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -183,9 +185,9 @@ function App() {
     const markdown = td.turndown(editor.getHTML());
     const res = await window.electronAPI.exportMarkdown(markdown);
     if (res.success) {
-      toast('Markdown esportato', 'success');
+      toast(t('markdownExported'), 'success');
     } else {
-      toast(res.error ?? 'Errore esportazione Markdown', 'error');
+      toast(res.error ?? t('markdownExportError'), 'error');
     }
   }, [toast]);
 
@@ -194,9 +196,9 @@ function App() {
     if (!editor || !window.electronAPI) return;
     const res = await window.electronAPI.exportPdf(editor.getHTML());
     if (res.success) {
-      toast('PDF esportato con successo', 'success');
+      toast(t('pdfExported'), 'success');
     } else {
-      toast(res.error ?? 'Errore durante l\'esportazione PDF', 'error');
+      toast(res.error ?? t('pdfExportError'), 'error');
     }
   }, [toast]);
 
@@ -205,8 +207,8 @@ function App() {
     if (!editor || !window.electronAPI) return;
     const title = activeNoteName?.replace('.md', '') ?? 'Nota';
     const res = await window.electronAPI.exportDocx(editor.getHTML(), title);
-    if (res.success) toast('DOCX esportato', 'success');
-    else toast(res.error ?? 'Errore esportazione DOCX', 'error');
+    if (res.success) toast(t('docxExported'), 'success');
+    else toast(res.error ?? t('docxExportError'), 'error');
   }, [activeNoteName, toast]);
 
   const handleExportHtml = useCallback(async () => {
@@ -214,18 +216,18 @@ function App() {
     if (!editor || !window.electronAPI) return;
     const title = activeNoteName?.replace('.md', '') ?? 'Nota';
     const res = await window.electronAPI.exportHtml(editor.getHTML(), title);
-    if (res.success) toast('HTML esportato', 'success');
-    else toast(res.error ?? 'Errore esportazione HTML', 'error');
+    if (res.success) toast(t('htmlExported'), 'success');
+    else toast(res.error ?? t('htmlExportError'), 'error');
   }, [activeNoteName, toast]);
 
   const handleImportVault = useCallback(async () => {
     if (!window.electronAPI) return;
     const res = await window.electronAPI.importVault(settings.syncDirectory || undefined);
     if (res.success) {
-      toast(`${res.data ?? 0} note importate`, 'success');
+      toast(`${res.data ?? 0} ${t('notesImported')}`, 'success');
       void fetchNotes();
     } else {
-      toast(res.error ?? 'Errore importazione', 'error');
+      toast(res.error ?? t('importError'), 'error');
     }
   }, [settings.syncDirectory, fetchNotes, toast]);
 
@@ -235,9 +237,9 @@ function App() {
     if (res.success && res.data) {
       updateSettings({ syncDirectory: res.data });
       void fetchNotes();
-      toast('iCloud Drive configurato', 'success');
+      toast(t('iCloudConfigured'), 'success');
     } else {
-      toast(res.error ?? 'Errore iCloud', 'error');
+      toast(res.error ?? t('iCloudError'), 'error');
     }
   }, [updateSettings, fetchNotes, toast]);
 
@@ -266,52 +268,52 @@ function App() {
               <button
                 onClick={() => setIsHistoryOpen(true)}
                 className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
-                title="Cronologia versioni"
+                title={t('history')}
               >
                 <History size={16} />
               </button>
               <button
                 onClick={() => updateSettings({ focusMode: !settings.focusMode })}
                 className={`p-1 rounded transition-colors ${settings.focusMode ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600'}`}
-                title="Modalità focus (⌘⇧F)"
+                title={t('focusMode')}
               >
                 <Focus size={16} />
               </button>
               <button
                 onClick={handleExportMarkdown}
                 className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
-                title="Esporta come Markdown"
+                title={t('exportMarkdown')}
               >
                 <FileDown size={16} />
               </button>
               <button
                 onClick={handleExportPdf}
                 className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
-                title="Esporta come PDF"
+                title={t('exportPdf')}
               >
                 <Download size={16} />
               </button>
               <button
                 onClick={handleExportHtml}
                 className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
-                title="Esporta come HTML"
+                title={t('exportHtml')}
               >
                 <FileCode size={16} />
               </button>
               <button
                 onClick={handleExportDocx}
                 className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
-                title="Esporta come DOCX (Word)"
+                title={t('exportDocx')}
               >
                 <FileDocx size={16} />
               </button>
             </>
           )}
-          <button onClick={() => setIsTemplatesOpen(v => !v)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors" title="Template">
+          <button onClick={() => setIsTemplatesOpen(v => !v)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors" title={t('templates')}>
             <LayoutTemplate size={16} />
           </button>
           <NoteAdvisorBadge count={suggestions.length} onClick={() => setIsAdvisorOpen(v => !v)} />
-          <button onClick={() => setIsShortcutsOpen(true)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400" title="Scorciatoie (?)">
+          <button onClick={() => setIsShortcutsOpen(true)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400" title={t('shortcuts')}>
             <Keyboard size={16} />
           </button>
           <button onClick={() => setLeftOpen(!leftOpen)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400">
@@ -374,7 +376,7 @@ function App() {
               <div className="mx-auto max-w-3xl px-12 pt-6">
                 <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-xl px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
                   <span className="text-base">✨</span>
-                  <span>Configura un modello AI in <button onClick={() => setIsSettingsOpen(true)} className="underline underline-offset-2 font-medium hover:text-amber-900 dark:hover:text-amber-200">Impostazioni</button> per sbloccare il completamento AI in linea, i comandi rapidi e i tag automatici.</span>
+                  <span>{t('llmBanner')} <button onClick={() => setIsSettingsOpen(true)} className="underline underline-offset-2 font-medium hover:text-amber-900 dark:hover:text-amber-200">{t('llmBannerLink')}</button> {t('llmBannerSuffix')}</span>
                 </div>
               </div>
             )}

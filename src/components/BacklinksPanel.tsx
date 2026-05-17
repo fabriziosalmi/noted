@@ -1,4 +1,5 @@
 import { Link2 } from 'lucide-react';
+import { useI18n } from '../lib/i18n';
 
 interface BacklinksPanelProps {
   activeNoteName: string;
@@ -7,6 +8,7 @@ interface BacklinksPanelProps {
 }
 
 export function BacklinksPanel({ activeNoteName, backlinks, onSelectNote }: BacklinksPanelProps) {
+  const { t } = useI18n();
   if (backlinks.length === 0) return null;
   const baseName = activeNoteName.replace('.md', '');
 
@@ -15,7 +17,7 @@ export function BacklinksPanel({ activeNoteName, backlinks, onSelectNote }: Back
       <div className="flex items-center gap-1.5 mb-2">
         <Link2 size={12} className="text-gray-400 dark:text-gray-500" />
         <span className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-          Backlinks — {backlinks.length} nota{backlinks.length !== 1 ? 'e' : ''} citano "{baseName}"
+          Backlinks — {backlinks.length} {t(backlinks.length !== 1 ? 'backlinksHeader_other' : 'backlinksHeader_one')} "{baseName}"
         </span>
       </div>
       <div className="flex flex-wrap gap-1.5">

@@ -1,8 +1,10 @@
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
+import { useI18n } from '../lib/i18n';
 
 export function CodeBlockView({ node }: NodeViewProps) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -24,7 +26,7 @@ export function CodeBlockView({ node }: NodeViewProps) {
         )}
         <button
           onClick={handleCopy}
-          title="Copia codice"
+          title={t('copyCode')}
           className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-gray-200/60 dark:bg-gray-700/60 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300"
         >
           {copied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}

@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback } from 'react';
+import { useI18n } from '../lib/i18n';
 import type { Editor } from '@tiptap/react';
 import {
   Bold, Italic, Strikethrough, Heading1, Heading2, Heading3,
@@ -35,6 +36,7 @@ interface EditorToolbarProps {
 }
 
 export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findOpen, onCloseFind }: EditorToolbarProps) {
+  const { t } = useI18n();
   const [findQuery, setFindQuery] = useState('');
   const [matches, setMatches] = useState<Match[]>([]);
   const [matchIndex, setMatchIndex] = useState(0);
@@ -86,47 +88,47 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
       {/* Formatting toolbar */}
       {showToolbar && (
         <div className="flex items-center gap-0.5 px-4 py-1.5 flex-wrap">
-          <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} title="Titolo 1"
+          <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} title={t('heading1')}
             className={`${btnBase} ${editor.isActive('heading', { level: 1 }) ? btnActive : btnIdle}`}>
             <Heading1 size={15} />
           </button>
-          <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} title="Titolo 2"
+          <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} title={t('heading2')}
             className={`${btnBase} ${editor.isActive('heading', { level: 2 }) ? btnActive : btnIdle}`}>
             <Heading2 size={15} />
           </button>
-          <button onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} title="Titolo 3"
+          <button onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} title={t('heading3')}
             className={`${btnBase} ${editor.isActive('heading', { level: 3 }) ? btnActive : btnIdle}`}>
             <Heading3 size={15} />
           </button>
           {sep}
-          <button onClick={() => editor.chain().focus().toggleBold().run()} title="Grassetto (⌘B)"
+          <button onClick={() => editor.chain().focus().toggleBold().run()} title={t('bold')}
             className={`${btnBase} ${editor.isActive('bold') ? btnActive : btnIdle}`}>
             <Bold size={15} />
           </button>
-          <button onClick={() => editor.chain().focus().toggleItalic().run()} title="Corsivo (⌘I)"
+          <button onClick={() => editor.chain().focus().toggleItalic().run()} title={t('italic')}
             className={`${btnBase} ${editor.isActive('italic') ? btnActive : btnIdle}`}>
             <Italic size={15} />
           </button>
-          <button onClick={() => editor.chain().focus().toggleStrike().run()} title="Barrato"
+          <button onClick={() => editor.chain().focus().toggleStrike().run()} title={t('strikethrough')}
             className={`${btnBase} ${editor.isActive('strike') ? btnActive : btnIdle}`}>
             <Strikethrough size={15} />
           </button>
-          <button onClick={() => editor.chain().focus().toggleCode().run()} title="Codice inline"
+          <button onClick={() => editor.chain().focus().toggleCode().run()} title={t('inlineCode')}
             className={`${btnBase} ${editor.isActive('code') ? btnActive : btnIdle}`}>
             <Code size={15} />
           </button>
           {sep}
           <button onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-            title="Inserisci tabella"
+            title={t('insertTable')}
             className={`${btnBase} ${btnIdle} hover:text-indigo-600 dark:hover:text-indigo-400`}>
             <TableIcon size={15} />
           </button>
           {sep}
           <button
             onClick={() => { /* find open is triggered from App via Cmd+F */ }}
-            title="Cerca (⌘F)"
+            title={t('findShortcut')}
             className={`${btnBase} ${findOpen ? btnActive : btnIdle}`}
-            aria-label="Cerca nel documento"
+            aria-label={t('findAriaLabel')}
           >
             <Search size={15} />
           </button>
@@ -147,23 +149,23 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
               if (e.key === 'Enter') { e.preventDefault(); goToMatch(e.shiftKey ? matchIndex - 1 : matchIndex + 1); }
               if (e.key === 'Escape') handleClose();
             }}
-            placeholder="Cerca nel documento..."
+            placeholder={t('findPlaceholder')}
             className="flex-1 text-sm bg-transparent outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-600"
           />
           {findQuery && (
             <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
-              {matches.length > 0 ? `${matchIndex + 1}/${matches.length}` : '0 risultati'}
+              {matches.length > 0 ? `${matchIndex + 1}/${matches.length}` : t('noResults')}
             </span>
           )}
           <button onClick={() => goToMatch(matchIndex - 1)} disabled={matches.length === 0}
-            className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 disabled:opacity-30" aria-label="Precedente">
+            className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 disabled:opacity-30" aria-label={t('previous')}>
             <ChevronUp size={14} />
           </button>
           <button onClick={() => goToMatch(matchIndex + 1)} disabled={matches.length === 0}
-            className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 disabled:opacity-30" aria-label="Successivo">
+            className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 disabled:opacity-30" aria-label={t('next')}>
             <ChevronDown size={14} />
           </button>
-          <button onClick={handleClose} className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400" aria-label="Chiudi ricerca">
+          <button onClick={handleClose} className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400" aria-label={t('closeFind')}>
             <X size={14} />
           </button>
         </div>
