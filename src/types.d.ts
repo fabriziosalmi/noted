@@ -21,6 +21,9 @@ declare global {
       onRefreshNotes: (cb: () => void) => void;
       getNativeTheme: () => Promise<{ isDark: boolean }>;
       onNativeThemeUpdated?: (cb: (theme: 'dark' | 'light') => void) => void;
+      exportHtml: (htmlContent: string, title: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+      importVault: (targetDir?: string) => Promise<{ success: boolean; data?: number; error?: string }>;
+      getICloudPath: () => Promise<{ success: boolean; data?: string; error?: string }>;
     };
   }
 }

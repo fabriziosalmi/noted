@@ -46,5 +46,8 @@ window.electronAPI = {
   onRefreshNotes: vi.fn(),
   getNativeTheme: vi.fn().mockResolvedValue({ isDark: false }),
   onNativeThemeUpdated: vi.fn(),
+  exportHtml: vi.fn().mockResolvedValue({ success: true }),
+  importVault: vi.fn().mockResolvedValue({ success: true, data: 0 }),
+  getICloudPath: vi.fn().mockResolvedValue({ success: true, data: '/mock/icloud' }),
 };
 } // end if (typeof window !== 'undefined')

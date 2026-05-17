@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { NoteTemplate } from '../lib/templates';
 import { extractWikilinks } from '../lib/WikilinkExtension';
+import { extractTags } from '../lib/tagUtils';
 
 export interface NoteFile {
   name: string;
@@ -38,6 +39,7 @@ interface NoteState {
   isLoading: boolean;
   pinnedNotes: string[];
   noteLinksIndex: Record<string, string[]>; // noteName → outgoing wikilink targets
+  tagIndex: Record<string, string[]>;       // #tag → note names
 
   // Settings
   settings: SettingsState;
@@ -69,7 +71,8 @@ export const useStore = create<NoteState>()(
       pinnedNotes: [],
       customTemplates: [],
       noteLinksIndex: {},
-      
+      tagIndex: {},
+
       settings: {
         llmProvider: 'lmstudio',
         llmApiKey: '',
@@ -148,10 +151,24 @@ export const useStore = create<NoteState>()(
       const res = await window.electronAPI.saveNote(activeNoteName, content, get().settings.syncDirectory || undefined);
       if (res.success) {
         const links = extractWikilinks(content);
-        set(state => ({
-          activeNoteContent: content,
-          noteLinksIndex: { ...state.noteLinksIndex, [activeNoteName]: links },
-        }));
+        const tags = extractTags(content);
+        set(state => {
+          const newTagIndex = { ...state.tagIndex };
+          // Remove this note from all existing tag entries
+          for (const tag of Object.keys(newTagIndex)) {
+            newTagIndex[tag] = newTagIndex[tag].filter(n => n !== activeNoteName);
+            if (!newTagIndex[tag].length) delete newTagIndex[tag];
+          }
+          // Add current tags
+          for (const tag of tags) {
+            (newTagIndex[tag] ??= []).push(activeNoteName);
+          }
+          return {
+            activeNoteContent: content,
+            noteLinksIndex: { ...state.noteLinksIndex, [activeNoteName]: links },
+            tagIndex: newTagIndex,
+          };
+        });
         await get().fetchNotes();
       }
     }

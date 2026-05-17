@@ -10,6 +10,7 @@ const SECTIONS: { title: string; rows: ShortcutRow[] }[] = [
   {
     title: 'Generale',
     rows: [
+      { keys: ['⌘', 'P'], description: 'Quick open — cerca e apri nota' },
       { keys: ['⌘', 'S'], description: 'Salva immediatamente' },
       { keys: ['⌘', 'F'], description: 'Cerca nel documento' },
       { keys: ['⌘', '⇧', 'F'], description: 'Focus mode (sfuma tutto tranne il paragrafo corrente)' },

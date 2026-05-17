@@ -23,12 +23,14 @@ interface SettingsModalProps {
   settings: Settings;
   onUpdate: (patch: Partial<Settings>) => void;
   onSelectFolder: () => void;
+  onImportVault?: () => void;
+  onUseICloud?: () => void;
   onClose: () => void;
 }
 
 const isLocalProvider = (p: LLMProvider) => p === 'lmstudio' || p === 'ollama';
 
-export function SettingsModal({ settings, onUpdate, onSelectFolder, onClose }: SettingsModalProps) {
+export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVault, onUseICloud, onClose }: SettingsModalProps) {
   const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
   const [discovering, setDiscovering] = useState(false);
 
@@ -304,6 +306,24 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onClose }: S
               >
                 Cambia
               </button>
+            </div>
+            <div className="flex gap-2 mt-2">
+              {onUseICloud && (
+                <button
+                  onClick={onUseICloud}
+                  className="flex-1 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  ☁️ Usa iCloud Drive
+                </button>
+              )}
+              {onImportVault && (
+                <button
+                  onClick={onImportVault}
+                  className="flex-1 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  📥 Importa vault Obsidian / Bear
+                </button>
+              )}
             </div>
           </div>
         </div>

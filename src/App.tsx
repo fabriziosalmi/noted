@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { PanelLeft, PanelRight, Download, FileDown, Keyboard, LayoutTemplate, History, Focus } from 'lucide-react';
+import { PanelLeft, PanelRight, Download, FileDown, FileCode, Keyboard, LayoutTemplate, History, Focus } from 'lucide-react';
 import TurndownService from 'turndown';
 import type { Editor } from '@tiptap/react';
 import { useStore } from './store/useStore';
@@ -15,6 +15,7 @@ import { TemplatesModal } from './components/TemplatesModal';
 import { NoteHistoryModal } from './components/NoteHistoryModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastStack } from './components/Toast';
+import { QuickOpen } from './components/QuickOpen';
 import { useToast } from './hooks/useToast';
 import { useTheme } from './hooks/useTheme';
 import { useNoteAdvisor } from './hooks/useNoteAdvisor';
@@ -29,6 +30,7 @@ function App() {
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
+  const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
   const editorRef = useRef<Editor | null>(null);
   const { messages: toastMessages, toast, dismiss } = useToast();
@@ -41,7 +43,15 @@ function App() {
     pinnedNotes, togglePin, openOrCreateDaily,
     customTemplates, saveAsTemplate, deleteTemplate, createFromTemplate,
     noteLinksIndex,
+    tagIndex,
   } = useStore();
+
+  const allTags = Object.keys(tagIndex);
+  const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
+
+  const filteredNotes = activeTagFilter
+    ? notes.filter(n => (tagIndex[activeTagFilter] ?? []).includes(n.name))
+    : notes;
 
   const fontClass = `editor-font-${settings.editorFont ?? 'system'}`;
   const sizeClass = `editor-size-${settings.editorFontSize ?? 'md'}`;
@@ -95,6 +105,10 @@ function App() {
     const handler = (e: KeyboardEvent) => {
       if (e.key === '?' && !e.metaKey && !e.ctrlKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
         setIsShortcutsOpen(v => !v);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+        e.preventDefault();
+        setQuickOpenOpen(v => !v);
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'f' && !e.shiftKey) {
         e.preventDefault();
@@ -179,6 +193,38 @@ function App() {
     }
   }, [toast]);
 
+  const handleExportHtml = useCallback(async () => {
+    const editor = editorRef.current;
+    if (!editor || !window.electronAPI) return;
+    const title = activeNoteName?.replace('.md', '') ?? 'Nota';
+    const res = await window.electronAPI.exportHtml(editor.getHTML(), title);
+    if (res.success) toast('HTML esportato', 'success');
+    else toast(res.error ?? 'Errore esportazione HTML', 'error');
+  }, [activeNoteName, toast]);
+
+  const handleImportVault = useCallback(async () => {
+    if (!window.electronAPI) return;
+    const res = await window.electronAPI.importVault(settings.syncDirectory || undefined);
+    if (res.success) {
+      toast(`${res.data ?? 0} note importate`, 'success');
+      void fetchNotes();
+    } else {
+      toast(res.error ?? 'Errore importazione', 'error');
+    }
+  }, [settings.syncDirectory, fetchNotes, toast]);
+
+  const handleUseICloud = useCallback(async () => {
+    if (!window.electronAPI) return;
+    const res = await window.electronAPI.getICloudPath();
+    if (res.success && res.data) {
+      updateSettings({ syncDirectory: res.data });
+      void fetchNotes();
+      toast('iCloud Drive configurato', 'success');
+    } else {
+      toast(res.error ?? 'Errore iCloud', 'error');
+    }
+  }, [updateSettings, fetchNotes, toast]);
+
   const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
 
   const { suggestions, dismiss: dismissSuggestion, dismissAll } = useNoteAdvisor({
@@ -229,6 +275,13 @@ function App() {
               >
                 <Download size={16} />
               </button>
+              <button
+                onClick={handleExportHtml}
+                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
+                title="Esporta come HTML"
+              >
+                <FileCode size={16} />
+              </button>
             </>
           )}
           <button onClick={() => setIsTemplatesOpen(v => !v)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors" title="Template">
@@ -256,7 +309,7 @@ function App() {
               <Panel defaultSize={20} minSize={15} maxSize={30} className="vibrancy-sidebar flex flex-col border-r border-gray-200/60 dark:border-gray-700/60">
                 <ErrorBoundary>
                   <Sidebar
-                    notes={notes}
+                    notes={filteredNotes}
                     activeNoteName={activeNoteName}
                     pinnedNotes={pinnedNotes}
                     onSelectNote={openNote}
@@ -266,6 +319,9 @@ function App() {
                     onTogglePin={togglePin}
                     onOpenDaily={handleOpenDaily}
                     onOpenSettings={() => setIsSettingsOpen(true)}
+                    allTags={allTags}
+                    activeTagFilter={activeTagFilter}
+                    onTagFilter={setActiveTagFilter}
                   />
                 </ErrorBoundary>
               </Panel>
@@ -296,6 +352,7 @@ function App() {
                     onEditorReady={handleEditorReady}
                     onAiError={msg => toast(msg, 'error')}
                     allNoteNames={allNoteNames}
+                    allTags={allTags}
                     backlinks={backlinks}
                     onSelectNote={openNote}
                   />
@@ -360,7 +417,17 @@ function App() {
           settings={settings}
           onUpdate={updateSettings}
           onSelectFolder={handleSelectFolder}
+          onImportVault={handleImportVault}
+          onUseICloud={handleUseICloud}
           onClose={() => setIsSettingsOpen(false)}
+        />
+      )}
+
+      {quickOpenOpen && (
+        <QuickOpen
+          notes={notes}
+          onSelect={openNote}
+          onClose={() => setQuickOpenOpen(false)}
         />
       )}
 

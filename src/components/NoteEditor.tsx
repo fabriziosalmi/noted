@@ -14,6 +14,7 @@ import { Bold, Italic, Strikethrough, Code, Bot, FileText, CheckCheck } from 'lu
 import { askLLM } from '../lib/llm';
 import { WikilinkMark, createWikilinkHighlightPlugin, extractWikilinks } from '../lib/WikilinkExtension';
 import { WikilinkSuggestion } from './WikilinkSuggestion';
+import { TagSuggestion } from './TagSuggestion';
 import { BacklinksPanel } from './BacklinksPanel';
 import { Extension } from '@tiptap/core';
 import { CodeBlockView } from './CodeBlockView';
@@ -34,12 +35,13 @@ interface NoteEditorProps {
   onEditorReady: (editor: Editor | null) => void;
   onWordCountChange?: (count: number) => void;
   onAiError?: (msg: string) => void;
-  allNoteNames?: string[];      // for wikilink suggestion
-  backlinks?: string[];         // notes that link to this note
+  allNoteNames?: string[];
+  allTags?: string[];
+  backlinks?: string[];
   onSelectNote?: (name: string) => void;
 }
 
-export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError, allNoteNames = [], backlinks = [], onSelectNote }: NoteEditorProps) {
+export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError, allNoteNames = [], allTags = [], backlinks = [], onSelectNote }: NoteEditorProps) {
   const [isSmartPasting, setIsSmartPasting] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [wordCount, setWordCount] = useState(0);
@@ -235,6 +237,9 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
 
       {editor && allNoteNames.length > 0 && (
         <WikilinkSuggestion editor={editor} notes={allNoteNames} />
+      )}
+      {editor && allTags.length > 0 && (
+        <TagSuggestion editor={editor} allTags={allTags} />
       )}
 
       {activeNoteName && backlinks.length > 0 && onSelectNote && (

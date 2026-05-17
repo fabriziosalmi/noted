@@ -399,6 +399,78 @@ ipcMain.handle('get-native-theme', () => ({
   isDark: nativeTheme.shouldUseDarkColors,
 }));
 
+ipcMain.handle('export-html', async (_, htmlContent: string, noteTitle: string) => {
+  try {
+    if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
+    const { filePath } = await dialog.showSaveDialog({
+      title: 'Esporta come HTML',
+      defaultPath: `${noteTitle || 'Nota'}.html`,
+      filters: [{ name: 'HTML', extensions: ['html'] }],
+    });
+    if (!filePath) return { success: false, error: 'Esportazione annullata' };
+    const safe = stripUnsafeHtml(htmlContent);
+    const full = `<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${noteTitle}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; max-width: 800px; margin: 60px auto; padding: 0 24px; line-height: 1.7; color: #1a1a1a; }
+    h1,h2,h3 { font-weight: 700; margin-top: 1.5em; }
+    code { background: #f3f4f6; padding: 2px 5px; border-radius: 4px; font-family: monospace; }
+    pre { background: #f3f4f6; padding: 1em; border-radius: 8px; overflow-x: auto; }
+    img { max-width: 100%; border-radius: 8px; }
+    blockquote { border-left: 4px solid #e5e7eb; padding-left: 1em; color: #6b7280; }
+    table { border-collapse: collapse; width: 100%; }
+    td,th { border: 1px solid #e5e7eb; padding: 8px 12px; }
+    th { background: #f9fafb; font-weight: 600; }
+  </style>
+</head>
+<body>${safe}</body>
+</html>`;
+    fs.writeFileSync(filePath, full, 'utf-8');
+    return { success: true, data: filePath };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
+ipcMain.handle('import-vault', async (_, targetDir?: string) => {
+  try {
+    const { filePaths, canceled } = await dialog.showOpenDialog({
+      title: 'Importa vault (Obsidian / Bear / cartella Markdown)',
+      properties: ['openDirectory'],
+    });
+    if (canceled || !filePaths.length) return { success: false, error: 'Annullato' };
+    const srcDir = filePaths[0];
+    const dest = targetDir && fs.existsSync(targetDir) ? targetDir : DEFAULT_NOTES_DIR;
+    const mdFiles = fs.readdirSync(srcDir).filter(f => f.endsWith('.md'));
+    let imported = 0;
+    for (const f of mdFiles) {
+      const destPath = path.join(dest, f);
+      if (!fs.existsSync(destPath)) {
+        fs.copyFileSync(path.join(srcDir, f), destPath);
+        imported++;
+      }
+    }
+    return { success: true, data: imported };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
+ipcMain.handle('get-icloud-path', () => {
+  try {
+    const home = app.getPath('home');
+    const icloudPath = path.join(home, 'Library', 'Mobile Documents', 'com~apple~CloudDocs', 'Noted');
+    if (!fs.existsSync(icloudPath)) fs.mkdirSync(icloudPath, { recursive: true });
+    return { success: true, data: icloudPath };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
 // Proxy LLM HTTP requests from renderer — avoids CORS/CSP issues
 ipcMain.handle('llm-fetch', async (_, url: string, options: { method: string; headers: Record<string, string>; body: string }) => {
   try {

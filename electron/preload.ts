@@ -21,4 +21,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getNativeTheme: () => ipcRenderer.invoke('get-native-theme') as Promise<{ isDark: boolean }>,
   onNativeThemeUpdated: (cb: (theme: 'dark' | 'light') => void) =>
     ipcRenderer.on('native-theme-updated', (_e, theme: 'dark' | 'light') => cb(theme)),
+  exportHtml: (htmlContent: string, title: string) => ipcRenderer.invoke('export-html', htmlContent, title),
+  importVault: (targetDir?: string) => ipcRenderer.invoke('import-vault', targetDir),
+  getICloudPath: () => ipcRenderer.invoke('get-icloud-path'),
 });

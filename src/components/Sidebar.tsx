@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { FileText, Plus, Trash2, Settings, Search, ArrowUpDown, Star, CalendarDays } from 'lucide-react';
+import { FileText, Plus, Trash2, Settings, Search, ArrowUpDown, Star, CalendarDays, Tag, X } from 'lucide-react';
 import type { NoteFile } from '../store/useStore';
 
 type SortBy = 'date' | 'name' | 'size';
@@ -17,16 +17,20 @@ interface SidebarProps {
   onTogglePin: (name: string) => void;
   onOpenDaily: () => void;
   onOpenSettings: () => void;
+  allTags?: string[];
+  activeTagFilter?: string | null;
+  onTagFilter?: (tag: string | null) => void;
 }
 
 const ROW_HEIGHT = 36;
 
-export function Sidebar({ notes, activeNoteName, pinnedNotes, onSelectNote, onCreateNote, onDeleteNote, onRenameNote, onTogglePin, onOpenDaily, onOpenSettings }: SidebarProps) {
+export function Sidebar({ notes, activeNoteName, pinnedNotes, onSelectNote, onCreateNote, onDeleteNote, onRenameNote, onTogglePin, onOpenDaily, onOpenSettings, allTags = [], activeTagFilter = null, onTagFilter }: SidebarProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('date');
   const [renamingNote, setRenamingNote] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [showTags, setShowTags] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   const cycleSortBy = useCallback(() => {
@@ -83,18 +87,26 @@ export function Sidebar({ notes, activeNoteName, pinnedNotes, onSelectNote, onCr
     <>
       {/* Header */}
       <div className="p-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex justify-between items-center">
-        <span>Files</span>
+        <span>{activeTagFilter ? activeTagFilter : 'Note'}</span>
         <div className="flex items-center gap-1">
           <button
             onClick={cycleSortBy}
             className="flex items-center gap-0.5 hover:text-gray-800 dark:hover:text-gray-200 px-1 py-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
             title={`Ordina per: ${SORT_LABELS[sortBy]}`}
-            aria-label={`Ordina per ${SORT_LABELS[sortBy]}`}
           >
             <ArrowUpDown size={11} />
             <span className="text-[10px]">{SORT_LABELS[sortBy]}</span>
           </button>
-          <button onClick={onOpenDaily} className="hover:text-gray-800 dark:hover:text-gray-200 p-1" aria-label="Nota del giorno" title="Nota del giorno">
+          {allTags.length > 0 && (
+            <button
+              onClick={() => setShowTags(v => !v)}
+              className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ${showTags ? 'text-[var(--accent)]' : 'hover:text-gray-800 dark:hover:text-gray-200'}`}
+              title="Tag"
+            >
+              <Tag size={13} />
+            </button>
+          )}
+          <button onClick={onOpenDaily} className="hover:text-gray-800 dark:hover:text-gray-200 p-1" title="Nota del giorno">
             <CalendarDays size={14} />
           </button>
           <button onClick={onCreateNote} className="hover:text-gray-800 dark:hover:text-gray-200 p-1" aria-label="Nuova nota">
@@ -103,9 +115,36 @@ export function Sidebar({ notes, activeNoteName, pinnedNotes, onSelectNote, onCr
         </div>
       </div>
 
+      {/* Tag filter strip */}
+      {showTags && allTags.length > 0 && (
+        <div className="px-2 pb-2 flex flex-wrap gap-1">
+          {activeTagFilter && (
+            <button
+              onClick={() => onTagFilter?.(null)}
+              className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] text-[var(--accent)] border border-[color-mix(in_srgb,var(--accent)_30%,transparent)]"
+            >
+              <X size={9} /> tutto
+            </button>
+          )}
+          {allTags.slice(0, 20).map(tag => (
+            <button
+              key={tag}
+              onClick={() => onTagFilter?.(activeTagFilter === tag ? null : tag)}
+              className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                activeTagFilter === tag
+                  ? 'bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] text-[var(--accent)] border-[color-mix(in_srgb,var(--accent)_40%,transparent)]'
+                  : 'text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-[var(--accent)] hover:text-[var(--accent)]'
+              }`}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Search */}
       <div className="px-2 pb-2">
-        <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-700 rounded px-2 py-1">
+        <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-700/60 rounded px-2 py-1">
           <Search size={12} className="text-gray-400 dark:text-gray-500 shrink-0" />
           <input
             type="text"
@@ -137,8 +176,8 @@ export function Sidebar({ notes, activeNoteName, pinnedNotes, onSelectNote, onCr
                 aria-current={isActive ? 'true' : undefined}
                 className={`flex items-center justify-between p-2 rounded text-sm cursor-pointer mb-1 group ${
                   isActive
-                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300'
-                    : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    ? 'bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)]'
+                    : 'hover:bg-gray-200/70 dark:hover:bg-gray-700/60 text-gray-700 dark:text-gray-300'
                 }`}
               >
                 <div className="flex items-center space-x-2 truncate flex-1 min-w-0">
@@ -151,15 +190,11 @@ export function Sidebar({ notes, activeNoteName, pinnedNotes, onSelectNote, onCr
                       onBlur={() => void commitRename()}
                       onKeyDown={handleRenameKeyDown}
                       onClick={e => e.stopPropagation()}
-                      className="flex-1 min-w-0 bg-white dark:bg-gray-700 border border-blue-400 rounded px-1 text-xs text-gray-800 dark:text-gray-200 outline-none"
+                      className="flex-1 min-w-0 bg-white dark:bg-gray-700 border border-[var(--accent)] rounded px-1 text-xs text-gray-800 dark:text-gray-200 outline-none"
                       autoFocus
                     />
                   ) : (
-                    <span
-                      className="truncate"
-                      onDoubleClick={e => startRename(note, e)}
-                      title="Doppio clic per rinominare"
-                    >
+                    <span className="truncate" onDoubleClick={e => startRename(note, e)} title="Doppio clic per rinominare">
                       {note.name.replace('.md', '')}
                     </span>
                   )}
@@ -169,7 +204,6 @@ export function Sidebar({ notes, activeNoteName, pinnedNotes, onSelectNote, onCr
                     <button
                       onClick={e => { e.stopPropagation(); onTogglePin(note.name); }}
                       className={`p-1 transition-colors ${pinnedNotes.includes(note.name) ? 'text-amber-400' : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-amber-400'}`}
-                      aria-label={pinnedNotes.includes(note.name) ? `Rimuovi da preferiti` : `Aggiungi ai preferiti`}
                       title={pinnedNotes.includes(note.name) ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
                     >
                       <Star size={12} fill={pinnedNotes.includes(note.name) ? 'currentColor' : 'none'} />
@@ -187,8 +221,10 @@ export function Sidebar({ notes, activeNoteName, pinnedNotes, onSelectNote, onCr
             );
           })}
         </div>
-        {filtered.length === 0 && query && (
-          <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-4">Nessuna nota trovata</p>
+        {filtered.length === 0 && (
+          <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-4">
+            {activeTagFilter ? `Nessuna nota con ${activeTagFilter}` : query ? 'Nessuna nota trovata' : 'Nessuna nota'}
+          </p>
         )}
       </div>
 
@@ -197,7 +233,7 @@ export function Sidebar({ notes, activeNoteName, pinnedNotes, onSelectNote, onCr
         role="button"
         aria-label="Impostazioni"
         tabIndex={0}
-        className="p-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+        className="p-3 border-t border-gray-200/60 dark:border-gray-700/60 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
         style={{ cursor: 'pointer' }}
         onClick={onOpenSettings}
         onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onOpenSettings()}
