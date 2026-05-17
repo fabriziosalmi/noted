@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useI18n } from '../lib/i18n';
 import { useEditor, EditorContent, ReactNodeViewRenderer, type Editor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
@@ -14,7 +14,7 @@ import 'katex/dist/katex.min.css';
 import { Bold, Italic, Strikethrough, Code, Bot, FileText, CheckCheck } from 'lucide-react';
 import { askLLM } from '../lib/llm';
 import { useStore } from '../store/useStore';
-import { WikilinkMark, createWikilinkHighlightPlugin, extractWikilinks } from '../lib/WikilinkExtension';
+import { WikilinkMark, createWikilinkHighlightPlugin } from '../lib/WikilinkExtension';
 import { WikilinkSuggestion } from './WikilinkSuggestion';
 import { TagSuggestion } from './TagSuggestion';
 import { BacklinksPanel } from './BacklinksPanel';

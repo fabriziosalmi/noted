@@ -315,7 +315,7 @@ function App() {
             <LayoutTemplate size={16} />
           </button>
           <NoteAdvisorBadge count={suggestions.length} onClick={() => setIsAdvisorOpen(v => !v)} />
-          {settings.gitEnabled && <GitBadge onClick={() => setIsGitOpen(v => !v)} syncDir={settings.syncDirectory} />}
+          {settings.gitEnabled && <GitBadge onClick={() => setIsGitOpen(v => !v)} />}
           <button onClick={() => setIsShortcutsOpen(true)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400" title={t('shortcuts')}>
             <Keyboard size={16} />
           </button>

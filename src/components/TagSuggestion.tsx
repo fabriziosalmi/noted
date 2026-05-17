@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
-import { extractTags } from '../lib/tagUtils';
 
 interface TagSuggestionProps {
   editor: Editor;

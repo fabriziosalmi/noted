@@ -31,7 +31,7 @@ export function CodeBlockView({ node }: NodeViewProps) {
         >
           {copied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
         </button>
-        <NodeViewContent as="code" />
+        <NodeViewContent<'code'> as="code" />
       </pre>
     </NodeViewWrapper>
   );

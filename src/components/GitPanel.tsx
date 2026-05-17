@@ -4,8 +4,18 @@ import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
 
 interface GitPanelProps {
+  syncDir?: string | null;
   activeNoteName: string | null;
   onClose: () => void;
+}
+
+interface LocalGitStatus {
+  initialized: boolean;
+  branch: string;
+  dirty: boolean;
+  ahead: number;
+  stagedFiles: string[];
+  modifiedFiles: string[];
 }
 
 type Phase = 'idle' | 'committing' | 'pushing' | 'creating-pr';
@@ -15,7 +25,7 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
   const { settings, updateSettings } = useStore();
   const syncDir = settings.syncDirectory || undefined;
 
-  const [status, setStatus] = useState<GitStatusData | null>(null);
+  const [status, setStatus] = useState<LocalGitStatus | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -227,7 +237,7 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
                 </div>
                 {status.modifiedFiles.length > 0 && (
                   <div className="mt-1 text-[10px] text-gray-400 font-mono space-y-0.5 max-h-16 overflow-y-auto">
-                    {status.modifiedFiles.slice(0, 5).map(f => (
+                    {status.modifiedFiles.slice(0, 5).map((f: string) => (
                       <div key={f} className="truncate">M {f}</div>
                     ))}
                     {status.modifiedFiles.length > 5 && <div>+{status.modifiedFiles.length - 5} more</div>}

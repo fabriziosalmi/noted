@@ -307,7 +307,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                       : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
                 >
-                  {'labelKey' in rest ? t(rest.labelKey) : rest.label}
+                  {t(rest.labelKey)}
                 </button>
               ))}
             </div>

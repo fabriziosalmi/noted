@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useMemo } from 'react';
 import {
   FileText, Plus, Trash2, Settings, Search, ArrowUpDown, Star, CalendarDays,
-  Tag, X, FolderOpen, Folder, FolderPlus, ChevronRight, ChevronDown, MoreHorizontal
+  Tag, X, FolderOpen, Folder, FolderPlus, ChevronRight, ChevronDown
 } from 'lucide-react';
 import type { NoteFile, FolderInfo } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
