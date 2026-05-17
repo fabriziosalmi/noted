@@ -18,6 +18,14 @@ const SECTIONS: { title: string; rows: ShortcutRow[] }[] = [
     ],
   },
   {
+    title: 'AI',
+    rows: [
+      { keys: ['/'], description: 'Slash commands AI — /continua, /espandi, /riassumi, /migliora, /punti, /traduci' },
+      { keys: ['Tab'], description: 'Accetta suggerimento ghost text (appare dopo 1.2s di pausa)' },
+      { keys: ['Esc'], description: 'Scarta ghost text' },
+    ],
+  },
+  {
     title: 'Formattazione',
     rows: [
       { keys: ['⌘', 'B'], description: 'Grassetto' },

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { useEditor, EditorContent, ReactNodeViewRenderer, type Editor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
@@ -18,6 +18,9 @@ import { TagSuggestion } from './TagSuggestion';
 import { BacklinksPanel } from './BacklinksPanel';
 import { Extension } from '@tiptap/core';
 import { CodeBlockView } from './CodeBlockView';
+import { SlashCommands } from './SlashCommands';
+import { SmartTagSuggestion } from './SmartTagSuggestion';
+import { GhostTextExtension, ghostTextKey } from '../lib/ghostTextExtension';
 
 const lowlight = createLowlight(common);
 
@@ -49,6 +52,11 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const prevNoteNameRef = useRef<string | null>(null);
+  const ghostTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ghostTextRef = useRef('');
+  const ghostActiveRef = useRef(false);
+  const [ghostActive, setGhostActive] = useState(false);
+  const editorRef = useRef<Editor | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -85,6 +93,14 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     onWordCountChange?.(count);
   }, [onWordCountChange]);
 
+  const clearGhost = useCallback(() => {
+    ghostTextRef.current = '';
+    ghostActiveRef.current = false;
+    setGhostActive(false);
+    const ed = editorRef.current;
+    if (ed) ed.view.dispatch(ed.state.tr.setMeta(ghostTextKey, ''));
+  }, []);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ codeBlock: false }),
@@ -101,17 +117,60 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       Mathematics,
       WikilinkMark,
       WikilinkPlugin,
+      GhostTextExtension,
     ],
     content: activeNoteContent,
     onUpdate: ({ editor }) => {
       debouncedSave(editor.getHTML());
       updateWordCount(editor.getText());
+
+      // Clear existing ghost text on any edit, then schedule new suggestion
+      clearGhost();
+      if (ghostTimerRef.current) clearTimeout(ghostTimerRef.current);
+      ghostTimerRef.current = setTimeout(async () => {
+        if (!mountedRef.current) return;
+        const { state } = editor;
+        const { from } = state.selection;
+        const context = state.doc.textBetween(Math.max(0, from - 400), from, '\n').trim();
+        if (context.length < 30) return;
+        try {
+          const suggestion = await askLLM([
+            { role: 'system', content: 'Sei un assistente di scrittura. Completa il testo con 1 breve frase naturale nella stessa lingua e stile. Rispondi con SOLO la continuazione, senza ripetere il testo esistente, senza virgolette.' },
+            { role: 'user', content: context },
+          ]);
+          if (!mountedRef.current || !suggestion.trim()) return;
+          const trimmed = suggestion.trim().replace(/^[.,;:\s]+/, '');
+          ghostTextRef.current = ' ' + trimmed;
+          ghostActiveRef.current = true;
+          setGhostActive(true);
+          editor.view.dispatch(editor.state.tr.setMeta(ghostTextKey, ' ' + trimmed));
+        } catch {
+          // silently ignore — ghost text is best-effort
+        }
+      }, 1200);
     },
     onCreate: ({ editor }) => {
       updateWordCount(editor.getText());
     },
     editorProps: {
       attributes: { class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none' },
+      handleKeyDown: (_view, event) => {
+        if (event.key === 'Tab' && ghostActiveRef.current && ghostTextRef.current) {
+          event.preventDefault();
+          const ghost = ghostTextRef.current;
+          clearGhost();
+          editorRef.current?.chain().focus().insertContent(ghost).run();
+          return true;
+        }
+        if (event.key === 'Escape' && ghostActiveRef.current) {
+          clearGhost();
+          return false;
+        }
+        if (ghostActiveRef.current && !['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Shift','Control','Meta','Alt'].includes(event.key)) {
+          clearGhost();
+        }
+        return false;
+      },
       handlePaste: (_view, event) => {
         // Image paste — convert to base64 and insert
         const items = Array.from(event.clipboardData?.items ?? []);
@@ -180,7 +239,10 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [editor, flushSave]);
 
-  useEffect(() => { onEditorReady(editor ?? null); }, [editor, onEditorReady]);
+  useEffect(() => {
+    editorRef.current = editor ?? null;
+    onEditorReady(editor ?? null);
+  }, [editor, onEditorReady]);
 
   useEffect(() => {
     if (editor && activeNoteName !== prevNoteNameRef.current) {
@@ -241,6 +303,21 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       {editor && allTags.length > 0 && (
         <TagSuggestion editor={editor} allTags={allTags} />
       )}
+      {editor && (
+        <SlashCommands editor={editor} onAiError={onAiError} />
+      )}
+
+      {activeNoteContent && (
+        <SmartTagSuggestion
+          content={activeNoteContent}
+          existingTags={allTags}
+          onAccept={tags => {
+            if (editor) {
+              editor.chain().focus().insertContentAt(editor.state.doc.content.size, `<p>${tags.join(' ')}</p>`).run();
+            }
+          }}
+        />
+      )}
 
       {activeNoteName && backlinks.length > 0 && onSelectNote && (
         <BacklinksPanel activeNoteName={activeNoteName} backlinks={backlinks} onSelectNote={onSelectNote} />
@@ -255,6 +332,12 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
 
       {/* Status bar */}
       <div className="fixed bottom-4 right-4 flex items-center gap-3 z-20">
+        {ghostActive && (
+          <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-full px-2.5 py-1">
+            <kbd className="font-mono text-[10px] bg-gray-200 dark:bg-gray-700 rounded px-1">Tab</kbd>
+            accetta
+          </span>
+        )}
         {wordCount > 0 && (
           <span className="text-xs text-gray-300 dark:text-gray-600">{wordCount} {wordCount === 1 ? 'parola' : 'parole'}</span>
         )}
