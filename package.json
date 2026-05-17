@@ -9,7 +9,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build:main": "esbuild electron/main.ts --bundle --platform=node --format=esm --outfile=dist-electron/main.js --external:electron --external:fsevents --packages=external",
+    "build:main": "esbuild electron/main.ts --bundle --platform=node --format=cjs --outfile=dist-electron/main.cjs --external:electron --external:fsevents --packages=external",
     "build:preload": "esbuild electron/preload.ts --bundle --platform=node --format=cjs --outfile=dist-electron/preload.js --external:electron",
     "build:mcp": "esbuild mcp-server/index.ts --bundle --platform=node --format=cjs --outfile=dist-mcp/index.cjs --external:fsevents",
     "dev": "npm run build:main && npm run build:preload && vite",
@@ -41,6 +41,7 @@
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-resizable-panels": "^2.1.9",
+    "simple-git": "^3.36.0",
     "turndown": "^7.2.4",
     "zustand": "^5.0.13"
   },
@@ -67,7 +68,6 @@
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
     "marked": "^18.0.3",
-    "simple-git": "^3.36.0",
     "tailwindcss": "^4.3.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
@@ -76,7 +76,7 @@
     "vite-plugin-electron-renderer": "^0.14.7",
     "vitest": "^4.1.6"
   },
-  "main": "dist-electron/main.js",
+  "main": "dist-electron/main.cjs",
   "build": {
     "appId": "com.noted.app",
     "productName": "Noted",

@@ -1,7 +1,6 @@
-import { app, BrowserWindow, ipcMain, dialog, safeStorage, globalShortcut, nativeTheme } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, safeStorage, globalShortcut, nativeTheme, protocol } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { validateFileName, validateFolderName, stripUnsafeHtml } from './ipc-utils.js';
 import * as gitOps from './git-ops.js';
 
@@ -11,8 +10,7 @@ if (!app.isPackaged) {
   app.disableHardwareAcceleration();
 }
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// __dirname is provided by CommonJS (esbuild --format=cjs)
 
 // In dev: keep userData/notes local to the project so we don't pollute ~/Library.
 // In production (packaged): userData is already ~/Library/Application Support/Noted — write there.
@@ -46,6 +44,13 @@ let encryptedGhToken: Buffer | null = null;
 process.env.DIST = path.join(__dirname, '../dist');
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public');
 
+// Register a custom 'app://' scheme as standard+secure BEFORE app.whenReady().
+// This avoids file:// + ES-module + asar quirks (silent JS bundle loading failures
+// when index.html is loaded from inside app.asar with <script type="module" crossorigin>).
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'app', privileges: { secure: true, standard: true, supportFetchAPI: true, stream: true } },
+]);
+
 let win: BrowserWindow | null;
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
 
@@ -76,7 +81,8 @@ function createWindow() {
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL);
   } else {
-    win.loadFile(path.join(process.env.DIST, 'index.html'));
+    // Use custom app:// scheme — bypasses ES-module-from-file:// issues inside asar
+    win.loadURL('app://./index.html');
   }
 }
 
@@ -107,7 +113,7 @@ function openCaptureWindow() {
   captureWin.on('closed', () => { captureWin = null; });
   const captureUrl = VITE_DEV_SERVER_URL
     ? `${VITE_DEV_SERVER_URL}capture.html`
-    : `file://${path.join(process.env.DIST!, 'capture.html')}`;
+    : 'app://./capture.html';
   captureWin.loadURL(captureUrl);
 }
 
@@ -165,6 +171,27 @@ function createWelcomeNote() {
 }
 
 app.whenReady().then(() => {
+  // Serve renderer assets via app:// — bypasses ES-module-from-file:// issues inside asar
+  protocol.handle('app', async (request) => {
+    try {
+      const url = new URL(request.url);
+      const relPath = decodeURIComponent(url.pathname.replace(/^\/+/, ''));
+      const filePath = path.join(process.env.DIST!, relPath);
+      const data = await fs.promises.readFile(filePath);
+      const ext = path.extname(filePath).toLowerCase();
+      const mimeMap: Record<string, string> = {
+        '.html': 'text/html', '.js': 'application/javascript', '.mjs': 'application/javascript',
+        '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml',
+        '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
+        '.webp': 'image/webp', '.woff': 'font/woff', '.woff2': 'font/woff2',
+        '.ttf': 'font/ttf', '.ico': 'image/x-icon',
+      };
+      const mime = mimeMap[ext] ?? 'application/octet-stream';
+      return new Response(new Uint8Array(data), { headers: { 'Content-Type': mime } });
+    } catch {
+      return new Response('Not Found', { status: 404 });
+    }
+  });
   initNotesDir();
   createWelcomeNote();
   createWindow();
