@@ -296,7 +296,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                 { value: 'sm', labelKey: 'fontSmall' },
                 { value: 'md', labelKey: 'fontNormal' },
                 { value: 'lg', labelKey: 'fontLarge' },
-                { value: 'xl', label: 'XL' },
+                { value: 'xl', labelKey: 'fontXl' },
               ] as const).map(({ value, ...rest }) => (
                 <button
                   key={value}

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 import { askLLM } from '../lib/llm';
 import { Wand2, AlignLeft, List, Languages, Minimize2, Pencil, Loader2 } from 'lucide-react';
-import { useI18n } from '../lib/i18n';
+import { useI18n, type TranslationKey } from '../lib/i18n';
 
 interface SlashCommandsProps {
   editor: Editor;
@@ -12,8 +12,8 @@ interface SlashCommandsProps {
 interface Command {
   id: string;
   icon: React.ReactNode;
-  labelKey: string;
-  descKey: string;
+  labelKey: TranslationKey;
+  descKey: TranslationKey;
   prompt: (context: string) => string;
 }
 
@@ -73,7 +73,7 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
   const triggerFromRef = useRef<number | null>(null);
 
   const filtered = COMMANDS.filter(c =>
-    !query || t(c.labelKey as any).toLowerCase().includes(query.toLowerCase()) || c.id.includes(query.toLowerCase())
+    !query || t(c.labelKey).toLowerCase().includes(query.toLowerCase()) || c.id.includes(query.toLowerCase())
   );
 
   useEffect(() => { setActiveIdx(0); }, [query]);
@@ -152,7 +152,7 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
       <div className="fixed top-14 right-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl px-4 py-3 flex items-center gap-3 z-50">
         <Loader2 size={16} className="animate-spin text-[var(--accent)]" />
         <span className="text-sm text-gray-600 dark:text-gray-300">
-          {t(COMMANDS.find(c => c.id === running)?.labelKey as any ?? 'cmdContinueLabel')}...
+          {t(COMMANDS.find(c => c.id === running)?.labelKey ?? 'cmdContinueLabel')}...
         </span>
       </div>
     );
@@ -181,8 +181,8 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
         >
           <span className="mt-0.5 opacity-70 shrink-0">{cmd.icon}</span>
           <div>
-            <div className="text-sm font-medium leading-tight">{t(cmd.labelKey as any)}</div>
-            <div className="text-xs opacity-60 mt-0.5">{t(cmd.descKey as any)}</div>
+            <div className="text-sm font-medium leading-tight">{t(cmd.labelKey)}</div>
+            <div className="text-xs opacity-60 mt-0.5">{t(cmd.descKey)}</div>
           </div>
         </button>
       ))}

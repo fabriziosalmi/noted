@@ -127,7 +127,7 @@ export function NoteAdvisorBadge({ count, onClick }: NoteAdvisorBadgeProps) {
       onClick={onClick}
       className="relative p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-amber-500 dark:hover:text-amber-400 transition-colors"
       title={t('noteAdvisor')}
-      aria-label={`${t('noteAdvisor')}${count > 0 ? ` — ${count} ${t('noSuggestions')}` : ''}`}
+      aria-label={`${t('noteAdvisor')}${count > 0 ? ` — ${count}` : ''}`}
     >
       <Lightbulb size={16} />
       {count > 0 && (

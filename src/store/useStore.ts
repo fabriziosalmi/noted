@@ -281,9 +281,11 @@ export const useStore = create<NoteState>()(
     const res = await window.electronAPI.deleteNote(fileName, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile eliminare la nota');
     const { activeNoteName } = get();
-    if (activeNoteName === fileName) {
-      set({ activeNoteName: null, activeNoteContent: '' });
-    }
+    set(state => ({
+      activeNoteName: activeNoteName === fileName ? null : state.activeNoteName,
+      activeNoteContent: activeNoteName === fileName ? '' : state.activeNoteContent,
+      pinnedNotes: state.pinnedNotes.filter(n => n !== fileName),
+    }));
     await get().fetchNotes();
   },
 

@@ -148,8 +148,8 @@ export function Sidebar({
   const commitNoteRename = useCallback(async () => {
     if (!renamingNote || !renameValue.trim()) { setRenamingNote(null); return; }
     const baseName = renamingNote.includes('/') ? renamingNote.split('/')[0] + '/' : '';
-    const newName = baseName + renameValue.trim() + (renameValue.endsWith('.md') ? '' : '');
-    const fullNew = baseName + renameValue.trim() + '.md';
+    const stem = renameValue.trim().replace(/\.md$/i, '');
+    const fullNew = baseName + stem + '.md';
     if (fullNew === renamingNote) { setRenamingNote(null); return; }
     try { await onRenameNote(renamingNote, fullNew); } catch { /* toast upstream */ }
     finally { setRenamingNote(null); }

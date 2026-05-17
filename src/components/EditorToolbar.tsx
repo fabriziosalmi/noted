@@ -30,12 +30,12 @@ interface EditorToolbarProps {
   showToolbar: boolean;
   showAiBar: boolean;
   onAiError?: (msg: string) => void;
-  // find bar open/close driven externally via Cmd+F
   findOpen: boolean;
   onCloseFind: () => void;
+  onOpenFind: () => void;
 }
 
-export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findOpen, onCloseFind }: EditorToolbarProps) {
+export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findOpen, onCloseFind, onOpenFind }: EditorToolbarProps) {
   const { t } = useI18n();
   const [findQuery, setFindQuery] = useState('');
   const [matches, setMatches] = useState<Match[]>([]);
@@ -125,7 +125,7 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
           </button>
           {sep}
           <button
-            onClick={() => { /* find open is triggered from App via Cmd+F */ }}
+            onClick={onOpenFind}
             title={t('findShortcut')}
             className={`${btnBase} ${findOpen ? btnActive : btnIdle}`}
             aria-label={t('findAriaLabel')}

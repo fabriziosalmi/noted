@@ -372,6 +372,7 @@ function App() {
                 onAiError={msg => toast(msg, 'error')}
                 findOpen={findOpen}
                 onCloseFind={() => setFindOpen(false)}
+                onOpenFind={() => setFindOpen(true)}
               />
             )}
             {/* LLM not configured banner */}

@@ -89,7 +89,8 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
   const handleCreatePr = async () => {
     if (!activeNoteName || !window.electronAPI) return;
     if (!settings.gitRemote) { showError(t('gitNoRemote')); return; }
-    const token = (await window.electronAPI.gitGetToken()).data ?? '';
+    const tokenRes = await window.electronAPI.gitGetToken();
+    const token = tokenRes.success ? (tokenRes.data ?? '') : '';
     if (!token) { showError(t('gitNoToken')); return; }
     if (!prTitle.trim()) { showError(t('gitPrTitleRequired')); return; }
 

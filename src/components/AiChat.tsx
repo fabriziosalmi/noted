@@ -11,13 +11,11 @@ interface AiChatProps {
 
 interface ChatMessage { role: 'assistant' | 'user'; content: string }
 
-const GREETING = 'Ciao! Sono il tuo assistente. MCP attivato. Posso leggere quello che scrivi e aiutarti. Come posso aiutarti oggi?';
-
 export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
   const { t } = useI18n();
   // displayHistory includes the greeting bubble shown in the UI
   const [displayHistory, setDisplayHistory] = useState<ChatMessage[]>([
-    { role: 'assistant', content: GREETING },
+    { role: 'assistant', content: t('aiGreeting') },
   ]);
   // llmHistory contains only real user/assistant turns sent to the LLM — no greeting
   const [llmHistory, setLlmHistory] = useState<ChatMessage[]>([]);
