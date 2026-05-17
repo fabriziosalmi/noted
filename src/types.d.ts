@@ -41,6 +41,7 @@ declare global {
       renameFolder: (oldName: string, newName: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       deleteFolder: (name: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       moveNote: (fileName: string, toFolder: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+      setNoteTitle: (noteName: string) => Promise<void>;
     };
   }
 }

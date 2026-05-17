@@ -55,5 +55,6 @@ window.electronAPI = {
   renameFolder: vi.fn().mockResolvedValue({ success: true }),
   deleteFolder: vi.fn().mockResolvedValue({ success: true }),
   moveNote: vi.fn().mockResolvedValue({ success: true, data: 'moved.md' }),
+  setNoteTitle: vi.fn().mockResolvedValue(undefined),
 };
 } // end if (typeof window !== 'undefined')

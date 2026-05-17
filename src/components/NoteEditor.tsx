@@ -12,6 +12,7 @@ import { createLowlight, common } from 'lowlight';
 import 'katex/dist/katex.min.css';
 import { Bold, Italic, Strikethrough, Code, Bot, FileText, CheckCheck } from 'lucide-react';
 import { askLLM } from '../lib/llm';
+import { useStore } from '../store/useStore';
 import { WikilinkMark, createWikilinkHighlightPlugin, extractWikilinks } from '../lib/WikilinkExtension';
 import { WikilinkSuggestion } from './WikilinkSuggestion';
 import { TagSuggestion } from './TagSuggestion';
@@ -45,6 +46,9 @@ interface NoteEditorProps {
 }
 
 export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError, allNoteNames = [], allTags = [], backlinks = [], onSelectNote }: NoteEditorProps) {
+  const llmProvider = useStore(s => s.settings.llmProvider);
+  const llmApiKey = useStore(s => s.settings.llmApiKey);
+  const llmReady = llmProvider === 'lmstudio' || llmProvider === 'ollama' || !!llmApiKey;
   const [isSmartPasting, setIsSmartPasting] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [wordCount, setWordCount] = useState(0);
@@ -127,6 +131,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       // Clear existing ghost text on any edit, then schedule new suggestion
       clearGhost();
       if (ghostTimerRef.current) clearTimeout(ghostTimerRef.current);
+      if (!llmReady) return;
       ghostTimerRef.current = setTimeout(async () => {
         if (!mountedRef.current) return;
         const { state } = editor;

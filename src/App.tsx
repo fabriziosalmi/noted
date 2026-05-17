@@ -104,6 +104,10 @@ function App() {
   }, [fetchNotes, loadApiKey]);
 
   useEffect(() => {
+    window.electronAPI?.setNoteTitle(activeNoteName ?? '');
+  }, [activeNoteName]);
+
+  useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === '?' && !e.metaKey && !e.ctrlKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
         setIsShortcutsOpen(v => !v);
@@ -364,6 +368,15 @@ function App() {
                 findOpen={findOpen}
                 onCloseFind={() => setFindOpen(false)}
               />
+            )}
+            {/* LLM not configured banner */}
+            {!activeNoteName && !settings.llmApiKey && settings.llmProvider !== 'lmstudio' && settings.llmProvider !== 'ollama' && (
+              <div className="mx-auto max-w-3xl px-12 pt-6">
+                <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-xl px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+                  <span className="text-base">✨</span>
+                  <span>Configura un modello AI in <button onClick={() => setIsSettingsOpen(true)} className="underline underline-offset-2 font-medium hover:text-amber-900 dark:hover:text-amber-200">Impostazioni</button> per sbloccare ghost text, slash commands e tag automatici.</span>
+                </div>
+              </div>
             )}
             {/* Scrollable writing area — pure content, no chrome */}
             <div className={`flex-1 overflow-y-auto relative ${focusClass} ${typewriterClass}`}>

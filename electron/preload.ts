@@ -30,4 +30,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   renameFolder: (oldName: string, newName: string, syncDir?: string) => ipcRenderer.invoke('rename-folder', oldName, newName, syncDir),
   deleteFolder: (name: string, syncDir?: string) => ipcRenderer.invoke('delete-folder', name, syncDir),
   moveNote: (fileName: string, toFolder: string, syncDir?: string) => ipcRenderer.invoke('move-note', fileName, toFolder, syncDir),
+  setNoteTitle: (noteName: string) => ipcRenderer.invoke('set-note-title', noteName),
 });

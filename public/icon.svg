@@ -1,33 +1,56 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <!-- Background with smooth gradient and soft shadow -->
   <defs>
-    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#2563EB" /> <!-- Blue 600 -->
-      <stop offset="100%" stop-color="#3B82F6" /> <!-- Blue 500 -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="55%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
     </linearGradient>
-    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="20" stdDeviation="30" flood-color="#000000" flood-opacity="0.2" />
+    <linearGradient id="paper" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.98"/>
+      <stop offset="100%" stop-color="#f0f0f8" stop-opacity="0.95"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="60%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-8%" y="-8%" width="116%" height="116%">
+      <feDropShadow dx="0" dy="24" stdDeviation="40" flood-color="#3730a3" flood-opacity="0.35"/>
+    </filter>
+    <filter id="lineShadow" x="-5%" y="-20%" width="110%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#6366f1" flood-opacity="0.18"/>
     </filter>
   </defs>
-  
-  <!-- App Icon Base Shape (Squircle approximation) -->
-  <rect x="112" y="112" width="800" height="800" rx="200" fill="url(#bgGradient)" filter="url(#softShadow)" />
 
-  <!-- The Check/Pen Shape -->
-  <g transform="translate(220, 260)">
-    <!-- Short stroke of the check mark -->
-    <path d="M 100 350 L 250 500" fill="none" stroke="#FFFFFF" stroke-width="72" stroke-linecap="round" stroke-linejoin="round" />
-    
-    <!-- Long stroke of the check mark (The Pen Body) -->
-    <path d="M 250 500 L 480 200" fill="none" stroke="#FFFFFF" stroke-width="72" stroke-linecap="round" stroke-linejoin="round" />
-    
-    <!-- Pen Nib/Tip -->
-    <path d="M 480 200 L 570 80 L 540 240 Z" fill="#FFFFFF" />
-    
-    <!-- The slit in the pen nib -->
-    <path d="M 525 150 L 480 200" fill="none" stroke="#2563EB" stroke-width="12" stroke-linecap="round" />
-    
-    <!-- Pen body decorative cut -->
-    <path d="M 410 240 L 460 310" fill="none" stroke="#2563EB" stroke-width="12" stroke-linecap="round" />
+  <!-- Squircle background -->
+  <rect x="112" y="112" width="800" height="800" rx="186" fill="url(#bg)" filter="url(#shadow)"/>
+
+  <!-- Subtle inner shine overlay -->
+  <rect x="112" y="112" width="800" height="800" rx="186" fill="url(#shine)"/>
+
+  <!-- Paper sheet (slightly rotated) -->
+  <g transform="translate(512,512) rotate(-4) translate(-512,-512)">
+    <rect x="258" y="208" width="430" height="560" rx="28" fill="url(#paper)" opacity="0.97"/>
+    <rect x="258" y="208" width="430" height="560" rx="28" fill="none" stroke="#c7d2fe" stroke-width="2" opacity="0.5"/>
+    <!-- Title line (accent-tinted) -->
+    <line x1="308" y1="272" x2="590" y2="272" stroke="#c4b5fd" stroke-width="18" stroke-linecap="round"/>
+    <!-- Ruled lines -->
+    <line x1="308" y1="320" x2="638" y2="320" stroke="#e0e7ff" stroke-width="14" stroke-linecap="round" filter="url(#lineShadow)"/>
+    <line x1="308" y1="390" x2="638" y2="390" stroke="#e0e7ff" stroke-width="14" stroke-linecap="round"/>
+    <line x1="308" y1="460" x2="560" y2="460" stroke="#e0e7ff" stroke-width="14" stroke-linecap="round"/>
+    <line x1="308" y1="530" x2="580" y2="530" stroke="#e0e7ff" stroke-width="14" stroke-linecap="round"/>
+  </g>
+
+  <!-- Pen / stylus overlapping the paper corner -->
+  <g transform="translate(512,512) rotate(38) translate(-512,-512)">
+    <!-- Pen barrel -->
+    <rect x="472" y="220" width="76" height="340" rx="38" fill="#6366f1"/>
+    <!-- Pen clip -->
+    <rect x="532" y="230" width="18" height="260" rx="9" fill="#4f46e5"/>
+    <!-- Pen top cap -->
+    <rect x="472" y="200" width="76" height="60" rx="30" fill="#7c3aed"/>
+    <!-- Nib taper -->
+    <path d="M 472 560 L 510 640 L 548 560 Z" fill="#4338ca"/>
+    <!-- Nib point -->
+    <ellipse cx="510" cy="646" rx="10" ry="14" fill="#312e81"/>
   </g>
 </svg>
