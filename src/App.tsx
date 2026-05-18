@@ -9,6 +9,7 @@ import { Sidebar } from './components/Sidebar';
 import { NoteEditor } from './components/NoteEditor';
 import { AiChat } from './components/AiChat';
 import { TextAnalytics } from './components/TextAnalytics';
+import { GraphView } from './components/GraphView';
 import { SettingsModal } from './components/SettingsModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { NoteAdvisorBadge, NoteAdvisorPanel } from './components/NoteAdvisor';
@@ -31,7 +32,7 @@ function App() {
   const { t } = useI18n();
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(false);
-  const [rightTab, setRightTab] = useState<'ai' | 'analytics'>('ai');
+  const [rightTab, setRightTab] = useState<'ai' | 'analytics' | 'graph'>('ai');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
@@ -448,24 +449,27 @@ const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
               <PanelResizeHandle className="w-1 hover:bg-blue-400 transition-colors cursor-col-resize" />
               <Panel defaultSize={25} minSize={20} maxSize={40} className="bg-gray-50 dark:bg-gray-800 flex flex-col border-l border-gray-200 dark:border-gray-700">
                 <div className="flex border-b border-gray-200 dark:border-gray-700 shrink-0">
-                  <button
-                    onClick={() => setRightTab('ai')}
-                    className={`flex-1 py-2 text-xs font-medium transition-colors ${rightTab === 'ai' ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                  >
-                    AI Chat
-                  </button>
-                  <button
-                    onClick={() => setRightTab('analytics')}
-                    className={`flex-1 py-2 text-xs font-medium transition-colors ${rightTab === 'analytics' ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                  >
-                    Analytics
-                  </button>
+                  {(['ai', 'analytics', 'graph'] as const).map(tab => (
+                    <button key={tab}
+                      onClick={() => setRightTab(tab)}
+                      className={`flex-1 py-2 text-xs font-medium transition-colors ${rightTab === tab ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                    >
+                      {tab === 'ai' ? 'AI Chat' : tab === 'analytics' ? 'Analytics' : 'Graph'}
+                    </button>
+                  ))}
                 </div>
                 <ErrorBoundary>
-                  {rightTab === 'ai'
-                    ? <AiChat getEditorText={getEditorText} noteChunks={noteChunks} />
-                    : <TextAnalytics getText={getEditorText} activeNoteName={activeNoteName} />
-                  }
+                  {rightTab === 'ai' && <AiChat getEditorText={getEditorText} noteChunks={noteChunks} />}
+                  {rightTab === 'analytics' && <TextAnalytics getText={getEditorText} activeNoteName={activeNoteName} />}
+                  {rightTab === 'graph' && (
+                    <GraphView
+                      notes={notes}
+                      noteLinksIndex={noteLinksIndex}
+                      activeNoteName={activeNoteName}
+                      onOpenNote={openNote}
+                      accentColor={settings.accentColor}
+                    />
+                  )}
                 </ErrorBoundary>
               </Panel>
             </>
