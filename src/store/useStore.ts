@@ -39,6 +39,10 @@ interface SettingsState {
   aiGhostMode?: 'off' | 'manual' | 'auto';
   // Editor content width: narrow (~560px) → full (column width)
   editorWidth?: 'narrow' | 'normal' | 'wide' | 'full';
+  // Custom editor-canvas background. `null`/undefined = theme default.
+  // Any valid CSS color value (#rrggbb, rgb(), hsl()) overrides both light
+  // and dark theme backgrounds for the writing pane only — chrome stays themed.
+  editorBg?: string | null;
   // Git integration (all optional for backward-compat with persisted state)
   gitEnabled?: boolean;
   gitRemote?: string;
@@ -124,6 +128,7 @@ export const useStore = create<NoteState>()(
         showHints: true,
         aiGhostMode: 'manual' as const,
         editorWidth: 'normal' as const,
+        editorBg: null,
       },
 
       updateSettings: (newSettings) => {

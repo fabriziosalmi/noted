@@ -32,6 +32,7 @@ interface Settings {
   showHints?: boolean;
   aiGhostMode?: 'off' | 'manual' | 'auto';
   editorWidth?: 'narrow' | 'normal' | 'wide' | 'full';
+  editorBg?: string | null;
   gitEnabled?: boolean;
   gitRemote?: string;
   gitAutoCommit?: boolean;
@@ -331,6 +332,33 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   <input type="color" aria-label={t('customColor')} title={t('customColor')}
                     value={settings.accentColor ?? '#6366f1'}
                     onChange={e => onUpdate({ accentColor: e.target.value })}
+                    className="w-6 h-6 rounded-full cursor-pointer border-0 p-0"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('editorBg')}</p>
+                <p className="text-[10.5px] text-gray-400 dark:text-gray-500 mb-2">{t('editorBgHelp')}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* "Default" tile — clears the override and falls back to theme */}
+                  <button
+                    onClick={() => onUpdate({ editorBg: null })}
+                    title={t('editorBgDefault')}
+                    aria-label={t('editorBgDefault')}
+                    className={`w-6 h-6 rounded-full transition-transform hover:scale-110 border border-gray-300 dark:border-gray-600 bg-gradient-to-br from-white via-gray-200 to-gray-400 ${
+                      !settings.editorBg ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : ''
+                    }`}
+                  />
+                  {['#000000', '#ffffff', '#fbf3e0', '#f5f5f7', '#1c1c1e', '#0a1929', '#1a1a2e', '#2c2c2e'].map(color => (
+                    <button key={color} onClick={() => onUpdate({ editorBg: color })} title={color}
+                      style={{ background: color }}
+                      className={`w-6 h-6 rounded-full transition-transform hover:scale-110 border border-gray-300 dark:border-gray-600 ${settings.editorBg === color ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : ''}`}
+                    />
+                  ))}
+                  <input type="color" aria-label={t('customColor')} title={t('customColor')}
+                    value={settings.editorBg ?? '#ffffff'}
+                    onChange={e => onUpdate({ editorBg: e.target.value })}
                     className="w-6 h-6 rounded-full cursor-pointer border-0 p-0"
                   />
                 </div>

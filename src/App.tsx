@@ -87,6 +87,20 @@ function App() {
     document.documentElement.style.setProperty('--accent', settings.accentColor ?? '#6366f1');
   }, [settings.accentColor]);
 
+  // Custom editor-canvas bg → CSS variable + data attribute on <html>.
+  // Removing the attribute lets the theme default re-take over without leaving
+  // a stale `--editor-bg` lying around.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (settings.editorBg) {
+      root.style.setProperty('--editor-bg', settings.editorBg);
+      root.setAttribute('data-editor-bg', '');
+    } else {
+      root.style.removeProperty('--editor-bg');
+      root.removeAttribute('data-editor-bg');
+    }
+  }, [settings.editorBg]);
+
   // Compute backlinks: notes that contain [[activeNoteName]] in their links index
   const backlinks = activeNoteName
     ? Object.entries(noteLinksIndex)
@@ -364,7 +378,7 @@ const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
             </>
           )}
 
-          <Panel id="editor-center" order={2} minSize={30} className="bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
+          <Panel id="editor-center" order={2} minSize={30} className="editor-canvas bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
             {/* Sticky toolbar — outside scrollable area */}
             {activeNoteName && (
               <EditorToolbar

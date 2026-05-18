@@ -42,32 +42,42 @@
   --accent-mid:   color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
+/* ─── Custom editor canvas bg ─────────────────────────────────────────
+   When the user picks a custom background in Settings → Appearance, we set
+   `--editor-bg` on :root and the writing pane below honours it, overriding
+   both light and dark theme defaults. Unset → theme default applies. */
+[data-editor-bg] .editor-canvas { background-color: var(--editor-bg) !important; }
+
 /* ─── Dark theme — near-black OLED-friendly palette ───────────────────── */
 /* The default Tailwind gray-* dark variants are too lifted (gray-900 = #111827,
    gray-800 = #1F2937). Override the most-used shades to a properly dark scale
    that doesn't glow on OLED screens. */
 .dark { color-scheme: dark; }
-.dark .bg-gray-900 { background-color: #050507 !important; }
-.dark .bg-gray-800 { background-color: #0d0d10 !important; }
-.dark .bg-gray-700 { background-color: #18181c !important; }
-.dark .bg-gray-600 { background-color: #26262b !important; }
+/* Editor canvas & primary page bg are pure black for OLED-true look.
+   Higher surfaces step up in tiny increments so panels still read as layered
+   without losing the "everything is black" feel. */
+.dark .bg-gray-900 { background-color: #000 !important; }
+.dark .bg-gray-800 { background-color: #0a0a0c !important; }
+.dark .bg-gray-700 { background-color: #161619 !important; }
+.dark .bg-gray-600 { background-color: #232328 !important; }
 
-.dark .border-gray-800 { border-color: #141418 !important; }
-.dark .border-gray-700 { border-color: #1d1d22 !important; }
-.dark .border-gray-600 { border-color: #2a2a30 !important; }
+.dark .border-gray-800 { border-color: #101013 !important; }
+.dark .border-gray-700 { border-color: #1c1c20 !important; }
+.dark .border-gray-600 { border-color: #28282e !important; }
 
 /* Translucent surface utilities used as page-wide backdrop in App.tsx */
-.dark .bg-white\/85 { background-color: rgba(5, 5, 8, 0.92) !important; }
-.dark .bg-gray-900\/85 { background-color: rgba(5, 5, 8, 0.92) !important; }
+.dark .bg-white\/85 { background-color: rgba(0, 0, 0, 0.95) !important; }
+.dark .bg-gray-900\/85 { background-color: rgba(0, 0, 0, 0.95) !important; }
 
 /* Hover surfaces */
-.dark .hover\:bg-gray-800:hover { background-color: #131316 !important; }
-.dark .hover\:bg-gray-700:hover { background-color: #1d1d22 !important; }
-.dark .hover\:bg-gray-600:hover { background-color: #2a2a30 !important; }
+.dark .hover\:bg-gray-800:hover { background-color: #101013 !important; }
+.dark .hover\:bg-gray-700:hover { background-color: #1c1c20 !important; }
+.dark .hover\:bg-gray-600:hover { background-color: #28282e !important; }
 
-/* Vibrancy panels — keep the blur but dial brightness down to near-black */
-.dark .vibrancy-sidebar  { background: rgba(8, 8, 10, 0.78) !important; }
-.dark .vibrancy-titlebar { background: rgba(4, 4, 7, 0.72) !important; }
+/* Vibrancy panels — pure black with a sliver of translucency so the macOS
+   vibrancy blur still shows the desktop motion behind the window. */
+.dark .vibrancy-sidebar  { background: rgba(0, 0, 0, 0.82) !important; }
+.dark .vibrancy-titlebar { background: rgba(0, 0, 0, 0.78) !important; }
 
 /* Body fallback for any surface that doesn't hit a Tailwind class */
 .dark body { color: #ebebf5; }
