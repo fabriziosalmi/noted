@@ -250,19 +250,7 @@ function App() {
     }
   }, [t, settings.syncDirectory, fetchNotes, toast]);
 
-  const handleUseICloud = useCallback(async () => {
-    if (!window.electronAPI) return;
-    const res = await window.electronAPI.getICloudPath();
-    if (res.success && res.data) {
-      updateSettings({ syncDirectory: res.data });
-      void fetchNotes();
-      toast(t('iCloudConfigured'), 'success');
-    } else {
-      toast(res.error ?? t('iCloudError'), 'error');
-    }
-  }, [t, updateSettings, fetchNotes, toast]);
-
-  const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
+const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
 
   const { suggestions, dismiss: dismissSuggestion, dismissAll } = useNoteAdvisor({
     activeNoteName,
@@ -510,7 +498,6 @@ function App() {
           onUpdate={updateSettings}
           onSelectFolder={handleSelectFolder}
           onImportVault={handleImportVault}
-          onUseICloud={handleUseICloud}
           onClose={() => setIsSettingsOpen(false)}
         />
       )}

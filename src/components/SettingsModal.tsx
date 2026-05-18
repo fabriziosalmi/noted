@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
-import { X, RefreshCw } from 'lucide-react';
+import { X, RefreshCw, Cloud, HardDrive, FolderOpen, CheckCircle2 } from 'lucide-react';
 import type { LLMProvider } from '../store/useStore';
 import { fetchAvailableModels } from '../lib/llm';
 import { useI18n } from '../lib/i18n';
+
+type CloudProvider = { id: string; name: string; basePath: string; notedPath: string; available: boolean };
 
 interface Settings {
   llmProvider: LLMProvider;
@@ -26,16 +28,17 @@ interface SettingsModalProps {
   onUpdate: (patch: Partial<Settings>) => void;
   onSelectFolder: () => void;
   onImportVault?: () => void;
-  onUseICloud?: () => void;
   onClose: () => void;
 }
 
 const isLocalProvider = (p: LLMProvider) => p === 'lmstudio' || p === 'ollama';
 
-export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVault, onUseICloud, onClose }: SettingsModalProps) {
+export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVault, onClose }: SettingsModalProps) {
   const { t } = useI18n();
   const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
   const [discovering, setDiscovering] = useState(false);
+  const [cloudProviders, setCloudProviders] = useState<CloudProvider[]>([]);
+  const [activating, setActivating] = useState<string | null>(null);
 
   const discoverModels = useCallback(async () => {
     setDiscovering(true);
@@ -55,6 +58,22 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.llmProvider, settings.lmStudioUrl]);
+
+  useEffect(() => {
+    if (!window.electronAPI?.detectCloudProviders) return;
+    window.electronAPI.detectCloudProviders().then(res => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (res.success && res.data) setCloudProviders(res.data);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleActivateProvider = useCallback(async (notedPath: string) => {
+    setActivating(notedPath);
+    const res = await window.electronAPI.activateCloudProvider(notedPath);
+    if (res.success && res.data) onUpdate({ syncDirectory: res.data });
+    setActivating(null);
+  }, [onUpdate]);
 
   return (
     <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
@@ -314,41 +333,91 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
             </div>
           </div>
 
+          {/* ── Cloud Storage & Sync ── */}
           <div>
-            <label htmlFor="sync-dir" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('notesDirectory')}</label>
-            <div className="flex">
-              <input
-                id="sync-dir"
-                type="text"
-                disabled
-                value={settings.syncDirectory || t('directoryDefault')}
-                className="flex-1 border border-gray-300 dark:border-gray-600 rounded-l-md p-2 text-sm bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-              />
+            <p className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5">{t('cloudSync')}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">{t('cloudSyncDesc')}</p>
+
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              {cloudProviders.map(p => {
+                const isActive = !!settings.syncDirectory && settings.syncDirectory === p.notedPath;
+                const isLoading = activating === p.notedPath;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => p.available && !isActive && handleActivateProvider(p.notedPath)}
+                    disabled={!p.available || isLoading}
+                    className={`relative flex flex-col items-start gap-1 p-3 rounded-lg border text-left transition-all ${
+                      isActive
+                        ? 'border-[var(--accent)] bg-[var(--accent-light)]'
+                        : p.available
+                          ? 'border-gray-200 dark:border-gray-700 hover:border-[var(--accent-mid)] hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer'
+                          : 'border-gray-200 dark:border-gray-700 opacity-40 cursor-not-allowed'
+                    }`}
+                  >
+                    {isActive && (
+                      <CheckCircle2 size={12} className="absolute top-2 right-2 text-[var(--accent)]" />
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      <Cloud size={13} className={isActive ? 'text-[var(--accent)]' : 'text-gray-400'} />
+                      <span className={`text-sm font-medium ${isActive ? 'text-[var(--accent)]' : 'text-gray-700 dark:text-gray-300'}`}>{p.name}</span>
+                    </div>
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500 leading-tight">
+                      {isActive ? t('cloudActive') : p.available ? t('cloudActivate') : t('cloudNotInstalled')}
+                    </span>
+                  </button>
+                );
+              })}
+
+              {/* Local only */}
+              {(() => {
+                const isLocal = !settings.syncDirectory;
+                return (
+                  <button
+                    onClick={() => !isLocal && onUpdate({ syncDirectory: null })}
+                    className={`flex flex-col items-start gap-1 p-3 rounded-lg border text-left transition-all ${
+                      isLocal
+                        ? 'border-[var(--accent)] bg-[var(--accent-light)]'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-[var(--accent-mid)] hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    {isLocal && <CheckCircle2 size={12} className="absolute" style={{ display: 'none' }} />}
+                    <div className="flex items-center gap-1.5">
+                      <HardDrive size={13} className={isLocal ? 'text-[var(--accent)]' : 'text-gray-400'} />
+                      <span className={`text-sm font-medium ${isLocal ? 'text-[var(--accent)]' : 'text-gray-700 dark:text-gray-300'}`}>{t('cloudLocalOnly')}</span>
+                    </div>
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500">{isLocal ? t('cloudActive') : '~/Documents/Noted'}</span>
+                  </button>
+                );
+              })()}
+
+              {/* Custom folder */}
               <button
                 onClick={onSelectFolder}
-                className="bg-gray-100 dark:bg-gray-700 border border-l-0 border-gray-300 dark:border-gray-600 px-4 rounded-r-md text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                className="flex flex-col items-start gap-1 p-3 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-left hover:border-[var(--accent-mid)] hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
               >
-                {t('change')}
+                <div className="flex items-center gap-1.5">
+                  <FolderOpen size={13} className="text-gray-400" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('cloudCustomFolder')}</span>
+                </div>
+                <span className="text-[10px] text-gray-400 dark:text-gray-500">{t('change')}…</span>
               </button>
             </div>
-            <div className="flex gap-2 mt-2">
-              {onUseICloud && (
-                <button
-                  onClick={onUseICloud}
-                  className="flex-1 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                >
-                  {t('useICloud')}
-                </button>
-              )}
-              {onImportVault && (
-                <button
-                  onClick={onImportVault}
-                  className="flex-1 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                >
-                  {t('importVault')}
-                </button>
-              )}
-            </div>
+
+            {/* Current path */}
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate">
+              <span className="font-medium">{t('cloudCurrentPath')}:</span>{' '}
+              {settings.syncDirectory ?? '~/Documents/Noted'}
+            </p>
+
+            {onImportVault && (
+              <button
+                onClick={onImportVault}
+                className="mt-2 w-full py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                {t('importVault')}
+              </button>
+            )}
           </div>
         </div>
 
