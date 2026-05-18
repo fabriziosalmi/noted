@@ -53,13 +53,14 @@ interface NoteState {
   pinnedNotes: string[];
   noteLinksIndex: Record<string, string[]>;
   tagIndex: Record<string, string[]>;
+  lastOpenedNote: string | null;
 
   // Settings
   settings: SettingsState;
 
   // Actions
   fetchNotes: () => Promise<void>;
-  createNote: (fileName: string) => Promise<void>;
+  createNote: (fileName: string, initialContent?: string) => Promise<void>;
   openNote: (fileName: string) => Promise<void>;
   saveActiveNote: (content: string) => Promise<void>;
   deleteNote: (fileName: string) => Promise<void>;
@@ -90,6 +91,7 @@ export const useStore = create<NoteState>()(
       noteLinksIndex: {},
       tagIndex: {},
       noteFolders: [],
+      lastOpenedNote: null,
 
       settings: {
         llmProvider: 'lmstudio',
@@ -147,22 +149,38 @@ export const useStore = create<NoteState>()(
         const { rootNotes, folders } = treeRes.data as { rootNotes: NoteFile[]; folders: FolderInfo[] };
         const allNotes = [...rootNotes, ...folders.flatMap(f => f.notes)];
         set({ notes: allNotes, noteFolders: folders, isLoading: false });
+        // Auto-reopen last note on startup (only when no note is active yet)
+        const { activeNoteName, lastOpenedNote } = get();
+        if (!activeNoteName && lastOpenedNote && allNotes.some(n => n.name === lastOpenedNote)) {
+          void get().openNote(lastOpenedNote);
+        }
       } else {
         // Fallback to flat list for older preload
         const res = await window.electronAPI.getNotesList(syncDir);
-        if (res.success && res.data) set({ notes: res.data as NoteFile[], isLoading: false });
-        else set({ isLoading: false });
+        if (res.success && res.data) {
+          set({ notes: res.data as NoteFile[], isLoading: false });
+          const { activeNoteName, lastOpenedNote } = get();
+          if (!activeNoteName && lastOpenedNote && (res.data as NoteFile[]).some(n => n.name === lastOpenedNote)) {
+            void get().openNote(lastOpenedNote);
+          }
+        } else {
+          set({ isLoading: false });
+        }
       }
     } else {
       set({ isLoading: false });
     }
   },
 
-  createNote: async (fileName: string) => {
+  createNote: async (fileName: string, initialContent?: string) => {
     if (!fileName.endsWith('.md')) fileName += '.md';
     if (!window.electronAPI) throw new Error('electronAPI non disponibile');
-    const initialContent = '<h1>Nuova Nota</h1><p>Inizia a scrivere qui...</p>';
-    const res = await window.electronAPI.saveNote(fileName, initialContent, get().settings.syncDirectory || undefined);
+    const lang = get().settings.language ?? 'en';
+    const defaultContent = lang === 'it'
+      ? '<h1>Nuova Nota</h1><p>Inizia a scrivere qui…</p>'
+      : '<h1>New Note</h1><p>Start writing here…</p>';
+    const content = initialContent ?? defaultContent;
+    const res = await window.electronAPI.saveNote(fileName, content, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile creare la nota');
     await get().openNote(fileName);
     await get().fetchNotes();
@@ -177,6 +195,7 @@ export const useStore = create<NoteState>()(
           activeNoteName: fileName,
           activeNoteContent: res.data as string,
           noteLinksIndex: { ...state.noteLinksIndex, [fileName]: links },
+          lastOpenedNote: fileName,
         }));
       }
     }
@@ -221,10 +240,11 @@ export const useStore = create<NoteState>()(
     if (!window.electronAPI) return;
     const res = await window.electronAPI.renameNote(oldName, newName, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Rinomina fallita');
-    if (get().activeNoteName === oldName) {
-      set({ activeNoteName: newName });
-    }
     await get().fetchNotes();
+    if (get().activeNoteName === oldName) {
+      // Re-open by name so activeNoteContent is in sync with the renamed file
+      await get().openNote(newName);
+    }
   },
 
   saveAsTemplate: (name: string, content: string) => {
@@ -256,10 +276,15 @@ export const useStore = create<NoteState>()(
       await get().openNote(fileName);
       return;
     }
-    const dayNames = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
-    const monthNames = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
-    const title = `${dayNames[today.getDay()]} ${today.getDate()} ${monthNames[today.getMonth()]} ${today.getFullYear()}`;
-    const initialContent = `<h1>${title}</h1><h2>📝 Note</h2><p></p><h2>✅ Da fare</h2><ul><li><p></p></li></ul><h2>💡 Idee</h2><p></p>`;
+    const locale = (get().settings.language ?? 'en') === 'it' ? 'it-IT' : 'en-US';
+    const title = new Intl.DateTimeFormat(locale, {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    }).format(today);
+    const lang = (get().settings.language ?? 'en') === 'it' ? 'it' : 'en';
+    const sec = lang === 'it'
+      ? { notes: 'Note', todo: 'Da fare', ideas: 'Idee' }
+      : { notes: 'Notes', todo: 'To do', ideas: 'Ideas' };
+    const initialContent = `<h1>${title}</h1><h2>📝 ${sec.notes}</h2><p></p><h2>✅ ${sec.todo}</h2><ul><li><p></p></li></ul><h2>💡 ${sec.ideas}</h2><p></p>`;
     if (!window.electronAPI) return;
     const res = await window.electronAPI.saveNote(fileName, initialContent, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile creare la nota giornaliera');
@@ -300,7 +325,12 @@ export const useStore = create<NoteState>()(
     if (!window.electronAPI) return;
     const res = await window.electronAPI.renameFolder(oldName, newName, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile rinominare la cartella');
+    const { activeNoteName } = get();
     await get().fetchNotes();
+    if (activeNoteName?.startsWith(`${oldName}/`)) {
+      const newNoteName = `${newName}/${activeNoteName.slice(oldName.length + 1)}`;
+      await get().openNote(newNoteName);
+    }
   },
 
   deleteFolder: async (name: string) => {
@@ -329,6 +359,7 @@ export const useStore = create<NoteState>()(
     pinnedNotes: state.pinnedNotes,
     customTemplates: state.customTemplates,
     noteLinksIndex: state.noteLinksIndex,
+    lastOpenedNote: state.lastOpenedNote,
   }),
 }
 )

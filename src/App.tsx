@@ -16,6 +16,7 @@ import { TemplatesModal } from './components/TemplatesModal';
 import { NoteHistoryModal } from './components/NoteHistoryModal';
 import { GitBadge, GitPanel } from './components/GitPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { Tooltip } from './components/Tooltip';
 import { ToastStack } from './components/Toast';
 import { QuickOpen } from './components/QuickOpen';
 import { useToast } from './hooks/useToast';
@@ -86,14 +87,24 @@ function App() {
   useEffect(() => {
     if (!rightOpen || !window.electronAPI || notes.length === 0) return;
     let cancelled = false;
+    const syncDir = settings.syncDirectory || undefined;
     (async () => {
+      const capped = notes.slice(0, 100);
+      const BATCH = 10;
       const chunks: NoteChunk[] = [];
-      for (const note of notes.slice(0, 50)) { // cap at 50 notes for perf
-        const res = await window.electronAPI.readNote(note.name, settings.syncDirectory || undefined);
+      for (let i = 0; i < capped.length; i += BATCH) {
         if (cancelled) return;
-        if (res.success && res.data) {
-          const text = res.data.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-          chunks.push({ name: note.name, text });
+        const batch = capped.slice(i, i + BATCH);
+        const results = await Promise.all(
+          batch.map(note => window.electronAPI.readNote(note.name, syncDir))
+        );
+        if (cancelled) return;
+        for (let j = 0; j < batch.length; j++) {
+          const res = results[j];
+          if (res?.success && res.data) {
+            const text = (res.data as string).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            chunks.push({ name: batch[j].name, text });
+          }
         }
       }
       if (!cancelled) setNoteChunks(chunks);
@@ -110,6 +121,16 @@ function App() {
   useEffect(() => {
     window.electronAPI?.setNoteTitle(activeNoteName ?? '');
   }, [activeNoteName]);
+
+  const handleCreateNote = useCallback(async (folder?: string) => {
+    try {
+      const baseName = `${t('newNoteFilePrefix')}_${Math.floor(Date.now() / 1000)}.md`;
+      const initialContent = `<h1>${t('newNoteTitle')}</h1><p>${t('newNoteBody')}</p>`;
+      await createNote(folder ? `${folder}/${baseName}` : baseName, initialContent);
+    } catch (err: unknown) {
+      toast((err as Error).message, 'error');
+    }
+  }, [createNote, toast, t]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -128,24 +149,19 @@ function App() {
         e.preventDefault();
         updateSettings({ focusMode: !settings.focusMode });
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'n' && !e.shiftKey) {
+        e.preventDefault();
+        void handleCreateNote();
+      }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [settings.focusMode, updateSettings]);
+  }, [settings.focusMode, updateSettings, handleCreateNote]);
 
   const handleEditorReady = useCallback((editor: Editor | null) => {
     editorRef.current = editor;
     setActiveEditor(editor);
   }, []);
-
-  const handleCreateNote = useCallback(async (folder?: string) => {
-    try {
-      const baseName = `Nuova_Nota_${Math.floor(Date.now() / 1000)}.md`;
-      await createNote(folder ? `${folder}/${baseName}` : baseName);
-    } catch (err: unknown) {
-      toast((err as Error).message, 'error');
-    }
-  }, [createNote, toast]);
 
   const handleOpenDaily = useCallback(async () => {
     try {
@@ -191,7 +207,7 @@ function App() {
     } else {
       toast(res.error ?? t('markdownExportError'), 'error');
     }
-  }, [toast]);
+  }, [t, toast]);
 
   const handleExportPdf = useCallback(async () => {
     const editor = editorRef.current;
@@ -202,7 +218,7 @@ function App() {
     } else {
       toast(res.error ?? t('pdfExportError'), 'error');
     }
-  }, [toast]);
+  }, [t, toast]);
 
   const handleExportDocx = useCallback(async () => {
     const editor = editorRef.current;
@@ -211,7 +227,7 @@ function App() {
     const res = await window.electronAPI.exportDocx(editor.getHTML(), title);
     if (res.success) toast(t('docxExported'), 'success');
     else toast(res.error ?? t('docxExportError'), 'error');
-  }, [activeNoteName, toast]);
+  }, [t, activeNoteName, toast]);
 
   const handleExportHtml = useCallback(async () => {
     const editor = editorRef.current;
@@ -220,7 +236,7 @@ function App() {
     const res = await window.electronAPI.exportHtml(editor.getHTML(), title);
     if (res.success) toast(t('htmlExported'), 'success');
     else toast(res.error ?? t('htmlExportError'), 'error');
-  }, [activeNoteName, toast]);
+  }, [t, activeNoteName, toast]);
 
   const handleImportVault = useCallback(async () => {
     if (!window.electronAPI) return;
@@ -231,7 +247,7 @@ function App() {
     } else {
       toast(res.error ?? t('importError'), 'error');
     }
-  }, [settings.syncDirectory, fetchNotes, toast]);
+  }, [t, settings.syncDirectory, fetchNotes, toast]);
 
   const handleUseICloud = useCallback(async () => {
     if (!window.electronAPI) return;
@@ -243,7 +259,7 @@ function App() {
     } else {
       toast(res.error ?? t('iCloudError'), 'error');
     }
-  }, [updateSettings, fetchNotes, toast]);
+  }, [t, updateSettings, fetchNotes, toast]);
 
   const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
 
@@ -267,64 +283,85 @@ function App() {
         <div className="flex space-x-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           {activeNoteName && (
             <>
-              <button
-                onClick={() => setIsHistoryOpen(true)}
-                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
-                title={t('history')}
-              >
-                <History size={16} />
-              </button>
-              <button
-                onClick={() => updateSettings({ focusMode: !settings.focusMode })}
-                className={`p-1 rounded transition-colors ${settings.focusMode ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600'}`}
-                title={t('focusMode')}
-              >
-                <Focus size={16} />
-              </button>
-              <button
-                onClick={handleExportMarkdown}
-                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
-                title={t('exportMarkdown')}
-              >
-                <FileDown size={16} />
-              </button>
-              <button
-                onClick={handleExportPdf}
-                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
-                title={t('exportPdf')}
-              >
-                <Download size={16} />
-              </button>
-              <button
-                onClick={handleExportHtml}
-                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
-                title={t('exportHtml')}
-              >
-                <FileCode size={16} />
-              </button>
-              <button
-                onClick={handleExportDocx}
-                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
-                title={t('exportDocx')}
-              >
-                <FileDocx size={16} />
-              </button>
+              <Tooltip label={t('history')} side="bottom">
+                <button
+                  onClick={() => setIsHistoryOpen(true)}
+                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
+                  aria-label={t('history')}
+                >
+                  <History size={16} />
+                </button>
+              </Tooltip>
+              <Tooltip label={t('focusMode')} side="bottom">
+                <button
+                  onClick={() => updateSettings({ focusMode: !settings.focusMode })}
+                  className={`p-1 rounded transition-colors ${settings.focusMode ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-[var(--accent)]'}`}
+                  aria-label={t('focusMode')}
+                  aria-pressed={settings.focusMode}
+                >
+                  <Focus size={16} />
+                </button>
+              </Tooltip>
+              <Tooltip label={t('exportMarkdown')} side="bottom">
+                <button
+                  onClick={handleExportMarkdown}
+                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
+                  aria-label={t('exportMarkdown')}
+                >
+                  <FileDown size={16} />
+                </button>
+              </Tooltip>
+              <Tooltip label={t('exportPdf')} side="bottom">
+                <button
+                  onClick={handleExportPdf}
+                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
+                  aria-label={t('exportPdf')}
+                >
+                  <Download size={16} />
+                </button>
+              </Tooltip>
+              <Tooltip label={t('exportHtml')} side="bottom">
+                <button
+                  onClick={handleExportHtml}
+                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
+                  aria-label={t('exportHtml')}
+                >
+                  <FileCode size={16} />
+                </button>
+              </Tooltip>
+              <Tooltip label={t('exportDocx')} side="bottom">
+                <button
+                  onClick={handleExportDocx}
+                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
+                  aria-label={t('exportDocx')}
+                >
+                  <FileDocx size={16} />
+                </button>
+              </Tooltip>
             </>
           )}
-          <button onClick={() => setIsTemplatesOpen(v => !v)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors" title={t('templates')}>
-            <LayoutTemplate size={16} />
-          </button>
+          <Tooltip label={t('templates')} side="bottom">
+            <button onClick={() => setIsTemplatesOpen(v => !v)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors" aria-label={t('templates')}>
+              <LayoutTemplate size={16} />
+            </button>
+          </Tooltip>
           <NoteAdvisorBadge count={suggestions.length} onClick={() => setIsAdvisorOpen(v => !v)} />
           {settings.gitEnabled && <GitBadge onClick={() => setIsGitOpen(v => !v)} />}
-          <button onClick={() => setIsShortcutsOpen(true)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400" title={t('shortcuts')}>
-            <Keyboard size={16} />
-          </button>
-          <button onClick={() => setLeftOpen(!leftOpen)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400">
-            <PanelLeft size={16} />
-          </button>
-          <button onClick={() => setRightOpen(!rightOpen)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400">
-            <PanelRight size={16} />
-          </button>
+          <Tooltip label={t('shortcuts')} side="bottom">
+            <button onClick={() => setIsShortcutsOpen(true)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors" aria-label={t('shortcuts')}>
+              <Keyboard size={16} />
+            </button>
+          </Tooltip>
+          <Tooltip label="Sidebar" side="bottom">
+            <button onClick={() => setLeftOpen(!leftOpen)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors" aria-label="Toggle sidebar">
+              <PanelLeft size={16} />
+            </button>
+          </Tooltip>
+          <Tooltip label="AI panel" side="bottom">
+            <button onClick={() => setRightOpen(!rightOpen)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors" aria-label="Toggle AI panel">
+              <PanelRight size={16} />
+            </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -351,7 +388,7 @@ function App() {
                     onCreateFolder={async (name) => { try { await createFolder(name); } catch (e) { toast((e as Error).message, 'error'); } }}
                     onRenameFolder={async (o, n) => { try { await renameFolder(o, n); } catch (e) { toast((e as Error).message, 'error'); } }}
                     onDeleteFolder={async (name) => { try { await deleteFolder(name); } catch (e) { toast((e as Error).message, 'error'); } }}
-                    onMoveNote={async (f, t) => { try { await moveNote(f, t); } catch (e) { toast((e as Error).message, 'error'); } }}
+                    onMoveNote={async (f, dest) => { try { await moveNote(f, dest); } catch (e) { toast((e as Error).message, 'error'); } }}
                     allTags={allTags}
                     activeTagFilter={activeTagFilter}
                     onTagFilter={setActiveTagFilter}
@@ -375,15 +412,7 @@ function App() {
                 onOpenFind={() => setFindOpen(true)}
               />
             )}
-            {/* LLM not configured banner */}
-            {!activeNoteName && !settings.llmApiKey && settings.llmProvider !== 'lmstudio' && settings.llmProvider !== 'ollama' && (
-              <div className="mx-auto max-w-3xl px-12 pt-6">
-                <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-xl px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
-                  <span className="text-base">✨</span>
-                  <span>{t('llmBanner')} <button onClick={() => setIsSettingsOpen(true)} className="underline underline-offset-2 font-medium hover:text-amber-900 dark:hover:text-amber-200">{t('llmBannerLink')}</button> {t('llmBannerSuffix')}</span>
-                </div>
-              </div>
-            )}
+
             {/* Scrollable writing area — pure content, no chrome */}
             <div className={`flex-1 overflow-y-auto relative ${focusClass} ${typewriterClass}`}>
               <div className="max-w-3xl mx-auto px-12 py-10">
@@ -398,6 +427,10 @@ function App() {
                     allTags={allTags}
                     backlinks={backlinks}
                     onSelectNote={openNote}
+                    notesCount={notes.length}
+                    onCreateNote={() => void handleCreateNote()}
+                    onOpenDaily={handleOpenDaily}
+                    onOpenSettings={() => setIsSettingsOpen(true)}
                   />
                 </ErrorBoundary>
               </div>

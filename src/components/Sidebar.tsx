@@ -29,6 +29,15 @@ interface SidebarProps {
   onTagFilter?: (tag: string | null) => void;
 }
 
+function relativeTime(ms: number): string {
+  const diff = Date.now() - ms;
+  if (diff < 60_000) return 'now';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h`;
+  if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)}d`;
+  return `${Math.floor(diff / 604_800_000)}w`;
+}
+
 function NoteRow({
   note, isActive, isPinned, isRenaming, renameValue, renameInputRef,
   onSelect, onDelete, onTogglePin, onStartRename, onRenameChange, onRenameBlur, onRenameKeyDown,
@@ -69,12 +78,18 @@ function NoteRow({
             onKeyDown={onRenameKeyDown}
             onClick={e => e.stopPropagation()}
             className="flex-1 min-w-0 bg-white dark:bg-gray-700 border border-[var(--accent)] rounded px-1 text-xs outline-none"
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
           />
         ) : (
-          <span className="truncate" onDoubleClick={onStartRename} title={renameHint}>
-            {baseName.replace('.md', '')}
-          </span>
+          <div className="flex items-baseline gap-1.5 min-w-0 flex-1">
+            <span className="truncate" onDoubleClick={onStartRename} title={renameHint}>
+              {baseName.replace('.md', '')}
+            </span>
+            <span className="shrink-0 text-[10px] text-gray-400 dark:text-gray-600 leading-none">
+              {relativeTime(note.stats.mtimeMs)}
+            </span>
+          </div>
         )}
       </div>
       {!isRenaming && (
@@ -123,7 +138,7 @@ export function Sidebar({
   const toggleFolder = (name: string) => {
     setCollapsedFolders(prev => {
       const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
+      if (next.has(name)) { next.delete(name); } else { next.add(name); }
       return next;
     });
   };
@@ -261,6 +276,7 @@ export function Sidebar({
       {newFolderMode && (
         <div className="px-2 pb-2">
           <input
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             value={newFolderName}
             onChange={e => setNewFolderName(e.target.value)}
@@ -309,6 +325,7 @@ export function Sidebar({
 
                   {renamingFolder === folder.name ? (
                     <input
+                      // eslint-disable-next-line jsx-a11y/no-autofocus
                       autoFocus
                       value={folderRenameValue}
                       onChange={e => setFolderRenameValue(e.target.value)}
@@ -352,8 +369,8 @@ export function Sidebar({
           })}
 
         {rootNotes.length === 0 && noteFolders.length === 0 && (
-          <p className="text-xs text-gray-400 text-center mt-4">
-            {activeTagFilter ? t('noNotesWithTag').replace('{tag}', activeTagFilter) : query ? t('noNotesFound') : t('noNotes')}
+          <p className="text-xs text-gray-400 text-center mt-4 px-2">
+            {activeTagFilter ? t('noNotesWithTag').replace('{tag}', activeTagFilter) : query ? t('noNotesFound') : t('noNotesYet')}
           </p>
         )}
       </div>

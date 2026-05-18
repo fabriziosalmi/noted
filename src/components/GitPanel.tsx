@@ -36,7 +36,7 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
 
   // PR form
   const [showPrForm, setShowPrForm] = useState(false);
-  const [prTitle, setPrTitle] = useState('');
+  const [prTitle, setPrTitle] = useState(() => activeNoteName?.replace(/\.md$/, '').replace(/[-_]/g, ' ') ?? '');
   const [prBody, setPrBody] = useState('');
   const [prUrl, setPrUrl] = useState<string | null>(null);
 
@@ -50,14 +50,8 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
     if (res.success && res.data) setStatus(res.data);
   }, [syncDir]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void refreshStatus(); }, [refreshStatus]);
-
-  // Auto-populate PR title from note name
-  useEffect(() => {
-    if (activeNoteName) {
-      setPrTitle(activeNoteName.replace(/\.md$/, '').replace(/[-_]/g, ' '));
-    }
-  }, [activeNoteName]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
 

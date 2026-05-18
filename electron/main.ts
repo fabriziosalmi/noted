@@ -407,39 +407,41 @@ ipcMain.handle('export-pdf', async (event, htmlContent: string) => {
       }
     });
 
-    const safeContent = stripUnsafeHtml(htmlContent);
-    const styledHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; line-height: 1.6; color: #333; }
-            h1, h2, h3 { color: #111; }
-            code { background-color: #f4f4f4; padding: 2px 4px; border-radius: 4px; font-family: monospace; }
-            pre { background-color: #f4f4f4; padding: 16px; border-radius: 8px; overflow-x: auto; }
-            blockquote { border-left: 4px solid #ddd; padding-left: 16px; color: #666; }
-            img { max-width: 100%; height: auto; border-radius: 8px; }
-          </style>
-        </head>
-        <body>
-          ${safeContent}
-        </body>
-      </html>
-    `;
+    try {
+      const safeContent = stripUnsafeHtml(htmlContent);
+      const styledHtml = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; line-height: 1.6; color: #333; }
+              h1, h2, h3 { color: #111; }
+              code { background-color: #f4f4f4; padding: 2px 4px; border-radius: 4px; font-family: monospace; }
+              pre { background-color: #f4f4f4; padding: 16px; border-radius: 8px; overflow-x: auto; }
+              blockquote { border-left: 4px solid #ddd; padding-left: 16px; color: #666; }
+              img { max-width: 100%; height: auto; border-radius: 8px; }
+            </style>
+          </head>
+          <body>
+            ${safeContent}
+          </body>
+        </html>
+      `;
 
-    await pdfWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(styledHtml)}`);
+      await pdfWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(styledHtml)}`);
 
-    const pdfBuffer = await pdfWin.webContents.printToPDF({
-      printBackground: true,
-      margins: { marginType: 'printableArea' }
-    });
+      const pdfBuffer = await pdfWin.webContents.printToPDF({
+        printBackground: true,
+        margins: { marginType: 'printableArea' }
+      });
 
-    fs.writeFileSync(filePath, pdfBuffer);
-    pdfWin.close();
-
-    return { success: true, data: filePath };
+      fs.writeFileSync(filePath, pdfBuffer);
+      return { success: true, data: filePath };
+    } finally {
+      pdfWin.close();
+    }
   } catch (error: unknown) {
     const err = error as Error;
     console.error('PDF Export Error:', err);

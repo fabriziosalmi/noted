@@ -535,7 +535,7 @@ async function handleSearchNotes(args: Record<string, unknown>) {
     : 10;
 
   const notes = listAllNotes();
-  const results: Array<{ name: string; snip: string }> = [];
+  const results: { name: string; snip: string }[] = [];
 
   for (const note of notes) {
     if (results.length >= maxResults) break;

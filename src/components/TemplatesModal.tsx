@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Trash2, Plus } from 'lucide-react';
 import { BUILTIN_TEMPLATES, type NoteTemplate } from '../lib/templates';
 import { useI18n } from '../lib/i18n';
@@ -17,6 +17,11 @@ export function TemplatesModal({ customTemplates, activeNoteContent, activeNoteN
   const { t } = useI18n();
   const [savingName, setSavingName] = useState('');
   const [showSave, setShowSave] = useState(false);
+  const saveInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (showSave) saveInputRef.current?.focus();
+  }, [showSave]);
 
   const handleSave = () => {
     const name = savingName.trim() || (activeNoteName?.replace('.md', '') ?? 'Template');
@@ -67,7 +72,7 @@ export function TemplatesModal({ customTemplates, activeNoteContent, activeNoteN
             {showSave ? (
               <div className="flex gap-2">
                 <input
-                  autoFocus
+                  ref={saveInputRef}
                   type="text"
                   value={savingName}
                   onChange={e => setSavingName(e.target.value)}

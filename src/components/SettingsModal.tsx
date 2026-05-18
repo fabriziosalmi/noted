@@ -48,6 +48,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
   // Auto-discover when opening for local providers
   useEffect(() => {
     if (isLocalProvider(settings.llmProvider)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void discoverModels();
     } else {
       setDiscoveredModels([]);
@@ -70,7 +71,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
             <label htmlFor="llm-provider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('llmProvider')}</label>
             <select
               id="llm-provider"
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm focus:border-[var(--accent)] focus:outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
               value={settings.llmProvider}
               onChange={(e) => onUpdate({ llmProvider: e.target.value as LLMProvider })}
             >
@@ -91,7 +92,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                 <button
                   onClick={discoverModels}
                   disabled={discovering}
-                  className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 dark:hover:text-blue-300 disabled:opacity-50"
+                  className="flex items-center gap-1 text-xs text-[var(--accent)] hover:opacity-80 disabled:opacity-50"
                 >
                   <RefreshCw size={11} className={discovering ? 'animate-spin' : ''} />
                   {discovering ? t('detectingModels') : t('detectModels')}
@@ -104,7 +105,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                 id="llm-model"
                 value={settings.llmModel}
                 onChange={e => onUpdate({ llmModel: e.target.value })}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm focus:border-[var(--accent)] focus:outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
               >
                 {discoveredModels.map(m => (
                   <option key={m} value={m}>{m}</option>
@@ -123,7 +124,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   settings.llmProvider === 'openrouter' ? 'anthropic/claude-3.5-sonnet' :
                   settings.llmProvider === 'ollama' ? 'llama3' : 'auto-detect'
                 }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm focus:border-[var(--accent)] focus:outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
               />
             )}
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
@@ -146,7 +147,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                 value={settings.lmStudioUrl}
                 onChange={(e) => onUpdate({ lmStudioUrl: e.target.value })}
                 placeholder="http://localhost:1234/v1"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm focus:border-[var(--accent)] focus:outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
               />
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('lmStudioHelp')}</p>
             </div>
@@ -161,7 +162,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                 value={settings.llmApiKey}
                 onChange={(e) => onUpdate({ llmApiKey: e.target.value })}
                 placeholder="sk-..."
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm focus:border-[var(--accent)] focus:outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
               />
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('apiKeyHelp')}</p>
             </div>
@@ -182,7 +183,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   onClick={() => onUpdate({ theme: value })}
                   className={`flex-1 py-1.5 rounded-md text-sm border transition-colors ${
                     settings.theme === value
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                      ? 'border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]'
                       : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
                 >
@@ -207,14 +208,14 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   }`}
                 />
               ))}
-              <label title={t('customColor')} className="flex items-center cursor-pointer">
-                <input
-                  type="color"
-                  value={settings.accentColor ?? '#6366f1'}
-                  onChange={e => onUpdate({ accentColor: e.target.value })}
-                  className="w-7 h-7 rounded-full cursor-pointer border-0 p-0"
-                />
-              </label>
+              <input
+                type="color"
+                aria-label={t('customColor')}
+                title={t('customColor')}
+                value={settings.accentColor ?? '#6366f1'}
+                onChange={e => onUpdate({ accentColor: e.target.value })}
+                className="w-7 h-7 rounded-full cursor-pointer border-0 p-0"
+              />
             </div>
           </div>
 
@@ -254,7 +255,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                     tabIndex={0}
                     onClick={() => onUpdate({ [key]: !settings[key] })}
                     onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onUpdate({ [key]: !settings[key] })}
-                    className={`w-9 h-5 rounded-full transition-colors flex items-center ${settings[key] ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                    className={`w-9 h-5 rounded-full transition-colors flex items-center ${settings[key] ? 'bg-[var(--accent)]' : 'bg-gray-300 dark:bg-gray-600'}`}
                   >
                     <span className={`w-4 h-4 bg-white rounded-full shadow transition-transform mx-0.5 ${settings[key] ? 'translate-x-4' : 'translate-x-0'}`} />
                   </div>
@@ -278,7 +279,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   onClick={() => onUpdate({ editorFont: value })}
                   className={`flex-1 py-1.5 rounded-md text-sm border transition-colors ${
                     (settings.editorFont ?? 'system') === value
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                      ? 'border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]'
                       : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
                 >
@@ -303,7 +304,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   onClick={() => onUpdate({ editorFontSize: value })}
                   className={`flex-1 py-1.5 rounded-md text-sm border transition-colors ${
                     (settings.editorFontSize ?? 'md') === value
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                      ? 'border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]'
                       : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
                 >
@@ -354,7 +355,8 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
         <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 flex justify-end">
           <button
             onClick={onClose}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
+            className="text-white px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 transition-opacity"
+            style={{ background: 'var(--accent)' } as React.CSSProperties}
           >
             {t('save')}
           </button>

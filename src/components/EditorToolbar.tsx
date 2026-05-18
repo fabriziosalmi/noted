@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { useI18n } from '../lib/i18n';
 import type { Editor } from '@tiptap/react';
 import {
@@ -60,6 +60,10 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
     editor.commands.setTextSelection(matches[next]);
     editor.commands.scrollIntoView();
   }, [editor, matches]);
+
+  useEffect(() => {
+    if (findOpen) findInputRef.current?.focus();
+  }, [findOpen]);
 
   const handleClose = useCallback(() => {
     setFindQuery('');
@@ -141,7 +145,6 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
           <Search size={13} className="text-gray-400 dark:text-gray-500 shrink-0" />
           <input
             ref={findInputRef}
-            autoFocus
             type="text"
             value={findQuery}
             onChange={e => { setFindQuery(e.target.value); runFind(e.target.value); }}

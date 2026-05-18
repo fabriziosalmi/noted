@@ -16,10 +16,10 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
   const [selected, setSelected] = useState<Snapshot | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!window.electronAPI);
 
   useEffect(() => {
-    if (!window.electronAPI) { setLoading(false); return; }
+    if (!window.electronAPI) return;
     window.electronAPI.getNoteHistory(fileName, syncDir ?? undefined).then(res => {
       if (res.success && res.data) setSnapshots(res.data);
       setLoading(false);
@@ -59,7 +59,7 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
               <button
                 key={snap.name}
                 onClick={() => void loadPreview(snap)}
-                className={`w-full text-left px-3 py-2 text-xs border-b border-gray-50 dark:border-gray-700/50 transition-colors ${selected?.name === snap.name ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-600 dark:text-gray-400'}`}
+                className={`w-full text-left px-3 py-2 text-xs border-b border-gray-50 dark:border-gray-700/50 transition-colors ${selected?.name === snap.name ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-600 dark:text-gray-400'}`}
               >
                 {snap.ts}
               </button>
@@ -80,7 +80,8 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
           <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700 flex justify-end">
             <button
               onClick={handleRestore}
-              className="flex items-center gap-2 text-sm px-4 py-1.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors"
+              className="flex items-center gap-2 text-sm px-4 py-1.5 text-white rounded-lg hover:opacity-90 transition-opacity"
+              style={{ background: 'var(--accent)' } as React.CSSProperties}
             >
               <RotateCcw size={13} />
               {t('restoreVersion')}

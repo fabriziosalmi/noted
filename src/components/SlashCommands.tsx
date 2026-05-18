@@ -17,49 +17,48 @@ interface Command {
   prompt: (context: string) => string;
 }
 
-// Prompts are kept in Italian/English mixed as they are LLM system prompts — not translated
 const COMMANDS: Command[] = [
   {
     id: 'continue',
     icon: <Wand2 size={14} />,
     labelKey: 'cmdContinueLabel',
     descKey: 'cmdContinueDesc',
-    prompt: ctx => `Continua questo testo in modo naturale, stesso stile e lingua, 2-4 frasi. NON ripetere il testo esistente, scrivi solo la continuazione:\n\n${ctx}`,
+    prompt: ctx => `Continue this text naturally, same style and language, 2-4 sentences. Return ONLY the continuation, do not repeat existing text:\n\n${ctx}`,
   },
   {
     id: 'expand',
     icon: <AlignLeft size={14} />,
     labelKey: 'cmdExpandLabel',
     descKey: 'cmdExpandDesc',
-    prompt: ctx => `Espandi e approfondisci questo testo aggiungendo dettagli, esempi e spiegazioni. Mantieni lo stesso stile. Restituisci SOLO il testo espanso:\n\n${ctx}`,
+    prompt: ctx => `Expand and deepen this text with details, examples and explanations. Maintain the same style and language. Return ONLY the expanded text:\n\n${ctx}`,
   },
   {
     id: 'summarize',
     icon: <Minimize2 size={14} />,
     labelKey: 'cmdSummarizeLabel',
     descKey: 'cmdSummarizeDesc',
-    prompt: ctx => `Crea un riassunto conciso in 3-5 punti chiave di questo testo. Usa bullet points. Rispondi nella stessa lingua:\n\n${ctx}`,
+    prompt: ctx => `Create a concise summary in 3-5 key bullet points in the same language as the text:\n\n${ctx}`,
   },
   {
     id: 'improve',
     icon: <Pencil size={14} />,
     labelKey: 'cmdImproveLabel',
     descKey: 'cmdImproveDesc',
-    prompt: ctx => `Migliora la chiarezza, scorrevolezza e stile di questo testo mantenendo il significato originale. Restituisci SOLO il testo migliorato:\n\n${ctx}`,
+    prompt: ctx => `Improve clarity, flow and style while keeping the original meaning and language. Return ONLY the improved text:\n\n${ctx}`,
   },
   {
     id: 'bullets',
     icon: <List size={14} />,
     labelKey: 'cmdBulletsLabel',
     descKey: 'cmdBulletsDesc',
-    prompt: ctx => `Converti questo testo in un elenco puntato chiaro e conciso. Restituisci SOLO i bullet points:\n\n${ctx}`,
+    prompt: ctx => `Convert this text into a clear, concise bullet list in the same language. Return ONLY the bullet points:\n\n${ctx}`,
   },
   {
     id: 'translate',
     icon: <Languages size={14} />,
     labelKey: 'cmdTranslateLabel',
     descKey: 'cmdTranslateDesc',
-    prompt: ctx => `Traduci questo testo. Se è in italiano → inglese, se è in inglese → italiano. Restituisci SOLO la traduzione:\n\n${ctx}`,
+    prompt: ctx => `Translate this text: Italian → English, English → Italian, any other language → English. Return ONLY the translation:\n\n${ctx}`,
   },
 ];
 
@@ -76,6 +75,7 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
     !query || t(c.labelKey).toLowerCase().includes(query.toLowerCase()) || c.id.includes(query.toLowerCase())
   );
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setActiveIdx(0); }, [query]);
 
   // Watch for / trigger
@@ -110,11 +110,13 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
     const triggerFrom = triggerFromRef.current ?? from;
     editor.chain().focus().deleteRange({ from: triggerFrom, to: from }).run();
 
-    // Get context: current paragraph or last 800 chars
+    // Full doc for summarize/bullets/translate; last 800 chars for others
     const { state } = editor;
     const curFrom = state.selection.from;
-    const context = state.doc.textBetween(Math.max(0, curFrom - 800), curFrom, '\n').trim()
-      || editor.getText().slice(-800);
+    const needsFullContext = ['summarize', 'bullets', 'translate'].includes(cmd.id);
+    const context = needsFullContext
+      ? editor.getText().slice(0, 6000)
+      : (state.doc.textBetween(Math.max(0, curFrom - 800), curFrom, '\n').trim() || editor.getText().slice(-800));
 
     try {
       const result = await askLLM([
@@ -122,7 +124,7 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
         { role: 'user', content: cmd.prompt(context) },
       ]);
       // Insert with a newline if needed
-      const needsNewline = cmd.id === 'summarize' || cmd.id === 'bullets';
+      const needsNewline = cmd.id === 'summarize' || cmd.id === 'bullets' || cmd.id === 'continue' || cmd.id === 'expand';
       editor.chain().focus().insertContent(needsNewline ? `\n${result}` : result).run();
     } catch (err) {
       onAiError?.((err as Error).message);

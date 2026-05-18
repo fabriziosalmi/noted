@@ -54,6 +54,18 @@ const translations = {
     noNotesWithTag: 'No notes with {tag}',
     noNotesFound: 'No notes found',
     noNotes: 'No notes',
+    noNotesYet: 'No notes yet — press ⌘N to create one',
+    welcomeTitle: 'Your notes, right here',
+    welcomeSubtitleEmpty: 'Create your first note to get started.',
+    welcomeSubtitleHasNotes: 'Select a note from the sidebar or press ⌘P to search.',
+    welcomeNewNote: 'New note  ⌘N',
+    welcomeAiHint: 'AI features available — configure a provider in',
+    newNoteFilePrefix: 'New_Note',
+    newNoteTitle: 'New Note',
+    newNoteBody: 'Start writing here…',
+    dailySectionNotes: 'Notes',
+    dailySectionTodo: 'To do',
+    dailySectionIdeas: 'Ideas',
     renameHint: 'Double-click to rename',
 
     // NoteEditor
@@ -164,6 +176,9 @@ const translations = {
     askSomething: 'Ask something... (Press Enter)',
     aiGreeting: "Hello! I'm your assistant. I can read what you write and help you. How can I help you today?",
     aiError: '❌ Error: {msg}. Check settings (Provider and API Key).',
+    contextTruncated: 'Note exceeds context limit (8,000 chars) — only the first portion was sent to the AI.',
+    clearChat: 'Clear conversation',
+    ghostThinking: 'AI',
 
     // Editor Toolbar
     heading1: 'Heading 1',
@@ -310,6 +325,18 @@ const translations = {
     noNotesWithTag: 'Nessuna nota con {tag}',
     noNotesFound: 'Nessuna nota trovata',
     noNotes: 'Nessuna nota',
+    noNotesYet: 'Ancora nessuna nota — premi ⌘N per crearne una',
+    welcomeTitle: 'Le tue note, qui',
+    welcomeSubtitleEmpty: 'Crea la tua prima nota per iniziare.',
+    welcomeSubtitleHasNotes: 'Seleziona una nota dalla barra laterale o premi ⌘P per cercare.',
+    welcomeNewNote: 'Nuova nota  ⌘N',
+    welcomeAiHint: 'Funzionalità AI disponibili — configura un provider in',
+    newNoteFilePrefix: 'Nuova_Nota',
+    newNoteTitle: 'Nuova Nota',
+    newNoteBody: 'Inizia a scrivere qui…',
+    dailySectionNotes: 'Note',
+    dailySectionTodo: 'Da fare',
+    dailySectionIdeas: 'Idee',
     renameHint: 'Doppio clic per rinominare',
 
     // NoteEditor
@@ -420,6 +447,9 @@ const translations = {
     askSomething: 'Chiedi qualcosa... (Premi Invio)',
     aiGreeting: 'Ciao! Sono il tuo assistente. MCP attivato. Posso leggere quello che scrivi e aiutarti. Come posso aiutarti oggi?',
     aiError: '❌ Errore: {msg}. Controlla le impostazioni (Provider e API Key).',
+    contextTruncated: "La nota supera il limite di contesto (8.000 caratteri) — solo la prima parte è stata inviata all'AI.",
+    clearChat: 'Cancella conversazione',
+    ghostThinking: 'AI',
 
     // Editor Toolbar
     heading1: 'Titolo 1',

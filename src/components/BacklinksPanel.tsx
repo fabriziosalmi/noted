@@ -10,7 +10,7 @@ interface BacklinksPanelProps {
 export function BacklinksPanel({ activeNoteName, backlinks, onSelectNote }: BacklinksPanelProps) {
   const { t } = useI18n();
   if (backlinks.length === 0) return null;
-  const baseName = activeNoteName.replace('.md', '');
+  const baseName = activeNoteName.replace(/\.md$/, '');
 
   return (
     <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
@@ -25,9 +25,10 @@ export function BacklinksPanel({ activeNoteName, backlinks, onSelectNote }: Back
           <button
             key={name}
             onClick={() => onSelectNote(name)}
-            className="text-xs px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+            className="text-xs px-2.5 py-1 rounded-full transition-colors hover:opacity-80"
+            style={{ background: 'var(--accent-light)', color: 'var(--accent)' } as React.CSSProperties}
           >
-            [[{name.replace('.md', '')}]]
+            [[{name.replace(/\.md$/, '')}]]
           </button>
         ))}
       </div>

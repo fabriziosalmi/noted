@@ -17,6 +17,17 @@ export function TagSuggestion({ editor, allTags }: TagSuggestionProps) {
     .filter(t => t.startsWith('#' + query) && t !== '#' + query)
     .slice(0, 8);
 
+  const insertTag = (tag: string) => {
+    const { from } = editor.state.selection;
+    const startPos = triggerRef.current ?? from;
+    editor.chain()
+      .focus()
+      .deleteRange({ from: startPos, to: from })
+      .insertContent(tag + ' ')
+      .run();
+    setOpen(false);
+  };
+
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -30,11 +41,11 @@ export function TagSuggestion({ editor, allTags }: TagSuggestionProps) {
     };
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, suggestions, activeIdx]);
 
-  useEffect(() => {
-    setActiveIdx(0);
-  }, [query]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setActiveIdx(0); }, [query]);
 
   // Watch editor updates for # trigger
   useEffect(() => {
@@ -64,17 +75,6 @@ export function TagSuggestion({ editor, allTags }: TagSuggestionProps) {
       editor.off('update', update);
     };
   }, [editor]);
-
-  const insertTag = (tag: string) => {
-    const { from } = editor.state.selection;
-    const startPos = triggerRef.current ?? from;
-    editor.chain()
-      .focus()
-      .deleteRange({ from: startPos, to: from })
-      .insertContent(tag + ' ')
-      .run();
-    setOpen(false);
-  };
 
   if (!open || suggestions.length === 0 || !pos) return null;
 
