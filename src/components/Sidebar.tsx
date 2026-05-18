@@ -355,8 +355,8 @@ export function Sidebar({
           })}
 
         {rootNotes.length === 0 && noteFolders.length === 0 && (
-          <p className="text-xs text-gray-400 text-center mt-4">
-            {activeTagFilter ? t('noNotesWithTag').replace('{tag}', activeTagFilter) : query ? t('noNotesFound') : t('noNotes')}
+          <p className="text-xs text-gray-400 text-center mt-4 px-2">
+            {activeTagFilter ? t('noNotesWithTag').replace('{tag}', activeTagFilter) : query ? t('noNotesFound') : t('noNotesYet')}
           </p>
         )}
       </div>

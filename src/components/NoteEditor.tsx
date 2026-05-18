@@ -44,9 +44,13 @@ interface NoteEditorProps {
   allTags?: string[];
   backlinks?: string[];
   onSelectNote?: (name: string) => void;
+  notesCount?: number;
+  onCreateNote?: () => void;
+  onOpenDaily?: () => void;
+  onOpenSettings?: () => void;
 }
 
-export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError, allNoteNames = [], allTags = [], backlinks = [], onSelectNote }: NoteEditorProps) {
+export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError, allNoteNames = [], allTags = [], backlinks = [], onSelectNote, notesCount = 0, onCreateNote, onOpenDaily, onOpenSettings }: NoteEditorProps) {
   const { t } = useI18n();
   const llmProvider = useStore(s => s.settings.llmProvider);
   const llmApiKey = useStore(s => s.settings.llmApiKey);
@@ -260,10 +264,46 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   }, [activeNoteName, activeNoteContent, editor, updateWordCount]);
 
   if (!activeNoteName) {
+    const isEmpty = notesCount === 0;
     return (
-      <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-600 mt-32">
-        <FileText size={48} className="mb-4 opacity-20" />
-        <p>{t('selectNote')}</p>
+      <div className="h-full flex flex-col items-center justify-center px-8">
+        <div className="flex flex-col items-center max-w-sm text-center">
+          <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center mb-5">
+            <FileText size={26} className="text-indigo-400 dark:text-indigo-500" />
+          </div>
+          <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2">
+            {t('welcomeTitle')}
+          </h2>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mb-6">
+            {isEmpty ? t('welcomeSubtitleEmpty') : t('welcomeSubtitleHasNotes')}
+          </p>
+          {onCreateNote && (
+            <div className="flex gap-3">
+              <button
+                onClick={onCreateNote}
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors shadow-sm"
+              >
+                {t('welcomeNewNote')}
+              </button>
+              {isEmpty && onOpenDaily && (
+                <button
+                  onClick={onOpenDaily}
+                  className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  {t('dailyNote')}
+                </button>
+              )}
+            </div>
+          )}
+          {isEmpty && onOpenSettings && (
+            <p className="mt-8 text-xs text-gray-400 dark:text-gray-600">
+              {t('welcomeAiHint')}{' '}
+              <button onClick={onOpenSettings} className="underline underline-offset-2 hover:text-indigo-500 transition-colors">
+                {t('settings')}
+              </button>
+            </p>
+          )}
+        </div>
       </div>
     );
   }

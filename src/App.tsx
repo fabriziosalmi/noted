@@ -111,6 +111,16 @@ function App() {
     window.electronAPI?.setNoteTitle(activeNoteName ?? '');
   }, [activeNoteName]);
 
+  const handleCreateNote = useCallback(async (folder?: string) => {
+    try {
+      const baseName = `${t('newNoteFilePrefix')}_${Math.floor(Date.now() / 1000)}.md`;
+      const initialContent = `<h1>${t('newNoteTitle')}</h1><p>${t('newNoteBody')}</p>`;
+      await createNote(folder ? `${folder}/${baseName}` : baseName, initialContent);
+    } catch (err: unknown) {
+      toast((err as Error).message, 'error');
+    }
+  }, [createNote, toast, t]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === '?' && !e.metaKey && !e.ctrlKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
@@ -128,24 +138,19 @@ function App() {
         e.preventDefault();
         updateSettings({ focusMode: !settings.focusMode });
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'n' && !e.shiftKey) {
+        e.preventDefault();
+        void handleCreateNote();
+      }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [settings.focusMode, updateSettings]);
+  }, [settings.focusMode, updateSettings, handleCreateNote]);
 
   const handleEditorReady = useCallback((editor: Editor | null) => {
     editorRef.current = editor;
     setActiveEditor(editor);
   }, []);
-
-  const handleCreateNote = useCallback(async (folder?: string) => {
-    try {
-      const baseName = `Nuova_Nota_${Math.floor(Date.now() / 1000)}.md`;
-      await createNote(folder ? `${folder}/${baseName}` : baseName);
-    } catch (err: unknown) {
-      toast((err as Error).message, 'error');
-    }
-  }, [createNote, toast]);
 
   const handleOpenDaily = useCallback(async () => {
     try {
@@ -375,15 +380,7 @@ function App() {
                 onOpenFind={() => setFindOpen(true)}
               />
             )}
-            {/* LLM not configured banner */}
-            {!activeNoteName && !settings.llmApiKey && settings.llmProvider !== 'lmstudio' && settings.llmProvider !== 'ollama' && (
-              <div className="mx-auto max-w-3xl px-12 pt-6">
-                <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-xl px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
-                  <span className="text-base">✨</span>
-                  <span>{t('llmBanner')} <button onClick={() => setIsSettingsOpen(true)} className="underline underline-offset-2 font-medium hover:text-amber-900 dark:hover:text-amber-200">{t('llmBannerLink')}</button> {t('llmBannerSuffix')}</span>
-                </div>
-              </div>
-            )}
+
             {/* Scrollable writing area — pure content, no chrome */}
             <div className={`flex-1 overflow-y-auto relative ${focusClass} ${typewriterClass}`}>
               <div className="max-w-3xl mx-auto px-12 py-10">
@@ -398,6 +395,10 @@ function App() {
                     allTags={allTags}
                     backlinks={backlinks}
                     onSelectNote={openNote}
+                    notesCount={notes.length}
+                    onCreateNote={() => void handleCreateNote()}
+                    onOpenDaily={handleOpenDaily}
+                    onOpenSettings={() => setIsSettingsOpen(true)}
                   />
                 </ErrorBoundary>
               </div>
