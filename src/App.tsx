@@ -16,6 +16,7 @@ import { TemplatesModal } from './components/TemplatesModal';
 import { NoteHistoryModal } from './components/NoteHistoryModal';
 import { GitBadge, GitPanel } from './components/GitPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { Tooltip } from './components/Tooltip';
 import { ToastStack } from './components/Toast';
 import { QuickOpen } from './components/QuickOpen';
 import { useToast } from './hooks/useToast';
@@ -272,64 +273,85 @@ function App() {
         <div className="flex space-x-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           {activeNoteName && (
             <>
-              <button
-                onClick={() => setIsHistoryOpen(true)}
-                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
-                title={t('history')}
-              >
-                <History size={16} />
-              </button>
-              <button
-                onClick={() => updateSettings({ focusMode: !settings.focusMode })}
-                className={`p-1 rounded transition-colors ${settings.focusMode ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600'}`}
-                title={t('focusMode')}
-              >
-                <Focus size={16} />
-              </button>
-              <button
-                onClick={handleExportMarkdown}
-                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
-                title={t('exportMarkdown')}
-              >
-                <FileDown size={16} />
-              </button>
-              <button
-                onClick={handleExportPdf}
-                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
-                title={t('exportPdf')}
-              >
-                <Download size={16} />
-              </button>
-              <button
-                onClick={handleExportHtml}
-                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
-                title={t('exportHtml')}
-              >
-                <FileCode size={16} />
-              </button>
-              <button
-                onClick={handleExportDocx}
-                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors"
-                title={t('exportDocx')}
-              >
-                <FileDocx size={16} />
-              </button>
+              <Tooltip label={t('history')} side="bottom">
+                <button
+                  onClick={() => setIsHistoryOpen(true)}
+                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
+                  aria-label={t('history')}
+                >
+                  <History size={16} />
+                </button>
+              </Tooltip>
+              <Tooltip label={t('focusMode')} side="bottom">
+                <button
+                  onClick={() => updateSettings({ focusMode: !settings.focusMode })}
+                  className={`p-1 rounded transition-colors ${settings.focusMode ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-[var(--accent)]'}`}
+                  aria-label={t('focusMode')}
+                  aria-pressed={settings.focusMode}
+                >
+                  <Focus size={16} />
+                </button>
+              </Tooltip>
+              <Tooltip label={t('exportMarkdown')} side="bottom">
+                <button
+                  onClick={handleExportMarkdown}
+                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
+                  aria-label={t('exportMarkdown')}
+                >
+                  <FileDown size={16} />
+                </button>
+              </Tooltip>
+              <Tooltip label={t('exportPdf')} side="bottom">
+                <button
+                  onClick={handleExportPdf}
+                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
+                  aria-label={t('exportPdf')}
+                >
+                  <Download size={16} />
+                </button>
+              </Tooltip>
+              <Tooltip label={t('exportHtml')} side="bottom">
+                <button
+                  onClick={handleExportHtml}
+                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
+                  aria-label={t('exportHtml')}
+                >
+                  <FileCode size={16} />
+                </button>
+              </Tooltip>
+              <Tooltip label={t('exportDocx')} side="bottom">
+                <button
+                  onClick={handleExportDocx}
+                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
+                  aria-label={t('exportDocx')}
+                >
+                  <FileDocx size={16} />
+                </button>
+              </Tooltip>
             </>
           )}
-          <button onClick={() => setIsTemplatesOpen(v => !v)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-indigo-600 transition-colors" title={t('templates')}>
-            <LayoutTemplate size={16} />
-          </button>
+          <Tooltip label={t('templates')} side="bottom">
+            <button onClick={() => setIsTemplatesOpen(v => !v)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors" aria-label={t('templates')}>
+              <LayoutTemplate size={16} />
+            </button>
+          </Tooltip>
           <NoteAdvisorBadge count={suggestions.length} onClick={() => setIsAdvisorOpen(v => !v)} />
           {settings.gitEnabled && <GitBadge onClick={() => setIsGitOpen(v => !v)} />}
-          <button onClick={() => setIsShortcutsOpen(true)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400" title={t('shortcuts')}>
-            <Keyboard size={16} />
-          </button>
-          <button onClick={() => setLeftOpen(!leftOpen)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400">
-            <PanelLeft size={16} />
-          </button>
-          <button onClick={() => setRightOpen(!rightOpen)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400">
-            <PanelRight size={16} />
-          </button>
+          <Tooltip label={t('shortcuts')} side="bottom">
+            <button onClick={() => setIsShortcutsOpen(true)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors" aria-label={t('shortcuts')}>
+              <Keyboard size={16} />
+            </button>
+          </Tooltip>
+          <Tooltip label="Sidebar" side="bottom">
+            <button onClick={() => setLeftOpen(!leftOpen)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors" aria-label="Toggle sidebar">
+              <PanelLeft size={16} />
+            </button>
+          </Tooltip>
+          <Tooltip label="AI panel" side="bottom">
+            <button onClick={() => setRightOpen(!rightOpen)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors" aria-label="Toggle AI panel">
+              <PanelRight size={16} />
+            </button>
+          </Tooltip>
         </div>
       </div>
 

@@ -29,6 +29,15 @@ interface SidebarProps {
   onTagFilter?: (tag: string | null) => void;
 }
 
+function relativeTime(ms: number): string {
+  const diff = Date.now() - ms;
+  if (diff < 60_000) return 'now';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h`;
+  if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)}d`;
+  return `${Math.floor(diff / 604_800_000)}w`;
+}
+
 function NoteRow({
   note, isActive, isPinned, isRenaming, renameValue, renameInputRef,
   onSelect, onDelete, onTogglePin, onStartRename, onRenameChange, onRenameBlur, onRenameKeyDown,
@@ -73,9 +82,14 @@ function NoteRow({
             autoFocus
           />
         ) : (
-          <span className="truncate" onDoubleClick={onStartRename} title={renameHint}>
-            {baseName.replace('.md', '')}
-          </span>
+          <div className="flex items-baseline gap-1.5 min-w-0 flex-1">
+            <span className="truncate" onDoubleClick={onStartRename} title={renameHint}>
+              {baseName.replace('.md', '')}
+            </span>
+            <span className="shrink-0 text-[10px] text-gray-400 dark:text-gray-600 leading-none">
+              {relativeTime(note.stats.mtimeMs)}
+            </span>
+          </div>
         )}
       </div>
       {!isRenaming && (

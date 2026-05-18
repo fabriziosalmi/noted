@@ -260,6 +260,8 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       prevNoteNameRef.current = activeNoteName;
       editor.commands.setContent(activeNoteContent);
       updateWordCount(editor.getText());
+      // Auto-focus editor at start of content when switching notes
+      setTimeout(() => editor.commands.focus('start'), 0);
     }
   }, [activeNoteName, activeNoteContent, editor, updateWordCount]);
 
@@ -268,8 +270,8 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     return (
       <div className="h-full flex flex-col items-center justify-center px-8">
         <div className="flex flex-col items-center max-w-sm text-center">
-          <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center mb-5">
-            <FileText size={26} className="text-indigo-400 dark:text-indigo-500" />
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5" style={{ background: 'var(--accent-light)' }}>
+            <FileText size={26} style={{ color: 'var(--accent)' }} />
           </div>
           <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2">
             {t('welcomeTitle')}
@@ -281,7 +283,8 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
             <div className="flex gap-3">
               <button
                 onClick={onCreateNote}
-                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors shadow-sm"
+                className="px-4 py-2 rounded-lg text-white text-sm font-medium shadow-sm transition-opacity hover:opacity-90"
+                style={{ background: 'var(--accent)' }}
               >
                 {t('welcomeNewNote')}
               </button>

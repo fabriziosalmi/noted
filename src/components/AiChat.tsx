@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Bot, Loader2, Database } from 'lucide-react';
 import { askLLM } from '../lib/llm';
 import { findRelevantNotes, type NoteChunk } from '../lib/noteSearch';
@@ -21,6 +21,11 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
   const [llmHistory, setLlmHistory] = useState<ChatMessage[]>([]);
   const [aiInput, setAiInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [displayHistory, isLoading]);
 
   const handleSubmit = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter' || !aiInput.trim() || isLoading) return;
@@ -88,7 +93,7 @@ Rispondi in modo conciso e utile. Se citi una nota specifica, indica il titolo.`
           <span>{t('aiAssistant')}</span>
         </div>
         {noteChunks.length > 0 && (
-          <span className="flex items-center gap-1 text-[10px] text-indigo-400 dark:text-indigo-500 font-normal normal-case tracking-normal" title={t('ragActive').replace('{n}', String(noteChunks.length))}>
+          <span className="flex items-center gap-1 text-[10px] font-normal normal-case tracking-normal" style={{ color: 'var(--accent)' }} title={t('ragActive').replace('{n}', String(noteChunks.length))}>
             <Database size={10} />
             {t('ragActive').replace('{n}', String(noteChunks.length))}
           </span>
@@ -102,7 +107,7 @@ Rispondi in modo conciso e utile. Se citi una nota specifica, indica il titolo.`
             className={`p-3 rounded-lg shadow-sm border whitespace-pre-wrap ${
               msg.role === 'assistant'
                 ? 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
-                : 'bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-200 border-blue-100 dark:border-blue-800 self-end'
+                : 'bg-[var(--accent-light)] text-[var(--accent)] border-[var(--accent-mid)] self-end'
             }`}
           >
             {msg.content}
@@ -114,6 +119,7 @@ Rispondi in modo conciso e utile. Se citi una nota specifica, indica il titolo.`
             <span>{t('thinking')}</span>
           </div>
         )}
+        <div ref={messagesEndRef} aria-hidden="true" />
       </div>
 
       <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
@@ -124,7 +130,7 @@ Rispondi in modo conciso e utile. Se citi una nota specifica, indica il titolo.`
           onKeyDown={handleSubmit}
           disabled={isLoading}
           placeholder={isLoading ? t('waitingResponse') : t('askSomething')}
-          className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:border-blue-500 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-500 disabled:opacity-50"
+          className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:border-[var(--accent)] bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-500 disabled:opacity-50"
         />
       </div>
     </>
