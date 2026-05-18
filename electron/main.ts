@@ -819,10 +819,11 @@ ipcMain.handle('share-note-macos', async (_, args: { content: string; title: str
 ipcMain.handle('llm-fetch', async (_, url: string, options: { method: string; headers: Record<string, string>; body: string }) => {
   try {
     if (typeof url !== 'string' || !url.startsWith('http')) throw new Error('Invalid URL');
+    const isGet = options.method.toUpperCase() === 'GET';
     const res = await fetch(url, {
       method: options.method,
       headers: options.headers,
-      body: options.body,
+      body: isGet ? undefined : (options.body || undefined),
     });
     const text = await res.text();
     return { ok: res.ok, status: res.status, text };

@@ -85,8 +85,6 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
       {/* Unified single toolbar */}
       {(showAiBar || showToolbar) && (
         <div className="flex items-center gap-0.5 px-4 py-1.5 flex-wrap">
-          {showAiBar && <AiActionsBar editor={editor} onError={onAiError} />}
-          {showAiBar && showToolbar && sep}
           {showToolbar && (
             <>
               <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} title={t('heading1')}
@@ -135,6 +133,8 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
               </button>
             </>
           )}
+          {showToolbar && showAiBar && sep}
+          {showAiBar && <AiActionsBar editor={editor} onError={onAiError} />}
         </div>
       )}
 
