@@ -23,6 +23,7 @@ import { useToast } from './hooks/useToast';
 import { useTheme } from './hooks/useTheme';
 import { useNoteAdvisor } from './hooks/useNoteAdvisor';
 import type { NoteChunk } from './lib/noteSearch';
+import { ShareMenu } from './components/ShareMenu';
 
 function App() {
   const { t } = useI18n();
@@ -340,6 +341,13 @@ function App() {
               </Tooltip>
             </>
           )}
+          <ShareMenu
+            getCurrentNoteContent={getEditorText}
+            getCurrentNoteTitle={() => activeNoteName?.replace('.md', '') ?? ''}
+            syncDirectory={settings.syncDirectory || undefined}
+            onToast={toast}
+            hasNote={!!activeNoteName}
+          />
           <Tooltip label={t('templates')} side="bottom">
             <button onClick={() => setIsTemplatesOpen(v => !v)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors" aria-label={t('templates')}>
               <LayoutTemplate size={16} />

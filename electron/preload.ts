@@ -25,6 +25,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportDocx: (htmlContent: string, title: string) => ipcRenderer.invoke('export-docx', htmlContent, title),
   importVault: (targetDir?: string) => ipcRenderer.invoke('import-vault', targetDir),
   getICloudPath: () => ipcRenderer.invoke('get-icloud-path'),
+  copyVaultToFolder: (args: { destDir?: string; syncDir?: string }) => ipcRenderer.invoke('copy-vault-to-folder', args),
+  shareNoteMacOS: (args: { content: string; title: string }) => ipcRenderer.invoke('share-note-macos', args),
   getNotesTree: (syncDir?: string) => ipcRenderer.invoke('get-notes-tree', syncDir),
   createFolder: (name: string, syncDir?: string) => ipcRenderer.invoke('create-folder', name, syncDir),
   renameFolder: (oldName: string, newName: string, syncDir?: string) => ipcRenderer.invoke('rename-folder', oldName, newName, syncDir),

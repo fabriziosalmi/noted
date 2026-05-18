@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, safeStorage, globalShortcut, nativeTheme, protocol } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, safeStorage, globalShortcut, nativeTheme, protocol, shell } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { validateFileName, validateFolderName, stripUnsafeHtml } from './ipc-utils.js';
@@ -655,6 +655,75 @@ ipcMain.handle('get-icloud-path', () => {
     const icloudPath = path.join(home, 'Library', 'Mobile Documents', 'com~apple~CloudDocs', 'Noted');
     if (!fs.existsSync(icloudPath)) fs.mkdirSync(icloudPath, { recursive: true });
     return { success: true, data: icloudPath };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
+// ─── Export vault / Share note ───────────────────────────────────────────────
+
+ipcMain.handle('copy-vault-to-folder', async (_, args: { destDir?: string; syncDir?: string }) => {
+  try {
+    const srcDir = getTargetDir(args?.syncDir);
+    let destDir: string = args?.destDir ?? '';
+    if (!destDir) {
+      const { filePaths, canceled } = await dialog.showOpenDialog({
+        title: 'Export vault to folder',
+        properties: ['openDirectory', 'createDirectory'],
+        buttonLabel: 'Export here',
+      });
+      if (canceled || !filePaths.length) return { success: false, canceled: true };
+      destDir = filePaths[0];
+    }
+    let copied = 0;
+    function copyDir(src: string, dest: string) {
+      if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+      for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+        if (entry.isDirectory()) {
+          copyDir(path.join(src, entry.name), path.join(dest, entry.name));
+        } else if (entry.name.endsWith('.md')) {
+          fs.copyFileSync(path.join(src, entry.name), path.join(dest, entry.name));
+          copied++;
+        }
+      }
+    }
+    copyDir(srcDir, destDir);
+    return { success: true, data: { copied, destDir } };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
+ipcMain.handle('share-note-macos', async (_, args: { content: string; title: string }) => {
+  try {
+    const { exec } = await import('node:child_process');
+    const os = await import('node:os');
+    const safeName = (args.title || 'note').replace(/[^a-zA-Z0-9\-_ ]/g, '_');
+    const tempFile = path.join(os.tmpdir(), `${safeName}.md`);
+    fs.writeFileSync(tempFile, args.content ?? '', 'utf-8');
+
+    const script = [
+      'use framework "AppKit"',
+      'use scripting additions',
+      `set theURL to current application's NSURL's fileURLWithPath:"${tempFile.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`,
+      "set picker to current application's NSSharingServicePicker's alloc()'s initWithItems:{theURL}",
+      "set v to current application's NSApp's keyWindow()'s contentView()",
+      "picker's showRelativeTo:(current application's NSMakeRect(0, 0, 1, 1)) ofView:v preferredEdge:2",
+    ].join('\n');
+
+    const scriptFile = path.join(os.tmpdir(), 'noted-share.applescript');
+    fs.writeFileSync(scriptFile, script, 'utf-8');
+
+    return new Promise<{ success: boolean; fallback?: boolean; error?: string }>((resolve) => {
+      exec(`osascript "${scriptFile}"`, (err) => {
+        if (err) {
+          shell.showItemInFolder(tempFile);
+          resolve({ success: true, fallback: true });
+        } else {
+          resolve({ success: true });
+        }
+      });
+    });
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }

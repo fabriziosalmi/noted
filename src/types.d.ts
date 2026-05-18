@@ -36,6 +36,8 @@ declare global {
       exportDocx: (htmlContent: string, title: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       importVault: (targetDir?: string) => Promise<{ success: boolean; data?: number; error?: string }>;
       getICloudPath: () => Promise<{ success: boolean; data?: string; error?: string }>;
+      copyVaultToFolder: (args: { destDir?: string; syncDir?: string }) => Promise<{ success: boolean; canceled?: boolean; data?: { copied: number; destDir: string }; error?: string }>;
+      shareNoteMacOS: (args: { content: string; title: string }) => Promise<{ success: boolean; fallback?: boolean; error?: string }>;
       getNotesTree: (syncDir?: string) => Promise<{ success: boolean; data?: NotesTree; error?: string }>;
       createFolder: (name: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       renameFolder: (oldName: string, newName: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
