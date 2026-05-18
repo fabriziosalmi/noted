@@ -334,6 +334,7 @@ const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
           <ShareMenu
             getCurrentNoteContent={getEditorText}
             getCurrentNoteTitle={() => activeNoteName?.replace('.md', '') ?? ''}
+            getCurrentNoteFileName={() => activeNoteName ?? 'note.md'}
             syncDirectory={settings.syncDirectory || undefined}
             onToast={toast}
             hasNote={!!activeNoteName}

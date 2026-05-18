@@ -908,3 +908,33 @@ ipcMain.handle('git-create-pr', async (_, params: {
   if (!params || typeof params !== 'object') return { success: false, error: 'Invalid params' };
   return gitOps.createGitHubPr(params);
 });
+
+ipcMain.handle('git-save-as-gist', async (_, params: {
+  fileName: string; content: string; isPublic: boolean; token: string;
+}) => {
+  if (!params?.token) return { success: false, error: 'GitHub token required' };
+  if (!params.content) return { success: false, error: 'Content required' };
+  const safeName = path.basename(params.fileName || 'note.md');
+  const body = JSON.stringify({
+    description: safeName.replace(/\.md$/, ''),
+    public: !!params.isPublic,
+    files: { [safeName]: { content: params.content } },
+  });
+  try {
+    const res = await fetch('https://api.github.com/gists', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${params.token}`,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+      body,
+    });
+    const json = await res.json() as { html_url?: string; message?: string };
+    if (!res.ok) return { success: false, error: json.message ?? `HTTP ${res.status}` };
+    return { success: true, data: json.html_url };
+  } catch (e) {
+    return { success: false, error: (e as Error).message };
+  }
+});

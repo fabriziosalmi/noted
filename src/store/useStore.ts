@@ -32,6 +32,7 @@ interface SettingsState {
   typewriterMode: boolean;
   language?: 'en' | 'it' | 'es' | 'pt' | 'fr' | 'de';
   piiMasking?: boolean;
+  showHints?: boolean;
   // Git integration (all optional for backward-compat with persisted state)
   gitEnabled?: boolean;
   gitRemote?: string;
@@ -114,6 +115,7 @@ export const useStore = create<NoteState>()(
         gitAutoCommit: false,
         gitDefaultBase: 'main',
         gitGhToken: '',
+        showHints: true,
       },
 
       updateSettings: (newSettings) => {

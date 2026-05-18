@@ -46,4 +46,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gitPushBranch: (branch: string, remoteUrl: string, syncDir?: string) => ipcRenderer.invoke('git-push-branch', branch, remoteUrl, syncDir),
   gitLog: (noteName?: string, syncDir?: string) => ipcRenderer.invoke('git-log', noteName, syncDir),
   gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => ipcRenderer.invoke('git-create-pr', params),
+  gitSaveAsGist: (params: { fileName: string; content: string; isPublic: boolean; token: string }) => ipcRenderer.invoke('git-save-as-gist', params),
 });
