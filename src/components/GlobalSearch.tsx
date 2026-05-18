@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, FileText, Loader2, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
+import { useModalStack } from '../hooks/useModalStack';
 
 interface SearchResult {
   relPath: string;
@@ -42,6 +43,10 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
   const inputRef   = useRef<HTMLInputElement>(null);
   const listRef    = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Monotonic token to discard out-of-order responses (no AbortController on
+  // the IPC bridge today — a stale response from a slow query must not
+  // overwrite the result of a newer one).
+  const queryIdRef = useRef(0);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
   useEffect(() => { setActiveIdx(0); }, [results]);
@@ -54,8 +59,11 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
       return;
     }
     setLoading(true);
+    const myId = ++queryIdRef.current;
     debounceRef.current = setTimeout(async () => {
       const res = await window.electronAPI.searchNotesFulltext(query.trim(), syncDirectory ?? undefined);
+      // Drop the result if a newer query has been fired in the meantime.
+      if (myId !== queryIdRef.current) return;
       setResults((res?.data ?? []) as SearchResult[]);
       setLoading(false);
     }, 260);
@@ -69,14 +77,14 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { onClose(); return; }
       if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, results.length - 1)); }
       if (e.key === 'ArrowUp')   { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)); }
       if (e.key === 'Enter' && results[activeIdx]) confirm(results[activeIdx].relPath);
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [results, activeIdx, confirm, onClose]);
+  }, [results, activeIdx, confirm]);
+  useModalStack('global-search', true, onClose);
 
   useEffect(() => {
     const el = listRef.current?.querySelector(`[data-idx="${activeIdx}"]`);

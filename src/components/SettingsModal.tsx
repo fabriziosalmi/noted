@@ -4,6 +4,7 @@ import {
   Bot, Palette, Type, GitBranch, FolderSync,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useModalStack } from '../hooks/useModalStack';
 import type { LLMProvider } from '../store/useStore';
 import { fetchAvailableModels } from '../lib/llm';
 import { useI18n, type TranslationKey } from '../lib/i18n';
@@ -29,6 +30,8 @@ interface Settings {
   language?: 'en' | 'it' | 'es' | 'pt' | 'fr' | 'de';
   piiMasking?: boolean;
   showHints?: boolean;
+  aiGhostMode?: 'off' | 'manual' | 'auto';
+  editorWidth?: 'narrow' | 'normal' | 'wide' | 'full';
   gitEnabled?: boolean;
   gitRemote?: string;
   gitAutoCommit?: boolean;
@@ -84,8 +87,9 @@ function SegRow({ icon: Icon, label, description, value, onChange }: {
   );
 }
 
-function Seg3({ label, options, value, onChange }: {
+function Seg3({ label, description, options, value, onChange }: {
   label: string;
+  description?: string;
   options: Array<{ value: string; label: string }>;
   value: string;
   onChange: (v: string) => void;
@@ -93,6 +97,7 @@ function Seg3({ label, options, value, onChange }: {
   return (
     <div className="space-y-1.5">
       <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</p>
+      {description && <p className="text-[10.5px] text-gray-400 dark:text-gray-500 -mt-1">{description}</p>}
       <div className="flex gap-1.5">
         {options.map(o => (
           <button
@@ -135,6 +140,7 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
 }
 
 export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVault, onClose }: SettingsModalProps) {
+  useModalStack('settings', true, onClose);
   const { t } = useI18n();
   const [tab, setTab] = useState<SettingsTab>('ai');
   const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
@@ -143,6 +149,14 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
   const [activating, setActivating] = useState<string | null>(null);
   const [gitTokenInput, setGitTokenInput] = useState('');
   const [savingToken, setSavingToken] = useState(false);
+  const [encryptionAvailable, setEncryptionAvailable] = useState(true);
+
+  useEffect(() => {
+    window.electronAPI?.safeStorageStatus?.()
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      .then(r => setEncryptionAvailable(r.encrypted))
+      .catch(() => { /* assume available if check fails */ });
+  }, []);
 
   const discoverModels = useCallback(async () => {
     setDiscovering(true);
@@ -278,6 +292,11 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
               {['openai', 'anthropic', 'gemini', 'openrouter'].includes(settings.llmProvider) && (
                 <div>
                   <FieldLabel>{t('apiKey')}</FieldLabel>
+                  {!encryptionAvailable && (
+                    <div className="mb-1.5 text-[11px] px-2.5 py-1.5 rounded-md bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-200">
+                      {t('safeStorageUnavailable')}
+                    </div>
+                  )}
                   <Input type="password" value={settings.llmApiKey} onChange={(e) => onUpdate({ llmApiKey: e.target.value })} placeholder="sk-..." />
                   <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">{t('apiKeyHelp')}</p>
                 </div>
@@ -355,6 +374,31 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                 ]}
                 value={settings.editorFontSize ?? 'md'}
                 onChange={v => onUpdate({ editorFontSize: v as Settings['editorFontSize'] })}
+              />
+
+              <Seg3
+                label={t('editorWidth')}
+                description={t('editorWidthHelp')}
+                options={[
+                  { value: 'narrow', label: t('widthNarrow') },
+                  { value: 'normal', label: t('widthNormal') },
+                  { value: 'wide',   label: t('widthWide') },
+                  { value: 'full',   label: t('widthFull') },
+                ]}
+                value={settings.editorWidth ?? 'normal'}
+                onChange={v => onUpdate({ editorWidth: v as Settings['editorWidth'] })}
+              />
+
+              <Seg3
+                label={t('aiSuggestions')}
+                description={t('aiSuggestionsHelp')}
+                options={[
+                  { value: 'off',    label: t('aiGhostOff') },
+                  { value: 'manual', label: t('aiGhostManual') },
+                  { value: 'auto',   label: t('aiGhostAuto') },
+                ]}
+                value={settings.aiGhostMode ?? 'manual'}
+                onChange={v => onUpdate({ aiGhostMode: v as Settings['aiGhostMode'] })}
               />
 
               <div className="divide-y divide-gray-100 dark:divide-gray-700/50">

@@ -41,6 +41,26 @@ export function useNoteAdvisor({ activeNoteName, activeNoteContent, notes }: Use
   const [dismissed, setDismissed] = useState<Set<string>>(loadDismissed);
   const [rawSuggestions, setRawSuggestions] = useState<Suggestion[]>([]);
 
+  // Purge dismissed entries whose note no longer exists. Without this, every
+  // deleted/renamed note leaks a `dismissed:<name>__<rule>` row into
+  // localStorage forever.
+  useEffect(() => {
+    if (dismissed.size === 0) return;
+    const existing = new Set(notes.map(n => n.name));
+    let changed = false;
+    const next = new Set<string>();
+    for (const id of dismissed) {
+      // IDs are either `<noteName>__<rule>` or `cross__topic__<kw>`. Keep all
+      // cross-topic ones (they regenerate from current notes anyway); drop
+      // per-note ones whose note is gone.
+      if (id.startsWith('cross__')) { next.add(id); continue; }
+      const noteName = id.split('__')[0];
+      if (existing.has(noteName)) next.add(id);
+      else changed = true;
+    }
+    if (changed) { setDismissed(next); saveDismissed(next); }
+  }, [notes, dismissed]);
+
   // Build NoteInput for the active note
   const activeInput = useMemo<NoteInput | null>(() => {
     if (!activeNoteName) return null;

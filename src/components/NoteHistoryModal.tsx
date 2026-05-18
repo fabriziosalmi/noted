@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { X, RotateCcw, Clock } from 'lucide-react';
+import { useModalStack } from '../hooks/useModalStack';
 import { useI18n } from '../lib/i18n';
 
 interface Snapshot { name: string; ts: string }
@@ -12,6 +13,7 @@ interface NoteHistoryModalProps {
 }
 
 export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: NoteHistoryModalProps) {
+  useModalStack('history', true, onClose);
   const { t } = useI18n();
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [preview, setPreview] = useState<string | null>(null);

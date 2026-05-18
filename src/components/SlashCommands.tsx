@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
-import { askLLM } from '../lib/llm';
+import { askLLM, AbortedError, describeLlmError } from '../lib/llm';
 import { Wand2, AlignLeft, List, Languages, Minimize2, Pencil, Loader2 } from 'lucide-react';
 import { useI18n, type TranslationKey } from '../lib/i18n';
 import { useStore } from '../store/useStore';
@@ -73,6 +73,10 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const [running, setRunning] = useState<string | null>(null);
   const triggerFromRef = useRef<number | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Abort any in-flight slash command on unmount.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const filtered = COMMANDS.filter(c =>
     !query || t(c.labelKey).toLowerCase().includes(query.toLowerCase()) || c.id.includes(query.toLowerCase())
@@ -107,6 +111,9 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
   const executeCommand = useCallback(async (cmd: Command) => {
     setOpen(false);
     setRunning(cmd.id);
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     // Delete the /command text
     const { from } = editor.state.selection;
@@ -126,16 +133,18 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
       const result = await askLLM([
         { role: 'system', content: 'Sei un assistente di scrittura professionale. Segui le istruzioni esattamente.' },
         { role: 'user', content: cmd.prompt(context) },
-      ]);
+      ], { signal: controller.signal });
       // Insert with a newline if needed
       const needsNewline = cmd.id === 'summarize' || cmd.id === 'bullets' || cmd.id === 'continue' || cmd.id === 'expand';
       editor.chain().focus().insertContent(needsNewline ? `\n${result}` : result).run();
     } catch (err) {
-      onAiError?.((err as Error).message);
+      if (err instanceof AbortedError) return;
+      onAiError?.(describeLlmError(err));
     } finally {
+      if (abortRef.current === controller) abortRef.current = null;
       setRunning(null);
     }
-  }, [editor, onAiError]);
+  }, [editor, onAiError, piiMasking]);
 
   useEffect(() => {
     if (!open) return;

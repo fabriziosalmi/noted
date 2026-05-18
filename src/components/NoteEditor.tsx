@@ -54,6 +54,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   const { t } = useI18n();
   const llmProvider = useStore(s => s.settings.llmProvider);
   const llmApiKey = useStore(s => s.settings.llmApiKey);
+  const aiGhostMode = useStore(s => s.settings.aiGhostMode ?? 'manual');
   const llmReady = llmProvider === 'lmstudio' || llmProvider === 'ollama' || !!llmApiKey;
   const [isSmartPasting, setIsSmartPasting] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
@@ -105,6 +106,43 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     onWordCountChange?.(count);
   }, [onWordCountChange]);
 
+  // Fire one ghost-text suggestion against the current cursor position.
+  // Used by both auto-on-typing mode and the manual ⌘L trigger.
+  const triggerGhost = useCallback(() => {
+    const ed = editorRef.current;
+    if (!ed || !mountedRef.current || !llmReady) return;
+    const gen = ++ghostGenerationRef.current;
+    setGhostLoading(true);
+    (async () => {
+      const { state } = ed;
+      const { from } = state.selection;
+      const capturedFrom = from;
+      const context = state.doc.textBetween(Math.max(0, from - 400), from, '\n').trim();
+      if (context.length < 12) {
+        if (mountedRef.current) setGhostLoading(false);
+        return;
+      }
+      try {
+        const suggestion = await askLLM([
+          { role: 'system', content: 'You are a writing assistant. Complete the text with 1 natural sentence in the same language and style. Reply with ONLY the continuation, no repetition, no quotes.' },
+          { role: 'user', content: context },
+        ]);
+        if (!mountedRef.current || ghostGenerationRef.current !== gen) return;
+        if (ed.state.selection.from !== capturedFrom) return;
+        const trimmed = suggestion.trim().replace(/^[.,;:\s]+/, '');
+        if (!trimmed) return;
+        ghostTextRef.current = ' ' + trimmed;
+        ghostActiveRef.current = true;
+        setGhostActive(true);
+        ed.view.dispatch(ed.state.tr.setMeta(ghostTextKey, ' ' + trimmed));
+      } catch {
+        // best-effort
+      } finally {
+        if (mountedRef.current && ghostGenerationRef.current === gen) setGhostLoading(false);
+      }
+    })();
+  }, [llmReady]);
+
   const clearGhost = useCallback(() => {
     ghostTextRef.current = '';
     ghostActiveRef.current = false;
@@ -137,44 +175,20 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       debouncedSave(editor.getHTML());
       updateWordCount(editor.getText());
 
-      // Clear existing ghost text on any edit, then schedule new suggestion
+      // Always clear any visible ghost on edit — the user is typing.
       clearGhost();
       if (ghostTimerRef.current) clearTimeout(ghostTimerRef.current);
-      if (!llmReady) return;
-      const gen = ++ghostGenerationRef.current;
-      setGhostLoading(true);
-      ghostTimerRef.current = setTimeout(async () => {
-        if (!mountedRef.current || ghostGenerationRef.current !== gen) {
-          if (mountedRef.current) setGhostLoading(false);
-          return;
-        }
+
+      // Only schedule a new automatic suggestion in 'auto' mode. In 'manual'
+      // and 'off' modes the user explicitly invokes ghost text via ⌘L.
+      if (aiGhostMode !== 'auto' || !llmReady) return;
+      ghostTimerRef.current = setTimeout(() => {
+        if (!mountedRef.current) return;
+        // Require some context before bothering the LLM in auto mode.
         const { state } = editor;
-        const { from } = state.selection;
-        const capturedFrom = from;
-        const context = state.doc.textBetween(Math.max(0, from - 400), from, '\n').trim();
-        if (context.length < 80) {
-          if (mountedRef.current) setGhostLoading(false);
-          return;
-        }
-        try {
-          const suggestion = await askLLM([
-            { role: 'system', content: 'You are a writing assistant. Complete the text with 1 natural sentence in the same language and style. Reply with ONLY the continuation, no repetition, no quotes.' },
-            { role: 'user', content: context },
-          ]);
-          if (!mountedRef.current || ghostGenerationRef.current !== gen) return;
-          // Discard if cursor moved to a different position
-          if (editor.state.selection.from !== capturedFrom) return;
-          const trimmed = suggestion.trim().replace(/^[.,;:\s]+/, '');
-          if (!trimmed) return;
-          ghostTextRef.current = ' ' + trimmed;
-          ghostActiveRef.current = true;
-          setGhostActive(true);
-          editor.view.dispatch(editor.state.tr.setMeta(ghostTextKey, ' ' + trimmed));
-        } catch {
-          // silently ignore — ghost text is best-effort
-        } finally {
-          if (mountedRef.current && ghostGenerationRef.current === gen) setGhostLoading(false);
-        }
+        const ctxLen = state.doc.textBetween(Math.max(0, state.selection.from - 400), state.selection.from, '\n').trim().length;
+        if (ctxLen < 80) return;
+        triggerGhost();
       }, 1200);
     },
     onCreate: ({ editor }) => {
@@ -183,6 +197,13 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     editorProps: {
       attributes: { class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none' },
       handleKeyDown: (_view, event) => {
+        // Manual ghost-text trigger: ⌘L (or Ctrl+L). Works in any aiGhostMode
+        // except 'off'.
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'l') {
+          event.preventDefault();
+          if (aiGhostMode !== 'off') triggerGhost();
+          return true;
+        }
         if (event.key === 'Tab' && ghostActiveRef.current && ghostTextRef.current) {
           event.preventDefault();
           const ghost = ghostTextRef.current;

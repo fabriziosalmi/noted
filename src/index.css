@@ -1,5 +1,30 @@
 @import "tailwindcss";
 
+/* ─── AI chat markdown rendering ──────────────────────────────────────── */
+.ai-chat-md { line-height: 1.5; }
+.ai-chat-md > *:first-child { margin-top: 0; }
+.ai-chat-md > *:last-child { margin-bottom: 0; }
+.ai-chat-md p { margin: 0.5em 0; }
+.ai-chat-md h1, .ai-chat-md h2, .ai-chat-md h3, .ai-chat-md h4 { font-weight: 600; margin: 0.6em 0 0.3em; line-height: 1.3; }
+.ai-chat-md h1 { font-size: 1.15em; }
+.ai-chat-md h2 { font-size: 1.08em; }
+.ai-chat-md h3 { font-size: 1em; }
+.ai-chat-md strong { font-weight: 600; }
+.ai-chat-md em { font-style: italic; }
+.ai-chat-md ul, .ai-chat-md ol { margin: 0.4em 0; padding-left: 1.4em; }
+.ai-chat-md ul { list-style: disc; }
+.ai-chat-md ol { list-style: decimal; }
+.ai-chat-md li { margin: 0.15em 0; }
+.ai-chat-md code { background: rgba(127,127,127,0.15); padding: 0.1em 0.35em; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+.ai-chat-md pre { background: rgba(127,127,127,0.12); padding: 0.6em 0.8em; border-radius: 6px; overflow-x: auto; margin: 0.5em 0; font-size: 0.9em; }
+.ai-chat-md pre code { background: transparent; padding: 0; }
+.ai-chat-md blockquote { border-left: 3px solid rgba(127,127,127,0.4); padding-left: 0.8em; margin: 0.5em 0; color: rgba(107,114,128,0.9); }
+.ai-chat-md a { color: var(--accent); text-decoration: underline; }
+.ai-chat-md hr { border: none; border-top: 1px solid rgba(127,127,127,0.25); margin: 0.7em 0; }
+.ai-chat-md table { border-collapse: collapse; margin: 0.5em 0; font-size: 0.95em; }
+.ai-chat-md th, .ai-chat-md td { border: 1px solid rgba(127,127,127,0.3); padding: 0.3em 0.6em; }
+
+
 /* Class-based dark mode — applied by useTheme hook on <html> */
 @variant dark (&:where(.dark, .dark *));
 @variant sepia (&:where(.sepia, .sepia *));
@@ -17,18 +42,98 @@
   --accent-mid:   color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
-/* ─── Sepia theme ─────────────────────────────────────────────────────── */
-.sepia body { color: #3d2b1f; }
-.sepia .vibrancy-titlebar { background: rgba(244, 234, 213, 0.72) !important; }
-.sepia .vibrancy-sidebar  { background: rgba(238, 225, 198, 0.72) !important; }
-.sepia .bg-white\/85 { background: rgba(252, 246, 232, 0.92) !important; }
+/* ─── Dark theme — near-black OLED-friendly palette ───────────────────── */
+/* The default Tailwind gray-* dark variants are too lifted (gray-900 = #111827,
+   gray-800 = #1F2937). Override the most-used shades to a properly dark scale
+   that doesn't glow on OLED screens. */
+.dark { color-scheme: dark; }
+.dark .bg-gray-900 { background-color: #050507 !important; }
+.dark .bg-gray-800 { background-color: #0d0d10 !important; }
+.dark .bg-gray-700 { background-color: #18181c !important; }
+.dark .bg-gray-600 { background-color: #26262b !important; }
+
+.dark .border-gray-800 { border-color: #141418 !important; }
+.dark .border-gray-700 { border-color: #1d1d22 !important; }
+.dark .border-gray-600 { border-color: #2a2a30 !important; }
+
+/* Translucent surface utilities used as page-wide backdrop in App.tsx */
+.dark .bg-white\/85 { background-color: rgba(5, 5, 8, 0.92) !important; }
+.dark .bg-gray-900\/85 { background-color: rgba(5, 5, 8, 0.92) !important; }
+
+/* Hover surfaces */
+.dark .hover\:bg-gray-800:hover { background-color: #131316 !important; }
+.dark .hover\:bg-gray-700:hover { background-color: #1d1d22 !important; }
+.dark .hover\:bg-gray-600:hover { background-color: #2a2a30 !important; }
+
+/* Vibrancy panels — keep the blur but dial brightness down to near-black */
+.dark .vibrancy-sidebar  { background: rgba(8, 8, 10, 0.78) !important; }
+.dark .vibrancy-titlebar { background: rgba(4, 4, 7, 0.72) !important; }
+
+/* Body fallback for any surface that doesn't hit a Tailwind class */
+.dark body { color: #ebebf5; }
+
+/* Editor + code surfaces — match the new ground */
+.dark .ProseMirror table th { background: #101013; color: #ebebf5; }
+.dark .ProseMirror table td,
+.dark .ProseMirror table th { border-color: #1e1e23; }
+.dark .ProseMirror pre     { background: #101013; border-color: #1e1e23; }
+
+/* ─── Sepia theme — warm, cohesive, complete ──────────────────────────── */
+.sepia { color-scheme: light; }
+.sepia body { color: #3d2b1f; background: #fbf3e0; }
+
+/* Vibrancy + base surfaces */
+.sepia .vibrancy-titlebar { background: rgba(244, 234, 213, 0.78) !important; }
+.sepia .vibrancy-sidebar  { background: rgba(238, 225, 198, 0.78) !important; }
+.sepia .bg-white\/85      { background: rgba(252, 246, 232, 0.94) !important; }
+
+/* Map the Tailwind grayscale surfaces to warm sepia tones so every Modal,
+   Sidebar item and toolbar comes along for the ride without per-component
+   edits. */
+.sepia .bg-white        { background-color: #fcf6e8 !important; }
+.sepia .bg-gray-50      { background-color: #f5ebd0 !important; }
+.sepia .bg-gray-100     { background-color: #efe2c0 !important; }
+.sepia .bg-gray-200     { background-color: #e6d3a8 !important; }
+
+.sepia .border-gray-100 { border-color: #ecdfb8 !important; }
+.sepia .border-gray-200 { border-color: #d8c595 !important; }
+.sepia .border-gray-300 { border-color: #c5b07d !important; }
+
+.sepia .text-gray-400   { color: #8b7a5a !important; }
+.sepia .text-gray-500   { color: #6e5e42 !important; }
+.sepia .text-gray-600   { color: #5a4a30 !important; }
+.sepia .text-gray-700   { color: #4a3a22 !important; }
+.sepia .text-gray-800   { color: #3d2b1f !important; }
+
+.sepia .hover\:bg-gray-50:hover  { background-color: #efe2c0 !important; }
+.sepia .hover\:bg-gray-100:hover { background-color: #e6d3a8 !important; }
+.sepia .hover\:bg-gray-200:hover { background-color: #d8c595 !important; }
+
+/* Editor content */
 .sepia .ProseMirror { color: #3d2b1f; caret-color: #8b5e3c; }
 .sepia .ProseMirror h1, .sepia .ProseMirror h2, .sepia .ProseMirror h3 { color: #2c1d14; }
-.sepia .ProseMirror pre { background: #ede3cc; border-color: #d4c5a5; }
-.sepia .ProseMirror table th { background: #ede3cc; }
+.sepia .ProseMirror pre { background: #ede3cc; border-color: #d4c5a5; color: #3d2b1f; }
+.sepia .ProseMirror table th { background: #ede3cc; color: #2c1d14; }
 .sepia .ProseMirror table td, .sepia .ProseMirror table th { border-color: #d4c5a5; }
+.sepia .ProseMirror blockquote { border-left-color: #8b5e3c; color: #5a4a30; }
+
+/* Wikilinks — sepia-appropriate accent */
+.sepia .ProseMirror .wikilink { color: #8b5e3c; background: rgba(139, 94, 60, 0.10); }
+.sepia .ProseMirror .wikilink:hover { background: rgba(139, 94, 60, 0.20); }
+
+/* Code-highlight tokens — re-tuned for warm bg */
+.sepia .hljs-comment, .sepia .hljs-quote { color: #8b7a5a; font-style: italic; }
+.sepia .hljs-keyword, .sepia .hljs-selector-tag, .sepia .hljs-built_in { color: #8b3a3a; font-weight: 600; }
+.sepia .hljs-string, .sepia .hljs-attr { color: #5a6e2a; }
+.sepia .hljs-number, .sepia .hljs-literal { color: #b8741a; }
+.sepia .hljs-title, .sepia .hljs-section, .sepia .hljs-name { color: #1a5a8b; }
+.sepia .hljs-type, .sepia .hljs-class { color: #2a6a8a; }
+
+/* Scrollbar + ghost text + selection */
 .sepia ::-webkit-scrollbar-thumb { background: rgba(139, 94, 60, 0.25); }
 .sepia ::-webkit-scrollbar-thumb:hover { background: rgba(139, 94, 60, 0.4); }
+.sepia .ghost-text { color: rgba(90, 74, 48, 0.5); }
+.sepia ::selection { background: rgba(139, 94, 60, 0.25); }
 
 /* ─── Global ─────────────────────────────────────────────────────────── */
 body {

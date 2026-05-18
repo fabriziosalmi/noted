@@ -1,5 +1,6 @@
-import { X, ShieldAlert, FolderOpen, Lightbulb } from 'lucide-react';
-import type { Suggestion, SuggestionSeverity, SuggestionKind } from '../lib/noteAdvisor';
+import { X, ShieldAlert, FolderOpen, Lightbulb, ArrowRight, Pencil, Heading } from 'lucide-react';
+import { useModalStack } from '../hooks/useModalStack';
+import type { Suggestion, SuggestionSeverity, SuggestionKind, SuggestionActionKind } from '../lib/noteAdvisor';
 import { useI18n } from '../lib/i18n';
 
 interface NoteAdvisorProps {
@@ -7,6 +8,7 @@ interface NoteAdvisorProps {
   onDismiss: (id: string) => void;
   onDismissAll: () => void;
   onClose: () => void;
+  onAction: (s: Suggestion) => void;
 }
 
 function severityDot(severity: SuggestionSeverity) {
@@ -23,8 +25,40 @@ function kindIcon(kind: SuggestionKind) {
   return <FolderOpen size={14} className="text-blue-400 shrink-0" />;
 }
 
-export function NoteAdvisorPanel({ suggestions, onDismiss, onDismissAll, onClose }: NoteAdvisorProps) {
-  const { t } = useI18n();
+function actionIcon(action: SuggestionActionKind) {
+  if (action === 'rename') return <Pencil size={12} />;
+  if (action === 'addHeadings') return <Heading size={12} />;
+  return <ArrowRight size={12} />;
+}
+
+// Resolve {key} placeholders in an i18n template, with the special convention
+// that any param whose key ends in "Key" is itself an i18n key (re-translated).
+function interpolate(
+  template: string,
+  params: Record<string, string | number> | undefined,
+  t: (k: string) => string,
+): string {
+  if (!params) return template;
+  return template.replace(/\{(\w+)\}/g, (_m, name: string) => {
+    // Look up either the direct param name, or `${name}Key` for nested lookup.
+    if (name in params) {
+      const v = params[name];
+      return String(v);
+    }
+    const keyName = `${name}Key`;
+    if (keyName in params) {
+      return t(String(params[keyName]));
+    }
+    return `{${name}}`;
+  });
+}
+
+export function NoteAdvisorPanel({ suggestions, onDismiss, onDismissAll, onClose, onAction }: NoteAdvisorProps) {
+  const { t: tStrict } = useI18n();
+  useModalStack('advisor', true, onClose);
+  // Suggestion keys are built dynamically; cast to a string-keyed function for
+  // the runtime lookups while keeping the typed `tStrict` for static keys.
+  const t = tStrict as unknown as (k: string) => string;
 
   function severityLabel(severity: SuggestionSeverity) {
     if (severity === 'high') return <span className="text-[10px] font-semibold text-red-500 uppercase">{t('highPriority')}</span>;
@@ -32,9 +66,17 @@ export function NoteAdvisorPanel({ suggestions, onDismiss, onDismissAll, onClose
     return <span className="text-[10px] font-semibold text-blue-400 uppercase">{t('suggestion')}</span>;
   }
 
+  function actionLabel(action: SuggestionActionKind): string {
+    switch (action) {
+      case 'rename': return t('advActionRename');
+      case 'addHeadings': return t('advActionAddHeadings');
+      case 'openFirst': return t('advActionOpenFirst');
+      default: return t('advActionOpen');
+    }
+  }
+
   return (
     <div className="fixed right-4 bottom-14 z-40 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[70vh]">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
         <div className="flex items-center gap-2">
           <Lightbulb size={14} className="text-amber-500" />
@@ -54,7 +96,6 @@ export function NoteAdvisorPanel({ suggestions, onDismiss, onDismissAll, onClose
         </button>
       </div>
 
-      {/* Suggestion list */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {suggestions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -63,44 +104,56 @@ export function NoteAdvisorPanel({ suggestions, onDismiss, onDismissAll, onClose
             <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">{t('notesInOrder')}</p>
           </div>
         ) : (
-          suggestions.map(s => (
-            <div
-              key={s.id}
-              className="group bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg p-3"
-            >
-              <div className="flex items-start gap-2">
-                {kindIcon(s.kind)}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    {severityDot(s.severity)}
-                    {severityLabel(s.severity)}
-                  </div>
-                  <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1">{s.title}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{s.detail}</p>
-                  {s.relatedNotes && s.relatedNotes.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {[s.noteName, ...s.relatedNotes].map(n => (
-                        <span key={n} className="text-[10px] bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded">
-                          {n.replace('.md', '')}
-                        </span>
-                      ))}
+          suggestions.map(s => {
+            const title = interpolate(t(s.titleKey), s.titleParams, t);
+            const detail = interpolate(t(s.detailKey), s.detailParams, t);
+            return (
+              <div
+                key={s.id}
+                className="group bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg p-3"
+              >
+                <div className="flex items-start gap-2">
+                  {kindIcon(s.kind)}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      {severityDot(s.severity)}
+                      {severityLabel(s.severity)}
                     </div>
-                  )}
+                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1">{title}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{detail}</p>
+                    {s.relatedNotes && s.relatedNotes.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {[s.noteName, ...s.relatedNotes].map(n => (
+                          <span key={n} className="text-[10px] bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded">
+                            {n.replace('.md', '')}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        onClick={() => onAction(s)}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--accent)] bg-[var(--accent-light)] hover:bg-[var(--accent-mid)] px-2 py-1 rounded transition-colors"
+                      >
+                        {actionIcon(s.action)}
+                        {actionLabel(s.action)}
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onDismiss(s.id)}
+                    className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-gray-500 dark:hover:text-gray-300 shrink-0 p-0.5 rounded transition-opacity"
+                    aria-label={t('dismissSuggestion')}
+                  >
+                    <X size={12} />
+                  </button>
                 </div>
-                <button
-                  onClick={() => onDismiss(s.id)}
-                  className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-gray-500 dark:hover:text-gray-300 shrink-0 p-0.5 rounded transition-opacity"
-                  aria-label={t('dismissSuggestion')}
-                >
-                  <X size={12} />
-                </button>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
-      {/* Footer */}
       {suggestions.length > 1 && (
         <div className="px-4 py-2.5 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
           <button

@@ -1,11 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Share2, Cloud, FolderOpen, FileDown, Wifi, Code2, Check, Globe, Lock } from 'lucide-react';
+import {
+  Share2, Cloud, FolderOpen, FileDown, Wifi, Code2, Check, Globe, Lock,
+  FileText as PdfIcon, FileCode, FileText as DocxIcon, Printer,
+} from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 
 interface ShareMenuProps {
   getCurrentNoteContent: () => string;
   getCurrentNoteTitle: () => string;
   getCurrentNoteFileName: () => string;
+  /** Raw editor HTML — needed for PDF/HTML/DOCX/Print exports (not Markdown). */
+  getCurrentNoteHtml: () => string;
   syncDirectory?: string;
   onToast: (msg: string, type: 'success' | 'error') => void;
   hasNote: boolean;
@@ -13,7 +18,15 @@ interface ShareMenuProps {
 
 type GistState = 'idle' | 'confirm' | 'saving' | 'done';
 
-export function ShareMenu({ getCurrentNoteContent, getCurrentNoteTitle, getCurrentNoteFileName, syncDirectory, onToast, hasNote }: ShareMenuProps) {
+export function ShareMenu({
+  getCurrentNoteContent,
+  getCurrentNoteTitle,
+  getCurrentNoteFileName,
+  getCurrentNoteHtml,
+  syncDirectory,
+  onToast,
+  hasNote,
+}: ShareMenuProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [gistState, setGistState] = useState<GistState>('idle');
@@ -34,6 +47,7 @@ export function ShareMenu({ getCurrentNoteContent, getCurrentNoteTitle, getCurre
     return () => window.removeEventListener('mousedown', handler);
   }, [open]);
 
+  // ── Vault-wide ────────────────────────────────────────────────────────
   const handleCopyVaultToICloud = async () => {
     setOpen(false);
     const icloudRes = await window.electronAPI.getICloudPath();
@@ -52,13 +66,51 @@ export function ShareMenu({ getCurrentNoteContent, getCurrentNoteTitle, getCurre
     else if (!res.canceled) onToast(res.error ?? 'Export failed', 'error');
   };
 
-  const handleExportNoteMarkdown = async () => {
+  // ── Current note: format exports ──────────────────────────────────────
+  const handleExportMd = async () => {
     setOpen(false);
     const content = getCurrentNoteContent();
     if (!content) { onToast('No active note', 'error'); return; }
     const res = await window.electronAPI.exportMarkdown(content);
-    if (res.success) onToast('Note exported', 'success');
-    else onToast(res.error ?? 'Export failed', 'error');
+    if (res.success) onToast(t('markdownExported'), 'success');
+    else onToast(res.error ?? t('markdownExportError'), 'error');
+  };
+
+  const handleExportPdf = async () => {
+    setOpen(false);
+    const html = getCurrentNoteHtml();
+    if (!html) { onToast('No active note', 'error'); return; }
+    const res = await window.electronAPI.exportPdf(html);
+    if (res.success) onToast(t('pdfExported'), 'success');
+    else onToast(res.error ?? t('pdfExportError'), 'error');
+  };
+
+  const handleExportHtml = async () => {
+    setOpen(false);
+    const html = getCurrentNoteHtml();
+    if (!html) { onToast('No active note', 'error'); return; }
+    const title = getCurrentNoteTitle() || 'Nota';
+    const res = await window.electronAPI.exportHtml(html, title);
+    if (res.success) onToast(t('htmlExported'), 'success');
+    else onToast(res.error ?? t('htmlExportError'), 'error');
+  };
+
+  const handleExportDocx = async () => {
+    setOpen(false);
+    const html = getCurrentNoteHtml();
+    if (!html) { onToast('No active note', 'error'); return; }
+    const title = getCurrentNoteTitle() || 'Nota';
+    const res = await window.electronAPI.exportDocx(html, title);
+    if (res.success) onToast(t('docxExported'), 'success');
+    else onToast(res.error ?? t('docxExportError'), 'error');
+  };
+
+  const handlePrint = async () => {
+    setOpen(false);
+    const html = getCurrentNoteHtml();
+    if (!html || !window.electronAPI?.printNote) return;
+    const res = await window.electronAPI.printNote(html, getCurrentNoteTitle() || 'Nota');
+    if (!res.success && res.error) onToast(res.error || t('printError'), 'error');
   };
 
   const handleShareNote = async () => {
@@ -93,54 +145,60 @@ export function ShareMenu({ getCurrentNoteContent, getCurrentNoteTitle, getCurre
     }
   }, [gistPublic, getCurrentNoteContent, getCurrentNoteFileName, onToast, t]);
 
+  // ── UI helpers ────────────────────────────────────────────────────────
   const menuItem = (icon: React.ReactNode, label: string, onClick: () => void, disabled = false) => (
     <button
       onClick={onClick}
       disabled={disabled}
       className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
     >
-      <span className="shrink-0 text-gray-400">{icon}</span>
+      <span className="shrink-0 text-gray-400 dark:text-gray-500">{icon}</span>
       <span>{label}</span>
     </button>
   );
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative inline-block">
       <button
         onClick={() => setOpen(v => !v)}
-        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
-        aria-label="Share or export"
+        className="p-1.5 rounded transition-colors text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[var(--accent)]"
+        aria-label={t('shareExport')}
         aria-haspopup="true"
         aria-expanded={open}
-        title="Share / Export"
+        title={t('shareExport')}
       >
-        <Share2 size={16} />
+        <Share2 size={15} />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden py-1">
+        <div className="absolute left-0 top-full mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden py-1">
 
-          {/* Vault section */}
-          <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Vault</div>
-          {menuItem(<Cloud size={14} />, 'Copy to iCloud Drive', handleCopyVaultToICloud)}
-          {menuItem(<FolderOpen size={14} />, 'Export vault to folder…', handleExportVaultToFolder)}
+          {/* Current note — format exports */}
+          <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('shareExportNote')}</div>
+          {menuItem(<FileDown size={14} />, t('exportMarkdown'),  handleExportMd,   !hasNote)}
+          {menuItem(<PdfIcon size={14} />,  t('exportPdf'),       handleExportPdf,  !hasNote)}
+          {menuItem(<FileCode size={14} />, t('exportHtml'),      handleExportHtml, !hasNote)}
+          {menuItem(<DocxIcon size={14} />, t('exportDocx'),      handleExportDocx, !hasNote)}
+          {menuItem(<Printer size={14} />,  t('print'),           handlePrint,      !hasNote)}
+          {menuItem(<Wifi size={14} />,     t('shareAirdrop'),    handleShareNote,  !hasNote)}
 
           <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
 
-          {/* Note section */}
-          <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Current note</div>
-          {menuItem(<FileDown size={14} />, 'Save as .md…', handleExportNoteMarkdown, !hasNote)}
-          {menuItem(<Wifi size={14} />, 'Share / AirDrop…', handleShareNote, !hasNote)}
+          {/* Vault */}
+          <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('shareExportVault')}</div>
+          {menuItem(<Cloud size={14} />,      t('copyToICloud'),      handleCopyVaultToICloud)}
+          {menuItem(<FolderOpen size={14} />, t('exportVaultFolder'), handleExportVaultToFolder)}
 
           {/* Gist */}
           {hasNote && (
             <>
+              <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
               {gistState === 'idle' && (
                 <button
                   onClick={() => setGistState('confirm')}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                 >
-                  <Code2 size={14} className="shrink-0 text-gray-400" />
+                  <Code2 size={14} className="shrink-0 text-gray-400 dark:text-gray-500" />
                   <span>{t('saveAsGist')}</span>
                 </button>
               )}

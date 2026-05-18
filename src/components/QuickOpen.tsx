@@ -3,6 +3,7 @@ import Fuse from 'fuse.js';
 import { FileText, Search } from 'lucide-react';
 import type { NoteFile } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
+import { useModalStack } from '../hooks/useModalStack';
 
 interface QuickOpenProps {
   notes: NoteFile[];
@@ -39,14 +40,14 @@ export function QuickOpen({ notes, onSelect, onClose }: QuickOpenProps) {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { onClose(); return; }
       if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, results.length - 1)); }
       if (e.key === 'ArrowUp')   { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)); }
       if (e.key === 'Enter' && results[activeIdx]) confirm(results[activeIdx].name);
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [results, activeIdx, confirm, onClose]);
+  }, [results, activeIdx, confirm]);
+  useModalStack('quick-open', true, onClose);
 
   // Keep active item in view
   useEffect(() => {

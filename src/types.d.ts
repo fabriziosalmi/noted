@@ -20,6 +20,7 @@ declare global {
       deleteNote: (fileName: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       selectSyncFolder: () => Promise<{ success: boolean; data?: string }>;
       exportPdf: (htmlContent: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+      printNote: (htmlContent: string, title?: string) => Promise<{ success: boolean; error?: string }>;
       renameNote: (oldName: string, newName: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       exportMarkdown: (content: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       storeApiKey: (key: string) => Promise<{ success: boolean; error?: string }>;
@@ -46,6 +47,7 @@ declare global {
       deleteFolder: (name: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       moveNote: (fileName: string, toFolder: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       setNoteTitle: (noteName: string) => Promise<void>;
+      safeStorageStatus: () => Promise<{ encrypted: boolean }>;
       gitStoreToken: (token: string) => Promise<{ success: boolean; error?: string }>;
       gitGetToken: () => Promise<{ success: boolean; data?: string; error?: string }>;
       // Git ops
@@ -58,7 +60,7 @@ declare global {
       gitLog: (noteName?: string, syncDir?: string) => Promise<GitResult<GitLogEntry[]>>;
       gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => Promise<GitResult<PrData>>;
       gitSaveAsGist: (params: { fileName: string; content: string; isPublic: boolean; token: string }) => Promise<GitResult<string>>;
-      searchNotesFulltext: (query: string, syncDir?: string) => Promise<{ success: boolean; data?: Array<{ relPath: string; title: string; snippet: string; score: number; terms: string[] }>; error?: string }>;
+      searchNotesFulltext: (query: string, syncDir?: string) => Promise<{ success: boolean; data?: Array<{ relPath: string; title: string; snippet: string; score: number; terms: string[] }>; truncated?: boolean; error?: string }>;
     };
   }
 }

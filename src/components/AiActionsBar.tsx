@@ -1,10 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Editor } from '@tiptap/react';
 import {
   ChevronRight, Maximize2, Minimize2, Wand2,
   FileText, Eye, Zap, HelpCircle, Loader2,
 } from 'lucide-react';
-import { askLLM } from '../lib/llm';
+import { askLLM, AbortedError, describeLlmError } from '../lib/llm';
 import { Tooltip } from './Tooltip';
 import { useStore } from '../store/useStore';
 import { maskPii } from '../lib/piiMasker';
@@ -171,11 +171,19 @@ interface AiActionsBarProps {
 export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const piiMasking = useStore(s => s.settings.piiMasking ?? false);
+  const abortRef = useRef<AbortController | null>(null);
   const { from, to } = editor.state.selection;
   const hasSelection = from !== to;
 
+  // Abort any in-flight request on unmount.
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   const runAction = useCallback(async (action: Action) => {
-    if (activeId) return;
+    // Cancel any in-flight call before starting a new one. Combined with the
+    // `activeId` button-disabled guard this prevents 5-click thundering herds.
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     const { from, to } = editor.state.selection;
     const hasSelection = from !== to;
@@ -195,7 +203,7 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
       const result = await askLLM([
         { role: 'system', content: action.system },
         { role: 'user', content: selectedText },
-      ]);
+      ], { signal: controller.signal });
 
       const html = mdToHtml(result);
 
@@ -211,12 +219,13 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
         editor.commands.insertContent(headingHtml + html);
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      onError?.(msg);
+      if (err instanceof AbortedError) return; // silently dropped
+      onError?.(describeLlmError(err));
     } finally {
+      if (abortRef.current === controller) abortRef.current = null;
       setActiveId(null);
     }
-  }, [activeId, editor, onError]);
+  }, [editor, onError, piiMasking]);
 
   const renderBtn = (action: Action) => {
     const isActive = activeId === action.id;

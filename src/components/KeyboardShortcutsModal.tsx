@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import type { TranslationKey } from '../lib/i18n';
+import { useModalStack } from '../hooks/useModalStack';
 
 interface ShortcutRow {
   keys: string[];
@@ -53,11 +53,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
     },
   ];
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [onClose]);
+  useModalStack('shortcuts', true, onClose);
 
   return (
     <div

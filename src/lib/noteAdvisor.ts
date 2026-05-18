@@ -12,14 +12,23 @@ export type SuggestionKind =
 
 export type SuggestionSeverity = 'high' | 'medium' | 'low';
 
+export type SuggestionActionKind = 'open' | 'rename' | 'addHeadings' | 'openFirst';
+
 export interface Suggestion {
   id: string;
   kind: SuggestionKind;
   severity: SuggestionSeverity;
-  title: string;
-  detail: string;
+  /** i18n key for title, e.g. 'advSecretTitle' */
+  titleKey: string;
+  /** params to interpolate into title, e.g. { label: 'GitHub token' } */
+  titleParams?: Record<string, string | number>;
+  /** i18n key for detail */
+  detailKey: string;
+  detailParams?: Record<string, string | number>;
   noteName: string;
   relatedNotes?: string[];
+  /** primary remediation action exposed to the user */
+  action: SuggestionActionKind;
 }
 
 export interface NoteInput {
@@ -31,83 +40,86 @@ export interface NoteInput {
 
 // --- Security patterns ---
 
+// `labelKey` resolves to an i18n key for the human-readable label of the secret
+// kind. This keeps suggestions language-agnostic at generation time.
 const SECRET_PATTERNS: {
   id: string;
-  label: string;
+  labelKey: string;
   regex: RegExp;
   kind: SuggestionKind;
   severity: SuggestionSeverity;
 }[] = [
   {
     id: 'github-token',
-    label: 'token GitHub',
+    labelKey: 'advLabelGithubToken',
     kind: 'secret-token',
     severity: 'high',
     regex: /\b(ghp|ghs|gho|ghr|github_pat)_[A-Za-z0-9_]{20,}/,
   },
   {
     id: 'openai-key',
-    label: 'API key OpenAI',
+    labelKey: 'advLabelOpenaiKey',
     kind: 'secret-key',
     severity: 'high',
     regex: /\bsk-[A-Za-z0-9]{32,}/,
   },
   {
     id: 'anthropic-key',
-    label: 'API key Anthropic',
+    labelKey: 'advLabelAnthropicKey',
     kind: 'secret-key',
     severity: 'high',
     regex: /\bsk-ant-[A-Za-z0-9\-_]{30,}/,
   },
   {
     id: 'aws-access-key',
-    label: 'credenziale AWS',
+    labelKey: 'advLabelAwsCredential',
     kind: 'secret-key',
     severity: 'high',
     regex: /\bAKIA[0-9A-Z]{16}\b/,
   },
   {
     id: 'bearer-token',
-    label: 'Bearer token',
+    labelKey: 'advLabelBearerToken',
     kind: 'secret-token',
     severity: 'high',
     regex: /\bBearer\s+[A-Za-z0-9\-._~+/]{20,}/,
   },
   {
     id: 'pem-key',
-    label: 'chiave privata (PEM)',
+    labelKey: 'advLabelPemKey',
     kind: 'secret-pem',
     severity: 'high',
     regex: /-----BEGIN\s+(?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
   },
   {
     id: 'url-with-creds',
-    label: 'URL con credenziali incorporate',
+    labelKey: 'advLabelUrlWithCreds',
     kind: 'secret-url',
     severity: 'high',
     regex: /https?:\/\/[^\s/:@]{1,64}:[^\s@]{3,64}@[^\s]+/,
   },
   {
     id: 'env-secret',
-    label: 'variabile d\'ambiente con segreto',
+    labelKey: 'advLabelEnvSecret',
     kind: 'secret-env',
     severity: 'medium',
-    // matches KEY=value or KEY: value where key contains secret-y words
     regex: /\b[A-Z][A-Z0-9_]{1,}(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|PWD|PASS|AUTH)\s*[=:]\s*\S{6,}/m,
   },
   {
     id: 'stripe-key',
-    label: 'chiave Stripe',
+    labelKey: 'advLabelStripeKey',
     kind: 'secret-key',
     severity: 'high',
     regex: /\b(sk|pk|rk)_(live|test)_[A-Za-z0-9]{20,}/,
   },
   {
     id: 'heroku-api-key',
-    label: 'API key Heroku',
+    labelKey: 'advLabelHerokuKey',
     kind: 'secret-key',
     severity: 'high',
-    regex: /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b.*heroku/i,
+    // Bounded `.{0,80}` instead of unbounded `.*` to prevent catastrophic
+    // backtracking on long lines.
+    regex: /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b.{0,80}heroku/i,
   },
 ];
 
@@ -120,6 +132,18 @@ const STALE_DAYS = 90;
 const STALE_WORD_MIN = 200;
 const DUPLICATE_TOPIC_MIN_NOTES = 2;
 
+// Keywords too generic to flag as duplicate topics.
+const STOPWORD_KEYWORDS = new Set([
+  'nota', 'note', 'new', 'nuova', 'appunti', 'todo', 'tasks', 'task',
+  'ideas', 'idee', 'idea', 'project', 'progetto', 'work', 'lavoro',
+  'meeting', 'meetings', 'daily', 'weekly', 'monthly', 'draft',
+  'bozza', 'temp', 'misc', 'random', 'inbox', 'archive',
+]);
+
+function bareTitle(name: string): string {
+  return name.replace(/\.md$/, '');
+}
+
 function wordCount(text: string): number {
   return text.trim() ? text.trim().split(/\s+/).length : 0;
 }
@@ -130,10 +154,11 @@ function hasHeadings(html: string): boolean {
 
 function extractKeywords(name: string): string[] {
   return name
-    .replace('.md', '')
+    .replace(/\.md$/, '')
     .toLowerCase()
     .split(/[\s_\-./]+/)
-    .filter(w => w.length > 3 && !['nota', 'note', 'new', 'nuova', 'appunti'].includes(w));
+    // Require length >4 and not in stoplist to reduce false positives.
+    .filter(w => w.length > 4 && !STOPWORD_KEYWORDS.has(w));
 }
 
 // --- Main analysis functions ---
@@ -143,6 +168,7 @@ export function analyzeNote(note: NoteInput): Suggestion[] {
   const noteName = note.name;
   const text = note.text;
   const wc = wordCount(text);
+  const title = bareTitle(noteName);
 
   // Security scan
   for (const pattern of SECRET_PATTERNS) {
@@ -151,23 +177,28 @@ export function analyzeNote(note: NoteInput): Suggestion[] {
         id: `${noteName}__${pattern.id}`,
         kind: pattern.kind,
         severity: pattern.severity,
-        title: `Possibile ${pattern.label} trovato`,
-        detail: `"${noteName.replace('.md', '')}" sembra contenere ${pattern.label}. Considera di spostare questi dati in un password manager o nel keychain di sistema.`,
+        titleKey: 'advSecretTitle',
+        titleParams: { labelKey: pattern.labelKey },
+        detailKey: 'advSecretDetail',
+        detailParams: { note: title, labelKey: pattern.labelKey },
         noteName,
+        action: 'open',
       });
     }
   }
 
   // Generic title
-  const titleBase = noteName.replace('.md', '').toLowerCase().trim();
+  const titleBase = title.toLowerCase().trim();
   if (GENERIC_TITLES.some(g => titleBase === g || titleBase.startsWith(g + '_') || titleBase.startsWith(g + ' '))) {
     suggestions.push({
       id: `${noteName}__generic-title`,
       kind: 'org-generic-title',
       severity: 'low',
-      title: 'Titolo nota generico',
-      detail: `"${noteName.replace('.md', '')}" ha un titolo poco descrittivo. Un nome specifico rende più facile trovare la nota in futuro.`,
+      titleKey: 'advGenericTitle',
+      detailKey: 'advGenericDetail',
+      detailParams: { note: title },
       noteName,
+      action: 'rename',
     });
   }
 
@@ -177,21 +208,25 @@ export function analyzeNote(note: NoteInput): Suggestion[] {
       id: `${noteName}__split`,
       kind: 'org-split',
       severity: 'low',
-      title: 'Nota molto lunga',
-      detail: `"${noteName.replace('.md', '')}" contiene ${wc} parole. Considera di suddividerla in note più specifiche per argomento.`,
+      titleKey: 'advSplitTitle',
+      detailKey: 'advSplitDetail',
+      detailParams: { note: title, wc },
       noteName,
+      action: 'open',
     });
   }
 
-  // Long note with no structure (no headings)
+  // Long note with no structure
   if (wc > 300 && !hasHeadings(note.html)) {
     suggestions.push({
       id: `${noteName}__no-structure`,
       kind: 'org-no-structure',
       severity: 'low',
-      title: 'Nota lunga senza struttura',
-      detail: `"${noteName.replace('.md', '')}" è abbastanza lunga ma non ha titoli di sezione. Aggiungere H1/H2 migliora la leggibilità e la navigazione.`,
+      titleKey: 'advNoStructureTitle',
+      detailKey: 'advNoStructureDetail',
+      detailParams: { note: title },
       noteName,
+      action: 'addHeadings',
     });
   }
 
@@ -202,7 +237,6 @@ export function analyzeCrossNotes(notes: NoteInput[]): Suggestion[] {
   const suggestions: Suggestion[] = [];
   const now = Date.now();
 
-  // Stale notes
   for (const note of notes) {
     const ageDays = (now - note.mtimeMs) / (1000 * 60 * 60 * 24);
     const wc = wordCount(note.text);
@@ -211,14 +245,17 @@ export function analyzeCrossNotes(notes: NoteInput[]): Suggestion[] {
         id: `${note.name}__stale`,
         kind: 'org-stale',
         severity: 'low',
-        title: 'Nota non aggiornata da tempo',
-        detail: `"${note.name.replace('.md', '')}" non viene modificata da ${Math.floor(ageDays)} giorni. Potrebbe essere archiviata o aggiornata.`,
+        titleKey: 'advStaleTitle',
+        detailKey: 'advStaleDetail',
+        detailParams: { note: bareTitle(note.name), days: Math.floor(ageDays) },
         noteName: note.name,
+        action: 'open',
       });
     }
   }
 
-  // Duplicate topics — group notes by shared keyword
+  // Duplicate topics — group notes by shared keyword.
+  // Require ≥DUPLICATE_TOPIC_MIN_NOTES *and* tighter stoplist (see extractKeywords).
   const keywordMap = new Map<string, string[]>();
   for (const note of notes) {
     for (const kw of extractKeywords(note.name)) {
@@ -229,15 +266,20 @@ export function analyzeCrossNotes(notes: NoteInput[]): Suggestion[] {
   }
   for (const [kw, noteNames] of keywordMap) {
     if (noteNames.length >= DUPLICATE_TOPIC_MIN_NOTES) {
-      const id = `cross__topic__${kw}`;
       suggestions.push({
-        id,
+        id: `cross__topic__${kw}`,
         kind: 'org-duplicate-topic',
         severity: 'low',
-        title: `${noteNames.length} note sullo stesso argomento`,
-        detail: `Le note su "${kw}" sono separate (${noteNames.map(n => `"${n.replace('.md', '')}"`).join(', ')}). Potrebbe valere la pena consolidarle in un'unica nota strutturata.`,
+        titleKey: 'advDuplicateTopicTitle',
+        titleParams: { count: noteNames.length },
+        detailKey: 'advDuplicateTopicDetail',
+        detailParams: {
+          kw,
+          list: noteNames.map(n => `"${bareTitle(n)}"`).join(', '),
+        },
         noteName: noteNames[0],
         relatedNotes: noteNames.slice(1),
+        action: 'openFirst',
       });
     }
   }
@@ -249,7 +291,6 @@ export function runAdvisor(activeNote: NoteInput | null, allNotes: NoteInput[]):
   const perNote = activeNote ? analyzeNote(activeNote) : [];
   const cross = analyzeCrossNotes(allNotes);
 
-  // Deduplicate by id (cross-note may overlap with per-note)
   const seen = new Set<string>();
   const all: Suggestion[] = [];
   for (const s of [...perNote, ...cross]) {
@@ -259,7 +300,6 @@ export function runAdvisor(activeNote: NoteInput | null, allNotes: NoteInput[]):
     }
   }
 
-  // Sort: high → medium → low, then security → org
   const severityOrder = { high: 0, medium: 1, low: 2 };
   const kindOrder = (k: SuggestionKind) => k.startsWith('secret') ? 0 : 1;
   return all.sort((a, b) =>

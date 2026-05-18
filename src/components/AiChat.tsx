@@ -1,10 +1,29 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Bot, Loader2, Database, RotateCcw, ShieldAlert } from 'lucide-react';
-import { askLLM } from '../lib/llm';
+import { marked } from 'marked';
+import { askLLM, AbortedError, describeLlmError } from '../lib/llm';
 import { findRelevantNotes, type NoteChunk } from '../lib/noteSearch';
 import { useI18n } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import { maskPii } from '../lib/piiMasker';
+
+marked.setOptions({ breaks: true, gfm: true });
+
+// Minimal renderer-side HTML sanitizer for LLM output rendered as markdown.
+// Strips dangerous tags/attributes that marked would otherwise pass through verbatim.
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
+    .replace(/<embed\b[^>]*>/gi, '')
+    .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
+    .replace(/javascript\s*:/gi, '');
+}
+
+function renderMarkdown(src: string): string {
+  return sanitizeHtml(marked.parse(src, { async: false }) as string);
+}
 
 interface AiChatProps {
   getEditorText: () => string;
@@ -12,6 +31,24 @@ interface AiChatProps {
 }
 
 interface ChatMessage { role: 'assistant' | 'user'; content: string }
+
+function ChatBubble({ role, content }: ChatMessage) {
+  const html = useMemo(() => role === 'assistant' ? renderMarkdown(content) : null, [role, content]);
+  const base = 'p-3 rounded-lg shadow-sm border';
+  if (role === 'assistant') {
+    return (
+      <div
+        className={`${base} ai-chat-md bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700`}
+        dangerouslySetInnerHTML={{ __html: html ?? '' }}
+      />
+    );
+  }
+  return (
+    <div className={`${base} bg-[var(--accent-light)] text-[var(--accent)] border-[var(--accent-mid)] self-end whitespace-pre-wrap`}>
+      {content}
+    </div>
+  );
+}
 
 export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
   const { t } = useI18n();
@@ -27,8 +64,14 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
   const [aiInput, setAiInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Abort any in-flight request when the component unmounts so it doesn't
+  // resolve into a stale setState after navigation.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const handleClear = () => {
+    abortRef.current?.abort();
     setDisplayHistory([{ role: 'assistant', content: t('aiGreeting') }]);
     setLlmHistory([]);
   };
@@ -53,11 +96,21 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
 
     const userTurn: ChatMessage = { role: 'user', content: rawUserMessage };
     const llmUserTurn: ChatMessage = { role: 'user', content: userMessage };
+    // Cap history sent to the LLM at the last MAX_HISTORY_TURNS turns to avoid
+    // unbounded context-window growth (long chats would otherwise eventually
+    // 400-out on Anthropic's 200k limit, silently).
+    const MAX_HISTORY_TURNS = 10;
     const nextLlmHistory: ChatMessage[] = [...llmHistory, llmUserTurn];
+    const trimmedHistory = nextLlmHistory.slice(-MAX_HISTORY_TURNS * 2); // user+assistant pairs
 
     setDisplayHistory(prev => [...prev, userTurn]);
     setLlmHistory(nextLlmHistory);
     setIsLoading(true);
+
+    // Cancel any prior in-flight request before starting a new one.
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
       const MAX_CONTEXT_CHARS = 8_000;
@@ -68,8 +121,20 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
         piiCount += r.count;
       }
       const isTruncated = rawContext.length > MAX_CONTEXT_CHARS;
+      // Trim back to the last paragraph break before the cap so we don't split
+      // a wikilink, markdown link, or code fence in half. Falls back to last
+      // newline, then to the hard char cap if nothing better is found.
+      const truncatedSlice = (() => {
+        if (!isTruncated) return rawContext;
+        const hardCut = rawContext.slice(0, MAX_CONTEXT_CHARS);
+        const lastPara = hardCut.lastIndexOf('\n\n');
+        if (lastPara > MAX_CONTEXT_CHARS * 0.6) return hardCut.slice(0, lastPara);
+        const lastLine = hardCut.lastIndexOf('\n');
+        if (lastLine > MAX_CONTEXT_CHARS * 0.6) return hardCut.slice(0, lastLine);
+        return hardCut;
+      })();
       const textContext = isTruncated
-        ? rawContext.slice(0, MAX_CONTEXT_CHARS) + (lang === 'it' ? '\n\n[...documento troncato per lunghezza...]' : '\n\n[...document truncated for length...]')
+        ? truncatedSlice + (lang === 'it' ? '\n\n[...documento troncato per lunghezza...]' : '\n\n[...document truncated for length...]')
         : rawContext;
       if (isTruncated) {
         setDisplayHistory(prev => [...prev, { role: 'assistant', content: t('contextTruncated') }]);
@@ -98,18 +163,20 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
 ${textContext ? `${activeNoteLabel}:\n"""\n${textContext}\n"""` : ''}
 ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
         },
-        ...nextLlmHistory,
-      ]);
+        ...trimmedHistory,
+      ], { signal: controller.signal });
       const assistantTurn: ChatMessage = { role: 'assistant', content: response };
       setDisplayHistory(prev => [...prev, assistantTurn]);
       setLlmHistory(prev => [...prev, assistantTurn]);
     } catch (error: unknown) {
-      const err = error as Error;
+      if (error instanceof AbortedError) return; // user cancelled / superseded
+      const friendly = describeLlmError(error, lang === 'it' ? 'it' : 'en');
       setDisplayHistory(prev => [
         ...prev,
-        { role: 'assistant', content: t('aiError').replace('{msg}', err.message) },
+        { role: 'assistant', content: t('aiError').replace('{msg}', friendly) },
       ]);
     } finally {
+      if (abortRef.current === controller) abortRef.current = null;
       setIsLoading(false);
     }
   };
@@ -149,16 +216,7 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
 
       <div className="flex-1 p-4 text-sm text-gray-600 dark:text-gray-300 overflow-y-auto flex flex-col space-y-3">
         {displayHistory.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`p-3 rounded-lg shadow-sm border whitespace-pre-wrap ${
-              msg.role === 'assistant'
-                ? 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
-                : 'bg-[var(--accent-light)] text-[var(--accent)] border-[var(--accent-mid)] self-end'
-            }`}
-          >
-            {msg.content}
-          </div>
+          <ChatBubble key={idx} role={msg.role} content={msg.content} />
         ))}
         {isLoading && (
           <div className="p-3 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center space-x-2 text-gray-400 dark:text-gray-500 self-start">

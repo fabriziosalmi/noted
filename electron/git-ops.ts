@@ -48,6 +48,19 @@ export interface PrData {
 const GITHUB_HTTPS = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+(\.git)?$/;
 const GITHUB_SSH   = /^git@github\.com:[\w.-]+\/[\w.-]+(\.git)?$/;
 
+/**
+ * Strip anything that looks like a GitHub PAT or Bearer token from a string
+ * before it crosses the IPC boundary into the renderer (and from there to
+ * logs, error toasts, telemetry, etc).
+ */
+export function sanitizeGitError(msg: string): string {
+  return msg
+    .replace(/\b(ghp|ghs|gho|ghr|github_pat)_[A-Za-z0-9_]{20,}/g, '[redacted-token]')
+    .replace(/Bearer\s+[A-Za-z0-9\-._~+/]{8,}/gi, 'Bearer [redacted]')
+    .replace(/\bx-access-token:[^@\s]+/gi, 'x-access-token:[redacted]')
+    .replace(/(authorization\s*:\s*)[^\s,;]+/gi, '$1[redacted]');
+}
+
 export function validateRemoteUrl(url: string): void {
   if (!GITHUB_HTTPS.test(url) && !GITHUB_SSH.test(url)) {
     throw new Error('Remote URL must be a valid GitHub HTTPS or SSH URL');
@@ -143,7 +156,7 @@ export async function initRepo(dir: string): Promise<GitResult> {
 
     return { success: true };
   } catch (err) {
-    return { success: false, error: (err as Error).message };
+    return { success: false, error: sanitizeGitError((err as Error).message) };
   }
 }
 
@@ -168,7 +181,7 @@ export async function getStatus(dir: string): Promise<GitResult<GitStatusData>> 
       },
     };
   } catch (err) {
-    return { success: false, error: (err as Error).message };
+    return { success: false, error: sanitizeGitError((err as Error).message) };
   }
 }
 
@@ -193,7 +206,7 @@ export async function commitNote(
     const result = await g.commit(msg);
     return { success: true, data: { hash: result.commit } };
   } catch (err) {
-    return { success: false, error: (err as Error).message };
+    return { success: false, error: sanitizeGitError((err as Error).message) };
   }
 }
 
@@ -212,7 +225,7 @@ export async function commitAll(
     const result = await g.commit(message, { '--allow-empty': null });
     return { success: true, data: { hash: result.commit } };
   } catch (err) {
-    return { success: false, error: (err as Error).message };
+    return { success: false, error: sanitizeGitError((err as Error).message) };
   }
 }
 
@@ -268,7 +281,7 @@ export async function preparePrBranch(
 
     return { success: true, data: { branch, hash } };
   } catch (err) {
-    return { success: false, error: (err as Error).message };
+    return { success: false, error: sanitizeGitError((err as Error).message) };
   }
 }
 
@@ -299,7 +312,7 @@ export async function pushBranch(
     await g.push('noted-origin', branch, { '--set-upstream': null });
     return { success: true };
   } catch (err) {
-    return { success: false, error: (err as Error).message };
+    return { success: false, error: sanitizeGitError((err as Error).message) };
   }
 }
 
@@ -321,7 +334,7 @@ export async function getLog(
     }));
     return { success: true, data: entries };
   } catch (err) {
-    return { success: false, error: (err as Error).message };
+    return { success: false, error: sanitizeGitError((err as Error).message) };
   }
 }
 
@@ -373,6 +386,6 @@ export async function createGitHubPr(params: {
     const pr = await res.json() as { html_url: string; number: number; title: string };
     return { success: true, data: { url: pr.html_url, number: pr.number, title: pr.title } };
   } catch (err) {
-    return { success: false, error: (err as Error).message };
+    return { success: false, error: sanitizeGitError((err as Error).message) };
   }
 }

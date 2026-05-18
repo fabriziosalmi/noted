@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { NoteTemplate } from '../lib/templates';
 import { extractWikilinks } from '../lib/WikilinkExtension';
 import { extractTags } from '../lib/tagUtils';
@@ -33,6 +33,12 @@ interface SettingsState {
   language?: 'en' | 'it' | 'es' | 'pt' | 'fr' | 'de';
   piiMasking?: boolean;
   showHints?: boolean;
+  // 'off'   — no inline AI suggestions at all
+  // 'manual' — only fires on explicit trigger (⌘L), Tab accepts, Esc dismisses
+  // 'auto'  — fires automatically as user types (legacy behaviour)
+  aiGhostMode?: 'off' | 'manual' | 'auto';
+  // Editor content width: narrow (~560px) → full (column width)
+  editorWidth?: 'narrow' | 'normal' | 'wide' | 'full';
   // Git integration (all optional for backward-compat with persisted state)
   gitEnabled?: boolean;
   gitRemote?: string;
@@ -116,6 +122,8 @@ export const useStore = create<NoteState>()(
         gitDefaultBase: 'main',
         gitGhToken: '',
         showHints: true,
+        aiGhostMode: 'manual' as const,
+        editorWidth: 'normal' as const,
       },
 
       updateSettings: (newSettings) => {
@@ -243,6 +251,41 @@ export const useStore = create<NoteState>()(
     if (!window.electronAPI) return;
     const res = await window.electronAPI.renameNote(oldName, newName, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Rinomina fallita');
+
+    // Update indices inline so backlinks render against the new name even
+    // during the brief window before fetchNotes resolves.
+    const oldBare = oldName.replace(/\.md$/, '');
+    const newBare = newName.replace(/\.md$/, '');
+    set(state => {
+      // 1. Move oldName key → newName in noteLinksIndex (its own outbound links).
+      const newLinksIndex = { ...state.noteLinksIndex };
+      if (oldName in newLinksIndex) {
+        newLinksIndex[newName] = newLinksIndex[oldName];
+        delete newLinksIndex[oldName];
+      }
+      // 2. Rewrite outbound link targets in every other note: any link that
+      //    pointed at oldName/oldBare now points at newName/newBare.
+      for (const [noteName, links] of Object.entries(newLinksIndex)) {
+        if (noteName === newName) continue;
+        let changed = false;
+        const updated = links.map(l => {
+          if (l === oldName || l === oldBare) { changed = true; return newBare; }
+          return l;
+        });
+        if (changed) newLinksIndex[noteName] = updated;
+      }
+      // 3. tagIndex: move references from oldName → newName.
+      const newTagIndex = { ...state.tagIndex };
+      for (const [tag, names] of Object.entries(newTagIndex)) {
+        if (names.includes(oldName)) {
+          newTagIndex[tag] = names.map(n => n === oldName ? newName : n);
+        }
+      }
+      // 4. pinnedNotes: rename if pinned.
+      const newPinned = state.pinnedNotes.map(n => n === oldName ? newName : n);
+      return { noteLinksIndex: newLinksIndex, tagIndex: newTagIndex, pinnedNotes: newPinned };
+    });
+
     await get().fetchNotes();
     if (get().activeNoteName === oldName) {
       // Re-open by name so activeNoteContent is in sync with the renamed file
@@ -253,7 +296,7 @@ export const useStore = create<NoteState>()(
   saveAsTemplate: (name: string, content: string) => {
     const id = `custom_${Date.now()}`;
     set(state => ({
-      customTemplates: [...state.customTemplates, { id, name, icon: '📄', content }],
+      customTemplates: [...state.customTemplates, { id, name, icon: 'custom', content }],
     }));
   },
 
@@ -364,6 +407,36 @@ export const useStore = create<NoteState>()(
     noteLinksIndex: state.noteLinksIndex,
     lastOpenedNote: state.lastOpenedNote,
   }),
+  // Custom storage wrapper that handles QuotaExceededError gracefully:
+  // - on quota exhaustion drop the heaviest field (noteLinksIndex) and retry
+  // - otherwise log once and swallow — persist failures must NOT crash the
+  //   action that triggered the save.
+  storage: createJSONStorage(() => ({
+    getItem: (name: string) => {
+      try { return localStorage.getItem(name); } catch { return null; }
+    },
+    setItem: (name: string, value: string) => {
+      try { localStorage.setItem(name, value); return; }
+      catch (err: unknown) {
+        const e = err as { name?: string };
+        if (e?.name === 'QuotaExceededError') {
+          try {
+            const parsed = JSON.parse(value) as { state?: Record<string, unknown> };
+            if (parsed.state && 'noteLinksIndex' in parsed.state) {
+              parsed.state.noteLinksIndex = {};
+              localStorage.setItem(name, JSON.stringify(parsed));
+              console.warn('[useStore] localStorage quota exceeded — dropped noteLinksIndex');
+              return;
+            }
+          } catch { /* fall through */ }
+        }
+        console.warn('[useStore] persist write failed:', (err as Error).message);
+      }
+    },
+    removeItem: (name: string) => {
+      try { localStorage.removeItem(name); } catch { /* ignore */ }
+    },
+  })),
 }
 )
 );

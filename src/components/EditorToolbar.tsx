@@ -34,9 +34,11 @@ interface EditorToolbarProps {
   onCloseFind: () => void;
   onOpenFind: () => void;
   onOpenGlobalSearch?: () => void;
+  /** Slot rendered after AI actions for share/export menu. */
+  shareSlot?: React.ReactNode;
 }
 
-export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findOpen, onCloseFind, onOpenFind, onOpenGlobalSearch }: EditorToolbarProps) {
+export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findOpen, onCloseFind, onOpenFind, onOpenGlobalSearch, shareSlot }: EditorToolbarProps) {
   const { t } = useI18n();
   const [findQuery, setFindQuery] = useState('');
   const [matches, setMatches] = useState<Match[]>([]);
@@ -149,6 +151,12 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
           )}
           {showToolbar && showAiBar && sep}
           {showAiBar && <AiActionsBar editor={editor} onError={onAiError} />}
+          {shareSlot && (
+            <>
+              {sep}
+              {shareSlot}
+            </>
+          )}
         </div>
       )}
 

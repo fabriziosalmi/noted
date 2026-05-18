@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useI18n } from './lib/i18n';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { PanelLeft, PanelRight, Download, FileDown, FileCode, FileText as FileDocx, Keyboard, LayoutTemplate, History, Focus } from 'lucide-react';
+import { PanelLeft, PanelRight, Keyboard, LayoutTemplate, History, Focus } from 'lucide-react';
 import TurndownService from 'turndown';
 import type { Editor } from '@tiptap/react';
 import { useStore } from './store/useStore';
@@ -47,17 +47,28 @@ function App() {
   const { messages: toastMessages, toast, dismiss } = useToast();
   useTheme();
 
+  // Granular selectors: subscribing to whole-store causes re-render on every
+  // keystroke (activeNoteContent changes). Slicing state into shallow pieces
+  // means only relevant pieces re-render — action functions are stable refs
+  // pulled out of getState() so they don't drive renders at all.
+  const notes              = useStore(s => s.notes);
+  const activeNoteName     = useStore(s => s.activeNoteName);
+  const activeNoteContent  = useStore(s => s.activeNoteContent);
+  const settings           = useStore(s => s.settings);
+  const pinnedNotes        = useStore(s => s.pinnedNotes);
+  const customTemplates    = useStore(s => s.customTemplates);
+  const noteLinksIndex     = useStore(s => s.noteLinksIndex);
+  const tagIndex           = useStore(s => s.tagIndex);
+  const noteFolders        = useStore(s => s.noteFolders);
+  // Action functions are stable across renders — pull them once from the
+  // bare store object, no subscription.
   const {
-    notes, activeNoteName, activeNoteContent,
     fetchNotes, createNote, openNote, saveActiveNote, deleteNote, renameNote,
-    settings, updateSettings, loadApiKey,
-    pinnedNotes, togglePin, openOrCreateDaily,
-    customTemplates, saveAsTemplate, deleteTemplate, createFromTemplate,
-    noteLinksIndex,
-    tagIndex,
-    noteFolders,
+    updateSettings, loadApiKey,
+    togglePin, openOrCreateDaily,
+    saveAsTemplate, deleteTemplate, createFromTemplate,
     createFolder, renameFolder, deleteFolder, moveNote,
-  } = useStore();
+  } = useStore.getState();
 
   const allTags = Object.keys(tagIndex);
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
@@ -206,47 +217,9 @@ function App() {
     }
   }, [renameNote, toast]);
 
-  const handleExportMarkdown = useCallback(async () => {
-    const editor = editorRef.current;
-    if (!editor || !window.electronAPI) return;
-    const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
-    const markdown = td.turndown(editor.getHTML());
-    const res = await window.electronAPI.exportMarkdown(markdown);
-    if (res.success) {
-      toast(t('markdownExported'), 'success');
-    } else {
-      toast(res.error ?? t('markdownExportError'), 'error');
-    }
-  }, [t, toast]);
-
-  const handleExportPdf = useCallback(async () => {
-    const editor = editorRef.current;
-    if (!editor || !window.electronAPI) return;
-    const res = await window.electronAPI.exportPdf(editor.getHTML());
-    if (res.success) {
-      toast(t('pdfExported'), 'success');
-    } else {
-      toast(res.error ?? t('pdfExportError'), 'error');
-    }
-  }, [t, toast]);
-
-  const handleExportDocx = useCallback(async () => {
-    const editor = editorRef.current;
-    if (!editor || !window.electronAPI) return;
-    const title = activeNoteName?.replace('.md', '') ?? 'Nota';
-    const res = await window.electronAPI.exportDocx(editor.getHTML(), title);
-    if (res.success) toast(t('docxExported'), 'success');
-    else toast(res.error ?? t('docxExportError'), 'error');
-  }, [t, activeNoteName, toast]);
-
-  const handleExportHtml = useCallback(async () => {
-    const editor = editorRef.current;
-    if (!editor || !window.electronAPI) return;
-    const title = activeNoteName?.replace('.md', '') ?? 'Nota';
-    const res = await window.electronAPI.exportHtml(editor.getHTML(), title);
-    if (res.success) toast(t('htmlExported'), 'success');
-    else toast(res.error ?? t('htmlExportError'), 'error');
-  }, [t, activeNoteName, toast]);
+  // Note: per-format export handlers now live inside ShareMenu (mounted as the
+  // EditorToolbar's shareSlot). Removed handleExportMarkdown / handleExportPdf
+  // / handlePrint / handleExportDocx / handleExportHtml from this file.
 
   const handleImportVault = useCallback(async () => {
     if (!window.electronAPI) return;
@@ -266,6 +239,36 @@ const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
     activeNoteContent,
     notes,
   });
+
+  const handleAdvisorAction = useCallback(async (s: import('./lib/noteAdvisor').Suggestion) => {
+    const target = s.noteName;
+    switch (s.action) {
+      case 'open':
+      case 'openFirst':
+        await openNote(target);
+        break;
+      case 'rename': {
+        const current = target.replace(/\.md$/, '');
+        const next = window.prompt(t('advRenamePrompt').replace('{note}', current), current);
+        if (next && next.trim() && next.trim() !== current) {
+          await handleRenameNote(target, next.trim());
+        }
+        break;
+      }
+      case 'addHeadings': {
+        if (activeNoteName !== target) await openNote(target);
+        // Defer to next tick so editor has the new content loaded.
+        setTimeout(() => {
+          const ed = editorRef.current;
+          if (!ed) return;
+          ed.chain().focus().insertContentAt(0, '<h1>Titolo</h1><h2>Sezione</h2><p></p>').run();
+        }, 120);
+        break;
+      }
+    }
+    dismissSuggestion(s.id);
+    setIsAdvisorOpen(false);
+  }, [openNote, handleRenameNote, activeNoteName, dismissSuggestion, t]);
 
   return (
     <div className={`h-screen w-screen flex flex-col bg-white/85 dark:bg-gray-900/85 ${fontClass} ${sizeClass}`}>
@@ -300,52 +303,8 @@ const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
                   <Focus size={16} />
                 </button>
               </Tooltip>
-              <Tooltip label={t('exportMarkdown')} side="bottom">
-                <button
-                  onClick={handleExportMarkdown}
-                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
-                  aria-label={t('exportMarkdown')}
-                >
-                  <FileDown size={16} />
-                </button>
-              </Tooltip>
-              <Tooltip label={t('exportPdf')} side="bottom">
-                <button
-                  onClick={handleExportPdf}
-                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
-                  aria-label={t('exportPdf')}
-                >
-                  <Download size={16} />
-                </button>
-              </Tooltip>
-              <Tooltip label={t('exportHtml')} side="bottom">
-                <button
-                  onClick={handleExportHtml}
-                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
-                  aria-label={t('exportHtml')}
-                >
-                  <FileCode size={16} />
-                </button>
-              </Tooltip>
-              <Tooltip label={t('exportDocx')} side="bottom">
-                <button
-                  onClick={handleExportDocx}
-                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
-                  aria-label={t('exportDocx')}
-                >
-                  <FileDocx size={16} />
-                </button>
-              </Tooltip>
             </>
           )}
-          <ShareMenu
-            getCurrentNoteContent={getEditorText}
-            getCurrentNoteTitle={() => activeNoteName?.replace('.md', '') ?? ''}
-            getCurrentNoteFileName={() => activeNoteName ?? 'note.md'}
-            syncDirectory={settings.syncDirectory || undefined}
-            onToast={toast}
-            hasNote={!!activeNoteName}
-          />
           <Tooltip label={t('templates')} side="bottom">
             <button onClick={() => setIsTemplatesOpen(v => !v)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors" aria-label={t('templates')}>
               <LayoutTemplate size={16} />
@@ -377,7 +336,7 @@ const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
 
           {leftOpen && (
             <>
-              <Panel defaultSize={20} minSize={15} maxSize={30} className="vibrancy-sidebar flex flex-col border-r border-gray-200/60 dark:border-gray-700/60">
+              <Panel id="sidebar-left" order={1} defaultSize={20} minSize={15} maxSize={30} className="vibrancy-sidebar flex flex-col border-r border-gray-200/60 dark:border-gray-700/60">
                 <ErrorBoundary>
                   <Sidebar
                     notes={filteredNotes}
@@ -405,7 +364,7 @@ const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
             </>
           )}
 
-          <Panel className="bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
+          <Panel id="editor-center" order={2} minSize={30} className="bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
             {/* Sticky toolbar — outside scrollable area */}
             {activeNoteName && (
               <EditorToolbar
@@ -417,12 +376,34 @@ const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
                 onCloseFind={() => setFindOpen(false)}
                 onOpenFind={() => setFindOpen(true)}
                 onOpenGlobalSearch={() => setGlobalSearchOpen(true)}
+                shareSlot={
+                  <ShareMenu
+                    getCurrentNoteContent={() => {
+                      const ed = editorRef.current;
+                      if (!ed) return '';
+                      // Provide Markdown for the Save-as-Markdown path (default).
+                      // Other handlers fetch HTML separately via getCurrentNoteHtml.
+                      return new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' }).turndown(ed.getHTML());
+                    }}
+                    getCurrentNoteHtml={() => editorRef.current?.getHTML() ?? ''}
+                    getCurrentNoteTitle={() => activeNoteName?.replace('.md', '') ?? ''}
+                    getCurrentNoteFileName={() => activeNoteName ?? 'note.md'}
+                    syncDirectory={settings.syncDirectory || undefined}
+                    onToast={toast}
+                    hasNote={!!activeNoteName}
+                  />
+                }
               />
             )}
 
             {/* Scrollable writing area — pure content, no chrome */}
             <div className={`flex-1 overflow-y-auto relative ${focusClass} ${typewriterClass}`}>
-              <div className="max-w-3xl mx-auto px-12 py-10">
+              <div className={`mx-auto px-12 py-10 ${
+                settings.editorWidth === 'narrow' ? 'max-w-[560px]' :
+                settings.editorWidth === 'wide'   ? 'max-w-5xl' :
+                settings.editorWidth === 'full'   ? 'max-w-none px-16' :
+                'max-w-3xl'
+              }`}>
                 <ErrorBoundary>
                   <NoteEditor
                     activeNoteName={activeNoteName}
@@ -447,7 +428,7 @@ const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
           {rightOpen && (
             <>
               <PanelResizeHandle className="w-1 hover:bg-blue-400 transition-colors cursor-col-resize" />
-              <Panel defaultSize={25} minSize={20} maxSize={40} className="bg-gray-50 dark:bg-gray-800 flex flex-col border-l border-gray-200 dark:border-gray-700">
+              <Panel id="sidebar-right" order={3} defaultSize={25} minSize={20} maxSize={40} className="bg-gray-50 dark:bg-gray-800 flex flex-col border-l border-gray-200 dark:border-gray-700">
                 <div className="flex border-b border-gray-200 dark:border-gray-700 shrink-0">
                   {(['ai', 'analytics', 'graph'] as const).map(tab => (
                     <button key={tab}
@@ -478,10 +459,21 @@ const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
         </PanelGroup>
       </div>
 
+      {suggestions.length > 0 && !isAdvisorOpen && activeNoteName && (
+        <button
+          onClick={() => setIsAdvisorOpen(true)}
+          className="fixed left-4 bottom-3 z-30 inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 shadow-sm transition-colors"
+          aria-label={`${t('noteAdvisor')} — ${suggestions.length}`}
+        >
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+          {suggestions.length} {suggestions.length === 1 ? t('suggestion') : t('suggestions')}
+        </button>
+      )}
       {isAdvisorOpen && (
         <NoteAdvisorPanel
           suggestions={suggestions}
           onDismiss={dismissSuggestion}
+          onAction={handleAdvisorAction}
           onDismissAll={() => { dismissAll(); setIsAdvisorOpen(false); }}
           onClose={() => setIsAdvisorOpen(false)}
         />

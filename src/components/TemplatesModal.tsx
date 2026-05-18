@@ -1,7 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Trash2, Plus } from 'lucide-react';
-import { BUILTIN_TEMPLATES, type NoteTemplate } from '../lib/templates';
+import {
+  X, Trash2, Plus,
+  Users, Rocket, FlaskConical, BookOpen, Lightbulb, FileText,
+} from 'lucide-react';
+import { useModalStack } from '../hooks/useModalStack';
+import { BUILTIN_TEMPLATES, type NoteTemplate, type TemplateIconName } from '../lib/templates';
 import { useI18n } from '../lib/i18n';
+
+const TEMPLATE_ICON_MAP: Record<TemplateIconName, typeof Users> = {
+  meeting:    Users,
+  project:    Rocket,
+  research:   FlaskConical,
+  journal:    BookOpen,
+  brainstorm: Lightbulb,
+  custom:     FileText,
+};
+
+function TemplateIcon({ name }: { name: TemplateIconName }) {
+  const Icon = TEMPLATE_ICON_MAP[name] ?? FileText;
+  return <Icon size={16} strokeWidth={1.6} className="text-gray-500 dark:text-gray-400" />;
+}
 
 interface TemplatesModalProps {
   customTemplates: NoteTemplate[];
@@ -14,6 +32,7 @@ interface TemplatesModalProps {
 }
 
 export function TemplatesModal({ customTemplates, activeNoteContent, activeNoteName, onApply, onSaveCurrent, onDelete, onClose }: TemplatesModalProps) {
+  useModalStack('templates', true, onClose);
   const { t } = useI18n();
   const [savingName, setSavingName] = useState('');
   const [showSave, setShowSave] = useState(false);
@@ -43,7 +62,9 @@ export function TemplatesModal({ customTemplates, activeNoteContent, activeNoteN
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {allTemplates.map(tmpl => (
             <div key={tmpl.id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 group">
-              <span className="text-xl shrink-0">{tmpl.icon}</span>
+              <span className="shrink-0 w-7 h-7 rounded-md bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700 flex items-center justify-center">
+                <TemplateIcon name={tmpl.icon} />
+              </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{tmpl.name}</p>
                 {tmpl.id.startsWith('custom_') && (

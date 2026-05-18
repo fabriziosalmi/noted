@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { validateFileName, validateFolderName, stripUnsafeHtml } from './ipc-utils.js';
 import * as gitOps from './git-ops.js';
+import { sanitizeGitError } from './git-ops.js';
 
 // Disable hardware acceleration only in dev to avoid GPU process crashes in sandboxed environments.
 // In production we need it for vibrancy/blur effects.
@@ -38,8 +39,58 @@ const getTargetDir = (customDir?: string) => {
   return DEFAULT_NOTES_DIR;
 };
 
+/**
+ * Resolve `path.join(targetDir, relName)` and ensure the resulting path stays
+ * inside `targetDir` after symlinks are followed. Prevents a malicious symlink
+ * planted inside the syncDir from being used to escape to /etc/passwd etc.
+ *
+ * The fileName argument is assumed to already have passed `validateFileName`
+ * (no `..`, no absolute paths) — this is the second line of defence.
+ */
+function safeResolve(targetDir: string, relName: string): string {
+  const targetReal = fs.realpathSync(targetDir);
+  const candidate = path.join(targetDir, relName);
+  // The candidate may not exist yet (create flow). Resolve as far as possible:
+  // walk up until an existing ancestor is found, realpath it, then re-append
+  // the un-resolved tail.
+  let ancestor = candidate;
+  const unresolved: string[] = [];
+  while (!fs.existsSync(ancestor)) {
+    unresolved.unshift(path.basename(ancestor));
+    const parent = path.dirname(ancestor);
+    if (parent === ancestor) break; // hit filesystem root
+    ancestor = parent;
+  }
+  const ancestorReal = fs.realpathSync(ancestor);
+  const finalReal = unresolved.length ? path.join(ancestorReal, ...unresolved) : ancestorReal;
+  // Match against the real target with a trailing separator to avoid prefix
+  // collisions (e.g. /vault matching /vault2).
+  const targetWithSep = targetReal.endsWith(path.sep) ? targetReal : targetReal + path.sep;
+  if (finalReal !== targetReal && !finalReal.startsWith(targetWithSep)) {
+    throw new Error('Path escapes vault directory');
+  }
+  return finalReal;
+}
+
 let encryptedApiKey: Buffer | null = null;
 let encryptedGhToken: Buffer | null = null;
+
+// Cache the warning state so we print it exactly once per process — on Linux
+// without a secret service (libsecret), Electron's safeStorage silently falls
+// back to in-memory plaintext. The renderer can query `safe-storage-status`
+// to surface this in the UI.
+let safeStorageWarned = false;
+function checkSafeStorageOnce() {
+  if (safeStorageWarned) return;
+  safeStorageWarned = true;
+  if (!safeStorage.isEncryptionAvailable()) {
+    console.warn(
+      '[safeStorage] OS encryption not available — API keys and Git tokens ' +
+      'will be held in process memory only (not persisted across restarts). ' +
+      'On Linux, install libsecret/gnome-keyring to enable encrypted storage.'
+    );
+  }
+}
 
 process.env.DIST = path.join(__dirname, '../dist');
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public');
@@ -229,7 +280,7 @@ ipcMain.handle('read-note', (_, fileName: string, syncDir?: string) => {
   try {
     validateFileName(fileName);
     const targetDir = getTargetDir(syncDir);
-    const filePath = path.join(targetDir, fileName);
+    const filePath = safeResolve(targetDir, fileName);
     const content = fs.readFileSync(filePath, 'utf-8');
     return { success: true, data: content };
   } catch (error: unknown) {
@@ -239,14 +290,36 @@ ipcMain.handle('read-note', (_, fileName: string, syncDir?: string) => {
 });
 
 const MAX_HISTORY_SNAPSHOTS = 20;
+// Don't snapshot every autosave — a 200 KB note × 6000 saves/day is silly.
+// Only snapshot if the content has changed by at least this many chars vs the
+// most recent snapshot, OR if enough time has passed since the last one.
+const SNAPSHOT_MIN_DIFF_CHARS = 200;
+const SNAPSHOT_MIN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 function saveSnapshot(targetDir: string, fileName: string, content: string) {
   try {
     const histDir = path.join(targetDir, '.noted_history', fileName);
     if (!fs.existsSync(histDir)) fs.mkdirSync(histDir, { recursive: true });
+
+    // Compare against the most recent snapshot; skip the write if the delta is
+    // small AND we snapshot-ed recently.
+    const existing = fs.readdirSync(histDir).filter(f => f.endsWith('.html')).sort();
+    if (existing.length > 0) {
+      const latest = existing[existing.length - 1];
+      const latestPath = path.join(histDir, latest);
+      let prevContent = '';
+      try { prevContent = fs.readFileSync(latestPath, 'utf-8'); } catch { /* ignore */ }
+      const diff = Math.abs(prevContent.length - content.length);
+      let ageMs = Infinity;
+      try { ageMs = Date.now() - fs.statSync(latestPath).mtimeMs; } catch { /* ignore */ }
+      if (diff < SNAPSHOT_MIN_DIFF_CHARS && ageMs < SNAPSHOT_MIN_INTERVAL_MS) {
+        return; // not worth a new snapshot
+      }
+    }
+
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     fs.writeFileSync(path.join(histDir, `${ts}.html`), content, 'utf-8');
-    // Prune oldest beyond limit
+    // Prune oldest beyond limit (re-list since we may have just added one).
     const snapshots = fs.readdirSync(histDir).filter(f => f.endsWith('.html')).sort();
     for (const old of snapshots.slice(0, Math.max(0, snapshots.length - MAX_HISTORY_SNAPSHOTS))) {
       fs.unlinkSync(path.join(histDir, old));
@@ -259,9 +332,14 @@ ipcMain.handle('save-note', (_, fileName: string, content: string, syncDir?: str
     validateFileName(fileName);
     if (typeof content !== 'string') throw new Error('Content must be a string');
     const targetDir = getTargetDir(syncDir);
-    const filePath = path.join(targetDir, fileName);
+    const filePath = safeResolve(targetDir, fileName);
     saveSnapshot(targetDir, fileName, content);
-    fs.writeFileSync(filePath, content, 'utf-8');
+    // Atomic write: write to a tmp sibling, then rename. fs.renameSync is atomic
+    // on POSIX, so a crash mid-write leaves either the old file intact or the
+    // fully-written new file — never a half-written one.
+    const tmpPath = `${filePath}.${process.pid}.tmp`;
+    fs.writeFileSync(tmpPath, content, 'utf-8');
+    fs.renameSync(tmpPath, filePath);
     return { success: true };
   } catch (error: unknown) {
     const err = error as Error;
@@ -304,8 +382,8 @@ ipcMain.handle('rename-note', (_, oldName: string, newName: string, syncDir?: st
     validateFileName(oldName);
     validateFileName(newName);
     const targetDir = getTargetDir(syncDir);
-    const oldPath = path.join(targetDir, oldName);
-    const newPath = path.join(targetDir, newName);
+    const oldPath = safeResolve(targetDir, oldName);
+    const newPath = safeResolve(targetDir, newName);
     if (fs.existsSync(newPath)) throw new Error(`Una nota con il nome "${newName}" esiste già`);
     fs.renameSync(oldPath, newPath);
     return { success: true };
@@ -336,7 +414,7 @@ ipcMain.handle('delete-note', (_, fileName: string, syncDir?: string) => {
   try {
     validateFileName(fileName);
     const targetDir = getTargetDir(syncDir);
-    const filePath = path.join(targetDir, fileName);
+    const filePath = safeResolve(targetDir, fileName);
     fs.unlinkSync(filePath);
     return { success: true };
   } catch (error: unknown) {
@@ -348,6 +426,7 @@ ipcMain.handle('delete-note', (_, fileName: string, syncDir?: string) => {
 ipcMain.handle('store-api-key', (_, plaintext: string) => {
   try {
     if (typeof plaintext !== 'string') throw new Error('API key must be a string');
+    checkSafeStorageOnce();
     if (safeStorage.isEncryptionAvailable()) {
       encryptedApiKey = safeStorage.encryptString(plaintext);
     } else {
@@ -449,6 +528,67 @@ ipcMain.handle('export-pdf', async (event, htmlContent: string) => {
   }
 });
 
+
+ipcMain.handle('print-note', async (_event, htmlContent: string, title?: string) => {
+  try {
+    if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
+    if (htmlContent.length > 5_000_000) throw new Error('Content too large to print');
+
+    const printWin = new BrowserWindow({
+      show: false,
+      webPreferences: { nodeIntegration: false, contextIsolation: true }
+    });
+
+    try {
+      const safeContent = stripUnsafeHtml(htmlContent);
+      const safeTitle = (title ?? 'Nota').replace(/[<>]/g, '');
+      const styledHtml = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <title>${safeTitle}</title>
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; line-height: 1.6; color: #222; }
+              h1, h2, h3 { color: #111; }
+              code { background-color: #f4f4f4; padding: 2px 4px; border-radius: 4px; font-family: monospace; }
+              pre { background-color: #f4f4f4; padding: 16px; border-radius: 8px; overflow-x: auto; }
+              blockquote { border-left: 4px solid #ddd; padding-left: 16px; color: #555; }
+              img { max-width: 100%; height: auto; }
+              table { border-collapse: collapse; }
+              th, td { border: 1px solid #ccc; padding: 4px 8px; }
+            </style>
+          </head>
+          <body>${safeContent}</body>
+        </html>
+      `;
+
+      await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(styledHtml)}`);
+
+      await new Promise<void>((resolve, reject) => {
+        printWin.webContents.print(
+          { silent: false, printBackground: true },
+          (success, failureReason) => {
+            if (!success && failureReason && failureReason !== 'cancelled') {
+              reject(new Error(failureReason));
+            } else {
+              resolve();
+            }
+          }
+        );
+      });
+
+      return { success: true };
+    } finally {
+      printWin.close();
+    }
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('Print Error:', err);
+    return { success: false, error: err.message };
+  }
+});
 
 ipcMain.handle('get-native-theme', () => ({
   isDark: nativeTheme.shouldUseDarkColors,
@@ -583,7 +723,7 @@ ipcMain.handle('create-folder', (_, folderName: string, syncDir?: string) => {
   try {
     validateFolderName(folderName);
     const targetDir = getTargetDir(syncDir);
-    const folderPath = path.join(targetDir, folderName);
+    const folderPath = safeResolve(targetDir, folderName);
     if (fs.existsSync(folderPath)) throw new Error(`La cartella "${folderName}" esiste già`);
     fs.mkdirSync(folderPath);
     return { success: true };
@@ -597,8 +737,8 @@ ipcMain.handle('rename-folder', (_, oldName: string, newName: string, syncDir?: 
     validateFolderName(oldName);
     validateFolderName(newName);
     const targetDir = getTargetDir(syncDir);
-    const oldPath = path.join(targetDir, oldName);
-    const newPath = path.join(targetDir, newName);
+    const oldPath = safeResolve(targetDir, oldName);
+    const newPath = safeResolve(targetDir, newName);
     if (!fs.existsSync(oldPath)) throw new Error(`Cartella "${oldName}" non trovata`);
     if (fs.existsSync(newPath)) throw new Error(`Cartella "${newName}" esiste già`);
     fs.renameSync(oldPath, newPath);
@@ -612,11 +752,11 @@ ipcMain.handle('delete-folder', (_, folderName: string, syncDir?: string) => {
   try {
     validateFolderName(folderName);
     const targetDir = getTargetDir(syncDir);
-    const folderPath = path.join(targetDir, folderName);
+    const folderPath = safeResolve(targetDir, folderName);
     if (!fs.existsSync(folderPath)) throw new Error(`Cartella "${folderName}" non trovata`);
     // Move notes to root before deleting folder
     for (const f of fs.readdirSync(folderPath).filter(f => f.endsWith('.md'))) {
-      fs.renameSync(path.join(folderPath, f), path.join(targetDir, f));
+      fs.renameSync(path.join(folderPath, f), safeResolve(targetDir, f));
     }
     fs.rmdirSync(folderPath);
     return { success: true };
@@ -632,14 +772,14 @@ ipcMain.handle('move-note', (_, fileName: string, toFolder: string, syncDir?: st
     const targetDir = getTargetDir(syncDir);
     // fileName may already include a folder prefix
     const baseName = path.basename(fileName);
-    const srcPath = path.join(targetDir, fileName);
+    const srcPath = safeResolve(targetDir, fileName);
     const destPath = toFolder
-      ? path.join(targetDir, toFolder, baseName)
-      : path.join(targetDir, baseName);
+      ? safeResolve(targetDir, `${toFolder}/${baseName}`)
+      : safeResolve(targetDir, baseName);
     if (!fs.existsSync(srcPath)) throw new Error(`Nota "${fileName}" non trovata`);
     if (fs.existsSync(destPath)) throw new Error(`Esiste già una nota "${baseName}" nella destinazione`);
     if (toFolder) {
-      const folderPath = path.join(targetDir, toFolder);
+      const folderPath = safeResolve(targetDir, toFolder);
       if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath);
     }
     fs.renameSync(srcPath, destPath);
@@ -815,8 +955,14 @@ ipcMain.handle('share-note-macos', async (_, args: { content: string; title: str
   }
 });
 
-// Proxy LLM HTTP requests from renderer — avoids CORS/CSP issues
+// Proxy LLM HTTP requests from renderer — avoids CORS/CSP issues.
+// Hard timeout in main so a slow/hung provider can't hang the renderer.
+const LLM_FETCH_TIMEOUT_MS = 60_000;
+const LLM_FETCH_MAX_BODY_BYTES = 10 * 1024 * 1024; // cap response size at 10 MB
+
 ipcMain.handle('llm-fetch', async (_, url: string, options: { method: string; headers: Record<string, string>; body: string }) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LLM_FETCH_TIMEOUT_MS);
   try {
     if (typeof url !== 'string' || !url.startsWith('http')) throw new Error('Invalid URL');
     const isGet = options.method.toUpperCase() === 'GET';
@@ -824,11 +970,36 @@ ipcMain.handle('llm-fetch', async (_, url: string, options: { method: string; he
       method: options.method,
       headers: options.headers,
       body: isGet ? undefined : (options.body || undefined),
+      signal: controller.signal,
     });
-    const text = await res.text();
+    // Stream-decode but cap total bytes to avoid OOM if a provider returns
+    // an unbounded response (e.g. infinite SSE).
+    const reader = res.body?.getReader();
+    let text = '';
+    if (reader) {
+      const decoder = new TextDecoder('utf-8');
+      let total = 0;
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > LLM_FETCH_MAX_BODY_BYTES) {
+          await reader.cancel();
+          throw new Error('Response exceeded 10 MB cap');
+        }
+        text += decoder.decode(value, { stream: true });
+      }
+      text += decoder.decode();
+    } else {
+      text = await res.text();
+    }
     return { ok: res.ok, status: res.status, text };
   } catch (err: unknown) {
-    return { ok: false, status: 0, text: (err as Error).message };
+    const e = err as Error & { name?: string };
+    const msg = e.name === 'AbortError' ? `Timeout dopo ${LLM_FETCH_TIMEOUT_MS / 1000}s` : e.message;
+    return { ok: false, status: 0, text: msg };
+  } finally {
+    clearTimeout(timer);
   }
 });
 
@@ -838,8 +1009,13 @@ ipcMain.handle('set-note-title', (_, noteName: string) => {
   win.setTitle(title);
 });
 
+ipcMain.handle('safe-storage-status', () => {
+  return { encrypted: safeStorage.isEncryptionAvailable() };
+});
+
 ipcMain.handle('git-store-token', (_, plaintext: string) => {
   try {
+    checkSafeStorageOnce();
     if (safeStorage.isEncryptionAvailable()) {
       encryptedGhToken = safeStorage.encryptString(plaintext);
     } else {
@@ -883,6 +1059,14 @@ interface FtSearchResult {
   terms: string[];
 }
 
+// Caps to prevent OOM / freezes on very large vaults. The full-text search
+// path is intentionally simple (no index), so each query re-reads files. We
+// trade exhaustive search for predictability: at most FT_MAX_FILES files and
+// FT_MAX_TOTAL_BYTES of content read per query.
+const FT_MAX_FILES = 1500;
+const FT_MAX_TOTAL_BYTES = 50 * 1024 * 1024; // 50 MB
+const FT_MAX_FILE_BYTES = 2 * 1024 * 1024;   // 2 MB per file
+
 ipcMain.handle('search-notes-fulltext', (_, query: string, syncDir?: string) => {
   if (!query || query.trim().length < 2) return { success: true, data: [] };
 
@@ -890,28 +1074,50 @@ ipcMain.handle('search-notes-fulltext', (_, query: string, syncDir?: string) => 
   const rawTerms = query.trim().toLowerCase().split(/\s+/).filter(t => t.length >= 2);
   if (rawTerms.length === 0) return { success: true, data: [] };
 
-  // Collect all .md files (root + one level of subfolders)
-  const mdFiles: Array<{ filePath: string; relPath: string }> = [];
+  // Collect all .md files (root + one level of subfolders). Bail out early
+  // once we hit FT_MAX_FILES so a 50k-note vault doesn't blow up the renderer.
+  const mdFiles: Array<{ filePath: string; relPath: string; size: number }> = [];
+  let truncated = false;
   try {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    outer: for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       if (entry.isDirectory() && !entry.name.startsWith('.')) {
         const sub = path.join(dir, entry.name);
         for (const f of fs.readdirSync(sub, { withFileTypes: true })) {
           if (!f.isDirectory() && f.name.endsWith('.md')) {
-            mdFiles.push({ filePath: path.join(sub, f.name), relPath: `${entry.name}/${f.name}` });
+            try {
+              const fp = path.join(sub, f.name);
+              const size = fs.statSync(fp).size;
+              mdFiles.push({ filePath: fp, relPath: `${entry.name}/${f.name}`, size });
+            } catch { /* skip unreadable */ }
+            if (mdFiles.length >= FT_MAX_FILES) { truncated = true; break outer; }
           }
         }
       } else if (!entry.isDirectory() && entry.name.endsWith('.md')) {
-        mdFiles.push({ filePath: path.join(dir, entry.name), relPath: entry.name });
+        try {
+          const fp = path.join(dir, entry.name);
+          const size = fs.statSync(fp).size;
+          mdFiles.push({ filePath: fp, relPath: entry.name, size });
+        } catch { /* skip unreadable */ }
+        if (mdFiles.length >= FT_MAX_FILES) { truncated = true; break outer; }
       }
     }
   } catch { return { success: true, data: [] }; }
 
-  const results: FtSearchResult[] = [];
+  // Prefer recent and smaller files: searching them first means a query that
+  // hits the soft byte cap still returns useful results from the working set.
+  mdFiles.sort((a, b) => {
+    try { return fs.statSync(b.filePath).mtimeMs - fs.statSync(a.filePath).mtimeMs; }
+    catch { return 0; }
+  });
 
-  for (const { filePath, relPath } of mdFiles) {
+  const results: FtSearchResult[] = [];
+  let bytesRead = 0;
+
+  for (const { filePath, relPath, size } of mdFiles) {
+    if (size > FT_MAX_FILE_BYTES) continue; // skip pathologically large files
+    if (bytesRead + size > FT_MAX_TOTAL_BYTES) { truncated = true; break; }
     let raw: string;
-    try { raw = fs.readFileSync(filePath, 'utf-8'); } catch { continue; }
+    try { raw = fs.readFileSync(filePath, 'utf-8'); bytesRead += raw.length; } catch { continue; }
 
     const plain = stripHtmlToText(raw);
     const lower = plain.toLowerCase();
@@ -951,7 +1157,7 @@ ipcMain.handle('search-notes-fulltext', (_, query: string, syncDir?: string) => 
   }
 
   results.sort((a, b) => b.score - a.score);
-  return { success: true, data: results.slice(0, 25) };
+  return { success: true, data: results.slice(0, 25), truncated };
 });
 
 // ─── Git IPC ──────────────────────────────────────────────────────────────────
@@ -1027,9 +1233,9 @@ ipcMain.handle('git-save-as-gist', async (_, params: {
       body,
     });
     const json = await res.json() as { html_url?: string; message?: string };
-    if (!res.ok) return { success: false, error: json.message ?? `HTTP ${res.status}` };
+    if (!res.ok) return { success: false, error: sanitizeGitError(json.message ?? `HTTP ${res.status}`) };
     return { success: true, data: json.html_url };
   } catch (e) {
-    return { success: false, error: (e as Error).message };
+    return { success: false, error: sanitizeGitError((e as Error).message) };
   }
 });

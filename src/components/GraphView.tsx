@@ -167,6 +167,14 @@ export function GraphView({ notes, noteLinksIndex, activeNoteName, onOpenNote, a
     ctx.restore();
   }, [activeNoteName, accentColor]);
 
+  // Below this max-velocity threshold the simulation is considered settled
+  // and the RAF loop pauses to stop burning CPU. Drag/zoom re-kicks it.
+  const COOLDOWN_VEL_SQ = 0.05 * 0.05;
+  // Hard cap on physics nodes per frame. Above this we skip the O(n²)
+  // repulsion pass entirely (springs+gravity still run) so a 2000-note
+  // vault doesn't lock the UI thread.
+  const REPULSION_NODE_CAP = 600;
+
   const tick = useCallback(() => {
     const s = stateRef.current;
     if (!s || !s.running) return;
@@ -183,18 +191,20 @@ export function GraphView({ notes, noteLinksIndex, activeNoteName, onOpenNote, a
       n.vy += (cy - n.y) * GRAVITY;
     }
 
-    // Repulsion (O(n²) — fine up to ~500 nodes)
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const dx = nodes[j].x - nodes[i].x;
-        const dy = nodes[j].y - nodes[i].y;
-        const dist2 = dx * dx + dy * dy + 1;
-        const force = K_REPEL / dist2;
-        const dist = Math.sqrt(dist2);
-        nodes[i].vx -= (dx / dist) * force;
-        nodes[i].vy -= (dy / dist) * force;
-        nodes[j].vx += (dx / dist) * force;
-        nodes[j].vy += (dy / dist) * force;
+    // Repulsion (O(n²)) — only run for graphs under the cap.
+    if (nodes.length <= REPULSION_NODE_CAP) {
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const dx = nodes[j].x - nodes[i].x;
+          const dy = nodes[j].y - nodes[i].y;
+          const dist2 = dx * dx + dy * dy + 1;
+          const force = K_REPEL / dist2;
+          const dist = Math.sqrt(dist2);
+          nodes[i].vx -= (dx / dist) * force;
+          nodes[i].vy -= (dy / dist) * force;
+          nodes[j].vx += (dx / dist) * force;
+          nodes[j].vy += (dy / dist) * force;
+        }
       }
     }
 
@@ -211,16 +221,33 @@ export function GraphView({ notes, noteLinksIndex, activeNoteName, onOpenNote, a
       b.vx -= fx; b.vy -= fy;
     }
 
-    // Apply velocities (skip dragged node)
+    // Apply velocities (skip dragged node) and track max kinetic energy.
+    let maxVelSq = 0;
     for (const n of nodes) {
       if (s.drag?.nodeId === n.id) continue;
       n.x += n.vx;
       n.y += n.vy;
+      const v2 = n.vx * n.vx + n.vy * n.vy;
+      if (v2 > maxVelSq) maxVelSq = v2;
     }
 
     draw();
+
+    // Stop the RAF once the system settles; interaction handlers re-kick it.
+    if (maxVelSq < COOLDOWN_VEL_SQ && !s.drag && !s.panDrag) {
+      s.running = false;
+      return;
+    }
     s.animId = requestAnimationFrame(tick);
   }, [draw]);
+
+  const kickSimulation = useCallback(() => {
+    const s = stateRef.current;
+    if (!s) return;
+    if (s.running) return;
+    s.running = true;
+    s.animId = requestAnimationFrame(tick);
+  }, [tick]);
 
   // Initialize / re-init when notes/links change
   useEffect(() => {
@@ -285,7 +312,8 @@ export function GraphView({ notes, noteLinksIndex, activeNoteName, onOpenNote, a
     } else {
       s.panDrag = { startX: e.clientX, startY: e.clientY, panStart: { ...s.pan } };
     }
-  }, [getNodeAt]);
+    kickSimulation();
+  }, [getNodeAt, kickSimulation]);
 
   const onMouseMove = useCallback((e: React.MouseEvent) => {
     const s = stateRef.current;
@@ -297,10 +325,13 @@ export function GraphView({ notes, noteLinksIndex, activeNoteName, onOpenNote, a
         node.x = s.drag.nodeStartX + (e.clientX - s.drag.startX) / s.zoom;
         node.y = s.drag.nodeStartY + (e.clientY - s.drag.startY) / s.zoom;
         node.vx = 0; node.vy = 0;
+        kickSimulation();
       }
     } else if (s.panDrag) {
       s.pan.x = s.panDrag.panStart.x + (e.clientX - s.panDrag.startX);
       s.pan.y = s.panDrag.panStart.y + (e.clientY - s.panDrag.startY);
+      // Pan doesn't change physics — just redraw, no need to kick.
+      draw();
     } else {
       const hit = getNodeAt(e.clientX, e.clientY);
       const prev = s.hovered;
@@ -308,7 +339,7 @@ export function GraphView({ notes, noteLinksIndex, activeNoteName, onOpenNote, a
       if (s.hovered !== prev) draw();
       if (canvasRef.current) canvasRef.current.style.cursor = hit ? 'pointer' : 'grab';
     }
-  }, [getNodeAt, draw]);
+  }, [getNodeAt, draw, kickSimulation]);
 
   const onMouseUp = useCallback((e: React.MouseEvent) => {
     const s = stateRef.current;
@@ -321,7 +352,9 @@ export function GraphView({ notes, noteLinksIndex, activeNoteName, onOpenNote, a
     }
     s.drag = null;
     s.panDrag = null;
-  }, [onOpenNote]);
+    // After release, give the system a few frames to settle around the new position.
+    kickSimulation();
+  }, [onOpenNote, kickSimulation]);
 
   const onWheel = useCallback((e: React.WheelEvent) => {
     const s = stateRef.current;
@@ -329,14 +362,16 @@ export function GraphView({ notes, noteLinksIndex, activeNoteName, onOpenNote, a
     e.preventDefault();
     const factor = e.deltaY < 0 ? 1.1 : 0.9;
     s.zoom = Math.max(0.2, Math.min(4, s.zoom * factor));
-  }, []);
+    draw();
+  }, [draw]);
 
   const onDoubleClick = useCallback(() => {
     const s = stateRef.current;
     if (!s) return;
     s.pan = { x: 0, y: 0 };
     s.zoom = 1;
-  }, []);
+    draw();
+  }, [draw]);
 
   if (notes.length === 0) {
     return (
