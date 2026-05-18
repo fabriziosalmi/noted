@@ -221,10 +221,11 @@ export const useStore = create<NoteState>()(
     if (!window.electronAPI) return;
     const res = await window.electronAPI.renameNote(oldName, newName, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Rinomina fallita');
-    if (get().activeNoteName === oldName) {
-      set({ activeNoteName: newName });
-    }
     await get().fetchNotes();
+    if (get().activeNoteName === oldName) {
+      // Re-open by name so activeNoteContent is in sync with the renamed file
+      await get().openNote(newName);
+    }
   },
 
   saveAsTemplate: (name: string, content: string) => {
@@ -256,9 +257,10 @@ export const useStore = create<NoteState>()(
       await get().openNote(fileName);
       return;
     }
-    const dayNames = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
-    const monthNames = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
-    const title = `${dayNames[today.getDay()]} ${today.getDate()} ${monthNames[today.getMonth()]} ${today.getFullYear()}`;
+    const locale = (get().settings.language ?? 'en') === 'it' ? 'it-IT' : 'en-US';
+    const title = new Intl.DateTimeFormat(locale, {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    }).format(today);
     const initialContent = `<h1>${title}</h1><h2>📝 Note</h2><p></p><h2>✅ Da fare</h2><ul><li><p></p></li></ul><h2>💡 Idee</h2><p></p>`;
     if (!window.electronAPI) return;
     const res = await window.electronAPI.saveNote(fileName, initialContent, get().settings.syncDirectory || undefined);
@@ -300,7 +302,12 @@ export const useStore = create<NoteState>()(
     if (!window.electronAPI) return;
     const res = await window.electronAPI.renameFolder(oldName, newName, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile rinominare la cartella');
+    const { activeNoteName } = get();
     await get().fetchNotes();
+    if (activeNoteName?.startsWith(`${oldName}/`)) {
+      const newNoteName = `${newName}/${activeNoteName.slice(oldName.length + 1)}`;
+      await get().openNote(newNoteName);
+    }
   },
 
   deleteFolder: async (name: string) => {

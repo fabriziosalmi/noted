@@ -51,7 +51,6 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
       // eslint-disable-next-line react-hooks/set-state-in-effect
       void discoverModels();
     } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDiscoveredModels([]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

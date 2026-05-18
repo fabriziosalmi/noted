@@ -41,9 +41,9 @@ export function WikilinkSuggestion({ editor, notes }: WikilinkSuggestionProps) {
         const q = match[1];
         setQuery(q);
         setSelected(0);
-        if (!open) {
+        // Only capture start position when freshly opening (startPosRef null)
+        if (startPosRef.current === null) {
           startPosRef.current = from - match[0].length;
-          // Get caret coords
           const coords = editor.view.coordsAtPos(from);
           setPos({ top: coords.bottom + 6, left: coords.left });
         }
@@ -59,7 +59,8 @@ export function WikilinkSuggestion({ editor, notes }: WikilinkSuggestionProps) {
       editor.off('update', handleUpdate);
       editor.off('selectionUpdate', handleUpdate);
     };
-  }, [editor, open]);
+  // open intentionally excluded — re-attaching on every open state change causes listener accumulation
+  }, [editor]);
 
   useEffect(() => {
     if (!open) return;

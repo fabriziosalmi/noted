@@ -38,9 +38,13 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
     try {
       const MAX_CONTEXT_CHARS = 8_000;
       const rawContext = getEditorText();
-      const textContext = rawContext.length > MAX_CONTEXT_CHARS
+      const isTruncated = rawContext.length > MAX_CONTEXT_CHARS;
+      const textContext = isTruncated
         ? rawContext.slice(0, MAX_CONTEXT_CHARS) + '\n\n[...documento troncato per lunghezza...]'
         : rawContext;
+      if (isTruncated) {
+        setDisplayHistory(prev => [...prev, { role: 'assistant', content: `⚠️ ${t('contextTruncated')}` }]);
+      }
 
       // RAG: find related notes from the full vault
       const relevant = noteChunks.length > 0

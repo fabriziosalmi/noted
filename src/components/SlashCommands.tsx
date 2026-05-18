@@ -123,7 +123,7 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
         { role: 'user', content: cmd.prompt(context) },
       ]);
       // Insert with a newline if needed
-      const needsNewline = cmd.id === 'summarize' || cmd.id === 'bullets';
+      const needsNewline = cmd.id === 'summarize' || cmd.id === 'bullets' || cmd.id === 'continue' || cmd.id === 'expand';
       editor.chain().focus().insertContent(needsNewline ? `\n${result}` : result).run();
     } catch (err) {
       onAiError?.((err as Error).message);
