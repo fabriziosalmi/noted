@@ -101,7 +101,7 @@ export function SmartTagSuggestion({ content, existingTags, onAccept }: SmartTag
             key={tag}
             onClick={() => setSelected(prev => {
               const next = new Set(prev);
-              next.has(tag) ? next.delete(tag) : next.add(tag);
+              if (next.has(tag)) { next.delete(tag); } else { next.add(tag); }
               return next;
             })}
             className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${

@@ -16,10 +16,10 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
   const [selected, setSelected] = useState<Snapshot | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!window.electronAPI);
 
   useEffect(() => {
-    if (!window.electronAPI) { setLoading(false); return; }
+    if (!window.electronAPI) return;
     window.electronAPI.getNoteHistory(fileName, syncDir ?? undefined).then(res => {
       if (res.success && res.data) setSnapshots(res.data);
       setLoading(false);

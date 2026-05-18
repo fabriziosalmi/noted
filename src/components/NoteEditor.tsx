@@ -293,14 +293,17 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
         </BubbleMenu>
       )}
 
-      <div onClick={e => {
-        const target = e.target as HTMLElement;
-        const wl = target.closest('[data-wikilink]');
-        if (wl && onSelectNote) {
-          const name = wl.getAttribute('data-wikilink');
-          if (name) onSelectNote(name.endsWith('.md') ? name : `${name}.md`);
-        }
-      }}>
+      <div
+        role="presentation"
+        onClick={e => {
+          const target = e.target as HTMLElement;
+          const wl = target.closest('[data-wikilink]');
+          if (wl && onSelectNote) {
+            const name = wl.getAttribute('data-wikilink');
+            if (name) onSelectNote(name.endsWith('.md') ? name : `${name}.md`);
+          }
+        }}
+      >
         <EditorContent editor={editor} />
       </div>
 

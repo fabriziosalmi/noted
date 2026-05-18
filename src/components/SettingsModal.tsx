@@ -48,8 +48,10 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
   // Auto-discover when opening for local providers
   useEffect(() => {
     if (isLocalProvider(settings.llmProvider)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void discoverModels();
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDiscoveredModels([]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -207,14 +209,14 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   }`}
                 />
               ))}
-              <label title={t('customColor')} className="flex items-center cursor-pointer">
-                <input
-                  type="color"
-                  value={settings.accentColor ?? '#6366f1'}
-                  onChange={e => onUpdate({ accentColor: e.target.value })}
-                  className="w-7 h-7 rounded-full cursor-pointer border-0 p-0"
-                />
-              </label>
+              <input
+                type="color"
+                aria-label={t('customColor')}
+                title={t('customColor')}
+                value={settings.accentColor ?? '#6366f1'}
+                onChange={e => onUpdate({ accentColor: e.target.value })}
+                className="w-7 h-7 rounded-full cursor-pointer border-0 p-0"
+              />
             </div>
           </div>
 

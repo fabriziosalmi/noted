@@ -5,6 +5,7 @@ import {
   FileText, Eye, Zap, HelpCircle, Loader2,
 } from 'lucide-react';
 import { askLLM } from '../lib/llm';
+import { Tooltip } from './Tooltip';
 
 interface Action {
   id: string;
@@ -177,24 +178,25 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
     const isDisabled = !!activeId;
     const Icon = action.icon;
     return (
-      <button
-        key={action.id}
-        onClick={() => void runAction(action)}
-        disabled={isDisabled}
-        title={action.label}
-        className={`flex items-center py-1 px-1.5 rounded transition-colors duration-150
-          ${isActive
-            ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
-            : isDisabled
-              ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
-              : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-indigo-600 dark:hover:text-indigo-400'
-          }`}
-      >
-        {isActive
-          ? <Loader2 size={13} className="animate-spin" />
-          : <Icon size={13} />
-        }
-      </button>
+      <Tooltip key={action.id} label={action.label} side="bottom">
+        <button
+          onClick={() => void runAction(action)}
+          disabled={isDisabled}
+          aria-label={action.label}
+          className={`flex items-center py-1 px-1.5 rounded transition-colors duration-150
+            ${isActive
+              ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
+              : isDisabled
+                ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-indigo-600 dark:hover:text-indigo-400'
+            }`}
+        >
+          {isActive
+            ? <Loader2 size={13} className="animate-spin" />
+            : <Icon size={13} />
+          }
+        </button>
+      </Tooltip>
     );
   };
 

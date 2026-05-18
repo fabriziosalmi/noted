@@ -76,6 +76,7 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
     !query || t(c.labelKey).toLowerCase().includes(query.toLowerCase()) || c.id.includes(query.toLowerCase())
   );
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setActiveIdx(0); }, [query]);
 
   // Watch for / trigger

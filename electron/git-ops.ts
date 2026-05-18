@@ -45,8 +45,8 @@ export interface PrData {
 
 // ─── Validation helpers ───────────────────────────────────────────────────────
 
-const GITHUB_HTTPS = /^https:\/\/github\.com\/[\w.\-]+\/[\w.\-]+(\.git)?$/;
-const GITHUB_SSH   = /^git@github\.com:[\w.\-]+\/[\w.\-]+(\.git)?$/;
+const GITHUB_HTTPS = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+(\.git)?$/;
+const GITHUB_SSH   = /^git@github\.com:[\w.-]+\/[\w.-]+(\.git)?$/;
 
 export function validateRemoteUrl(url: string): void {
   if (!GITHUB_HTTPS.test(url) && !GITHUB_SSH.test(url)) {
@@ -82,6 +82,7 @@ function validateCommitMessage(msg: string): void {
   if (msg.length > 500) throw new Error('Commit message too long (max 500 chars)');
   // simple-git passes the message as a string arg, not a shell command,
   // but we still strip potential control characters
+  // eslint-disable-next-line no-control-regex
   if (/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(msg)) {
     throw new Error('Commit message contains invalid characters');
   }

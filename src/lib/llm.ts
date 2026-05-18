@@ -141,7 +141,9 @@ async function fetchOpenAI(messages: ChatMessage[], apiKey: string, model: strin
   });
   if (!res.ok) throw new Error(await res.text());
   const data = JSON.parse(await res.text()) as { choices: { message: { content: string } }[] };
-  return data.choices[0].message.content;
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error('Risposta OpenAI vuota o non valida');
+  return content;
 }
 
 async function fetchOpenRouter(messages: ChatMessage[], apiKey: string, model: string) {
@@ -158,7 +160,9 @@ async function fetchOpenRouter(messages: ChatMessage[], apiKey: string, model: s
   });
   if (!res.ok) throw new Error(await res.text());
   const data = JSON.parse(await res.text()) as { choices: { message: { content: string } }[] };
-  return data.choices[0].message.content;
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error('Risposta OpenRouter vuota o non valida');
+  return content;
 }
 
 async function fetchLMStudio(messages: ChatMessage[], baseUrl: string, model: string) {
@@ -173,7 +177,9 @@ async function fetchLMStudio(messages: ChatMessage[], baseUrl: string, model: st
     throw new Error(`LM Studio (${url}): ${res.status === 0 ? 'server non raggiungibile — verifica che LM Studio sia avviato con il server locale attivo' : body}`);
   }
   const data = JSON.parse(await res.text()) as { choices: { message: { content: string } }[] };
-  return data.choices[0].message.content;
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error('LM Studio: risposta vuota o non valida');
+  return content;
 }
 
 async function fetchOllama(messages: ChatMessage[], model: string) {
@@ -187,6 +193,7 @@ async function fetchOllama(messages: ChatMessage[], model: string) {
     throw new Error(`Ollama: ${res.status === 0 ? 'server non raggiungibile — verifica che Ollama sia in esecuzione' : body}`);
   }
   const data = JSON.parse(await res.text()) as { message: { content: string } };
+  if (!data.message?.content) throw new Error('Ollama: risposta vuota o non valida');
   return data.message.content;
 }
 
@@ -205,7 +212,9 @@ async function fetchAnthropic(messages: ChatMessage[], apiKey: string, model: st
   });
   if (!res.ok) throw new Error(await res.text());
   const data = JSON.parse(await res.text()) as { content: { text: string }[] };
-  return data.content[0].text;
+  const text = data.content?.[0]?.text;
+  if (!text) throw new Error('Risposta Anthropic vuota o non valida');
+  return text;
 }
 
 async function fetchGemini(messages: ChatMessage[], apiKey: string, model: string) {
@@ -227,5 +236,7 @@ async function fetchGemini(messages: ChatMessage[], apiKey: string, model: strin
   );
   if (!res.ok) throw new Error(await res.text());
   const data = JSON.parse(await res.text()) as { candidates: { content: { parts: { text: string }[] } }[] };
-  return data.candidates[0].content.parts[0].text;
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Risposta Gemini vuota o non valida');
+  return text;
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Fuse from 'fuse.js';
 import { FileText, Search } from 'lucide-react';
 import type { NoteFile } from '../store/useStore';
@@ -17,21 +17,20 @@ export function QuickOpen({ notes, onSelect, onClose }: QuickOpenProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const fuse = useRef(new Fuse(notes, {
+  const fuse = useMemo(() => new Fuse(notes, {
     keys: ['name'],
     threshold: 0.4,
     ignoreLocation: true,
-  }));
+  }), [notes]);
 
-  useEffect(() => { fuse.current = new Fuse(notes, { keys: ['name'], threshold: 0.4, ignoreLocation: true }); }, [notes]);
-
-  const results = query.trim()
-    ? fuse.current.search(query).map(r => r.item)
-    : notes.slice(0, 12);
-
-  useEffect(() => { setActiveIdx(0); }, [query]);
+  const results = useMemo(() =>
+    query.trim() ? fuse.search(query).map(r => r.item) : notes.slice(0, 12),
+    [fuse, query, notes],
+  );
 
   useEffect(() => { inputRef.current?.focus(); }, []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setActiveIdx(0); }, [query]);
 
   const confirm = useCallback((name: string) => {
     onSelect(name);

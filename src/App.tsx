@@ -191,7 +191,7 @@ function App() {
     } else {
       toast(res.error ?? t('markdownExportError'), 'error');
     }
-  }, [toast]);
+  }, [t, toast]);
 
   const handleExportPdf = useCallback(async () => {
     const editor = editorRef.current;
@@ -202,7 +202,7 @@ function App() {
     } else {
       toast(res.error ?? t('pdfExportError'), 'error');
     }
-  }, [toast]);
+  }, [t, toast]);
 
   const handleExportDocx = useCallback(async () => {
     const editor = editorRef.current;
@@ -211,7 +211,7 @@ function App() {
     const res = await window.electronAPI.exportDocx(editor.getHTML(), title);
     if (res.success) toast(t('docxExported'), 'success');
     else toast(res.error ?? t('docxExportError'), 'error');
-  }, [activeNoteName, toast]);
+  }, [t, activeNoteName, toast]);
 
   const handleExportHtml = useCallback(async () => {
     const editor = editorRef.current;
@@ -220,7 +220,7 @@ function App() {
     const res = await window.electronAPI.exportHtml(editor.getHTML(), title);
     if (res.success) toast(t('htmlExported'), 'success');
     else toast(res.error ?? t('htmlExportError'), 'error');
-  }, [activeNoteName, toast]);
+  }, [t, activeNoteName, toast]);
 
   const handleImportVault = useCallback(async () => {
     if (!window.electronAPI) return;
@@ -231,7 +231,7 @@ function App() {
     } else {
       toast(res.error ?? t('importError'), 'error');
     }
-  }, [settings.syncDirectory, fetchNotes, toast]);
+  }, [t, settings.syncDirectory, fetchNotes, toast]);
 
   const handleUseICloud = useCallback(async () => {
     if (!window.electronAPI) return;
@@ -243,7 +243,7 @@ function App() {
     } else {
       toast(res.error ?? t('iCloudError'), 'error');
     }
-  }, [updateSettings, fetchNotes, toast]);
+  }, [t, updateSettings, fetchNotes, toast]);
 
   const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
 
@@ -351,7 +351,7 @@ function App() {
                     onCreateFolder={async (name) => { try { await createFolder(name); } catch (e) { toast((e as Error).message, 'error'); } }}
                     onRenameFolder={async (o, n) => { try { await renameFolder(o, n); } catch (e) { toast((e as Error).message, 'error'); } }}
                     onDeleteFolder={async (name) => { try { await deleteFolder(name); } catch (e) { toast((e as Error).message, 'error'); } }}
-                    onMoveNote={async (f, t) => { try { await moveNote(f, t); } catch (e) { toast((e as Error).message, 'error'); } }}
+                    onMoveNote={async (f, dest) => { try { await moveNote(f, dest); } catch (e) { toast((e as Error).message, 'error'); } }}
                     allTags={allTags}
                     activeTagFilter={activeTagFilter}
                     onTagFilter={setActiveTagFilter}

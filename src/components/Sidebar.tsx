@@ -69,6 +69,7 @@ function NoteRow({
             onKeyDown={onRenameKeyDown}
             onClick={e => e.stopPropagation()}
             className="flex-1 min-w-0 bg-white dark:bg-gray-700 border border-[var(--accent)] rounded px-1 text-xs outline-none"
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
           />
         ) : (
@@ -123,7 +124,7 @@ export function Sidebar({
   const toggleFolder = (name: string) => {
     setCollapsedFolders(prev => {
       const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
+      if (next.has(name)) { next.delete(name); } else { next.add(name); }
       return next;
     });
   };
@@ -261,6 +262,7 @@ export function Sidebar({
       {newFolderMode && (
         <div className="px-2 pb-2">
           <input
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             value={newFolderName}
             onChange={e => setNewFolderName(e.target.value)}
@@ -309,6 +311,7 @@ export function Sidebar({
 
                   {renamingFolder === folder.name ? (
                     <input
+                      // eslint-disable-next-line jsx-a11y/no-autofocus
                       autoFocus
                       value={folderRenameValue}
                       onChange={e => setFolderRenameValue(e.target.value)}

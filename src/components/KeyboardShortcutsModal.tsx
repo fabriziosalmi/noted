@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
+import type { TranslationKey } from '../lib/i18n';
 
 interface ShortcutRow {
   keys: string[];
-  descriptionKey: string;
+  descriptionKey: TranslationKey;
 }
 
 interface KeyboardShortcutsModalProps {
@@ -14,7 +15,7 @@ interface KeyboardShortcutsModalProps {
 export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps) {
   const { t } = useI18n();
 
-  const SECTIONS: { titleKey: string; rows: ShortcutRow[] }[] = [
+  const SECTIONS: { titleKey: TranslationKey; rows: ShortcutRow[] }[] = [
     {
       titleKey: 'sectionGeneral',
       rows: [
@@ -77,11 +78,11 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
         <div className="px-5 py-4 space-y-5">
           {SECTIONS.map(section => (
             <div key={section.titleKey}>
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t(section.titleKey as any)}</p>
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t(section.titleKey)}</p>
               <div className="space-y-1.5">
                 {section.rows.map(row => (
                   <div key={row.descriptionKey} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-300">{t(row.descriptionKey as any)}</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">{t(row.descriptionKey)}</span>
                     <div className="flex items-center gap-1">
                       {row.keys.map((k, i) => (
                         <kbd
