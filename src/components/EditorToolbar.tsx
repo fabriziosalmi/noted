@@ -82,60 +82,59 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
 
   return (
     <div className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shrink-0">
-      {/* AI bar */}
-      {showAiBar && (
-        <div className="px-4 pt-2">
-          <AiActionsBar editor={editor} onError={onAiError} />
-        </div>
-      )}
-
-      {/* Formatting toolbar */}
-      {showToolbar && (
+      {/* Unified single toolbar */}
+      {(showAiBar || showToolbar) && (
         <div className="flex items-center gap-0.5 px-4 py-1.5 flex-wrap">
-          <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} title={t('heading1')}
-            className={`${btnBase} ${editor.isActive('heading', { level: 1 }) ? btnActive : btnIdle}`}>
-            <Heading1 size={15} />
-          </button>
-          <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} title={t('heading2')}
-            className={`${btnBase} ${editor.isActive('heading', { level: 2 }) ? btnActive : btnIdle}`}>
-            <Heading2 size={15} />
-          </button>
-          <button onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} title={t('heading3')}
-            className={`${btnBase} ${editor.isActive('heading', { level: 3 }) ? btnActive : btnIdle}`}>
-            <Heading3 size={15} />
-          </button>
-          {sep}
-          <button onClick={() => editor.chain().focus().toggleBold().run()} title={t('bold')}
-            className={`${btnBase} ${editor.isActive('bold') ? btnActive : btnIdle}`}>
-            <Bold size={15} />
-          </button>
-          <button onClick={() => editor.chain().focus().toggleItalic().run()} title={t('italic')}
-            className={`${btnBase} ${editor.isActive('italic') ? btnActive : btnIdle}`}>
-            <Italic size={15} />
-          </button>
-          <button onClick={() => editor.chain().focus().toggleStrike().run()} title={t('strikethrough')}
-            className={`${btnBase} ${editor.isActive('strike') ? btnActive : btnIdle}`}>
-            <Strikethrough size={15} />
-          </button>
-          <button onClick={() => editor.chain().focus().toggleCode().run()} title={t('inlineCode')}
-            className={`${btnBase} ${editor.isActive('code') ? btnActive : btnIdle}`}>
-            <Code size={15} />
-          </button>
-          {sep}
-          <button onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-            title={t('insertTable')}
-            className={`${btnBase} ${btnIdle} hover:text-indigo-600 dark:hover:text-indigo-400`}>
-            <TableIcon size={15} />
-          </button>
-          {sep}
-          <button
-            onClick={onOpenFind}
-            title={t('findShortcut')}
-            className={`${btnBase} ${findOpen ? btnActive : btnIdle}`}
-            aria-label={t('findAriaLabel')}
-          >
-            <Search size={15} />
-          </button>
+          {showAiBar && <AiActionsBar editor={editor} onError={onAiError} />}
+          {showAiBar && showToolbar && sep}
+          {showToolbar && (
+            <>
+              <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} title={t('heading1')}
+                className={`${btnBase} ${editor.isActive('heading', { level: 1 }) ? btnActive : btnIdle}`}>
+                <Heading1 size={15} />
+              </button>
+              <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} title={t('heading2')}
+                className={`${btnBase} ${editor.isActive('heading', { level: 2 }) ? btnActive : btnIdle}`}>
+                <Heading2 size={15} />
+              </button>
+              <button onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} title={t('heading3')}
+                className={`${btnBase} ${editor.isActive('heading', { level: 3 }) ? btnActive : btnIdle}`}>
+                <Heading3 size={15} />
+              </button>
+              {sep}
+              <button onClick={() => editor.chain().focus().toggleBold().run()} title={t('bold')}
+                className={`${btnBase} ${editor.isActive('bold') ? btnActive : btnIdle}`}>
+                <Bold size={15} />
+              </button>
+              <button onClick={() => editor.chain().focus().toggleItalic().run()} title={t('italic')}
+                className={`${btnBase} ${editor.isActive('italic') ? btnActive : btnIdle}`}>
+                <Italic size={15} />
+              </button>
+              <button onClick={() => editor.chain().focus().toggleStrike().run()} title={t('strikethrough')}
+                className={`${btnBase} ${editor.isActive('strike') ? btnActive : btnIdle}`}>
+                <Strikethrough size={15} />
+              </button>
+              <button onClick={() => editor.chain().focus().toggleCode().run()} title={t('inlineCode')}
+                className={`${btnBase} ${editor.isActive('code') ? btnActive : btnIdle}`}>
+                <Code size={15} />
+              </button>
+              {sep}
+              <button onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+                title={t('insertTable')}
+                className={`${btnBase} ${btnIdle}`}>
+                <TableIcon size={15} />
+              </button>
+              {sep}
+              <button
+                onClick={onOpenFind}
+                title={t('findShortcut')}
+                className={`${btnBase} ${findOpen ? btnActive : btnIdle}`}
+                aria-label={t('findAriaLabel')}
+              >
+                <Search size={15} />
+              </button>
+            </>
+          )}
         </div>
       )}
 

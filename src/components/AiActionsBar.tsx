@@ -241,16 +241,16 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
   };
 
   return (
-    <div className="flex items-center gap-0.5 mb-3 pb-3 border-b border-[var(--accent-light)] flex-wrap">
+    <>
       <span className="text-[10px] font-semibold uppercase tracking-wider mr-1 shrink-0" style={{ color: 'var(--accent)', opacity: 0.5 }}>AI</span>
       {ACTIONS.map(renderBtn)}
       <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
       {ANALYSIS_ACTIONS.map(renderBtn)}
       {hasSelection && (
-        <span className="ml-auto text-[10px] italic shrink-0" style={{ color: 'var(--accent)', opacity: 0.7 }}>
-          selection active
+        <span className="ml-2 text-[10px] italic shrink-0" style={{ color: 'var(--accent)', opacity: 0.7 }}>
+          sel
         </span>
       )}
-    </div>
+    </>
   );
 }
