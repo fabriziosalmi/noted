@@ -30,7 +30,8 @@ interface SettingsState {
   editorFont: 'system' | 'serif' | 'mono';
   editorFontSize: 'sm' | 'md' | 'lg' | 'xl';
   typewriterMode: boolean;
-  language?: 'en' | 'it';
+  language?: 'en' | 'it' | 'es' | 'pt' | 'fr' | 'de';
+  piiMasking?: boolean;
   // Git integration (all optional for backward-compat with persisted state)
   gitEnabled?: boolean;
   gitRemote?: string;
@@ -284,7 +285,7 @@ export const useStore = create<NoteState>()(
     const sec = lang === 'it'
       ? { notes: 'Note', todo: 'Da fare', ideas: 'Idee' }
       : { notes: 'Notes', todo: 'To do', ideas: 'Ideas' };
-    const initialContent = `<h1>${title}</h1><h2>📝 ${sec.notes}</h2><p></p><h2>✅ ${sec.todo}</h2><ul><li><p></p></li></ul><h2>💡 ${sec.ideas}</h2><p></p>`;
+    const initialContent = `<h1>${title}</h1><h2>${sec.notes}</h2><p></p><h2>${sec.todo}</h2><ul><li><p></p></li></ul><h2>${sec.ideas}</h2><p></p>`;
     if (!window.electronAPI) return;
     const res = await window.electronAPI.saveNote(fileName, initialContent, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile creare la nota giornaliera');

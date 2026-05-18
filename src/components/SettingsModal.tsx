@@ -20,7 +20,8 @@ interface Settings {
   editorFont: 'system' | 'serif' | 'mono';
   editorFontSize: 'sm' | 'md' | 'lg' | 'xl';
   typewriterMode: boolean;
-  language?: 'en' | 'it';
+  language?: 'en' | 'it' | 'es' | 'pt' | 'fr' | 'de';
+  piiMasking?: boolean;
 }
 
 interface SettingsModalProps {
@@ -240,22 +241,36 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
 
           {/* Language selector */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">{t('language')}</label>
-            <div className="flex gap-2">
-              {(['en', 'it'] as const).map(lang => (
-                <button
-                  key={lang}
-                  onClick={() => onUpdate({ language: lang })}
-                  className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
-                    (settings.language ?? 'en') === lang
-                      ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
-                      : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-[var(--accent)]'
-                  }`}
-                >
-                  {lang === 'en' ? '🇬🇧 English' : '🇮🇹 Italiano'}
-                </button>
-              ))}
+            <label htmlFor="lang-select" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">{t('language')}</label>
+            <select
+              id="lang-select"
+              value={settings.language ?? 'en'}
+              onChange={e => onUpdate({ language: e.target.value as 'en' | 'it' | 'es' | 'pt' | 'fr' | 'de' })}
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm focus:border-[var(--accent)] focus:outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+            >
+              <option value="en">English</option>
+              <option value="it">Italiano</option>
+              <option value="es">Español</option>
+              <option value="pt">Português</option>
+              <option value="fr">Français</option>
+              <option value="de">Deutsch</option>
+            </select>
+          </div>
+
+          {/* PII Masking */}
+          <div className="flex items-start justify-between gap-4 py-1">
+            <div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('piiMasking')}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('piiMaskingDesc')}</p>
             </div>
+            <button
+              role="switch"
+              aria-checked={!!settings.piiMasking}
+              onClick={() => onUpdate({ piiMasking: !settings.piiMasking })}
+              className={`shrink-0 relative inline-flex h-5 w-9 rounded-full border-2 border-transparent transition-colors focus-visible:outline-none mt-0.5 ${settings.piiMasking ? 'bg-[var(--accent)]' : 'bg-gray-200 dark:bg-gray-600'}`}
+            >
+              <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${settings.piiMasking ? 'translate-x-4' : 'translate-x-0'}`} />
+            </button>
           </div>
 
           {/* Editor appearance toggles */}

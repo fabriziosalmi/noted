@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bot, Loader2, Database, RotateCcw } from 'lucide-react';
+import { Bot, Loader2, Database, RotateCcw, ShieldAlert } from 'lucide-react';
 import { askLLM } from '../lib/llm';
 import { findRelevantNotes, type NoteChunk } from '../lib/noteSearch';
 import { useI18n } from '../lib/i18n';
 import { useStore } from '../store/useStore';
+import { maskPii } from '../lib/piiMasker';
 
 interface AiChatProps {
   getEditorText: () => string;
@@ -15,6 +16,8 @@ interface ChatMessage { role: 'assistant' | 'user'; content: string }
 export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
   const { t } = useI18n();
   const lang = useStore(s => s.settings.language ?? 'en');
+  const piiMasking = useStore(s => s.settings.piiMasking ?? false);
+  const [piiNotice, setPiiNotice] = useState<number>(0);
   // displayHistory includes the greeting bubble shown in the UI
   const [displayHistory, setDisplayHistory] = useState<ChatMessage[]>([
     { role: 'assistant', content: t('aiGreeting') },
@@ -37,11 +40,20 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
   const handleSubmit = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter' || !aiInput.trim() || isLoading) return;
 
-    const userMessage = aiInput.trim();
+    const rawUserMessage = aiInput.trim();
     setAiInput('');
 
-    const userTurn: ChatMessage = { role: 'user', content: userMessage };
-    const nextLlmHistory: ChatMessage[] = [...llmHistory, userTurn];
+    let userMessage = rawUserMessage;
+    let piiCount = 0;
+    if (piiMasking) {
+      const r = maskPii(rawUserMessage);
+      userMessage = r.maskedText;
+      piiCount += r.count;
+    }
+
+    const userTurn: ChatMessage = { role: 'user', content: rawUserMessage };
+    const llmUserTurn: ChatMessage = { role: 'user', content: userMessage };
+    const nextLlmHistory: ChatMessage[] = [...llmHistory, llmUserTurn];
 
     setDisplayHistory(prev => [...prev, userTurn]);
     setLlmHistory(nextLlmHistory);
@@ -49,14 +61,20 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
 
     try {
       const MAX_CONTEXT_CHARS = 8_000;
-      const rawContext = getEditorText();
+      let rawContext = getEditorText();
+      if (piiMasking) {
+        const r = maskPii(rawContext);
+        rawContext = r.maskedText;
+        piiCount += r.count;
+      }
       const isTruncated = rawContext.length > MAX_CONTEXT_CHARS;
       const textContext = isTruncated
         ? rawContext.slice(0, MAX_CONTEXT_CHARS) + (lang === 'it' ? '\n\n[...documento troncato per lunghezza...]' : '\n\n[...document truncated for length...]')
         : rawContext;
       if (isTruncated) {
-        setDisplayHistory(prev => [...prev, { role: 'assistant', content: `⚠️ ${t('contextTruncated')}` }]);
+        setDisplayHistory(prev => [...prev, { role: 'assistant', content: t('contextTruncated') }]);
       }
+      if (piiMasking && piiCount > 0) setPiiNotice(piiCount);
 
       // RAG: find related notes from the full vault
       const relevant = noteChunks.length > 0
@@ -120,6 +138,14 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
           </button>
         </div>
       </div>
+
+      {piiMasking && (
+        <div className="px-3 py-1.5 flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-100 dark:border-amber-800">
+          <ShieldAlert size={10} />
+          {t('piiMasking')}
+          {piiNotice > 0 && <span className="ml-auto font-medium">{t('piiMasked').replace('{n}', String(piiNotice))}</span>}
+        </div>
+      )}
 
       <div className="flex-1 p-4 text-sm text-gray-600 dark:text-gray-300 overflow-y-auto flex flex-col space-y-3">
         {displayHistory.map((msg, idx) => (

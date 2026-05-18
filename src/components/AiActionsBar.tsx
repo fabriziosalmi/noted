@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { askLLM } from '../lib/llm';
 import { Tooltip } from './Tooltip';
+import { useStore } from '../store/useStore';
+import { maskPii } from '../lib/piiMasker';
 
 interface Action {
   id: string;
@@ -168,6 +170,7 @@ interface AiActionsBarProps {
 
 export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const piiMasking = useStore(s => s.settings.piiMasking ?? false);
   const { from, to } = editor.state.selection;
   const hasSelection = from !== to;
 
@@ -176,14 +179,16 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
 
     const { from, to } = editor.state.selection;
     const hasSelection = from !== to;
-    const selectedText = hasSelection
+    const rawText = hasSelection
       ? editor.state.doc.textBetween(from, to, '\n')
       : editor.getText();
 
-    if (!selectedText.trim()) {
+    if (!rawText.trim()) {
       onError?.('Scrivi qualcosa nella nota prima di usare le azioni AI.');
       return;
     }
+
+    const selectedText = piiMasking ? maskPii(rawText).maskedText : rawText;
 
     setActiveId(action.id);
     try {

@@ -8,6 +8,7 @@ import { useStore } from './store/useStore';
 import { Sidebar } from './components/Sidebar';
 import { NoteEditor } from './components/NoteEditor';
 import { AiChat } from './components/AiChat';
+import { TextAnalytics } from './components/TextAnalytics';
 import { SettingsModal } from './components/SettingsModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { NoteAdvisorBadge, NoteAdvisorPanel } from './components/NoteAdvisor';
@@ -29,6 +30,7 @@ function App() {
   const { t } = useI18n();
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(false);
+  const [rightTab, setRightTab] = useState<'ai' | 'analytics'>('ai');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
@@ -437,8 +439,25 @@ const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
             <>
               <PanelResizeHandle className="w-1 hover:bg-blue-400 transition-colors cursor-col-resize" />
               <Panel defaultSize={25} minSize={20} maxSize={40} className="bg-gray-50 dark:bg-gray-800 flex flex-col border-l border-gray-200 dark:border-gray-700">
+                <div className="flex border-b border-gray-200 dark:border-gray-700 shrink-0">
+                  <button
+                    onClick={() => setRightTab('ai')}
+                    className={`flex-1 py-2 text-xs font-medium transition-colors ${rightTab === 'ai' ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                  >
+                    AI Chat
+                  </button>
+                  <button
+                    onClick={() => setRightTab('analytics')}
+                    className={`flex-1 py-2 text-xs font-medium transition-colors ${rightTab === 'analytics' ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                  >
+                    Analytics
+                  </button>
+                </div>
                 <ErrorBoundary>
-                  <AiChat getEditorText={getEditorText} noteChunks={noteChunks} />
+                  {rightTab === 'ai'
+                    ? <AiChat getEditorText={getEditorText} noteChunks={noteChunks} />
+                    : <TextAnalytics getText={getEditorText} activeNoteName={activeNoteName} />
+                  }
                 </ErrorBoundary>
               </Panel>
             </>

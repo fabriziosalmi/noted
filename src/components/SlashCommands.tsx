@@ -3,6 +3,8 @@ import type { Editor } from '@tiptap/react';
 import { askLLM } from '../lib/llm';
 import { Wand2, AlignLeft, List, Languages, Minimize2, Pencil, Loader2 } from 'lucide-react';
 import { useI18n, type TranslationKey } from '../lib/i18n';
+import { useStore } from '../store/useStore';
+import { maskPii } from '../lib/piiMasker';
 
 interface SlashCommandsProps {
   editor: Editor;
@@ -64,6 +66,7 @@ const COMMANDS: Command[] = [
 
 export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
   const { t } = useI18n();
+  const piiMasking = useStore(s => s.settings.piiMasking ?? false);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(0);
@@ -114,9 +117,10 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
     const { state } = editor;
     const curFrom = state.selection.from;
     const needsFullContext = ['summarize', 'bullets', 'translate'].includes(cmd.id);
-    const context = needsFullContext
+    const rawContext = needsFullContext
       ? editor.getText().slice(0, 6000)
       : (state.doc.textBetween(Math.max(0, curFrom - 800), curFrom, '\n').trim() || editor.getText().slice(-800));
+    const context = piiMasking ? maskPii(rawContext).maskedText : rawContext;
 
     try {
       const result = await askLLM([
