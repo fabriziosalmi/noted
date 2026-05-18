@@ -20,6 +20,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { Tooltip } from './components/Tooltip';
 import { ToastStack } from './components/Toast';
 import { QuickOpen } from './components/QuickOpen';
+import { GlobalSearch } from './components/GlobalSearch';
 import { useToast } from './hooks/useToast';
 import { useTheme } from './hooks/useTheme';
 import { useNoteAdvisor } from './hooks/useNoteAdvisor';
@@ -39,6 +40,7 @@ function App() {
   const [isGitOpen, setIsGitOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
   const editorRef = useRef<Editor | null>(null);
   const { messages: toastMessages, toast, dismiss } = useToast();
@@ -148,7 +150,11 @@ function App() {
         e.preventDefault();
         setFindOpen(v => !v);
       }
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'F') {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'F' || e.key === 'f')) {
+        e.preventDefault();
+        setGlobalSearchOpen(v => !v);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
         e.preventDefault();
         updateSettings({ focusMode: !settings.focusMode });
       }
@@ -409,6 +415,7 @@ const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
                 findOpen={findOpen}
                 onCloseFind={() => setFindOpen(false)}
                 onOpenFind={() => setFindOpen(true)}
+                onOpenGlobalSearch={() => setGlobalSearchOpen(true)}
               />
             )}
 
@@ -527,6 +534,13 @@ const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
           notes={notes}
           onSelect={openNote}
           onClose={() => setQuickOpenOpen(false)}
+        />
+      )}
+
+      {globalSearchOpen && (
+        <GlobalSearch
+          onSelect={openNote}
+          onClose={() => setGlobalSearchOpen(false)}
         />
       )}
 

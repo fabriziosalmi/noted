@@ -33,9 +33,10 @@ interface EditorToolbarProps {
   findOpen: boolean;
   onCloseFind: () => void;
   onOpenFind: () => void;
+  onOpenGlobalSearch?: () => void;
 }
 
-export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findOpen, onCloseFind, onOpenFind }: EditorToolbarProps) {
+export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findOpen, onCloseFind, onOpenFind, onOpenGlobalSearch }: EditorToolbarProps) {
   const { t } = useI18n();
   const [findQuery, setFindQuery] = useState('');
   const [matches, setMatches] = useState<Match[]>([]);
@@ -131,6 +132,19 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
               >
                 <Search size={15} />
               </button>
+              {onOpenGlobalSearch && (
+                <button
+                  onClick={onOpenGlobalSearch}
+                  title="Search all notes (⌘⇧F)"
+                  className={`${btnBase} ${btnIdle}`}
+                  aria-label="Search all notes"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                    <path d="M11 8v6M8 11h6" strokeWidth="1.8"/>
+                  </svg>
+                </button>
+              )}
             </>
           )}
           {showToolbar && showAiBar && sep}

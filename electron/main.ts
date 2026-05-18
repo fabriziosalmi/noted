@@ -859,6 +859,101 @@ ipcMain.handle('git-get-token', () => {
   } catch (err) { return { success: false, error: (err as Error).message }; }
 });
 
+// ─── Full-text search ─────────────────────────────────────────────────────────
+
+function stripHtmlToText(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<\/?(p|h[1-6]|li|div|blockquote)[^>]*>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+interface FtSearchResult {
+  relPath: string;
+  title: string;
+  snippet: string;
+  score: number;
+  terms: string[];
+}
+
+ipcMain.handle('search-notes-fulltext', (_, query: string, syncDir?: string) => {
+  if (!query || query.trim().length < 2) return { success: true, data: [] };
+
+  const dir = getTargetDir(syncDir);
+  const rawTerms = query.trim().toLowerCase().split(/\s+/).filter(t => t.length >= 2);
+  if (rawTerms.length === 0) return { success: true, data: [] };
+
+  // Collect all .md files (root + one level of subfolders)
+  const mdFiles: Array<{ filePath: string; relPath: string }> = [];
+  try {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory() && !entry.name.startsWith('.')) {
+        const sub = path.join(dir, entry.name);
+        for (const f of fs.readdirSync(sub, { withFileTypes: true })) {
+          if (!f.isDirectory() && f.name.endsWith('.md')) {
+            mdFiles.push({ filePath: path.join(sub, f.name), relPath: `${entry.name}/${f.name}` });
+          }
+        }
+      } else if (!entry.isDirectory() && entry.name.endsWith('.md')) {
+        mdFiles.push({ filePath: path.join(dir, entry.name), relPath: entry.name });
+      }
+    }
+  } catch { return { success: true, data: [] }; }
+
+  const results: FtSearchResult[] = [];
+
+  for (const { filePath, relPath } of mdFiles) {
+    let raw: string;
+    try { raw = fs.readFileSync(filePath, 'utf-8'); } catch { continue; }
+
+    const plain = stripHtmlToText(raw);
+    const lower = plain.toLowerCase();
+    const title = relPath.split('/').pop()!.replace(/\.md$/, '').replace(/_/g, ' ');
+    const titleLower = title.toLowerCase();
+
+    let score = 0;
+    let firstMatchIdx = -1;
+    const matchedTerms: string[] = [];
+
+    for (const term of rawTerms) {
+      let idx = 0;
+      let termCount = 0;
+      while ((idx = lower.indexOf(term, idx)) !== -1) {
+        if (firstMatchIdx === -1 || idx < firstMatchIdx) firstMatchIdx = idx;
+        termCount++;
+        idx += term.length;
+      }
+      if (termCount > 0) {
+        matchedTerms.push(term);
+        score += termCount;
+        if (titleLower.includes(term)) score += 10;
+      }
+    }
+
+    if (score === 0 || firstMatchIdx === -1) continue;
+    if (matchedTerms.length === rawTerms.length) score += 5;
+
+    const CTX = 90;
+    const start = Math.max(0, firstMatchIdx - CTX);
+    const end = Math.min(plain.length, firstMatchIdx + CTX * 2);
+    let snippet = plain.slice(start, end).replace(/\s+/g, ' ').trim();
+    if (start > 0) snippet = '…' + snippet;
+    if (end < plain.length) snippet += '…';
+
+    results.push({ relPath, title, snippet, score, terms: matchedTerms });
+  }
+
+  results.sort((a, b) => b.score - a.score);
+  return { success: true, data: results.slice(0, 25) };
+});
+
 // ─── Git IPC ──────────────────────────────────────────────────────────────────
 
 ipcMain.handle('git-status', async (_, syncDir?: string) => {

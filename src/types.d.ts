@@ -58,6 +58,7 @@ declare global {
       gitLog: (noteName?: string, syncDir?: string) => Promise<GitResult<GitLogEntry[]>>;
       gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => Promise<GitResult<PrData>>;
       gitSaveAsGist: (params: { fileName: string; content: string; isPublic: boolean; token: string }) => Promise<GitResult<string>>;
+      searchNotesFulltext: (query: string, syncDir?: string) => Promise<{ success: boolean; data?: Array<{ relPath: string; title: string; snippet: string; score: number; terms: string[] }>; error?: string }>;
     };
   }
 }
