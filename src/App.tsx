@@ -87,14 +87,24 @@ function App() {
   useEffect(() => {
     if (!rightOpen || !window.electronAPI || notes.length === 0) return;
     let cancelled = false;
+    const syncDir = settings.syncDirectory || undefined;
     (async () => {
+      const capped = notes.slice(0, 100);
+      const BATCH = 10;
       const chunks: NoteChunk[] = [];
-      for (const note of notes.slice(0, 50)) { // cap at 50 notes for perf
-        const res = await window.electronAPI.readNote(note.name, settings.syncDirectory || undefined);
+      for (let i = 0; i < capped.length; i += BATCH) {
         if (cancelled) return;
-        if (res.success && res.data) {
-          const text = res.data.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-          chunks.push({ name: note.name, text });
+        const batch = capped.slice(i, i + BATCH);
+        const results = await Promise.all(
+          batch.map(note => window.electronAPI.readNote(note.name, syncDir))
+        );
+        if (cancelled) return;
+        for (let j = 0; j < batch.length; j++) {
+          const res = results[j];
+          if (res?.success && res.data) {
+            const text = (res.data as string).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            chunks.push({ name: batch[j].name, text });
+          }
         }
       }
       if (!cancelled) setNoteChunks(chunks);

@@ -65,7 +65,9 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   const ghostTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ghostTextRef = useRef('');
   const ghostActiveRef = useRef(false);
+  const ghostGenerationRef = useRef(0);
   const [ghostActive, setGhostActive] = useState(false);
+  const [ghostLoading, setGhostLoading] = useState(false);
   const editorRef = useRef<Editor | null>(null);
 
   useEffect(() => {
@@ -107,6 +109,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     ghostTextRef.current = '';
     ghostActiveRef.current = false;
     setGhostActive(false);
+    setGhostLoading(false);
     const ed = editorRef.current;
     if (ed) ed.view.dispatch(ed.state.tr.setMeta(ghostTextKey, ''));
   }, []);
@@ -138,25 +141,39 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       clearGhost();
       if (ghostTimerRef.current) clearTimeout(ghostTimerRef.current);
       if (!llmReady) return;
+      const gen = ++ghostGenerationRef.current;
+      setGhostLoading(true);
       ghostTimerRef.current = setTimeout(async () => {
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || ghostGenerationRef.current !== gen) {
+          if (mountedRef.current) setGhostLoading(false);
+          return;
+        }
         const { state } = editor;
         const { from } = state.selection;
+        const capturedFrom = from;
         const context = state.doc.textBetween(Math.max(0, from - 400), from, '\n').trim();
-        if (context.length < 30) return;
+        if (context.length < 80) {
+          if (mountedRef.current) setGhostLoading(false);
+          return;
+        }
         try {
           const suggestion = await askLLM([
-            { role: 'system', content: 'Sei un assistente di scrittura. Completa il testo con 1 breve frase naturale nella stessa lingua e stile. Rispondi con SOLO la continuazione, senza ripetere il testo esistente, senza virgolette.' },
+            { role: 'system', content: 'You are a writing assistant. Complete the text with 1 natural sentence in the same language and style. Reply with ONLY the continuation, no repetition, no quotes.' },
             { role: 'user', content: context },
           ]);
-          if (!mountedRef.current || !suggestion.trim()) return;
+          if (!mountedRef.current || ghostGenerationRef.current !== gen) return;
+          // Discard if cursor moved to a different position
+          if (editor.state.selection.from !== capturedFrom) return;
           const trimmed = suggestion.trim().replace(/^[.,;:\s]+/, '');
+          if (!trimmed) return;
           ghostTextRef.current = ' ' + trimmed;
           ghostActiveRef.current = true;
           setGhostActive(true);
           editor.view.dispatch(editor.state.tr.setMeta(ghostTextKey, ' ' + trimmed));
         } catch {
           // silently ignore — ghost text is best-effort
+        } finally {
+          if (mountedRef.current && ghostGenerationRef.current === gen) setGhostLoading(false);
         }
       }, 1200);
     },
@@ -200,7 +217,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
 
         // Smart paste for text
         const text = event.clipboardData?.getData('text/plain');
-        if (!text || (text.length < 30 && !text.includes('\n'))) return false;
+        if (!text || text.length < 150) return false;
         event.preventDefault();
         (async () => {
           if (!mountedRef.current) return;
@@ -377,7 +394,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       )}
 
       {isSmartPasting && (
-        <div className="fixed top-14 right-4 bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-full flex items-center space-x-2 shadow-lg animate-pulse z-30">
+        <div className="fixed top-14 right-4 text-white text-xs px-3 py-1.5 rounded-full flex items-center space-x-2 shadow-lg animate-pulse z-30" style={{ background: 'var(--accent)' }}>
           <Bot size={14} />
           <span>{t('smartPaste')}</span>
         </div>
@@ -385,6 +402,12 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
 
       {/* Status bar */}
       <div className="fixed bottom-4 right-4 flex items-center gap-3 z-20">
+        {ghostLoading && !ghostActive && (
+          <span className="text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+            {t('ghostThinking')}
+          </span>
+        )}
         {ghostActive && (
           <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-full px-2.5 py-1">
             <kbd className="font-mono text-[10px] bg-gray-200 dark:bg-gray-700 rounded px-1">Tab</kbd>

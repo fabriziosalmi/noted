@@ -177,6 +177,8 @@ const translations = {
     aiGreeting: "Hello! I'm your assistant. I can read what you write and help you. How can I help you today?",
     aiError: '❌ Error: {msg}. Check settings (Provider and API Key).',
     contextTruncated: 'Note exceeds context limit (8,000 chars) — only the first portion was sent to the AI.',
+    clearChat: 'Clear conversation',
+    ghostThinking: 'AI',
 
     // Editor Toolbar
     heading1: 'Heading 1',
@@ -446,6 +448,8 @@ const translations = {
     aiGreeting: 'Ciao! Sono il tuo assistente. MCP attivato. Posso leggere quello che scrivi e aiutarti. Come posso aiutarti oggi?',
     aiError: '❌ Errore: {msg}. Controlla le impostazioni (Provider e API Key).',
     contextTruncated: "La nota supera il limite di contesto (8.000 caratteri) — solo la prima parte è stata inviata all'AI.",
+    clearChat: 'Cancella conversazione',
+    ghostThinking: 'AI',
 
     // Editor Toolbar
     heading1: 'Titolo 1',

@@ -19,50 +19,50 @@ interface Action {
 const ACTIONS: Action[] = [
   {
     id: 'continue',
-    label: 'Continua',
+    label: 'Continue',
     icon: ChevronRight,
     mode: 'append',
-    system: `Sei un assistente di scrittura. L'utente ti mostra il suo testo. Continua la scrittura in modo naturale, mantenendo stile e tono. Restituisci SOLO il testo continuato, senza ripetere quello esistente. Formato Markdown.`,
+    system: 'You are a writing assistant. Continue this text naturally, maintaining its style and tone. Return ONLY the continuation in the same language as the original. Markdown format.',
   },
   {
     id: 'expand',
-    label: 'Espandi',
+    label: 'Expand',
     icon: Maximize2,
     mode: 'replace',
-    system: `Espandi il testo seguente aggiungendo dettagli, esempi e contesto, mantenendo lo stesso tono e struttura. Restituisci SOLO il testo espanso in Markdown.`,
+    system: 'Expand this text with more detail, examples and context, maintaining the same style and tone. Return ONLY the expanded text in the same language. Markdown format.',
   },
   {
     id: 'shorten',
-    label: 'Accorcia',
+    label: 'Shorten',
     icon: Minimize2,
     mode: 'replace',
-    system: `Accorcia il testo seguente mantenendo tutti i punti chiave. Elimina ridondanze e riduci la lunghezza del 40-50%. Restituisci SOLO il testo accorciato in Markdown.`,
+    system: 'Shorten this text while keeping all key points. Reduce length by 40-50%, eliminate redundancy. Return ONLY the shortened text in the same language. Markdown format.',
   },
   {
     id: 'refine',
-    label: 'Raffina',
+    label: 'Refine',
     icon: Wand2,
     mode: 'replace',
-    system: `Migliora il testo seguente: correggi grammatica, migliora la fluidità, raffina lo stile, rendi la scrittura più chiara e professionale. Restituisci SOLO il testo migliorato in Markdown.`,
+    system: 'Improve this text: fix grammar, improve flow, enhance clarity and style. Return ONLY the improved text in the same language. Markdown format.',
   },
 ];
 
 const ANALYSIS_ACTIONS: Action[] = [
   {
     id: 'summarize',
-    label: 'Riassumi',
+    label: 'Summarize',
     icon: FileText,
     mode: 'append',
-    heading: '## Sommario',
-    system: `Riassumi il seguente documento in modo conciso e strutturato. Restituisci SOLO il riassunto in Markdown.`,
+    heading: '## Summary',
+    system: 'Summarize this document concisely and structurally in the same language as the text. Return ONLY the summary. Markdown format.',
   },
   {
     id: 'review',
-    label: 'Revisiona',
+    label: 'Review',
     icon: Eye,
     mode: 'append',
-    heading: '## Revisione',
-    system: `Analizza il seguente testo e fornisci un feedback critico strutturato: punti di forza, aree di miglioramento, suggerimenti specifici. Restituisci in Markdown.`,
+    heading: '## Review',
+    system: 'Analyze this text and provide structured feedback in the same language: strengths, areas for improvement, specific suggestions. Markdown format.',
   },
   {
     id: 'devil',
@@ -70,15 +70,15 @@ const ANALYSIS_ACTIONS: Action[] = [
     icon: Zap,
     mode: 'append',
     heading: "## Devil's Advocate",
-    system: `Fai il devil's advocate del seguente testo: presenta controargomenti solidi, obiezioni, prospettive alternative e potenziali criticità. Restituisci in Markdown.`,
+    system: "Play devil's advocate on this text in the same language: present strong counterarguments, objections, and alternative perspectives. Markdown format.",
   },
   {
     id: 'qa',
     label: 'Q&A',
     icon: HelpCircle,
     mode: 'append',
-    heading: '## Domande & Risposte',
-    system: `Dal seguente testo genera una lista di domande e risposte utili per approfondire e testare la comprensione dei concetti chiave. Restituisci in Markdown.`,
+    heading: '## Q&A',
+    system: 'Generate a list of questions and answers from this text in the same language to deepen understanding of key concepts. Markdown format.',
   },
 ];
 
@@ -86,39 +86,79 @@ function mdToHtml(md: string): string {
   return md
     .split('\n\n')
     .map(block => {
-      if (/^#{1,6} /.test(block)) {
-        return block
-          .replace(/^###### (.+)$/m, '<h6>$1</h6>')
-          .replace(/^##### (.+)$/m, '<h5>$1</h5>')
-          .replace(/^#### (.+)$/m, '<h4>$1</h4>')
-          .replace(/^### (.+)$/m, '<h3>$1</h3>')
-          .replace(/^## (.+)$/m, '<h2>$1</h2>')
-          .replace(/^# (.+)$/m, '<h1>$1</h1>');
+      const trimmed = block.trim();
+      if (!trimmed) return '';
+
+      // Headings (handle multiple in same block)
+      if (/^#{1,6} /m.test(trimmed)) {
+        return trimmed
+          .replace(/^###### (.+)$/mg, '<h6>$1</h6>')
+          .replace(/^##### (.+)$/mg, '<h5>$1</h5>')
+          .replace(/^#### (.+)$/mg, '<h4>$1</h4>')
+          .replace(/^### (.+)$/mg, '<h3>$1</h3>')
+          .replace(/^## (.+)$/mg, '<h2>$1</h2>')
+          .replace(/^# (.+)$/mg, '<h1>$1</h1>');
       }
-      if (/^[-*] /.test(block)) {
-        const items = block.split('\n').filter(l => /^[-*] /.test(l))
-          .map(l => `<li>${inlineFormat(l.replace(/^[-*] /, ''))}</li>`).join('');
+
+      // Blockquotes
+      if (/^> /.test(trimmed)) {
+        const content = trimmed.replace(/^> ?/gm, '').trim();
+        return `<blockquote><p>${inlineFormat(content)}</p></blockquote>`;
+      }
+
+      // Tables (detect by | at start)
+      if (/^\|/.test(trimmed)) {
+        const rows = trimmed.split('\n').filter(l => l.trim() && !/^\s*\|[-: |]+\|\s*$/.test(l));
+        const html = rows.map((line, i) => {
+          const cells = line.split('|').slice(1, -1).map(c => c.trim());
+          const tag = i === 0 ? 'th' : 'td';
+          return `<tr>${cells.map(c => `<${tag}>${inlineFormat(c)}</${tag}>`).join('')}</tr>`;
+        }).join('');
+        return `<table>${html}</table>`;
+      }
+
+      // Unordered lists
+      if (/^[-*] /.test(trimmed)) {
+        const items = trimmed.split('\n')
+          .filter(l => /^[-*] /.test(l))
+          .map(l => `<li>${inlineFormat(l.replace(/^[-*] /, ''))}</li>`)
+          .join('');
         return `<ul>${items}</ul>`;
       }
-      if (/^\d+\. /.test(block)) {
-        const items = block.split('\n').filter(l => /^\d+\. /.test(l))
-          .map(l => `<li>${inlineFormat(l.replace(/^\d+\. /, ''))}</li>`).join('');
+
+      // Ordered lists
+      if (/^\d+\. /.test(trimmed)) {
+        const items = trimmed.split('\n')
+          .filter(l => /^\d+\. /.test(l))
+          .map(l => `<li>${inlineFormat(l.replace(/^\d+\. /, ''))}</li>`)
+          .join('');
         return `<ol>${items}</ol>`;
       }
-      if (block.startsWith('```')) {
-        const code = block.replace(/^```\w*\n?/, '').replace(/```$/, '');
+
+      // Code blocks
+      if (trimmed.startsWith('```')) {
+        const code = trimmed.replace(/^```\w*\n?/, '').replace(/```$/, '');
         return `<pre><code>${code}</code></pre>`;
       }
-      return `<p>${inlineFormat(block.replace(/\n/g, '<br>'))}</p>`;
+
+      // Horizontal rule
+      if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+        return '<hr>';
+      }
+
+      return `<p>${inlineFormat(trimmed.replace(/\n/g, '<br>'))}</p>`;
     })
+    .filter(Boolean)
     .join('');
 }
 
 function inlineFormat(text: string): string {
   return text
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code>$1</code>');
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/_([^_]+)_/g, '<em>$1</em>');
 }
 
 interface AiActionsBarProps {
@@ -185,10 +225,10 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
           aria-label={action.label}
           className={`flex items-center py-1 px-1.5 rounded transition-colors duration-150
             ${isActive
-              ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
+              ? 'bg-[var(--accent-light)] text-[var(--accent)]'
               : isDisabled
                 ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-indigo-600 dark:hover:text-indigo-400'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[var(--accent)]'
             }`}
         >
           {isActive
@@ -201,14 +241,14 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
   };
 
   return (
-    <div className="flex items-center gap-0.5 mb-3 pb-3 border-b border-indigo-50 dark:border-indigo-900/40 flex-wrap">
-      <span className="text-[10px] font-semibold text-indigo-300 dark:text-indigo-600 uppercase tracking-wider mr-1 shrink-0">AI</span>
+    <div className="flex items-center gap-0.5 mb-3 pb-3 border-b border-[var(--accent-light)] flex-wrap">
+      <span className="text-[10px] font-semibold uppercase tracking-wider mr-1 shrink-0" style={{ color: 'var(--accent)', opacity: 0.5 }}>AI</span>
       {ACTIONS.map(renderBtn)}
       <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
       {ANALYSIS_ACTIONS.map(renderBtn)}
       {hasSelection && (
-        <span className="ml-auto text-[10px] text-indigo-400 dark:text-indigo-500 italic shrink-0">
-          selezione attiva
+        <span className="ml-auto text-[10px] italic shrink-0" style={{ color: 'var(--accent)', opacity: 0.7 }}>
+          selection active
         </span>
       )}
     </div>

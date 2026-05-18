@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bot, Loader2, Database } from 'lucide-react';
+import { Bot, Loader2, Database, RotateCcw } from 'lucide-react';
 import { askLLM } from '../lib/llm';
 import { findRelevantNotes, type NoteChunk } from '../lib/noteSearch';
 import { useI18n } from '../lib/i18n';
+import { useStore } from '../store/useStore';
 
 interface AiChatProps {
   getEditorText: () => string;
@@ -13,6 +14,7 @@ interface ChatMessage { role: 'assistant' | 'user'; content: string }
 
 export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
   const { t } = useI18n();
+  const lang = useStore(s => s.settings.language ?? 'en');
   // displayHistory includes the greeting bubble shown in the UI
   const [displayHistory, setDisplayHistory] = useState<ChatMessage[]>([
     { role: 'assistant', content: t('aiGreeting') },
@@ -22,6 +24,11 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
   const [aiInput, setAiInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleClear = () => {
+    setDisplayHistory([{ role: 'assistant', content: t('aiGreeting') }]);
+    setLlmHistory([]);
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -45,7 +52,7 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
       const rawContext = getEditorText();
       const isTruncated = rawContext.length > MAX_CONTEXT_CHARS;
       const textContext = isTruncated
-        ? rawContext.slice(0, MAX_CONTEXT_CHARS) + '\n\n[...documento troncato per lunghezza...]'
+        ? rawContext.slice(0, MAX_CONTEXT_CHARS) + (lang === 'it' ? '\n\n[...documento troncato per lunghezza...]' : '\n\n[...document truncated for length...]')
         : rawContext;
       if (isTruncated) {
         setDisplayHistory(prev => [...prev, { role: 'assistant', content: `⚠️ ${t('contextTruncated')}` }]);
@@ -59,15 +66,19 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
         ? relevant.map(n => `### ${n.name.replace('.md', '')}\n${n.text.slice(0, 1500)}`).join('\n\n---\n\n')
         : '';
 
+      const activeNoteLabel = lang === 'it' ? 'Nota attiva' : 'Active note';
+      const relatedLabel = lang === 'it' ? 'Note correlate dal vault' : 'Related notes from vault';
+      const systemInstructions = lang === 'it'
+        ? 'Sei un assistente integrato in un editor di note Markdown. Hai accesso al contenuto delle note dell\'utente.\n\nRispondi in modo conciso e utile. Se citi una nota specifica, indica il titolo.'
+        : 'You are an assistant integrated into a Markdown note editor. You have access to the user\'s note content.\n\nReply concisely and helpfully. If you cite a specific note, mention its title.';
+
       const response = await askLLM([
         {
           role: 'system',
-          content: `Sei un assistente integrato in un editor di note Markdown. Hai accesso al contenuto delle note dell'utente.
+          content: `${systemInstructions}
 
-${textContext ? `Nota attiva:\n"""\n${textContext}\n"""` : ''}
-${ragContext ? `\nNote correlate dal vault:\n"""\n${ragContext}\n"""` : ''}
-
-Rispondi in modo conciso e utile. Se citi una nota specifica, indica il titolo.`,
+${textContext ? `${activeNoteLabel}:\n"""\n${textContext}\n"""` : ''}
+${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
         },
         ...nextLlmHistory,
       ]);
@@ -92,12 +103,22 @@ Rispondi in modo conciso e utile. Se citi una nota specifica, indica il titolo.`
           <Bot size={14} />
           <span>{t('aiAssistant')}</span>
         </div>
-        {noteChunks.length > 0 && (
-          <span className="flex items-center gap-1 text-[10px] font-normal normal-case tracking-normal" style={{ color: 'var(--accent)' }} title={t('ragActive').replace('{n}', String(noteChunks.length))}>
-            <Database size={10} />
-            {t('ragActive').replace('{n}', String(noteChunks.length))}
-          </span>
-        )}
+        <div className="flex items-center gap-1.5">
+          {noteChunks.length > 0 && (
+            <span className="flex items-center gap-1 text-[10px] font-normal normal-case tracking-normal" style={{ color: 'var(--accent)' }} title={t('ragActive').replace('{n}', String(noteChunks.length))}>
+              <Database size={10} />
+              {t('ragActive').replace('{n}', String(noteChunks.length))}
+            </span>
+          )}
+          <button
+            onClick={handleClear}
+            aria-label={t('clearChat')}
+            title={t('clearChat')}
+            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          >
+            <RotateCcw size={11} />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 p-4 text-sm text-gray-600 dark:text-gray-300 overflow-y-auto flex flex-col space-y-3">

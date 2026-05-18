@@ -18,6 +18,8 @@ export function SmartTagSuggestion({ content, existingTags, onAccept }: SmartTag
   const [dismissed, setDismissed] = useState(false);
   const prevContentRef = useRef('');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => { return () => { mountedRef.current = false; }; }, []);
 
   useEffect(() => {
     if (dismissed) return;
@@ -48,7 +50,7 @@ export function SmartTagSuggestion({ content, existingTags, onAccept }: SmartTag
           .map(t => '#' + t.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-_àèéìòù]/g, ''))
           .filter(t => t.length > 1 && !existingTags.includes(t))
           .slice(0, 6);
-        if (tags.length > 0) {
+        if (tags.length > 0 && mountedRef.current) {
           setSuggestedTags(tags);
           setSelected(new Set(tags)); // all selected by default
           setVisible(true);
@@ -56,7 +58,7 @@ export function SmartTagSuggestion({ content, existingTags, onAccept }: SmartTag
       } catch {
         // Silently fail — don't interrupt the writing flow
       } finally {
-        setLoading(false);
+        if (mountedRef.current) setLoading(false);
       }
     }, 4000); // wait 4s after last significant change
 
