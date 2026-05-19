@@ -3,11 +3,12 @@ import type { Suggestion } from '../../lib/noteAdvisor';
 import type { NoteChunk } from '../../lib/noteSearch';
 import type { NoteTemplate } from '../../lib/templates';
 import type { NoteFile, SettingsState } from '../../store/useStore';
+import type { TranslationKey } from '../../lib/i18n';
 import type { AppPanelsApi } from '../../hooks/contracts';
 import type { AppChromeProps, AppModalsProps } from './types';
 
 interface AppCompositionState {
-  t: (key: string) => string;
+  t: (key: TranslationKey) => string;
   panels: AppPanelsApi;
   settings: SettingsState;
   notes: NoteFile[];
@@ -27,7 +28,7 @@ interface AppCompositionState {
   typewriterClass: string;
   activeEditor: Editor | null;
   customTemplates: NoteTemplate[];
-  toastMessages: { id: string; text: string; variant: 'success' | 'error' }[];
+  toastMessages: { id: number; text: string; variant: 'success' | 'error' }[];
 }
 
 interface AppCompositionActions {
@@ -46,7 +47,7 @@ interface AppCompositionActions {
   onHandleDeleteFolder: (name: string) => Promise<void>;
   onHandleMoveNote: (fileName: string, destination: string) => Promise<void>;
   onTogglePin: (name: string) => void;
-  onDismissToast: (id: string) => void;
+  onDismissToast: (id: number) => void;
   onDismissSuggestion: (id: string) => void;
   onDismissAllSuggestions: () => void;
   onCreateFromTemplate: (t: NoteTemplate) => Promise<void>;

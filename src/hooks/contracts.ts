@@ -1,8 +1,9 @@
 import type { NoteFile, SettingsState } from '../store/useStore';
+import type { TranslationKey } from '../lib/i18n';
 
 export type ToastVariant = 'success' | 'error';
 export type ToastFn = (text: string, variant?: ToastVariant) => void;
-export type TranslatorFn = (key: string) => string;
+export type TranslatorFn = (key: TranslationKey) => string;
 
 export interface AppActionsArgs {
   t: TranslatorFn;

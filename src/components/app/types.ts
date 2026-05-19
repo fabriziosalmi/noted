@@ -1,5 +1,6 @@
 import type { Editor } from '@tiptap/react';
 import type { AppPanelsApi } from '../../hooks/contracts';
+import type { TranslationKey } from '../../lib/i18n';
 import type { Suggestion } from '../../lib/noteAdvisor';
 import type { NoteChunk } from '../../lib/noteSearch';
 import type { NoteTemplate } from '../../lib/templates';
@@ -19,11 +20,11 @@ export type RenameFolderFn = (oldName: string, newName: string) => Promise<void>
 export type DeleteFolderFn = (name: string) => Promise<void>;
 export type MoveNoteFn = (fileName: string, destination: string) => Promise<void>;
 export type TogglePinFn = (name: string) => void;
-export type DismissToastFn = (id: string) => void;
+export type DismissToastFn = (id: number) => void;
 export type DismissSuggestionFn = (id: string) => void;
 
 export interface AppSharedProps {
-  t: (key: string) => string;
+  t: (key: TranslationKey) => string;
   panels: AppPanelsApi;
   settings: SettingsState;
 }
@@ -71,7 +72,7 @@ export interface AppModalsProps extends AppSharedProps {
   activeNoteContent: string;
   customTemplates: NoteTemplate[];
   suggestions: Suggestion[];
-  toastMessages: { id: string; text: string; variant: ToastVariant }[];
+  toastMessages: { id: number; text: string; variant: ToastVariant }[];
   onDismissToast: DismissToastFn;
   onDismissSuggestion: DismissSuggestionFn;
   onDismissAllSuggestions: () => void;
