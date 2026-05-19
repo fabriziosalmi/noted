@@ -28,7 +28,7 @@ function ToastItem({ message, onDismiss }: ToastItemProps) {
       className={`toast-item flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-lg text-sm text-white cursor-pointer ${
         isSuccess ? 'bg-emerald-600' : 'bg-red-600'
       }`}
-      onClick={() => onDismiss(message.id)}
+      onMouseDown={() => onDismiss(message.id)}
     >
       {isSuccess ? <CheckCircle size={15} /> : <XCircle size={15} />}
       <span>{message.text}</span>

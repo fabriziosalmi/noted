@@ -7,10 +7,10 @@ export interface PiiResult {
 // new RegExp on every call, which was wasteful and (worse) reset the `g` flag
 // state inconsistencies across invocations. All patterns are bounded to avoid
 // catastrophic backtracking on pathological input.
-const PII_PATTERNS: Array<{ name: string; pattern: RegExp }> = [
-  { name: 'EMAIL',  pattern: /[a-zA-Z0-9._%+\-]{1,64}@[a-zA-Z0-9.\-]{1,255}\.[a-zA-Z]{2,24}/g },
-  { name: 'PHONE',  pattern: /(?:\+?\d{1,3}[\s\-.]?)?\(?\d{2,4}\)?[\s\-.]?\d{3,4}[\s\-.]?\d{3,4}(?!\d)/g },
-  { name: 'CARD',   pattern: /\b\d{4}[\s\-]\d{4}[\s\-]\d{4}[\s\-]\d{4}\b/g },
+const PII_PATTERNS: { name: string; pattern: RegExp }[] = [
+  { name: 'EMAIL',  pattern: /[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9.-]{1,255}\.[a-zA-Z]{2,24}/g },
+  { name: 'PHONE',  pattern: /(?:\+?\d{1,3}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,4}(?!\d)/g },
+  { name: 'CARD',   pattern: /\b\d{4}[\s-]\d{4}[\s-]\d{4}[\s-]\d{4}\b/g },
   { name: 'SSN',    pattern: /\b\d{3}-\d{2}-\d{4}\b/g },
   { name: 'IBAN',   pattern: /\b[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7}[A-Z0-9]{0,16}\b/g },
   { name: 'IP',     pattern: /\b(?:\d{1,3}\.){3}\d{1,3}\b/g },

@@ -31,9 +31,9 @@ describe('validateFileName', () => {
   });
 
   it('rejects filenames without .md extension', () => {
-    expect(() => validateFileName('nota.txt')).toThrow('Invalid file name');
-    expect(() => validateFileName('nota')).toThrow('Invalid file name');
-    expect(() => validateFileName('nota.md.sh')).toThrow('Invalid file name');
+    expect(() => validateFileName('nota.txt')).toThrow('.md extension');
+    expect(() => validateFileName('nota')).toThrow('.md extension');
+    expect(() => validateFileName('nota.md.sh')).toThrow('.md extension');
   });
 
   it('rejects filenames with shell-injection characters', () => {

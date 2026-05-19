@@ -27,7 +27,7 @@ export function TextAnalytics({ getText, activeNoteName }: TextAnalyticsProps) {
   const metrics = useMemo(() => {
     if (!activeNoteName) return null;
     return computeMetrics(getText());
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [activeNoteName, getText]);
 
   if (!metrics || !activeNoteName) {

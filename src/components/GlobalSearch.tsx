@@ -92,13 +92,15 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
   }, [activeIdx]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh]"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh]">
+      <button
+        type="button"
+        aria-label="Close search"
+        className="absolute inset-0"
+        onMouseDown={onClose}
+      />
       <div
-        className="w-[620px] bg-white/96 dark:bg-gray-900/96 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-xl shadow-2xl overflow-hidden"
-        onClick={e => e.stopPropagation()}
+        className="relative z-10 w-[620px] bg-white/96 dark:bg-gray-900/96 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-xl shadow-2xl overflow-hidden"
       >
         {/* Input */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800">

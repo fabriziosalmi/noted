@@ -50,7 +50,6 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
     if (res.success && res.data) setStatus(res.data);
   }, [syncDir]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void refreshStatus(); }, [refreshStatus]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -153,10 +152,15 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-end z-50 pt-12 pr-2" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-end pt-12 pr-2">
+      <button
+        type="button"
+        aria-label={t('close')}
+        className="absolute inset-0 bg-black/40"
+        onMouseDown={onClose}
+      />
       <div
-        className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-80 flex flex-col overflow-hidden border border-gray-200/60 dark:border-gray-700/60"
-        onClick={e => e.stopPropagation()}
+        className="relative z-10 bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-80 flex flex-col overflow-hidden border border-gray-200/60 dark:border-gray-700/60"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">

@@ -30,7 +30,6 @@ export function QuickOpen({ notes, onSelect, onClose }: QuickOpenProps) {
   );
 
   useEffect(() => { inputRef.current?.focus(); }, []);
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setActiveIdx(0); }, [query]);
 
   const confirm = useCallback((name: string) => {
@@ -56,10 +55,15 @@ export function QuickOpen({ notes, onSelect, onClose }: QuickOpenProps) {
   }, [activeIdx]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]">
+      <button
+        type="button"
+        aria-label={t('close')}
+        className="absolute inset-0"
+        onMouseDown={onClose}
+      />
       <div
-        className="w-[560px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-xl shadow-2xl overflow-hidden"
-        onClick={e => e.stopPropagation()}
+        className="relative z-10 w-[560px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-xl shadow-2xl overflow-hidden"
       >
         {/* Search input */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800">

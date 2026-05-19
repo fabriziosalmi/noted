@@ -56,13 +56,15 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
   useModalStack('shortcuts', true, onClose);
 
   return (
-    <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 flex items-center justify-center z-50">
+      <button
+        type="button"
+        aria-label={t('close')}
+        className="absolute inset-0 bg-black/40"
+        onMouseDown={onClose}
+      />
       <div
-        className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
-        onClick={e => e.stopPropagation()}
+        className="relative z-10 bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('keyboardShortcuts')}</h2>

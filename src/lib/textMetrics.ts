@@ -26,7 +26,7 @@ export interface TextMetrics {
   fleschScore: number;
   fleschLabel: string;
   avgWordsPerSentence: number;
-  topKeywords: Array<{ word: string; count: number }>;
+  topKeywords: { word: string; count: number }[];
   tone: 'formal' | 'neutral' | 'informal';
 }
 

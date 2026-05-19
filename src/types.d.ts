@@ -37,7 +37,7 @@ declare global {
       exportDocx: (htmlContent: string, title: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       importVault: (targetDir?: string) => Promise<{ success: boolean; data?: number; error?: string }>;
       getICloudPath: () => Promise<{ success: boolean; data?: string; error?: string }>;
-      detectCloudProviders: () => Promise<{ success: boolean; data?: Array<{ id: string; name: string; basePath: string; notedPath: string; available: boolean }>; error?: string }>;
+      detectCloudProviders: () => Promise<{ success: boolean; data?: { id: string; name: string; basePath: string; notedPath: string; available: boolean }[]; error?: string }>;
       activateCloudProvider: (notedPath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       copyVaultToFolder: (args: { destDir?: string; syncDir?: string }) => Promise<{ success: boolean; canceled?: boolean; data?: { copied: number; destDir: string }; error?: string }>;
       shareNoteMacOS: (args: { content: string; title: string }) => Promise<{ success: boolean; fallback?: boolean; error?: string }>;
@@ -60,7 +60,7 @@ declare global {
       gitLog: (noteName?: string, syncDir?: string) => Promise<GitResult<GitLogEntry[]>>;
       gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => Promise<GitResult<PrData>>;
       gitSaveAsGist: (params: { fileName: string; content: string; isPublic: boolean; token: string }) => Promise<GitResult<string>>;
-      searchNotesFulltext: (query: string, syncDir?: string) => Promise<{ success: boolean; data?: Array<{ relPath: string; title: string; snippet: string; score: number; terms: string[] }>; truncated?: boolean; error?: string }>;
+      searchNotesFulltext: (query: string, syncDir?: string) => Promise<{ success: boolean; data?: { relPath: string; title: string; snippet: string; score: number; terms: string[] }[]; truncated?: boolean; error?: string }>;
     };
   }
 }

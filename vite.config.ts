@@ -18,6 +18,20 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
+    include: [
+      'src/**/*.test.{ts,tsx}',
+      'electron/**/*.test.ts',
+      'mcp-server/**/*.test.ts',
+    ],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/dist-electron/**',
+      '**/dist-mcp/**',
+      '**/coverage/**',
+      '**/release/**',
+      '**/.claude/**',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],

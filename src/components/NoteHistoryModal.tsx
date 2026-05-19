@@ -40,8 +40,14 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
   }, [preview, onRestore, onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-[700px] max-h-[80vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <button
+        type="button"
+        aria-label={t('close')}
+        className="absolute inset-0 bg-black/40"
+        onMouseDown={onClose}
+      />
+      <div className="relative z-10 bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-[700px] max-h-[80vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-2">
             <Clock size={15} className="text-gray-400" />

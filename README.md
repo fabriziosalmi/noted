@@ -1,73 +1,119 @@
-# React + TypeScript + Vite
+# Noted
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Noted è un'app desktop macOS open-source per prendere note in Markdown/HTML con AI integrata, collegamenti tra note (wikilink), ricerca globale, history locale e integrazione Git.
 
-Currently, two official plugins are available:
+## Cosa offre oggi
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Editor ricco basato su TipTap (testo, heading, code block, tabelle, formule)
+- Wikilink, backlink e pannello grafo note
+- Ricerca veloce note + ricerca globale sul contenuto
+- AI multi-provider:
+  - OpenAI
+  - Anthropic
+  - Gemini
+  - OpenRouter
+  - LM Studio (locale)
+  - Ollama (locale)
+- Suggerimenti AI inline, slash commands, chat contestuale
+- Mascheramento PII opzionale prima delle chiamate AI
+- Integrazione Git (status, commit, push, PR)
+- MCP server locale per leggere/scrivere note da client MCP compatibili
+- Export (HTML, Markdown, PDF, DOCX) e quick capture window
 
-## React Compiler
+## Stack tecnico
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Electron + Vite + React + TypeScript
+- Zustand per state management
+- TipTap per editor
+- Vitest + Testing Library per test
+- ESLint flat config
+- `esbuild` per main/preload/MCP bundle
 
-## Expanding the ESLint configuration
+## Requisiti
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Node.js 20+
+- npm 10+
+- macOS (target principale)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Setup sviluppo
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+`npm run dev` avvia Vite renderer e usa i bundle Electron (`main` + `preload`) generati via `esbuild`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Script utili
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run lint        # lint con cache
+npm run lint:ci     # lint CI (senza cache)
+npm run test        # test Vitest
+npm run test:ci     # test verbose CI
+npm run test:coverage
+npm run build       # build app + electron-builder
+npm run build:dmg   # build DMG macOS
 ```
+
+## Build distribuzione
+
+```bash
+npm run build
+```
+
+Output principale in `release/`.
+
+## MCP server (Noted -> strumenti MCP)
+
+Build server MCP:
+
+```bash
+npm run build:mcp
+```
+
+Avvio manuale:
+
+```bash
+node dist-mcp/index.cjs --notes-dir /percorso/note
+```
+
+Se `--notes-dir` non è specificato, il server prova path standard macOS di Noted.
+
+## Struttura repository (principale)
+
+- `src/` renderer React
+- `electron/` main process + preload + git ops + ipc utils
+- `mcp-server/` server MCP standalone
+- `public/` asset statici
+- `dist*` output build intermedi
+- `release/` artefatti packaging
+
+## Qualità e stato CI locale
+
+Comandi baseline da eseguire prima di una PR:
+
+```bash
+npm run lint:ci
+npm run test:ci
+```
+
+Attualmente i gate sono verdi sugli errori bloccanti; restano warning a11y non critici in alcune modali/overlay.
+
+## Sicurezza (overview)
+
+- Validazione nomi file/cartelle lato IPC
+- Difesa contro path traversal
+- Sanitizzazione HTML in input/output
+- API key/tokens con storage protetto via Electron `safeStorage` (quando disponibile)
+- `contextIsolation` attivo e `nodeIntegration` disabilitato nel renderer
+
+## Roadmap
+
+- [ROADMAP_30_DAYS.md](./ROADMAP_30_DAYS.md)
+- [PLAN_PLUGINS.md](./PLAN_PLUGINS.md)
+- [PLAN_MOBILE.md](./PLAN_MOBILE.md)
+
+## Licenza
+
+MIT — vedi [LICENSE](./LICENSE).

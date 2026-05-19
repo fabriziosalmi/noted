@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 
 interface TagSuggestionProps {
@@ -17,7 +17,7 @@ export function TagSuggestion({ editor, allTags }: TagSuggestionProps) {
     .filter(t => t.startsWith('#' + query) && t !== '#' + query)
     .slice(0, 8);
 
-  const insertTag = (tag: string) => {
+  const insertTag = useCallback((tag: string) => {
     const { from } = editor.state.selection;
     const startPos = triggerRef.current ?? from;
     editor.chain()
@@ -26,7 +26,7 @@ export function TagSuggestion({ editor, allTags }: TagSuggestionProps) {
       .insertContent(tag + ' ')
       .run();
     setOpen(false);
-  };
+  }, [editor]);
 
   useEffect(() => {
     if (!open) return;
@@ -41,10 +41,8 @@ export function TagSuggestion({ editor, allTags }: TagSuggestionProps) {
     };
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, suggestions, activeIdx]);
+  }, [open, suggestions, activeIdx, insertTag]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setActiveIdx(0); }, [query]);
 
   // Watch editor updates for # trigger

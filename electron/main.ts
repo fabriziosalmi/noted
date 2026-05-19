@@ -843,7 +843,7 @@ ipcMain.handle('detect-cloud-providers', () => {
   const odBase = findOneDrive();
 
   type ProviderId = 'icloud' | 'googledrive' | 'dropbox' | 'onedrive';
-  const providers: Array<{ id: ProviderId; name: string; basePath: string; notedPath: string; available: boolean }> = [
+  const providers: { id: ProviderId; name: string; basePath: string; notedPath: string; available: boolean }[] = [
     {
       id: 'icloud',
       name: 'iCloud Drive',
@@ -1076,7 +1076,7 @@ ipcMain.handle('search-notes-fulltext', (_, query: string, syncDir?: string) => 
 
   // Collect all .md files (root + one level of subfolders). Bail out early
   // once we hit FT_MAX_FILES so a 50k-note vault doesn't blow up the renderer.
-  const mdFiles: Array<{ filePath: string; relPath: string; size: number }> = [];
+  const mdFiles: { filePath: string; relPath: string; size: number }[] = [];
   let truncated = false;
   try {
     outer: for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

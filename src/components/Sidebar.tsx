@@ -318,8 +318,18 @@ export function Sidebar({
                 onDrop={e => void handleDrop(e, folder.name)}>
 
                 {/* Folder header */}
-                <div className="flex items-center gap-1 px-1 py-1.5 rounded hover:bg-gray-200/60 dark:hover:bg-gray-700/50 group cursor-pointer select-none"
-                  onClick={() => toggleFolder(folder.name)}>
+                <div
+                  className="flex items-center gap-1 px-1 py-1.5 rounded hover:bg-gray-200/60 dark:hover:bg-gray-700/50 group cursor-pointer select-none"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleFolder(folder.name)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleFolder(folder.name);
+                    }
+                  }}
+                >
                   <span className="text-gray-400">{isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}</span>
                   {isCollapsed ? <Folder size={13} className="text-gray-400" /> : <FolderOpen size={13} className="text-[var(--accent)]" />}
 
@@ -344,12 +354,21 @@ export function Sidebar({
                   <span className="text-[10px] text-gray-400">{folder.notes.length}</span>
 
                   {/* Folder actions */}
-                  <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => onCreateNote(folder.name)} className="p-0.5 hover:text-[var(--accent)] text-gray-400" title={t('newNoteHere')}>
+                  <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
+                    <button
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={() => onCreateNote(folder.name)}
+                      className="p-0.5 hover:text-[var(--accent)] text-gray-400"
+                      title={t('newNoteHere')}
+                    >
                       <Plus size={11} />
                     </button>
-                    <button onClick={async () => { if (confirm(t('deleteFolderConfirm').replace('{name}', folder.name))) await onDeleteFolder(folder.name); }}
-                      className="p-0.5 hover:text-red-500 text-gray-400" title={t('deleteFolder')}>
+                    <button
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={async () => { if (confirm(t('deleteFolderConfirm').replace('{name}', folder.name))) await onDeleteFolder(folder.name); }}
+                      className="p-0.5 hover:text-red-500 text-gray-400"
+                      title={t('deleteFolder')}
+                    >
                       <Trash2 size={11} />
                     </button>
                   </div>

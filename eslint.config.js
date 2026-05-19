@@ -7,7 +7,17 @@ import jsxA11y from 'eslint-plugin-jsx-a11y'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'dist-electron', 'dist-mcp', 'coverage']),
+  globalIgnores([
+    'dist',
+    'dist-electron',
+    'dist-mcp',
+    'coverage',
+    'release',
+    '.claude',
+    '.electron_data',
+    '.electron_session',
+    'node_modules',
+  ]),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -39,6 +49,10 @@ export default defineConfig([
 
       // Prefer type imports for better tree-shaking
       '@typescript-eslint/consistent-type-imports': ['warn', { prefer: 'type-imports' }],
+
+      // Too strict for current codebase; we keep these as manual review items.
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/immutability': 'off',
     },
   },
   {

@@ -16,7 +16,7 @@ export interface NoteFile {
 
 export type LLMProvider = 'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'lmstudio' | 'ollama';
 
-interface SettingsState {
+export interface SettingsState {
   llmProvider: LLMProvider;
   llmApiKey: string;
   llmModel: string;

@@ -11,7 +11,7 @@ import { useI18n, type TranslationKey } from '../lib/i18n';
 
 type SettingsTab = 'ai' | 'appearance' | 'editor' | 'sync' | 'git';
 
-type CloudProvider = { id: string; name: string; basePath: string; notedPath: string; available: boolean };
+interface CloudProvider { id: string; name: string; basePath: string; notedPath: string; available: boolean }
 
 interface Settings {
   llmProvider: LLMProvider;
@@ -48,7 +48,7 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
-const TABS: Array<{ id: SettingsTab; labelKey: TranslationKey; icon: LucideIcon }> = [
+const TABS: { id: SettingsTab; labelKey: TranslationKey; icon: LucideIcon }[] = [
   { id: 'ai',         labelKey: 'tabAi',         icon: Bot },
   { id: 'appearance', labelKey: 'tabAppearance',  icon: Palette },
   { id: 'editor',     labelKey: 'tabEditor',      icon: Type },
@@ -91,7 +91,7 @@ function SegRow({ icon: Icon, label, description, value, onChange }: {
 function Seg3({ label, description, options, value, onChange }: {
   label: string;
   description?: string;
-  options: Array<{ value: string; label: string }>;
+  options: { value: string; label: string }[];
   value: string;
   onChange: (v: string) => void;
 }) {
@@ -154,7 +154,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
 
   useEffect(() => {
     window.electronAPI?.safeStorageStatus?.()
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       .then(r => setEncryptionAvailable(r.encrypted))
       .catch(() => { /* assume available if check fails */ });
   }, []);
@@ -169,21 +169,19 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
 
   useEffect(() => {
     if (isLocalProvider(settings.llmProvider)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       void discoverModels();
     } else {
       setDiscoveredModels([]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.llmProvider, settings.lmStudioUrl]);
+  }, [settings.llmProvider, settings.lmStudioUrl, discoverModels]);
 
   useEffect(() => {
     if (!window.electronAPI?.detectCloudProviders) return;
     window.electronAPI.detectCloudProviders().then(res => {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       if (res.success && res.data) setCloudProviders(res.data);
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
   const handleActivateProvider = useCallback(async (notedPath: string) => {
@@ -202,8 +200,14 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
   }, [gitTokenInput]);
 
   return (
-    <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-[520px] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 flex items-center justify-center z-50">
+      <button
+        type="button"
+        aria-label={t('closeSettings')}
+        className="absolute inset-0 bg-black/20"
+        onMouseDown={onClose}
+      />
+      <div className="relative z-10 bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-[520px] overflow-hidden flex flex-col">
 
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">

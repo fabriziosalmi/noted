@@ -239,7 +239,7 @@ export function GraphView({ notes, noteLinksIndex, activeNoteName, onOpenNote, a
       return;
     }
     s.animId = requestAnimationFrame(tick);
-  }, [draw]);
+  }, [draw, COOLDOWN_VEL_SQ]);
 
   const kickSimulation = useCallback(() => {
     const s = stateRef.current;
