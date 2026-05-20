@@ -1,0 +1,2338 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for src/lib/i18n.ts</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/lib</a> i18n.ts</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>6/6</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">50% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>3/6</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>3/3</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>5/5</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line high'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a>
+<a name='L152'></a><a href='#L152'>152</a>
+<a name='L153'></a><a href='#L153'>153</a>
+<a name='L154'></a><a href='#L154'>154</a>
+<a name='L155'></a><a href='#L155'>155</a>
+<a name='L156'></a><a href='#L156'>156</a>
+<a name='L157'></a><a href='#L157'>157</a>
+<a name='L158'></a><a href='#L158'>158</a>
+<a name='L159'></a><a href='#L159'>159</a>
+<a name='L160'></a><a href='#L160'>160</a>
+<a name='L161'></a><a href='#L161'>161</a>
+<a name='L162'></a><a href='#L162'>162</a>
+<a name='L163'></a><a href='#L163'>163</a>
+<a name='L164'></a><a href='#L164'>164</a>
+<a name='L165'></a><a href='#L165'>165</a>
+<a name='L166'></a><a href='#L166'>166</a>
+<a name='L167'></a><a href='#L167'>167</a>
+<a name='L168'></a><a href='#L168'>168</a>
+<a name='L169'></a><a href='#L169'>169</a>
+<a name='L170'></a><a href='#L170'>170</a>
+<a name='L171'></a><a href='#L171'>171</a>
+<a name='L172'></a><a href='#L172'>172</a>
+<a name='L173'></a><a href='#L173'>173</a>
+<a name='L174'></a><a href='#L174'>174</a>
+<a name='L175'></a><a href='#L175'>175</a>
+<a name='L176'></a><a href='#L176'>176</a>
+<a name='L177'></a><a href='#L177'>177</a>
+<a name='L178'></a><a href='#L178'>178</a>
+<a name='L179'></a><a href='#L179'>179</a>
+<a name='L180'></a><a href='#L180'>180</a>
+<a name='L181'></a><a href='#L181'>181</a>
+<a name='L182'></a><a href='#L182'>182</a>
+<a name='L183'></a><a href='#L183'>183</a>
+<a name='L184'></a><a href='#L184'>184</a>
+<a name='L185'></a><a href='#L185'>185</a>
+<a name='L186'></a><a href='#L186'>186</a>
+<a name='L187'></a><a href='#L187'>187</a>
+<a name='L188'></a><a href='#L188'>188</a>
+<a name='L189'></a><a href='#L189'>189</a>
+<a name='L190'></a><a href='#L190'>190</a>
+<a name='L191'></a><a href='#L191'>191</a>
+<a name='L192'></a><a href='#L192'>192</a>
+<a name='L193'></a><a href='#L193'>193</a>
+<a name='L194'></a><a href='#L194'>194</a>
+<a name='L195'></a><a href='#L195'>195</a>
+<a name='L196'></a><a href='#L196'>196</a>
+<a name='L197'></a><a href='#L197'>197</a>
+<a name='L198'></a><a href='#L198'>198</a>
+<a name='L199'></a><a href='#L199'>199</a>
+<a name='L200'></a><a href='#L200'>200</a>
+<a name='L201'></a><a href='#L201'>201</a>
+<a name='L202'></a><a href='#L202'>202</a>
+<a name='L203'></a><a href='#L203'>203</a>
+<a name='L204'></a><a href='#L204'>204</a>
+<a name='L205'></a><a href='#L205'>205</a>
+<a name='L206'></a><a href='#L206'>206</a>
+<a name='L207'></a><a href='#L207'>207</a>
+<a name='L208'></a><a href='#L208'>208</a>
+<a name='L209'></a><a href='#L209'>209</a>
+<a name='L210'></a><a href='#L210'>210</a>
+<a name='L211'></a><a href='#L211'>211</a>
+<a name='L212'></a><a href='#L212'>212</a>
+<a name='L213'></a><a href='#L213'>213</a>
+<a name='L214'></a><a href='#L214'>214</a>
+<a name='L215'></a><a href='#L215'>215</a>
+<a name='L216'></a><a href='#L216'>216</a>
+<a name='L217'></a><a href='#L217'>217</a>
+<a name='L218'></a><a href='#L218'>218</a>
+<a name='L219'></a><a href='#L219'>219</a>
+<a name='L220'></a><a href='#L220'>220</a>
+<a name='L221'></a><a href='#L221'>221</a>
+<a name='L222'></a><a href='#L222'>222</a>
+<a name='L223'></a><a href='#L223'>223</a>
+<a name='L224'></a><a href='#L224'>224</a>
+<a name='L225'></a><a href='#L225'>225</a>
+<a name='L226'></a><a href='#L226'>226</a>
+<a name='L227'></a><a href='#L227'>227</a>
+<a name='L228'></a><a href='#L228'>228</a>
+<a name='L229'></a><a href='#L229'>229</a>
+<a name='L230'></a><a href='#L230'>230</a>
+<a name='L231'></a><a href='#L231'>231</a>
+<a name='L232'></a><a href='#L232'>232</a>
+<a name='L233'></a><a href='#L233'>233</a>
+<a name='L234'></a><a href='#L234'>234</a>
+<a name='L235'></a><a href='#L235'>235</a>
+<a name='L236'></a><a href='#L236'>236</a>
+<a name='L237'></a><a href='#L237'>237</a>
+<a name='L238'></a><a href='#L238'>238</a>
+<a name='L239'></a><a href='#L239'>239</a>
+<a name='L240'></a><a href='#L240'>240</a>
+<a name='L241'></a><a href='#L241'>241</a>
+<a name='L242'></a><a href='#L242'>242</a>
+<a name='L243'></a><a href='#L243'>243</a>
+<a name='L244'></a><a href='#L244'>244</a>
+<a name='L245'></a><a href='#L245'>245</a>
+<a name='L246'></a><a href='#L246'>246</a>
+<a name='L247'></a><a href='#L247'>247</a>
+<a name='L248'></a><a href='#L248'>248</a>
+<a name='L249'></a><a href='#L249'>249</a>
+<a name='L250'></a><a href='#L250'>250</a>
+<a name='L251'></a><a href='#L251'>251</a>
+<a name='L252'></a><a href='#L252'>252</a>
+<a name='L253'></a><a href='#L253'>253</a>
+<a name='L254'></a><a href='#L254'>254</a>
+<a name='L255'></a><a href='#L255'>255</a>
+<a name='L256'></a><a href='#L256'>256</a>
+<a name='L257'></a><a href='#L257'>257</a>
+<a name='L258'></a><a href='#L258'>258</a>
+<a name='L259'></a><a href='#L259'>259</a>
+<a name='L260'></a><a href='#L260'>260</a>
+<a name='L261'></a><a href='#L261'>261</a>
+<a name='L262'></a><a href='#L262'>262</a>
+<a name='L263'></a><a href='#L263'>263</a>
+<a name='L264'></a><a href='#L264'>264</a>
+<a name='L265'></a><a href='#L265'>265</a>
+<a name='L266'></a><a href='#L266'>266</a>
+<a name='L267'></a><a href='#L267'>267</a>
+<a name='L268'></a><a href='#L268'>268</a>
+<a name='L269'></a><a href='#L269'>269</a>
+<a name='L270'></a><a href='#L270'>270</a>
+<a name='L271'></a><a href='#L271'>271</a>
+<a name='L272'></a><a href='#L272'>272</a>
+<a name='L273'></a><a href='#L273'>273</a>
+<a name='L274'></a><a href='#L274'>274</a>
+<a name='L275'></a><a href='#L275'>275</a>
+<a name='L276'></a><a href='#L276'>276</a>
+<a name='L277'></a><a href='#L277'>277</a>
+<a name='L278'></a><a href='#L278'>278</a>
+<a name='L279'></a><a href='#L279'>279</a>
+<a name='L280'></a><a href='#L280'>280</a>
+<a name='L281'></a><a href='#L281'>281</a>
+<a name='L282'></a><a href='#L282'>282</a>
+<a name='L283'></a><a href='#L283'>283</a>
+<a name='L284'></a><a href='#L284'>284</a>
+<a name='L285'></a><a href='#L285'>285</a>
+<a name='L286'></a><a href='#L286'>286</a>
+<a name='L287'></a><a href='#L287'>287</a>
+<a name='L288'></a><a href='#L288'>288</a>
+<a name='L289'></a><a href='#L289'>289</a>
+<a name='L290'></a><a href='#L290'>290</a>
+<a name='L291'></a><a href='#L291'>291</a>
+<a name='L292'></a><a href='#L292'>292</a>
+<a name='L293'></a><a href='#L293'>293</a>
+<a name='L294'></a><a href='#L294'>294</a>
+<a name='L295'></a><a href='#L295'>295</a>
+<a name='L296'></a><a href='#L296'>296</a>
+<a name='L297'></a><a href='#L297'>297</a>
+<a name='L298'></a><a href='#L298'>298</a>
+<a name='L299'></a><a href='#L299'>299</a>
+<a name='L300'></a><a href='#L300'>300</a>
+<a name='L301'></a><a href='#L301'>301</a>
+<a name='L302'></a><a href='#L302'>302</a>
+<a name='L303'></a><a href='#L303'>303</a>
+<a name='L304'></a><a href='#L304'>304</a>
+<a name='L305'></a><a href='#L305'>305</a>
+<a name='L306'></a><a href='#L306'>306</a>
+<a name='L307'></a><a href='#L307'>307</a>
+<a name='L308'></a><a href='#L308'>308</a>
+<a name='L309'></a><a href='#L309'>309</a>
+<a name='L310'></a><a href='#L310'>310</a>
+<a name='L311'></a><a href='#L311'>311</a>
+<a name='L312'></a><a href='#L312'>312</a>
+<a name='L313'></a><a href='#L313'>313</a>
+<a name='L314'></a><a href='#L314'>314</a>
+<a name='L315'></a><a href='#L315'>315</a>
+<a name='L316'></a><a href='#L316'>316</a>
+<a name='L317'></a><a href='#L317'>317</a>
+<a name='L318'></a><a href='#L318'>318</a>
+<a name='L319'></a><a href='#L319'>319</a>
+<a name='L320'></a><a href='#L320'>320</a>
+<a name='L321'></a><a href='#L321'>321</a>
+<a name='L322'></a><a href='#L322'>322</a>
+<a name='L323'></a><a href='#L323'>323</a>
+<a name='L324'></a><a href='#L324'>324</a>
+<a name='L325'></a><a href='#L325'>325</a>
+<a name='L326'></a><a href='#L326'>326</a>
+<a name='L327'></a><a href='#L327'>327</a>
+<a name='L328'></a><a href='#L328'>328</a>
+<a name='L329'></a><a href='#L329'>329</a>
+<a name='L330'></a><a href='#L330'>330</a>
+<a name='L331'></a><a href='#L331'>331</a>
+<a name='L332'></a><a href='#L332'>332</a>
+<a name='L333'></a><a href='#L333'>333</a>
+<a name='L334'></a><a href='#L334'>334</a>
+<a name='L335'></a><a href='#L335'>335</a>
+<a name='L336'></a><a href='#L336'>336</a>
+<a name='L337'></a><a href='#L337'>337</a>
+<a name='L338'></a><a href='#L338'>338</a>
+<a name='L339'></a><a href='#L339'>339</a>
+<a name='L340'></a><a href='#L340'>340</a>
+<a name='L341'></a><a href='#L341'>341</a>
+<a name='L342'></a><a href='#L342'>342</a>
+<a name='L343'></a><a href='#L343'>343</a>
+<a name='L344'></a><a href='#L344'>344</a>
+<a name='L345'></a><a href='#L345'>345</a>
+<a name='L346'></a><a href='#L346'>346</a>
+<a name='L347'></a><a href='#L347'>347</a>
+<a name='L348'></a><a href='#L348'>348</a>
+<a name='L349'></a><a href='#L349'>349</a>
+<a name='L350'></a><a href='#L350'>350</a>
+<a name='L351'></a><a href='#L351'>351</a>
+<a name='L352'></a><a href='#L352'>352</a>
+<a name='L353'></a><a href='#L353'>353</a>
+<a name='L354'></a><a href='#L354'>354</a>
+<a name='L355'></a><a href='#L355'>355</a>
+<a name='L356'></a><a href='#L356'>356</a>
+<a name='L357'></a><a href='#L357'>357</a>
+<a name='L358'></a><a href='#L358'>358</a>
+<a name='L359'></a><a href='#L359'>359</a>
+<a name='L360'></a><a href='#L360'>360</a>
+<a name='L361'></a><a href='#L361'>361</a>
+<a name='L362'></a><a href='#L362'>362</a>
+<a name='L363'></a><a href='#L363'>363</a>
+<a name='L364'></a><a href='#L364'>364</a>
+<a name='L365'></a><a href='#L365'>365</a>
+<a name='L366'></a><a href='#L366'>366</a>
+<a name='L367'></a><a href='#L367'>367</a>
+<a name='L368'></a><a href='#L368'>368</a>
+<a name='L369'></a><a href='#L369'>369</a>
+<a name='L370'></a><a href='#L370'>370</a>
+<a name='L371'></a><a href='#L371'>371</a>
+<a name='L372'></a><a href='#L372'>372</a>
+<a name='L373'></a><a href='#L373'>373</a>
+<a name='L374'></a><a href='#L374'>374</a>
+<a name='L375'></a><a href='#L375'>375</a>
+<a name='L376'></a><a href='#L376'>376</a>
+<a name='L377'></a><a href='#L377'>377</a>
+<a name='L378'></a><a href='#L378'>378</a>
+<a name='L379'></a><a href='#L379'>379</a>
+<a name='L380'></a><a href='#L380'>380</a>
+<a name='L381'></a><a href='#L381'>381</a>
+<a name='L382'></a><a href='#L382'>382</a>
+<a name='L383'></a><a href='#L383'>383</a>
+<a name='L384'></a><a href='#L384'>384</a>
+<a name='L385'></a><a href='#L385'>385</a>
+<a name='L386'></a><a href='#L386'>386</a>
+<a name='L387'></a><a href='#L387'>387</a>
+<a name='L388'></a><a href='#L388'>388</a>
+<a name='L389'></a><a href='#L389'>389</a>
+<a name='L390'></a><a href='#L390'>390</a>
+<a name='L391'></a><a href='#L391'>391</a>
+<a name='L392'></a><a href='#L392'>392</a>
+<a name='L393'></a><a href='#L393'>393</a>
+<a name='L394'></a><a href='#L394'>394</a>
+<a name='L395'></a><a href='#L395'>395</a>
+<a name='L396'></a><a href='#L396'>396</a>
+<a name='L397'></a><a href='#L397'>397</a>
+<a name='L398'></a><a href='#L398'>398</a>
+<a name='L399'></a><a href='#L399'>399</a>
+<a name='L400'></a><a href='#L400'>400</a>
+<a name='L401'></a><a href='#L401'>401</a>
+<a name='L402'></a><a href='#L402'>402</a>
+<a name='L403'></a><a href='#L403'>403</a>
+<a name='L404'></a><a href='#L404'>404</a>
+<a name='L405'></a><a href='#L405'>405</a>
+<a name='L406'></a><a href='#L406'>406</a>
+<a name='L407'></a><a href='#L407'>407</a>
+<a name='L408'></a><a href='#L408'>408</a>
+<a name='L409'></a><a href='#L409'>409</a>
+<a name='L410'></a><a href='#L410'>410</a>
+<a name='L411'></a><a href='#L411'>411</a>
+<a name='L412'></a><a href='#L412'>412</a>
+<a name='L413'></a><a href='#L413'>413</a>
+<a name='L414'></a><a href='#L414'>414</a>
+<a name='L415'></a><a href='#L415'>415</a>
+<a name='L416'></a><a href='#L416'>416</a>
+<a name='L417'></a><a href='#L417'>417</a>
+<a name='L418'></a><a href='#L418'>418</a>
+<a name='L419'></a><a href='#L419'>419</a>
+<a name='L420'></a><a href='#L420'>420</a>
+<a name='L421'></a><a href='#L421'>421</a>
+<a name='L422'></a><a href='#L422'>422</a>
+<a name='L423'></a><a href='#L423'>423</a>
+<a name='L424'></a><a href='#L424'>424</a>
+<a name='L425'></a><a href='#L425'>425</a>
+<a name='L426'></a><a href='#L426'>426</a>
+<a name='L427'></a><a href='#L427'>427</a>
+<a name='L428'></a><a href='#L428'>428</a>
+<a name='L429'></a><a href='#L429'>429</a>
+<a name='L430'></a><a href='#L430'>430</a>
+<a name='L431'></a><a href='#L431'>431</a>
+<a name='L432'></a><a href='#L432'>432</a>
+<a name='L433'></a><a href='#L433'>433</a>
+<a name='L434'></a><a href='#L434'>434</a>
+<a name='L435'></a><a href='#L435'>435</a>
+<a name='L436'></a><a href='#L436'>436</a>
+<a name='L437'></a><a href='#L437'>437</a>
+<a name='L438'></a><a href='#L438'>438</a>
+<a name='L439'></a><a href='#L439'>439</a>
+<a name='L440'></a><a href='#L440'>440</a>
+<a name='L441'></a><a href='#L441'>441</a>
+<a name='L442'></a><a href='#L442'>442</a>
+<a name='L443'></a><a href='#L443'>443</a>
+<a name='L444'></a><a href='#L444'>444</a>
+<a name='L445'></a><a href='#L445'>445</a>
+<a name='L446'></a><a href='#L446'>446</a>
+<a name='L447'></a><a href='#L447'>447</a>
+<a name='L448'></a><a href='#L448'>448</a>
+<a name='L449'></a><a href='#L449'>449</a>
+<a name='L450'></a><a href='#L450'>450</a>
+<a name='L451'></a><a href='#L451'>451</a>
+<a name='L452'></a><a href='#L452'>452</a>
+<a name='L453'></a><a href='#L453'>453</a>
+<a name='L454'></a><a href='#L454'>454</a>
+<a name='L455'></a><a href='#L455'>455</a>
+<a name='L456'></a><a href='#L456'>456</a>
+<a name='L457'></a><a href='#L457'>457</a>
+<a name='L458'></a><a href='#L458'>458</a>
+<a name='L459'></a><a href='#L459'>459</a>
+<a name='L460'></a><a href='#L460'>460</a>
+<a name='L461'></a><a href='#L461'>461</a>
+<a name='L462'></a><a href='#L462'>462</a>
+<a name='L463'></a><a href='#L463'>463</a>
+<a name='L464'></a><a href='#L464'>464</a>
+<a name='L465'></a><a href='#L465'>465</a>
+<a name='L466'></a><a href='#L466'>466</a>
+<a name='L467'></a><a href='#L467'>467</a>
+<a name='L468'></a><a href='#L468'>468</a>
+<a name='L469'></a><a href='#L469'>469</a>
+<a name='L470'></a><a href='#L470'>470</a>
+<a name='L471'></a><a href='#L471'>471</a>
+<a name='L472'></a><a href='#L472'>472</a>
+<a name='L473'></a><a href='#L473'>473</a>
+<a name='L474'></a><a href='#L474'>474</a>
+<a name='L475'></a><a href='#L475'>475</a>
+<a name='L476'></a><a href='#L476'>476</a>
+<a name='L477'></a><a href='#L477'>477</a>
+<a name='L478'></a><a href='#L478'>478</a>
+<a name='L479'></a><a href='#L479'>479</a>
+<a name='L480'></a><a href='#L480'>480</a>
+<a name='L481'></a><a href='#L481'>481</a>
+<a name='L482'></a><a href='#L482'>482</a>
+<a name='L483'></a><a href='#L483'>483</a>
+<a name='L484'></a><a href='#L484'>484</a>
+<a name='L485'></a><a href='#L485'>485</a>
+<a name='L486'></a><a href='#L486'>486</a>
+<a name='L487'></a><a href='#L487'>487</a>
+<a name='L488'></a><a href='#L488'>488</a>
+<a name='L489'></a><a href='#L489'>489</a>
+<a name='L490'></a><a href='#L490'>490</a>
+<a name='L491'></a><a href='#L491'>491</a>
+<a name='L492'></a><a href='#L492'>492</a>
+<a name='L493'></a><a href='#L493'>493</a>
+<a name='L494'></a><a href='#L494'>494</a>
+<a name='L495'></a><a href='#L495'>495</a>
+<a name='L496'></a><a href='#L496'>496</a>
+<a name='L497'></a><a href='#L497'>497</a>
+<a name='L498'></a><a href='#L498'>498</a>
+<a name='L499'></a><a href='#L499'>499</a>
+<a name='L500'></a><a href='#L500'>500</a>
+<a name='L501'></a><a href='#L501'>501</a>
+<a name='L502'></a><a href='#L502'>502</a>
+<a name='L503'></a><a href='#L503'>503</a>
+<a name='L504'></a><a href='#L504'>504</a>
+<a name='L505'></a><a href='#L505'>505</a>
+<a name='L506'></a><a href='#L506'>506</a>
+<a name='L507'></a><a href='#L507'>507</a>
+<a name='L508'></a><a href='#L508'>508</a>
+<a name='L509'></a><a href='#L509'>509</a>
+<a name='L510'></a><a href='#L510'>510</a>
+<a name='L511'></a><a href='#L511'>511</a>
+<a name='L512'></a><a href='#L512'>512</a>
+<a name='L513'></a><a href='#L513'>513</a>
+<a name='L514'></a><a href='#L514'>514</a>
+<a name='L515'></a><a href='#L515'>515</a>
+<a name='L516'></a><a href='#L516'>516</a>
+<a name='L517'></a><a href='#L517'>517</a>
+<a name='L518'></a><a href='#L518'>518</a>
+<a name='L519'></a><a href='#L519'>519</a>
+<a name='L520'></a><a href='#L520'>520</a>
+<a name='L521'></a><a href='#L521'>521</a>
+<a name='L522'></a><a href='#L522'>522</a>
+<a name='L523'></a><a href='#L523'>523</a>
+<a name='L524'></a><a href='#L524'>524</a>
+<a name='L525'></a><a href='#L525'>525</a>
+<a name='L526'></a><a href='#L526'>526</a>
+<a name='L527'></a><a href='#L527'>527</a>
+<a name='L528'></a><a href='#L528'>528</a>
+<a name='L529'></a><a href='#L529'>529</a>
+<a name='L530'></a><a href='#L530'>530</a>
+<a name='L531'></a><a href='#L531'>531</a>
+<a name='L532'></a><a href='#L532'>532</a>
+<a name='L533'></a><a href='#L533'>533</a>
+<a name='L534'></a><a href='#L534'>534</a>
+<a name='L535'></a><a href='#L535'>535</a>
+<a name='L536'></a><a href='#L536'>536</a>
+<a name='L537'></a><a href='#L537'>537</a>
+<a name='L538'></a><a href='#L538'>538</a>
+<a name='L539'></a><a href='#L539'>539</a>
+<a name='L540'></a><a href='#L540'>540</a>
+<a name='L541'></a><a href='#L541'>541</a>
+<a name='L542'></a><a href='#L542'>542</a>
+<a name='L543'></a><a href='#L543'>543</a>
+<a name='L544'></a><a href='#L544'>544</a>
+<a name='L545'></a><a href='#L545'>545</a>
+<a name='L546'></a><a href='#L546'>546</a>
+<a name='L547'></a><a href='#L547'>547</a>
+<a name='L548'></a><a href='#L548'>548</a>
+<a name='L549'></a><a href='#L549'>549</a>
+<a name='L550'></a><a href='#L550'>550</a>
+<a name='L551'></a><a href='#L551'>551</a>
+<a name='L552'></a><a href='#L552'>552</a>
+<a name='L553'></a><a href='#L553'>553</a>
+<a name='L554'></a><a href='#L554'>554</a>
+<a name='L555'></a><a href='#L555'>555</a>
+<a name='L556'></a><a href='#L556'>556</a>
+<a name='L557'></a><a href='#L557'>557</a>
+<a name='L558'></a><a href='#L558'>558</a>
+<a name='L559'></a><a href='#L559'>559</a>
+<a name='L560'></a><a href='#L560'>560</a>
+<a name='L561'></a><a href='#L561'>561</a>
+<a name='L562'></a><a href='#L562'>562</a>
+<a name='L563'></a><a href='#L563'>563</a>
+<a name='L564'></a><a href='#L564'>564</a>
+<a name='L565'></a><a href='#L565'>565</a>
+<a name='L566'></a><a href='#L566'>566</a>
+<a name='L567'></a><a href='#L567'>567</a>
+<a name='L568'></a><a href='#L568'>568</a>
+<a name='L569'></a><a href='#L569'>569</a>
+<a name='L570'></a><a href='#L570'>570</a>
+<a name='L571'></a><a href='#L571'>571</a>
+<a name='L572'></a><a href='#L572'>572</a>
+<a name='L573'></a><a href='#L573'>573</a>
+<a name='L574'></a><a href='#L574'>574</a>
+<a name='L575'></a><a href='#L575'>575</a>
+<a name='L576'></a><a href='#L576'>576</a>
+<a name='L577'></a><a href='#L577'>577</a>
+<a name='L578'></a><a href='#L578'>578</a>
+<a name='L579'></a><a href='#L579'>579</a>
+<a name='L580'></a><a href='#L580'>580</a>
+<a name='L581'></a><a href='#L581'>581</a>
+<a name='L582'></a><a href='#L582'>582</a>
+<a name='L583'></a><a href='#L583'>583</a>
+<a name='L584'></a><a href='#L584'>584</a>
+<a name='L585'></a><a href='#L585'>585</a>
+<a name='L586'></a><a href='#L586'>586</a>
+<a name='L587'></a><a href='#L587'>587</a>
+<a name='L588'></a><a href='#L588'>588</a>
+<a name='L589'></a><a href='#L589'>589</a>
+<a name='L590'></a><a href='#L590'>590</a>
+<a name='L591'></a><a href='#L591'>591</a>
+<a name='L592'></a><a href='#L592'>592</a>
+<a name='L593'></a><a href='#L593'>593</a>
+<a name='L594'></a><a href='#L594'>594</a>
+<a name='L595'></a><a href='#L595'>595</a>
+<a name='L596'></a><a href='#L596'>596</a>
+<a name='L597'></a><a href='#L597'>597</a>
+<a name='L598'></a><a href='#L598'>598</a>
+<a name='L599'></a><a href='#L599'>599</a>
+<a name='L600'></a><a href='#L600'>600</a>
+<a name='L601'></a><a href='#L601'>601</a>
+<a name='L602'></a><a href='#L602'>602</a>
+<a name='L603'></a><a href='#L603'>603</a>
+<a name='L604'></a><a href='#L604'>604</a>
+<a name='L605'></a><a href='#L605'>605</a>
+<a name='L606'></a><a href='#L606'>606</a>
+<a name='L607'></a><a href='#L607'>607</a>
+<a name='L608'></a><a href='#L608'>608</a>
+<a name='L609'></a><a href='#L609'>609</a>
+<a name='L610'></a><a href='#L610'>610</a>
+<a name='L611'></a><a href='#L611'>611</a>
+<a name='L612'></a><a href='#L612'>612</a>
+<a name='L613'></a><a href='#L613'>613</a>
+<a name='L614'></a><a href='#L614'>614</a>
+<a name='L615'></a><a href='#L615'>615</a>
+<a name='L616'></a><a href='#L616'>616</a>
+<a name='L617'></a><a href='#L617'>617</a>
+<a name='L618'></a><a href='#L618'>618</a>
+<a name='L619'></a><a href='#L619'>619</a>
+<a name='L620'></a><a href='#L620'>620</a>
+<a name='L621'></a><a href='#L621'>621</a>
+<a name='L622'></a><a href='#L622'>622</a>
+<a name='L623'></a><a href='#L623'>623</a>
+<a name='L624'></a><a href='#L624'>624</a>
+<a name='L625'></a><a href='#L625'>625</a>
+<a name='L626'></a><a href='#L626'>626</a>
+<a name='L627'></a><a href='#L627'>627</a>
+<a name='L628'></a><a href='#L628'>628</a>
+<a name='L629'></a><a href='#L629'>629</a>
+<a name='L630'></a><a href='#L630'>630</a>
+<a name='L631'></a><a href='#L631'>631</a>
+<a name='L632'></a><a href='#L632'>632</a>
+<a name='L633'></a><a href='#L633'>633</a>
+<a name='L634'></a><a href='#L634'>634</a>
+<a name='L635'></a><a href='#L635'>635</a>
+<a name='L636'></a><a href='#L636'>636</a>
+<a name='L637'></a><a href='#L637'>637</a>
+<a name='L638'></a><a href='#L638'>638</a>
+<a name='L639'></a><a href='#L639'>639</a>
+<a name='L640'></a><a href='#L640'>640</a>
+<a name='L641'></a><a href='#L641'>641</a>
+<a name='L642'></a><a href='#L642'>642</a>
+<a name='L643'></a><a href='#L643'>643</a>
+<a name='L644'></a><a href='#L644'>644</a>
+<a name='L645'></a><a href='#L645'>645</a>
+<a name='L646'></a><a href='#L646'>646</a>
+<a name='L647'></a><a href='#L647'>647</a>
+<a name='L648'></a><a href='#L648'>648</a>
+<a name='L649'></a><a href='#L649'>649</a>
+<a name='L650'></a><a href='#L650'>650</a>
+<a name='L651'></a><a href='#L651'>651</a>
+<a name='L652'></a><a href='#L652'>652</a>
+<a name='L653'></a><a href='#L653'>653</a>
+<a name='L654'></a><a href='#L654'>654</a>
+<a name='L655'></a><a href='#L655'>655</a>
+<a name='L656'></a><a href='#L656'>656</a>
+<a name='L657'></a><a href='#L657'>657</a>
+<a name='L658'></a><a href='#L658'>658</a>
+<a name='L659'></a><a href='#L659'>659</a>
+<a name='L660'></a><a href='#L660'>660</a>
+<a name='L661'></a><a href='#L661'>661</a>
+<a name='L662'></a><a href='#L662'>662</a>
+<a name='L663'></a><a href='#L663'>663</a>
+<a name='L664'></a><a href='#L664'>664</a>
+<a name='L665'></a><a href='#L665'>665</a>
+<a name='L666'></a><a href='#L666'>666</a>
+<a name='L667'></a><a href='#L667'>667</a>
+<a name='L668'></a><a href='#L668'>668</a>
+<a name='L669'></a><a href='#L669'>669</a>
+<a name='L670'></a><a href='#L670'>670</a>
+<a name='L671'></a><a href='#L671'>671</a>
+<a name='L672'></a><a href='#L672'>672</a>
+<a name='L673'></a><a href='#L673'>673</a>
+<a name='L674'></a><a href='#L674'>674</a>
+<a name='L675'></a><a href='#L675'>675</a>
+<a name='L676'></a><a href='#L676'>676</a>
+<a name='L677'></a><a href='#L677'>677</a>
+<a name='L678'></a><a href='#L678'>678</a>
+<a name='L679'></a><a href='#L679'>679</a>
+<a name='L680'></a><a href='#L680'>680</a>
+<a name='L681'></a><a href='#L681'>681</a>
+<a name='L682'></a><a href='#L682'>682</a>
+<a name='L683'></a><a href='#L683'>683</a>
+<a name='L684'></a><a href='#L684'>684</a>
+<a name='L685'></a><a href='#L685'>685</a>
+<a name='L686'></a><a href='#L686'>686</a>
+<a name='L687'></a><a href='#L687'>687</a>
+<a name='L688'></a><a href='#L688'>688</a>
+<a name='L689'></a><a href='#L689'>689</a>
+<a name='L690'></a><a href='#L690'>690</a>
+<a name='L691'></a><a href='#L691'>691</a>
+<a name='L692'></a><a href='#L692'>692</a>
+<a name='L693'></a><a href='#L693'>693</a>
+<a name='L694'></a><a href='#L694'>694</a>
+<a name='L695'></a><a href='#L695'>695</a>
+<a name='L696'></a><a href='#L696'>696</a>
+<a name='L697'></a><a href='#L697'>697</a>
+<a name='L698'></a><a href='#L698'>698</a>
+<a name='L699'></a><a href='#L699'>699</a>
+<a name='L700'></a><a href='#L700'>700</a>
+<a name='L701'></a><a href='#L701'>701</a>
+<a name='L702'></a><a href='#L702'>702</a>
+<a name='L703'></a><a href='#L703'>703</a>
+<a name='L704'></a><a href='#L704'>704</a>
+<a name='L705'></a><a href='#L705'>705</a>
+<a name='L706'></a><a href='#L706'>706</a>
+<a name='L707'></a><a href='#L707'>707</a>
+<a name='L708'></a><a href='#L708'>708</a>
+<a name='L709'></a><a href='#L709'>709</a>
+<a name='L710'></a><a href='#L710'>710</a>
+<a name='L711'></a><a href='#L711'>711</a>
+<a name='L712'></a><a href='#L712'>712</a>
+<a name='L713'></a><a href='#L713'>713</a>
+<a name='L714'></a><a href='#L714'>714</a>
+<a name='L715'></a><a href='#L715'>715</a>
+<a name='L716'></a><a href='#L716'>716</a>
+<a name='L717'></a><a href='#L717'>717</a>
+<a name='L718'></a><a href='#L718'>718</a>
+<a name='L719'></a><a href='#L719'>719</a>
+<a name='L720'></a><a href='#L720'>720</a>
+<a name='L721'></a><a href='#L721'>721</a>
+<a name='L722'></a><a href='#L722'>722</a>
+<a name='L723'></a><a href='#L723'>723</a>
+<a name='L724'></a><a href='#L724'>724</a>
+<a name='L725'></a><a href='#L725'>725</a>
+<a name='L726'></a><a href='#L726'>726</a>
+<a name='L727'></a><a href='#L727'>727</a>
+<a name='L728'></a><a href='#L728'>728</a>
+<a name='L729'></a><a href='#L729'>729</a>
+<a name='L730'></a><a href='#L730'>730</a>
+<a name='L731'></a><a href='#L731'>731</a>
+<a name='L732'></a><a href='#L732'>732</a>
+<a name='L733'></a><a href='#L733'>733</a>
+<a name='L734'></a><a href='#L734'>734</a>
+<a name='L735'></a><a href='#L735'>735</a>
+<a name='L736'></a><a href='#L736'>736</a>
+<a name='L737'></a><a href='#L737'>737</a>
+<a name='L738'></a><a href='#L738'>738</a>
+<a name='L739'></a><a href='#L739'>739</a>
+<a name='L740'></a><a href='#L740'>740</a>
+<a name='L741'></a><a href='#L741'>741</a>
+<a name='L742'></a><a href='#L742'>742</a>
+<a name='L743'></a><a href='#L743'>743</a>
+<a name='L744'></a><a href='#L744'>744</a>
+<a name='L745'></a><a href='#L745'>745</a>
+<a name='L746'></a><a href='#L746'>746</a>
+<a name='L747'></a><a href='#L747'>747</a>
+<a name='L748'></a><a href='#L748'>748</a>
+<a name='L749'></a><a href='#L749'>749</a>
+<a name='L750'></a><a href='#L750'>750</a>
+<a name='L751'></a><a href='#L751'>751</a>
+<a name='L752'></a><a href='#L752'>752</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">153x</span>
+<span class="cline-any cline-yes">51x</span>
+<span class="cline-any cline-yes">51x</span>
+<span class="cline-any cline-yes">605x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useStore } from '../store/useStore';
+&nbsp;
+type Lang = 'en' | 'it' | 'es' | 'pt' | 'fr' | 'de';
+&nbsp;
+const translations = {
+  en: {
+    // App / Titlebar
+    history: 'Version history',
+    focusMode: 'Focus mode (⌘⇧F)',
+    exportMarkdown: 'Export as Markdown',
+    exportPdf: 'Export as PDF',
+    print: 'Print',
+    printError: 'Could not open print dialog',
+    // Note Advisor
+    advSecretTitle: 'Possible {label} found',
+    advSecretDetail: '"{note}" appears to contain {label}. Consider moving this data to a password manager or system keychain.',
+    advGenericTitle: 'Generic note title',
+    advGenericDetail: '"{note}" has a non-descriptive title. A specific name makes the note easier to find later.',
+    advSplitTitle: 'Very long note',
+    advSplitDetail: '"{note}" contains {wc} words. Consider splitting it into more focused notes.',
+    advNoStructureTitle: 'Long note without structure',
+    advNoStructureDetail: '"{note}" is fairly long but has no section headings. Adding H1/H2 improves readability.',
+    advStaleTitle: 'Note not updated for a while',
+    advStaleDetail: '"{note}" has not been modified in {days} days. It could be archived or refreshed.',
+    advDuplicateTopicTitle: '{count} notes on the same topic',
+    advDuplicateTopicDetail: 'The notes about "{kw}" are separate ({list}). It may be worth consolidating them into one structured note.',
+    advLabelGithubToken: 'GitHub token',
+    advLabelOpenaiKey: 'OpenAI API key',
+    advLabelAnthropicKey: 'Anthropic API key',
+    advLabelAwsCredential: 'AWS credential',
+    advLabelBearerToken: 'Bearer token',
+    advLabelPemKey: 'private key (PEM)',
+    advLabelUrlWithCreds: 'URL with embedded credentials',
+    advLabelEnvSecret: 'environment variable with secret',
+    advLabelStripeKey: 'Stripe key',
+    advLabelHerokuKey: 'Heroku API key',
+    advActionOpen: 'Open note',
+    advActionOpenFirst: 'Open first',
+    advActionRename: 'Rename',
+    advActionAddHeadings: 'Add headings',
+    advRenamePrompt: 'New name for "{note}":',
+    safeStorageUnavailable: 'OS encryption not available — your API key will be kept in memory only and lost on restart. On Linux, install libsecret/gnome-keyring.',
+    aiSuggestions: 'AI suggestions',
+    aiSuggestionsHelp: 'Inline ghost-text completion. Manual: press ⌘L to invoke. Tab accepts, Esc dismisses.',
+    aiGhostOff: 'Off',
+    aiGhostManual: 'Manual (⌘L)',
+    aiGhostAuto: 'Auto while typing',
+    editorWidth: 'Editor width',
+    editorWidthHelp: 'How wide the writing column is. Narrow improves focus; wide is better for tables and code.',
+    widthNarrow: 'Narrow',
+    widthNormal: 'Normal',
+    widthWide: 'Wide',
+    widthFull: 'Full',
+    shareExport: 'Share / Export',
+    shareExportNote: 'Current note',
+    shareExportVault: 'Vault',
+    shareAirdrop: 'Share / AirDrop…',
+    copyToICloud: 'Copy to iCloud Drive',
+    exportVaultFolder: 'Export vault to folder…',
+    editorBg: 'Editor background',
+    editorBgHelp: 'Override the writing pane color. Leave as Default to follow the theme.',
+    editorBgDefault: 'Default (theme)',
+    exportHtml: 'Export as HTML',
+    exportDocx: 'Export as DOCX (Word)',
+    templates: 'Templates',
+    shortcuts: 'Shortcuts (?)',
+    settings: 'Settings',
+    closeSettings: 'Close settings',
+&nbsp;
+    // Toast messages
+    markdownExported: 'Markdown exported',
+    markdownExportError: 'Markdown export error',
+    pdfExported: 'PDF exported successfully',
+    pdfExportError: 'PDF export error',
+    docxExported: 'DOCX exported',
+    docxExportError: 'DOCX export error',
+    htmlExported: 'HTML exported',
+    htmlExportError: 'HTML export error',
+    importError: 'Import error',
+    iCloudConfigured: 'iCloud Drive configured',
+    iCloudError: 'iCloud error',
+&nbsp;
+    // LLM Banner
+    llmBanner: 'Configure an AI model in',
+    llmBannerLink: 'Settings',
+    llmBannerSuffix: 'to unlock inline AI completion, quick commands and automatic tags.',
+&nbsp;
+    // Sidebar
+    notes: 'Notes',
+    sortBy: 'Sort by:',
+    sortDate: 'Date',
+    sortName: 'Name',
+    sortSize: 'Size',
+    tags: 'Tags',
+    newFolder: 'New folder',
+    dailyNote: 'Daily note',
+    newNote: 'New note',
+    all: 'all',
+    search: 'Search...',
+    folderNamePlaceholder: 'Folder name...',
+    newNoteHere: 'New note here',
+    deleteFolder: 'Delete folder',
+    deleteFolderConfirm: 'Delete folder "{name}"? Notes will be moved to root.',
+    emptyFolder: 'Empty — drag a note here',
+    noNotesWithTag: 'No notes with {tag}',
+    noNotesFound: 'No notes found',
+    noNotes: 'No notes',
+    noNotesYet: 'No notes yet — press ⌘N to create one',
+    welcomeTitle: 'Your notes, right here',
+    welcomeSubtitleEmpty: 'Create your first note to get started.',
+    welcomeSubtitleHasNotes: 'Select a note from the sidebar or press ⌘P to search.',
+    welcomeNewNote: 'New note  ⌘N',
+    welcomeAiHint: 'AI features available — configure a provider in',
+    newNoteFilePrefix: 'New_Note',
+    newNoteTitle: 'New Note',
+    newNoteBody: 'Start writing here…',
+    dailySectionNotes: 'Notes',
+    dailySectionTodo: 'To do',
+    dailySectionIdeas: 'Ideas',
+    renameHint: 'Double-click to rename',
+&nbsp;
+    // NoteEditor
+    selectNote: 'Select a note or create a new one',
+    editorPlaceholder: 'Write something...',
+    smartPaste: 'Smart paste...',
+    tabAccept: 'accept',
+    word: 'word',
+    words: 'words',
+    saving: 'Saving...',
+    saved: 'Saved',
+&nbsp;
+    // Settings Modal
+    settingsTitle: 'Settings',
+    llmProvider: 'LLM Provider',
+    model: 'Model',
+    detectingModels: 'Detecting...',
+    detectModels: 'Detect models',
+    noModelsHelp: 'Start LM Studio / Ollama and click "Detect models"',
+    modelsFound_one: 'model found',
+    modelsFound_other: 'models found',
+    openrouterExample: 'e.g. google/gemma-4-e2b, anthropic/claude-3.5-sonnet',
+    defaultModelHelp: 'Leave empty to use the default model',
+    lmStudioUrl: 'LM Studio API URL',
+    lmStudioHelp: 'The local URL where LM Studio is running.',
+    apiKey: 'API Key',
+    apiKeyHelp: 'Your key is encrypted with the OS keychain.',
+    theme: 'Theme',
+    themeAuto: 'Auto',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+    themeSepia: 'Sepia',
+    accentColor: 'Accent color',
+    customColor: 'Custom color',
+    editorSection: 'Editor',
+    showToolbar: 'Show formatting bar (H1/H2, Bold, Italic…)',
+    showAiBar: 'Show AI bar (Continue, Expand, Refine…)',
+    typewriterMode: 'Typewriter mode — cursor always centered',
+    editorFont: 'Editor font',
+    fontSystem: 'System',
+    fontSerif: 'Serif',
+    fontMono: 'Mono',
+    fontSize: 'Text size',
+    fontSmall: 'Small',
+    fontNormal: 'Normal',
+    fontLarge: 'Large',
+    fontXl: 'XL',
+    notesDirectory: 'Notes Directory',
+    directoryDefault: '~/Documents/Noted',
+    change: 'Change',
+    useICloud: 'Use iCloud Drive',
+    importVault: 'Import Obsidian / Bear vault',
+    piiMasking: 'PII Masking',
+    piiMaskingDesc: 'Automatically mask emails, phone numbers, credit cards and IDs before sending to AI.',
+    piiMasked: '{n} items masked before sending',
+    analyticsPanel: 'Analytics',
+    analyticsWords: 'Words',
+    analyticsChars: 'Characters',
+    analyticsSentences: 'Sentences',
+    analyticsParagraphs: 'Paragraphs',
+    analyticsReadTime: 'Read time',
+    analyticsReadTimeMin: '{n} min',
+    analyticsReadability: 'Readability',
+    analyticsKeywords: 'Top keywords',
+    analyticsNoContent: 'Open a note to see analytics',
+    analyticsToneLabel: 'Writing tone',
+    save: 'Save',
+    language: 'Language',
+    cloudSync: 'Cloud Storage &amp; Sync',
+    cloudSyncDesc: 'Notes are stored in the selected folder and synced automatically by the provider.',
+    cloudNotInstalled: 'Not installed',
+    cloudActive: 'Active',
+    cloudCustomFolder: 'Custom folder',
+    cloudLocalOnly: 'Local only',
+    cloudActivate: 'Activate',
+    cloudCurrentPath: 'Current path',
+&nbsp;
+    // Keyboard Shortcuts Modal
+    keyboardShortcuts: 'Keyboard shortcuts',
+    close: 'Close',
+    sectionGeneral: 'General',
+    sectionAi: 'AI',
+    sectionFormatting: 'Formatting',
+    sectionNotes: 'Notes',
+    shortcutQuickOpen: 'Quick open — search and open note',
+    shortcutSave: 'Save immediately',
+    shortcutFind: 'Find in document',
+    shortcutFocusMode: 'Focus mode (dims everything except current paragraph)',
+    shortcutShowShortcuts: 'Show this window',
+    shortcutSlash: 'AI commands — /continue, /expand, /summarize, /improve, /bullets, /translate',
+    shortcutTab: 'Accept inline AI suggestion (appears after 1.2s pause)',
+    shortcutEsc: 'Dismiss AI suggestion',
+    shortcutBold: 'Bold',
+    shortcutItalic: 'Italic',
+    shortcutH1: 'Heading 1',
+    shortcutH2: 'Heading 2',
+    shortcutH3: 'Heading 3',
+    shortcutCode: 'Inline code',
+    shortcutRename: 'Double-click to rename',
+&nbsp;
+    // Slash Commands
+    aiActions: 'AI Actions',
+    navigate: '↑↓ navigate',
+    execute: '↵ execute',
+    escClose: 'esc close',
+    cmdContinueLabel: 'Continue',
+    cmdContinueDesc: 'Continue writing from the current point',
+    cmdExpandLabel: 'Expand',
+    cmdExpandDesc: 'Elaborate and deepen the current paragraph',
+    cmdSummarizeLabel: 'Summarize',
+    cmdSummarizeDesc: 'Synthesize the note into key points',
+    cmdImproveLabel: 'Improve',
+    cmdImproveDesc: 'Improve clarity and style of the text',
+    cmdBulletsLabel: 'Convert to list',
+    cmdBulletsDesc: 'Transform into a bulleted list',
+    cmdTranslateLabel: 'Translate',
+    cmdTranslateDesc: 'Translate to English (or Italian if already in English)',
+&nbsp;
+    // Smart Tag Suggestion
+    analyzingTags: 'Analyzing tags...',
+    aiSuggestedTags: 'AI-suggested tags',
+    insertInNote: 'Insert in note',
+    dismissSuggestion: 'Dismiss suggestion',
+&nbsp;
+    // AI Chat
+    aiAssistant: 'AI Assistant',
+    ragActive: 'RAG active on {n} notes',
+    thinking: 'Thinking...',
+    waitingResponse: 'Waiting for response...',
+    askSomething: 'Ask something... (Press Enter)',
+    aiGreeting: "Hello! I'm your assistant. I can read what you write and help you. How can I help you today?",
+    aiError: 'Error: {msg}. Check settings (Provider and API Key).',
+    contextTruncated: 'Note exceeds context limit (8,000 chars) — only the first portion was sent to the AI.',
+    clearChat: 'Clear conversation',
+    ghostThinking: 'AI',
+&nbsp;
+    // Editor Toolbar
+    heading1: 'Heading 1',
+    heading2: 'Heading 2',
+    heading3: 'Heading 3',
+    bold: 'Bold (⌘B)',
+    italic: 'Italic (⌘I)',
+    strikethrough: 'Strikethrough',
+    inlineCode: 'Inline code',
+    insertTable: 'Insert table',
+    findShortcut: 'Find (⌘F)',
+    findPlaceholder: 'Find in document...',
+    noResults: '0 results',
+    findAriaLabel: 'Find in document',
+    previous: 'Previous',
+    next: 'Next',
+    closeFind: 'Close find',
+&nbsp;
+    // Code Block
+    copyCode: 'Copy code',
+&nbsp;
+    // Backlinks Panel
+    backlinksHeader_one: 'note cites',
+    backlinksHeader_other: 'notes cite',
+&nbsp;
+    // Quick Open
+    openNote: 'Open note...',
+    navHint: '↑↓ navigate',
+    openHint: '↵ open',
+    escHint: 'esc close',
+&nbsp;
+    // Note Advisor
+    noteAdvisor: 'Note Advisor',
+    closeAdvisor: 'Close advisor',
+    highPriority: 'High priority',
+    medium: 'Medium',
+    suggestion: 'Suggestion',
+    suggestions: 'Suggestions',
+    noSuggestions: 'No suggestions at the moment',
+    notesInOrder: 'Notes look good',
+    dismissAll: 'Dismiss all suggestions',
+&nbsp;
+    // Templates Modal
+    templatesTitle: 'Templates',
+    custom: 'Custom',
+    use: 'Use',
+    saveCurrentNote: 'Save current note as template',
+&nbsp;
+    // Note History Modal
+    historyTitle: 'History',
+    loading: 'Loading...',
+    noVersions: 'No saved versions. Versions are created automatically on each save.',
+    selectVersion: 'Select a version to preview',
+    restoreVersion: 'Restore this version',
+&nbsp;
+    // Import
+    notesImported: 'notes imported',
+&nbsp;
+    // Git Panel
+    gitTitle: 'Git',
+    gitStatus: 'Status',
+    gitLoading: 'Loading...',
+    gitNotInitialized: 'Repository not initialized.',
+    gitInit: 'Initialize Git',
+    gitInitialized: 'Git repository initialized',
+    gitInitError: 'Initialization error',
+    gitDirty: 'Uncommitted changes',
+    gitClean: 'Clean — nothing to commit',
+    gitCommitSection: 'Commit',
+    gitCommitPlaceholder: 'Commit message (optional)...',
+    gitCommitNote: 'Commit current note',
+    gitCommitted: 'Committed',
+    gitCommitError: 'Commit error',
+    gitCommitting: 'Committing...',
+    gitPrSection: 'Create Pull Request',
+    gitNoRemote: 'Set a remote URL in Settings to create a PR.',
+    gitNoToken: 'GitHub token required. Add it in the Git settings.',
+    gitCreatePr: 'New Pull Request',
+    gitPrTitleRequired: 'PR title is required.',
+    gitPrTitlePlaceholder: 'PR title...',
+    gitPrBodyPlaceholder: 'Description (optional)...',
+    gitBranchError: 'Error creating branch',
+    gitPushing: 'Pushing...',
+    gitPushError: 'Push error',
+    gitCreatingPr: 'Creating PR...',
+    gitPrCreated: 'Pull request created',
+    gitPrError: 'PR creation error',
+    gitPublish: 'Publish PR',
+    gitCancel: 'Cancel',
+    gitSettingsSection: 'Git Settings',
+    gitRemote: 'Remote URL (GitHub)',
+    gitGhToken: 'GitHub Token (PAT)',
+    gitTokenHelp: 'Token stored encrypted. Requires repo scope.',
+    gitDefaultBase: 'Default base branch',
+    gitAutoCommit: 'Auto-commit on save',
+    gitEnable: 'Enable Git integration',
+    gitEnableDesc: 'Track note changes with version control',
+    tabAi: 'AI',
+    tabAppearance: 'Appearance',
+    tabEditor: 'Editor',
+    tabSync: 'Sync',
+    tabGit: 'Git',
+    saveAsGist: 'Save as Gist',
+    gistPublic: 'Public',
+    gistPrivate: 'Private (secret)',
+    gistCreate: 'Create Gist',
+    gistCreated: 'Gist created — URL copied',
+    gistError: 'Gist error: {msg}',
+    showHints: 'Show feature hints',
+    showHintsDesc: 'Contextual tooltips on first use',
+    gistVisibility: 'Visibility',
+  },
+  it: {
+    // App / Titlebar
+    history: 'Cronologia versioni',
+    focusMode: 'Modalità focus (⌘⇧F)',
+    exportMarkdown: 'Esporta come Markdown',
+    exportPdf: 'Esporta come PDF',
+    print: 'Stampa',
+    printError: 'Impossibile aprire la finestra di stampa',
+    // Note Advisor
+    advSecretTitle: 'Possibile {label} trovato',
+    advSecretDetail: '"{note}" sembra contenere {label}. Considera di spostare questi dati in un password manager o nel keychain di sistema.',
+    advGenericTitle: 'Titolo nota generico',
+    advGenericDetail: '"{note}" ha un titolo poco descrittivo. Un nome specifico rende più facile trovare la nota in futuro.',
+    advSplitTitle: 'Nota molto lunga',
+    advSplitDetail: '"{note}" contiene {wc} parole. Considera di suddividerla in note più specifiche per argomento.',
+    advNoStructureTitle: 'Nota lunga senza struttura',
+    advNoStructureDetail: '"{note}" è abbastanza lunga ma non ha titoli di sezione. Aggiungere H1/H2 migliora la leggibilità.',
+    advStaleTitle: 'Nota non aggiornata da tempo',
+    advStaleDetail: '"{note}" non viene modificata da {days} giorni. Potrebbe essere archiviata o aggiornata.',
+    advDuplicateTopicTitle: '{count} note sullo stesso argomento',
+    advDuplicateTopicDetail: 'Le note su "{kw}" sono separate ({list}). Potrebbe valere la pena consolidarle in un\'unica nota strutturata.',
+    advLabelGithubToken: 'token GitHub',
+    advLabelOpenaiKey: 'API key OpenAI',
+    advLabelAnthropicKey: 'API key Anthropic',
+    advLabelAwsCredential: 'credenziale AWS',
+    advLabelBearerToken: 'Bearer token',
+    advLabelPemKey: 'chiave privata (PEM)',
+    advLabelUrlWithCreds: 'URL con credenziali incorporate',
+    advLabelEnvSecret: 'variabile d\'ambiente con segreto',
+    advLabelStripeKey: 'chiave Stripe',
+    advLabelHerokuKey: 'API key Heroku',
+    advActionOpen: 'Apri nota',
+    advActionOpenFirst: 'Apri prima',
+    advActionRename: 'Rinomina',
+    advActionAddHeadings: 'Aggiungi titoli',
+    advRenamePrompt: 'Nuovo nome per "{note}":',
+    safeStorageUnavailable: 'Crittografia di sistema non disponibile — la API key resterà solo in memoria e si perderà al riavvio. Su Linux installa libsecret/gnome-keyring.',
+    aiSuggestions: 'Suggerimenti AI',
+    aiSuggestionsHelp: 'Autocompletamento inline (ghost text). Manuale: premi ⌘L per invocarlo. Tab accetta, Esc scarta.',
+    aiGhostOff: 'Off',
+    aiGhostManual: 'Manuale (⌘L)',
+    aiGhostAuto: 'Automatico mentre scrivi',
+    editorWidth: 'Larghezza editor',
+    editorWidthHelp: 'Quanto larga è la colonna di scrittura. Stretta favorisce il focus; larga è meglio per tabelle e codice.',
+    widthNarrow: 'Stretta',
+    widthNormal: 'Normale',
+    widthWide: 'Larga',
+    widthFull: 'Piena',
+    shareExport: 'Condividi / Esporta',
+    shareExportNote: 'Nota corrente',
+    shareExportVault: 'Vault',
+    shareAirdrop: 'Condividi / AirDrop…',
+    copyToICloud: 'Copia su iCloud Drive',
+    exportVaultFolder: 'Esporta vault in cartella…',
+    editorBg: 'Sfondo editor',
+    editorBgHelp: 'Sovrascrive il colore della pagina di scrittura. Lascia Predefinito per seguire il tema.',
+    editorBgDefault: 'Predefinito (tema)',
+    exportHtml: 'Esporta come HTML',
+    exportDocx: 'Esporta come DOCX (Word)',
+    templates: 'Template',
+    shortcuts: 'Scorciatoie (?)',
+    settings: 'Impostazioni',
+    closeSettings: 'Chiudi impostazioni',
+&nbsp;
+    // Toast messages
+    markdownExported: 'Markdown esportato',
+    markdownExportError: 'Errore esportazione Markdown',
+    pdfExported: 'PDF esportato con successo',
+    pdfExportError: "Errore durante l'esportazione PDF",
+    docxExported: 'DOCX esportato',
+    docxExportError: 'Errore esportazione DOCX',
+    htmlExported: 'HTML esportato',
+    htmlExportError: 'Errore esportazione HTML',
+    importError: 'Errore importazione',
+    iCloudConfigured: 'iCloud Drive configurato',
+    iCloudError: 'Errore iCloud',
+&nbsp;
+    // LLM Banner
+    llmBanner: 'Configura un modello AI in',
+    llmBannerLink: 'Impostazioni',
+    llmBannerSuffix: 'per sbloccare il completamento AI in linea, i comandi rapidi e i tag automatici.',
+&nbsp;
+    // Sidebar
+    notes: 'Note',
+    sortBy: 'Ordina per:',
+    sortDate: 'Data',
+    sortName: 'Nome',
+    sortSize: 'Dim.',
+    tags: 'Tag',
+    newFolder: 'Nuova cartella',
+    dailyNote: 'Nota del giorno',
+    newNote: 'Nuova nota',
+    all: 'tutto',
+    search: 'Cerca...',
+    folderNamePlaceholder: 'Nome cartella...',
+    newNoteHere: 'Nuova nota qui',
+    deleteFolder: 'Elimina cartella',
+    deleteFolderConfirm: 'Eliminare cartella "{name}"? Le note verranno spostate nella root.',
+    emptyFolder: 'Vuota — trascina una nota qui',
+    noNotesWithTag: 'Nessuna nota con {tag}',
+    noNotesFound: 'Nessuna nota trovata',
+    noNotes: 'Nessuna nota',
+    noNotesYet: 'Ancora nessuna nota — premi ⌘N per crearne una',
+    welcomeTitle: 'Le tue note, qui',
+    welcomeSubtitleEmpty: 'Crea la tua prima nota per iniziare.',
+    welcomeSubtitleHasNotes: 'Seleziona una nota dalla barra laterale o premi ⌘P per cercare.',
+    welcomeNewNote: 'Nuova nota  ⌘N',
+    welcomeAiHint: 'Funzionalità AI disponibili — configura un provider in',
+    newNoteFilePrefix: 'Nuova_Nota',
+    newNoteTitle: 'Nuova Nota',
+    newNoteBody: 'Inizia a scrivere qui…',
+    dailySectionNotes: 'Note',
+    dailySectionTodo: 'Da fare',
+    dailySectionIdeas: 'Idee',
+    renameHint: 'Doppio clic per rinominare',
+&nbsp;
+    // NoteEditor
+    selectNote: 'Seleziona una nota o creane una nuova',
+    editorPlaceholder: 'Scrivi qualcosa...',
+    smartPaste: 'Incolla intelligente...',
+    tabAccept: 'accetta',
+    word: 'parola',
+    words: 'parole',
+    saving: 'Salvando...',
+    saved: 'Salvato',
+&nbsp;
+    // Settings Modal
+    settingsTitle: 'Impostazioni',
+    llmProvider: 'Provider LLM',
+    model: 'Modello',
+    detectingModels: 'Rilevamento...',
+    detectModels: 'Rileva modelli',
+    noModelsHelp: 'Avvia LM Studio / Ollama e clicca "Rileva modelli"',
+    modelsFound_one: 'modello trovato',
+    modelsFound_other: 'modelli trovati',
+    openrouterExample: 'Es. google/gemma-4-e2b, anthropic/claude-3.5-sonnet',
+    defaultModelHelp: 'Lascia vuoto per usare il modello predefinito',
+    lmStudioUrl: 'LM Studio API URL',
+    lmStudioHelp: 'L\'URL locale dove gira LM Studio.',
+    apiKey: 'API Key',
+    apiKeyHelp: 'La tua chiave è cifrata con il keychain del sistema operativo.',
+    theme: 'Tema',
+    themeAuto: 'Auto',
+    themeLight: 'Chiaro',
+    themeDark: 'Scuro',
+    themeSepia: 'Sepia',
+    accentColor: 'Colore accento',
+    customColor: 'Colore personalizzato',
+    editorSection: 'Editor',
+    showToolbar: 'Mostra barra formattazione (H1/H2, Grassetto, Corsivo…)',
+    showAiBar: 'Mostra barra AI (Continua, Espandi, Raffina…)',
+    typewriterMode: 'Typewriter mode — cursore sempre al centro',
+    editorFont: 'Font editor',
+    fontSystem: 'Sistema',
+    fontSerif: 'Serif',
+    fontMono: 'Mono',
+    fontSize: 'Dimensione testo',
+    fontSmall: 'Piccolo',
+    fontNormal: 'Normale',
+    fontLarge: 'Grande',
+    fontXl: 'XL',
+    notesDirectory: 'Directory Note',
+    directoryDefault: '~/Documents/Noted',
+    cloudSync: 'Storage &amp; Sincronizzazione Cloud',
+    cloudSyncDesc: 'Le note sono salvate nella cartella selezionata e sincronizzate automaticamente dal provider.',
+    cloudNotInstalled: 'Non installato',
+    cloudActive: 'Attivo',
+    cloudCustomFolder: 'Cartella personalizzata',
+    cloudLocalOnly: 'Solo locale',
+    cloudActivate: 'Attiva',
+    cloudCurrentPath: 'Percorso attuale',
+    change: 'Cambia',
+    useICloud: 'Usa iCloud Drive',
+    importVault: 'Importa vault Obsidian / Bear',
+    piiMasking: 'Mascheramento dati personali',
+    piiMaskingDesc: 'Maschera automaticamente email, telefoni, carte di credito e documenti prima di inviare all\'AI.',
+    piiMasked: '{n} elementi mascherati prima dell\'invio',
+    analyticsPanel: 'Analisi',
+    analyticsWords: 'Parole',
+    analyticsChars: 'Caratteri',
+    analyticsSentences: 'Frasi',
+    analyticsParagraphs: 'Paragrafi',
+    analyticsReadTime: 'Tempo di lettura',
+    analyticsReadTimeMin: '{n} min',
+    analyticsReadability: 'Leggibilità',
+    analyticsKeywords: 'Parole chiave',
+    analyticsNoContent: 'Apri una nota per vedere le analisi',
+    analyticsToneLabel: 'Tono di scrittura',
+    save: 'Salva',
+    language: 'Lingua',
+&nbsp;
+    // Keyboard Shortcuts Modal
+    keyboardShortcuts: 'Scorciatoie da tastiera',
+    close: 'Chiudi',
+    sectionGeneral: 'Generale',
+    sectionAi: 'AI',
+    sectionFormatting: 'Formattazione',
+    sectionNotes: 'Note',
+    shortcutQuickOpen: 'Apertura rapida — cerca e apri nota',
+    shortcutSave: 'Salva immediatamente',
+    shortcutFind: 'Cerca nel documento',
+    shortcutFocusMode: 'Modalità focus (sfuma tutto tranne il paragrafo corrente)',
+    shortcutShowShortcuts: 'Mostra questa finestra',
+    shortcutSlash: 'Comandi AI — /continua, /espandi, /riassumi, /migliora, /punti, /traduci',
+    shortcutTab: 'Accetta il suggerimento AI in linea (appare dopo 1.2s di pausa)',
+    shortcutEsc: 'Scarta il suggerimento AI',
+    shortcutBold: 'Grassetto',
+    shortcutItalic: 'Corsivo',
+    shortcutH1: 'Titolo 1',
+    shortcutH2: 'Titolo 2',
+    shortcutH3: 'Titolo 3',
+    shortcutCode: 'Codice inline',
+    shortcutRename: 'Doppio clic per rinominare',
+&nbsp;
+    // Slash Commands
+    aiActions: 'Azioni AI',
+    navigate: '↑↓ naviga',
+    execute: '↵ esegui',
+    escClose: 'esc chiudi',
+    cmdContinueLabel: 'Continua',
+    cmdContinueDesc: 'Continua a scrivere dal punto corrente',
+    cmdExpandLabel: 'Espandi',
+    cmdExpandDesc: 'Elabora e approfondisce il paragrafo corrente',
+    cmdSummarizeLabel: 'Riassumi',
+    cmdSummarizeDesc: 'Sintetizza la nota in punti chiave',
+    cmdImproveLabel: 'Migliora',
+    cmdImproveDesc: 'Migliora chiarezza e stile del testo',
+    cmdBulletsLabel: 'Converti in lista',
+    cmdBulletsDesc: 'Trasforma in elenco puntato',
+    cmdTranslateLabel: 'Traduci',
+    cmdTranslateDesc: 'Traduci in inglese (o in italiano se già in inglese)',
+&nbsp;
+    // Smart Tag Suggestion
+    analyzingTags: 'Analisi tag...',
+    aiSuggestedTags: "Tag suggeriti dall'AI",
+    insertInNote: 'Inserisci in nota',
+    dismissSuggestion: 'Ignora suggerimento',
+&nbsp;
+    // AI Chat
+    aiAssistant: 'AI Assistant',
+    ragActive: 'RAG attivo su {n} note',
+    thinking: 'Pensando...',
+    waitingResponse: 'Attendi la risposta...',
+    askSomething: 'Chiedi qualcosa... (Premi Invio)',
+    aiGreeting: 'Ciao! Sono il tuo assistente. MCP attivato. Posso leggere quello che scrivi e aiutarti. Come posso aiutarti oggi?',
+    aiError: 'Errore: {msg}. Controlla le impostazioni (Provider e API Key).',
+    contextTruncated: "La nota supera il limite di contesto (8.000 caratteri) — solo la prima parte è stata inviata all'AI.",
+    clearChat: 'Cancella conversazione',
+    ghostThinking: 'AI',
+&nbsp;
+    // Editor Toolbar
+    heading1: 'Titolo 1',
+    heading2: 'Titolo 2',
+    heading3: 'Titolo 3',
+    bold: 'Grassetto (⌘B)',
+    italic: 'Corsivo (⌘I)',
+    strikethrough: 'Barrato',
+    inlineCode: 'Codice inline',
+    insertTable: 'Inserisci tabella',
+    findShortcut: 'Cerca (⌘F)',
+    findPlaceholder: 'Cerca nel documento...',
+    noResults: '0 risultati',
+    findAriaLabel: 'Cerca nel documento',
+    previous: 'Precedente',
+    next: 'Successivo',
+    closeFind: 'Chiudi ricerca',
+&nbsp;
+    // Code Block
+    copyCode: 'Copia codice',
+&nbsp;
+    // Backlinks Panel
+    backlinksHeader_one: 'nota cita',
+    backlinksHeader_other: 'note citano',
+&nbsp;
+    // Quick Open
+    openNote: 'Apri nota...',
+    navHint: '↑↓ naviga',
+    openHint: '↵ apri',
+    escHint: 'esc chiudi',
+&nbsp;
+    // Note Advisor
+    noteAdvisor: 'Note Advisor',
+    closeAdvisor: 'Chiudi advisor',
+    highPriority: 'Alta priorità',
+    medium: 'Media',
+    suggestion: 'Suggerimento',
+    suggestions: 'Suggerimenti',
+    noSuggestions: 'Nessun suggerimento al momento',
+    notesInOrder: 'Le note sembrano in ordine',
+    dismissAll: 'Ignora tutti i suggerimenti',
+&nbsp;
+    // Templates Modal
+    templatesTitle: 'Template',
+    custom: 'Personalizzato',
+    use: 'Usa',
+    saveCurrentNote: 'Salva nota corrente come template',
+&nbsp;
+    // Note History Modal
+    historyTitle: 'Cronologia',
+    loading: 'Caricamento...',
+    noVersions: 'Nessuna versione salvata. Le versioni vengono create automaticamente ad ogni salvataggio.',
+    selectVersion: 'Seleziona una versione per visualizzarla',
+    restoreVersion: 'Ripristina questa versione',
+&nbsp;
+    // Import
+    notesImported: 'note importate',
+&nbsp;
+    // Git Panel
+    gitTitle: 'Git',
+    gitStatus: 'Stato',
+    gitLoading: 'Caricamento...',
+    gitNotInitialized: 'Repository non inizializzato.',
+    gitInit: 'Inizializza Git',
+    gitInitialized: 'Repository Git inizializzato',
+    gitInitError: 'Errore di inizializzazione',
+    gitDirty: 'Modifiche non committate',
+    gitClean: 'Pulito — niente da committare',
+    gitCommitSection: 'Commit',
+    gitCommitPlaceholder: 'Messaggio di commit (opzionale)...',
+    gitCommitNote: 'Committa nota corrente',
+    gitCommitted: 'Committato',
+    gitCommitError: 'Errore commit',
+    gitCommitting: 'Committando...',
+    gitPrSection: 'Crea Pull Request',
+    gitNoRemote: 'Imposta un URL remoto nelle Impostazioni per creare una PR.',
+    gitNoToken: 'Token GitHub richiesto. Aggiungilo nelle impostazioni Git.',
+    gitCreatePr: 'Nuova Pull Request',
+    gitPrTitleRequired: 'Il titolo della PR è obbligatorio.',
+    gitPrTitlePlaceholder: 'Titolo PR...',
+    gitPrBodyPlaceholder: 'Descrizione (opzionale)...',
+    gitBranchError: 'Errore creazione branch',
+    gitPushing: 'Push in corso...',
+    gitPushError: 'Errore push',
+    gitCreatingPr: 'Creazione PR...',
+    gitPrCreated: 'Pull request creata',
+    gitPrError: 'Errore creazione PR',
+    gitPublish: 'Pubblica PR',
+    gitCancel: 'Annulla',
+    gitSettingsSection: 'Impostazioni Git',
+    gitRemote: 'URL remoto (GitHub)',
+    gitGhToken: 'Token GitHub (PAT)',
+    gitTokenHelp: 'Token salvato cifrato. Richiede scope repo.',
+    gitDefaultBase: 'Branch base predefinito',
+    gitAutoCommit: 'Auto-commit al salvataggio',
+    gitEnable: 'Abilita integrazione Git',
+    gitEnableDesc: 'Traccia le modifiche con controllo versione',
+    tabAi: 'AI',
+    tabAppearance: 'Aspetto',
+    tabEditor: 'Editor',
+    tabSync: 'Sync',
+    tabGit: 'Git',
+    saveAsGist: 'Salva come Gist',
+    gistPublic: 'Pubblico',
+    gistPrivate: 'Privato (segreto)',
+    gistCreate: 'Crea Gist',
+    gistCreated: 'Gist creato — URL copiato',
+    gistError: 'Errore Gist: {msg}',
+    showHints: 'Mostra suggerimenti funzioni',
+    showHintsDesc: 'Tooltip contestuali al primo utilizzo',
+    gistVisibility: 'Visibilità',
+  },
+  es: {
+    history: 'Historial de versiones', focusMode: 'Modo enfoque (⌘⇧F)', exportMarkdown: 'Exportar como Markdown', exportPdf: 'Exportar como PDF', exportHtml: 'Exportar como HTML', exportDocx: 'Exportar como DOCX (Word)', templates: 'Plantillas', shortcuts: 'Atajos (?)', settings: 'Ajustes', closeSettings: 'Cerrar ajustes', markdownExported: 'Markdown exportado', markdownExportError: 'Error al exportar Markdown', pdfExported: 'PDF exportado correctamente', pdfExportError: 'Error al exportar PDF', docxExported: 'DOCX exportado', docxExportError: 'Error al exportar DOCX', htmlExported: 'HTML exportado', htmlExportError: 'Error al exportar HTML', importError: 'Error de importación', iCloudConfigured: 'iCloud Drive configurado', iCloudError: 'Error de iCloud', llmBanner: 'Configura un modelo de IA en', llmBannerLink: 'Ajustes', llmBannerSuffix: 'para activar el completado IA, comandos rápidos y etiquetas automáticas.', notes: 'Notas', sortBy: 'Ordenar por:', sortDate: 'Fecha', sortName: 'Nombre', sortSize: 'Tamaño', tags: 'Etiquetas', newFolder: 'Nueva carpeta', dailyNote: 'Nota diaria', newNote: 'Nueva nota', all: 'todas', search: 'Buscar...', folderNamePlaceholder: 'Nombre de carpeta...', newNoteHere: 'Nueva nota aquí', deleteFolder: 'Eliminar carpeta', deleteFolderConfirm: '¿Eliminar carpeta "{name}"? Las notas se moverán a la raíz.', emptyFolder: 'Vacía — arrastra una nota aquí', noNotesWithTag: 'Sin notas con {tag}', noNotesFound: 'No se encontraron notas', noNotes: 'Sin notas', noNotesYet: 'Sin notas — pulsa ⌘N para crear una', welcomeTitle: 'Tus notas, aquí mismo', welcomeSubtitleEmpty: 'Crea tu primera nota para empezar.', welcomeSubtitleHasNotes: 'Selecciona una nota del panel lateral o pulsa ⌘P para buscar.', welcomeNewNote: 'Nueva nota  ⌘N', welcomeAiHint: 'Funciones de IA disponibles — configura un proveedor en', newNoteFilePrefix: 'Nueva_Nota', newNoteTitle: 'Nueva nota', newNoteBody: 'Empieza a escribir aquí…', dailySectionNotes: 'Notas', dailySectionTodo: 'Tareas', dailySectionIdeas: 'Ideas', renameHint: 'Doble clic para renombrar', selectNote: 'Selecciona una nota o crea una nueva', editorPlaceholder: 'Escribe algo...', smartPaste: 'Pegado inteligente...', tabAccept: 'aceptar', word: 'palabra', words: 'palabras', saving: 'Guardando...', saved: 'Guardado', settingsTitle: 'Ajustes', llmProvider: 'Proveedor LLM', model: 'Modelo', detectingModels: 'Detectando...', detectModels: 'Detectar modelos', noModelsHelp: 'Inicia LM Studio / Ollama y haz clic en "Detectar modelos"', modelsFound_one: 'modelo encontrado', modelsFound_other: 'modelos encontrados', openrouterExample: 'p. ej. google/gemma-4-e2b, anthropic/claude-3.5-sonnet', defaultModelHelp: 'Déjalo vacío para usar el modelo predeterminado', lmStudioUrl: 'URL de la API de LM Studio', lmStudioHelp: 'La URL local donde se ejecuta LM Studio.', apiKey: 'Clave API', apiKeyHelp: 'Tu clave se cifra con el llavero del sistema.', theme: 'Tema', themeAuto: 'Auto', themeLight: 'Claro', themeDark: 'Oscuro', themeSepia: 'Sepia', accentColor: 'Color de acento', customColor: 'Color personalizado', editorSection: 'Editor', showToolbar: 'Mostrar barra de formato (H1/H2, Negrita, Cursiva…)', showAiBar: 'Mostrar barra de IA (Continuar, Ampliar, Refinar…)', typewriterMode: 'Modo máquina de escribir — cursor siempre centrado', editorFont: 'Fuente del editor', fontSystem: 'Sistema', fontSerif: 'Serif', fontMono: 'Mono', fontSize: 'Tamaño de texto', fontSmall: 'Pequeño', fontNormal: 'Normal', fontLarge: 'Grande', fontXl: 'XL', notesDirectory: 'Directorio de notas', directoryDefault: '~/Documents/Noted', change: 'Cambiar', useICloud: 'Usar iCloud Drive', importVault: 'Importar bóveda de Obsidian / Bear', save: 'Guardar', language: 'Idioma', cloudSync: 'Almacenamiento y sincronización en la nube', cloudSyncDesc: 'Las notas se guardan en la carpeta seleccionada y se sincronizan automáticamente.', cloudNotInstalled: 'No instalado', cloudActive: 'Activo', cloudCustomFolder: 'Carpeta personalizada', cloudLocalOnly: 'Solo local', cloudActivate: 'Activar', cloudCurrentPath: 'Ruta actual', piiMasking: 'Enmascaramiento de datos personales', piiMaskingDesc: 'Enmascara automáticamente correos, teléfonos, tarjetas y documentos antes de enviar a la IA.', piiMasked: '{n} elementos enmascarados antes de enviar', analyticsPanel: 'Analítica', analyticsWords: 'Palabras', analyticsChars: 'Caracteres', analyticsSentences: 'Frases', analyticsParagraphs: 'Párrafos', analyticsReadTime: 'Tiempo de lectura', analyticsReadTimeMin: '{n} min', analyticsReadability: 'Legibilidad', analyticsKeywords: 'Palabras clave', analyticsNoContent: 'Abre una nota para ver la analítica', analyticsToneLabel: 'Tono de escritura', keyboardShortcuts: 'Atajos de teclado', close: 'Cerrar', sectionGeneral: 'General', sectionAi: 'IA', sectionFormatting: 'Formato', sectionNotes: 'Notas', shortcutQuickOpen: 'Apertura rápida — buscar y abrir nota', shortcutSave: 'Guardar inmediatamente', shortcutFind: 'Buscar en el documento', shortcutFocusMode: 'Modo enfoque (atenúa todo excepto el párrafo actual)', shortcutShowShortcuts: 'Mostrar esta ventana', shortcutSlash: 'Comandos de IA — /continue, /expand, /summarize, /improve, /bullets, /translate', shortcutTab: 'Aceptar sugerencia de IA (aparece tras 1,2 s de pausa)', shortcutEsc: 'Descartar sugerencia de IA', shortcutBold: 'Negrita', shortcutItalic: 'Cursiva', shortcutH1: 'Encabezado 1', shortcutH2: 'Encabezado 2', shortcutH3: 'Encabezado 3', shortcutCode: 'Código en línea', shortcutRename: 'Doble clic para renombrar', aiActions: 'Acciones de IA', navigate: '↑↓ navegar', execute: '↵ ejecutar', escClose: 'esc cerrar', cmdContinueLabel: 'Continuar', cmdContinueDesc: 'Continuar escribiendo desde el punto actual', cmdExpandLabel: 'Ampliar', cmdExpandDesc: 'Elaborar y profundizar el párrafo actual', cmdSummarizeLabel: 'Resumir', cmdSummarizeDesc: 'Sintetizar la nota en puntos clave', cmdImproveLabel: 'Mejorar', cmdImproveDesc: 'Mejorar la claridad y el estilo del texto', cmdBulletsLabel: 'Convertir en lista', cmdBulletsDesc: 'Transformar en lista con viñetas', cmdTranslateLabel: 'Traducir', cmdTranslateDesc: 'Traducir al inglés (o al italiano si ya está en inglés)', analyzingTags: 'Analizando etiquetas...', aiSuggestedTags: 'Etiquetas sugeridas por la IA', insertInNote: 'Insertar en la nota', dismissSuggestion: 'Descartar sugerencia', aiAssistant: 'Asistente de IA', ragActive: 'RAG activo en {n} notas', thinking: 'Pensando...', waitingResponse: 'Esperando respuesta...', askSomething: 'Pregunta algo... (Pulsa Enter)', aiGreeting: '¡Hola! Soy tu asistente. Puedo leer lo que escribes y ayudarte. ¿En qué puedo ayudarte hoy?', aiError: 'Error: {msg}. Comprueba los ajustes (Proveedor y Clave API).', contextTruncated: 'La nota supera el límite de contexto (8.000 caracteres) — solo la primera parte se envió a la IA.', clearChat: 'Borrar conversación', ghostThinking: 'IA', heading1: 'Encabezado 1', heading2: 'Encabezado 2', heading3: 'Encabezado 3', bold: 'Negrita (⌘B)', italic: 'Cursiva (⌘I)', strikethrough: 'Tachado', inlineCode: 'Código en línea', insertTable: 'Insertar tabla', findShortcut: 'Buscar (⌘F)', findPlaceholder: 'Buscar en el documento...', noResults: '0 resultados', findAriaLabel: 'Buscar en el documento', previous: 'Anterior', next: 'Siguiente', closeFind: 'Cerrar búsqueda', copyCode: 'Copiar código', backlinksHeader_one: 'nota cita', backlinksHeader_other: 'notas citan', openNote: 'Abrir nota...', navHint: '↑↓ navegar', openHint: '↵ abrir', escHint: 'esc cerrar', noteAdvisor: 'Asesor de notas', closeAdvisor: 'Cerrar asesor', highPriority: 'Alta prioridad', medium: 'Media', suggestion: 'Sugerencia', noSuggestions: 'Sin sugerencias en este momento', notesInOrder: 'Las notas están bien', dismissAll: 'Descartar todas las sugerencias', templatesTitle: 'Plantillas', custom: 'Personalizada', use: 'Usar', saveCurrentNote: 'Guardar nota actual como plantilla', historyTitle: 'Historial', loading: 'Cargando...', noVersions: 'Sin versiones guardadas. Las versiones se crean automáticamente en cada guardado.', selectVersion: 'Selecciona una versión para previsualizar', restoreVersion: 'Restaurar esta versión', notesImported: 'notas importadas', gitTitle: 'Git', gitStatus: 'Estado', gitLoading: 'Cargando...', gitNotInitialized: 'Repositorio no inicializado.', gitInit: 'Inicializar Git', gitInitialized: 'Repositorio Git inicializado', gitInitError: 'Error de inicialización', gitDirty: 'Cambios sin confirmar', gitClean: 'Limpio — nada que confirmar', gitCommitSection: 'Commit', gitCommitPlaceholder: 'Mensaje de commit (opcional)...', gitCommitNote: 'Hacer commit de la nota actual', gitCommitted: 'Confirmado', gitCommitError: 'Error al hacer commit', gitCommitting: 'Confirmando...', gitPrSection: 'Crear Pull Request', gitNoRemote: 'Define una URL remota en Ajustes para crear un PR.', gitNoToken: 'Se requiere token de GitHub. Añádelo en los ajustes de Git.', gitCreatePr: 'Nuevo Pull Request', gitPrTitleRequired: 'El título del PR es obligatorio.', gitPrTitlePlaceholder: 'Título del PR...', gitPrBodyPlaceholder: 'Descripción (opcional)...', gitBranchError: 'Error al crear la rama', gitPushing: 'Enviando...', gitPushError: 'Error al enviar', gitCreatingPr: 'Creando PR...', gitPrCreated: 'Pull request creado', gitPrError: 'Error al crear el PR', gitPublish: 'Publicar PR', gitCancel: 'Cancelar', gitSettingsSection: 'Ajustes de Git', gitRemote: 'URL remota (GitHub)', gitGhToken: 'Token de GitHub (PAT)', gitTokenHelp: 'Token almacenado cifrado. Requiere permiso repo.', gitDefaultBase: 'Rama base predeterminada', gitAutoCommit: 'Commit automático al guardar',
+  },
+  pt: {
+    history: 'Histórico de versões', focusMode: 'Modo foco (⌘⇧F)', exportMarkdown: 'Exportar como Markdown', exportPdf: 'Exportar como PDF', exportHtml: 'Exportar como HTML', exportDocx: 'Exportar como DOCX (Word)', templates: 'Modelos', shortcuts: 'Atalhos (?)', settings: 'Definições', closeSettings: 'Fechar definições', markdownExported: 'Markdown exportado', markdownExportError: 'Erro ao exportar Markdown', pdfExported: 'PDF exportado com sucesso', pdfExportError: 'Erro ao exportar PDF', docxExported: 'DOCX exportado', docxExportError: 'Erro ao exportar DOCX', htmlExported: 'HTML exportado', htmlExportError: 'Erro ao exportar HTML', importError: 'Erro de importação', iCloudConfigured: 'iCloud Drive configurado', iCloudError: 'Erro no iCloud', llmBanner: 'Configure um modelo de IA em', llmBannerLink: 'Definições', llmBannerSuffix: 'para ativar a conclusão de IA, comandos rápidos e etiquetas automáticas.', notes: 'Notas', sortBy: 'Ordenar por:', sortDate: 'Data', sortName: 'Nome', sortSize: 'Tamanho', tags: 'Etiquetas', newFolder: 'Nova pasta', dailyNote: 'Nota diária', newNote: 'Nova nota', all: 'todas', search: 'Pesquisar...', folderNamePlaceholder: 'Nome da pasta...', newNoteHere: 'Nova nota aqui', deleteFolder: 'Eliminar pasta', deleteFolderConfirm: 'Eliminar pasta "{name}"? As notas serão movidas para a raiz.', emptyFolder: 'Vazia — arraste uma nota para aqui', noNotesWithTag: 'Sem notas com {tag}', noNotesFound: 'Nenhuma nota encontrada', noNotes: 'Sem notas', noNotesYet: 'Sem notas — prima ⌘N para criar uma', welcomeTitle: 'As suas notas, aqui mesmo', welcomeSubtitleEmpty: 'Crie a sua primeira nota para começar.', welcomeSubtitleHasNotes: 'Selecione uma nota na barra lateral ou prima ⌘P para pesquisar.', welcomeNewNote: 'Nova nota  ⌘N', welcomeAiHint: 'Funcionalidades de IA disponíveis — configure um fornecedor em', newNoteFilePrefix: 'Nova_Nota', newNoteTitle: 'Nova nota', newNoteBody: 'Comece a escrever aqui…', dailySectionNotes: 'Notas', dailySectionTodo: 'A fazer', dailySectionIdeas: 'Ideias', renameHint: 'Duplo clique para renomear', selectNote: 'Selecione uma nota ou crie uma nova', editorPlaceholder: 'Escreva algo...', smartPaste: 'Colar inteligente...', tabAccept: 'aceitar', word: 'palavra', words: 'palavras', saving: 'A guardar...', saved: 'Guardado', settingsTitle: 'Definições', llmProvider: 'Fornecedor LLM', model: 'Modelo', detectingModels: 'A detetar...', detectModels: 'Detetar modelos', noModelsHelp: 'Inicie o LM Studio / Ollama e clique em "Detetar modelos"', modelsFound_one: 'modelo encontrado', modelsFound_other: 'modelos encontrados', openrouterExample: 'ex. google/gemma-4-e2b, anthropic/claude-3.5-sonnet', defaultModelHelp: 'Deixe vazio para usar o modelo predefinido', lmStudioUrl: 'URL da API do LM Studio', lmStudioHelp: 'O URL local onde o LM Studio está a correr.', apiKey: 'Chave API', apiKeyHelp: 'A sua chave é cifrada com o chaveiro do sistema.', theme: 'Tema', themeAuto: 'Auto', themeLight: 'Claro', themeDark: 'Escuro', themeSepia: 'Sépia', accentColor: 'Cor de destaque', customColor: 'Cor personalizada', editorSection: 'Editor', showToolbar: 'Mostrar barra de formatação (H1/H2, Negrito, Itálico…)', showAiBar: 'Mostrar barra de IA (Continuar, Expandir, Refinar…)', typewriterMode: 'Modo máquina de escrever — cursor sempre centrado', editorFont: 'Tipo de letra do editor', fontSystem: 'Sistema', fontSerif: 'Serif', fontMono: 'Mono', fontSize: 'Tamanho do texto', fontSmall: 'Pequeno', fontNormal: 'Normal', fontLarge: 'Grande', fontXl: 'XL', notesDirectory: 'Diretório de notas', directoryDefault: '~/Documents/Noted', change: 'Alterar', useICloud: 'Usar iCloud Drive', importVault: 'Importar cofre do Obsidian / Bear', save: 'Guardar', language: 'Idioma', cloudSync: 'Armazenamento e sincronização na nuvem', cloudSyncDesc: 'As notas são guardadas na pasta selecionada e sincronizadas automaticamente.', cloudNotInstalled: 'Não instalado', cloudActive: 'Ativo', cloudCustomFolder: 'Pasta personalizada', cloudLocalOnly: 'Apenas local', cloudActivate: 'Ativar', cloudCurrentPath: 'Caminho atual', piiMasking: 'Ocultação de dados pessoais', piiMaskingDesc: 'Oculta automaticamente e-mails, telefones, cartões e documentos antes de enviar para a IA.', piiMasked: '{n} itens ocultados antes de enviar', analyticsPanel: 'Análise', analyticsWords: 'Palavras', analyticsChars: 'Caracteres', analyticsSentences: 'Frases', analyticsParagraphs: 'Parágrafos', analyticsReadTime: 'Tempo de leitura', analyticsReadTimeMin: '{n} min', analyticsReadability: 'Legibilidade', analyticsKeywords: 'Palavras-chave', analyticsNoContent: 'Abra uma nota para ver a análise', analyticsToneLabel: 'Tom de escrita', keyboardShortcuts: 'Atalhos de teclado', close: 'Fechar', sectionGeneral: 'Geral', sectionAi: 'IA', sectionFormatting: 'Formatação', sectionNotes: 'Notas', shortcutQuickOpen: 'Abertura rápida — pesquisar e abrir nota', shortcutSave: 'Guardar imediatamente', shortcutFind: 'Pesquisar no documento', shortcutFocusMode: 'Modo foco (escurece tudo exceto o parágrafo atual)', shortcutShowShortcuts: 'Mostrar esta janela', shortcutSlash: 'Comandos de IA — /continue, /expand, /summarize, /improve, /bullets, /translate', shortcutTab: 'Aceitar sugestão de IA (aparece após pausa de 1,2 s)', shortcutEsc: 'Dispensar sugestão de IA', shortcutBold: 'Negrito', shortcutItalic: 'Itálico', shortcutH1: 'Título 1', shortcutH2: 'Título 2', shortcutH3: 'Título 3', shortcutCode: 'Código em linha', shortcutRename: 'Duplo clique para renomear', aiActions: 'Ações de IA', navigate: '↑↓ navegar', execute: '↵ executar', escClose: 'esc fechar', cmdContinueLabel: 'Continuar', cmdContinueDesc: 'Continuar a escrever a partir do ponto atual', cmdExpandLabel: 'Expandir', cmdExpandDesc: 'Elaborar e aprofundar o parágrafo atual', cmdSummarizeLabel: 'Resumir', cmdSummarizeDesc: 'Sintetizar a nota nos pontos principais', cmdImproveLabel: 'Melhorar', cmdImproveDesc: 'Melhorar a clareza e o estilo do texto', cmdBulletsLabel: 'Converter em lista', cmdBulletsDesc: 'Transformar numa lista com marcadores', cmdTranslateLabel: 'Traduzir', cmdTranslateDesc: 'Traduzir para inglês (ou italiano se já estiver em inglês)', analyzingTags: 'A analisar etiquetas...', aiSuggestedTags: 'Etiquetas sugeridas pela IA', insertInNote: 'Inserir na nota', dismissSuggestion: 'Dispensar sugestão', aiAssistant: 'Assistente de IA', ragActive: 'RAG ativo em {n} notas', thinking: 'A pensar...', waitingResponse: 'À espera de resposta...', askSomething: 'Pergunte algo... (Prima Enter)', aiGreeting: 'Olá! Sou o seu assistente. Posso ler o que escreve e ajudá-lo. Como posso ajudar hoje?', aiError: 'Erro: {msg}. Verifique as definições (Fornecedor e Chave API).', contextTruncated: 'A nota excede o limite de contexto (8.000 caracteres) — apenas a primeira parte foi enviada para a IA.', clearChat: 'Limpar conversa', ghostThinking: 'IA', heading1: 'Título 1', heading2: 'Título 2', heading3: 'Título 3', bold: 'Negrito (⌘B)', italic: 'Itálico (⌘I)', strikethrough: 'Rasurado', inlineCode: 'Código em linha', insertTable: 'Inserir tabela', findShortcut: 'Pesquisar (⌘F)', findPlaceholder: 'Pesquisar no documento...', noResults: '0 resultados', findAriaLabel: 'Pesquisar no documento', previous: 'Anterior', next: 'Seguinte', closeFind: 'Fechar pesquisa', copyCode: 'Copiar código', backlinksHeader_one: 'nota cita', backlinksHeader_other: 'notas citam', openNote: 'Abrir nota...', navHint: '↑↓ navegar', openHint: '↵ abrir', escHint: 'esc fechar', noteAdvisor: 'Conselheiro de notas', closeAdvisor: 'Fechar conselheiro', highPriority: 'Alta prioridade', medium: 'Média', suggestion: 'Sugestão', noSuggestions: 'Sem sugestões de momento', notesInOrder: 'As notas estão em ordem', dismissAll: 'Dispensar todas as sugestões', templatesTitle: 'Modelos', custom: 'Personalizado', use: 'Usar', saveCurrentNote: 'Guardar nota atual como modelo', historyTitle: 'Histórico', loading: 'A carregar...', noVersions: 'Sem versões guardadas. As versões são criadas automaticamente a cada gravação.', selectVersion: 'Selecione uma versão para pré-visualizar', restoreVersion: 'Restaurar esta versão', notesImported: 'notas importadas', gitTitle: 'Git', gitStatus: 'Estado', gitLoading: 'A carregar...', gitNotInitialized: 'Repositório não inicializado.', gitInit: 'Inicializar Git', gitInitialized: 'Repositório Git inicializado', gitInitError: 'Erro de inicialização', gitDirty: 'Alterações por confirmar', gitClean: 'Limpo — nada para confirmar', gitCommitSection: 'Commit', gitCommitPlaceholder: 'Mensagem de commit (opcional)...', gitCommitNote: 'Fazer commit da nota atual', gitCommitted: 'Confirmado', gitCommitError: 'Erro no commit', gitCommitting: 'A confirmar...', gitPrSection: 'Criar Pull Request', gitNoRemote: 'Defina um URL remoto nas Definições para criar um PR.', gitNoToken: 'Token do GitHub necessário. Adicione-o nas definições de Git.', gitCreatePr: 'Novo Pull Request', gitPrTitleRequired: 'O título do PR é obrigatório.', gitPrTitlePlaceholder: 'Título do PR...', gitPrBodyPlaceholder: 'Descrição (opcional)...', gitBranchError: 'Erro ao criar ramo', gitPushing: 'A enviar...', gitPushError: 'Erro ao enviar', gitCreatingPr: 'A criar PR...', gitPrCreated: 'Pull request criado', gitPrError: 'Erro ao criar o PR', gitPublish: 'Publicar PR', gitCancel: 'Cancelar', gitSettingsSection: 'Definições de Git', gitRemote: 'URL remoto (GitHub)', gitGhToken: 'Token do GitHub (PAT)', gitTokenHelp: 'Token guardado cifrado. Requer âmbito repo.', gitDefaultBase: 'Ramo base predefinido', gitAutoCommit: 'Commit automático ao guardar',
+  },
+  fr: {
+    history: 'Historique des versions', focusMode: 'Mode focus (⌘⇧F)', exportMarkdown: 'Exporter en Markdown', exportPdf: 'Exporter en PDF', exportHtml: 'Exporter en HTML', exportDocx: 'Exporter en DOCX (Word)', templates: 'Modèles', shortcuts: 'Raccourcis (?)', settings: 'Réglages', closeSettings: 'Fermer les réglages', markdownExported: 'Markdown exporté', markdownExportError: "Erreur d'export Markdown", pdfExported: 'PDF exporté avec succès', pdfExportError: "Erreur d'export PDF", docxExported: 'DOCX exporté', docxExportError: "Erreur d'export DOCX", htmlExported: 'HTML exporté', htmlExportError: "Erreur d'export HTML", importError: "Erreur d'importation", iCloudConfigured: 'iCloud Drive configuré', iCloudError: 'Erreur iCloud', llmBanner: "Configurez un modèle d'IA dans", llmBannerLink: 'Réglages', llmBannerSuffix: "pour activer la complétion IA, les commandes rapides et les tags automatiques.", notes: 'Notes', sortBy: 'Trier par :', sortDate: 'Date', sortName: 'Nom', sortSize: 'Taille', tags: 'Tags', newFolder: 'Nouveau dossier', dailyNote: 'Note quotidienne', newNote: 'Nouvelle note', all: 'toutes', search: 'Rechercher...', folderNamePlaceholder: 'Nom du dossier...', newNoteHere: 'Nouvelle note ici', deleteFolder: 'Supprimer le dossier', deleteFolderConfirm: 'Supprimer le dossier « {name} » ? Les notes seront déplacées à la racine.', emptyFolder: 'Vide — faites glisser une note ici', noNotesWithTag: 'Aucune note avec {tag}', noNotesFound: 'Aucune note trouvée', noNotes: 'Aucune note', noNotesYet: 'Aucune note — appuyez sur ⌘N pour en créer une', welcomeTitle: 'Vos notes, ici même', welcomeSubtitleEmpty: 'Créez votre première note pour commencer.', welcomeSubtitleHasNotes: 'Sélectionnez une note dans la barre latérale ou appuyez sur ⌘P pour rechercher.', welcomeNewNote: 'Nouvelle note  ⌘N', welcomeAiHint: 'Fonctions IA disponibles — configurez un fournisseur dans', newNoteFilePrefix: 'Nouvelle_Note', newNoteTitle: 'Nouvelle note', newNoteBody: 'Commencez à écrire ici…', dailySectionNotes: 'Notes', dailySectionTodo: 'À faire', dailySectionIdeas: 'Idées', renameHint: 'Double-cliquez pour renommer', selectNote: 'Sélectionnez une note ou créez-en une nouvelle', editorPlaceholder: 'Écrivez quelque chose...', smartPaste: 'Collage intelligent...', tabAccept: 'accepter', word: 'mot', words: 'mots', saving: 'Enregistrement...', saved: 'Enregistré', settingsTitle: 'Réglages', llmProvider: 'Fournisseur LLM', model: 'Modèle', detectingModels: 'Détection...', detectModels: 'Détecter les modèles', noModelsHelp: 'Lancez LM Studio / Ollama et cliquez sur « Détecter les modèles »', modelsFound_one: 'modèle trouvé', modelsFound_other: 'modèles trouvés', openrouterExample: 'ex. google/gemma-4-e2b, anthropic/claude-3.5-sonnet', defaultModelHelp: 'Laissez vide pour utiliser le modèle par défaut', lmStudioUrl: "URL de l'API LM Studio", lmStudioHelp: "L'URL locale où LM Studio est en cours d'exécution.", apiKey: 'Clé API', apiKeyHelp: 'Votre clé est chiffrée avec le trousseau du système.', theme: 'Thème', themeAuto: 'Auto', themeLight: 'Clair', themeDark: 'Sombre', themeSepia: 'Sépia', accentColor: "Couleur d'accentuation", customColor: 'Couleur personnalisée', editorSection: 'Éditeur', showToolbar: 'Afficher la barre de mise en forme (H1/H2, Gras, Italique…)', showAiBar: 'Afficher la barre IA (Continuer, Développer, Affiner…)', typewriterMode: 'Mode machine à écrire — curseur toujours centré', editorFont: "Police de l'éditeur", fontSystem: 'Système', fontSerif: 'Serif', fontMono: 'Mono', fontSize: 'Taille du texte', fontSmall: 'Petit', fontNormal: 'Normal', fontLarge: 'Grand', fontXl: 'XL', notesDirectory: 'Dossier des notes', directoryDefault: '~/Documents/Noted', change: 'Modifier', useICloud: 'Utiliser iCloud Drive', importVault: 'Importer un coffre Obsidian / Bear', save: 'Enregistrer', language: 'Langue', cloudSync: 'Stockage et synchronisation cloud', cloudSyncDesc: 'Les notes sont stockées dans le dossier sélectionné et synchronisées automatiquement.', cloudNotInstalled: 'Non installé', cloudActive: 'Actif', cloudCustomFolder: 'Dossier personnalisé', cloudLocalOnly: 'Local uniquement', cloudActivate: 'Activer', cloudCurrentPath: 'Chemin actuel', piiMasking: 'Masquage des données personnelles', piiMaskingDesc: "Masque automatiquement les e-mails, numéros de téléphone, cartes et pièces d'identité avant envoi à l'IA.", piiMasked: '{n} éléments masqués avant envoi', analyticsPanel: 'Analyse', analyticsWords: 'Mots', analyticsChars: 'Caractères', analyticsSentences: 'Phrases', analyticsParagraphs: 'Paragraphes', analyticsReadTime: 'Temps de lecture', analyticsReadTimeMin: '{n} min', analyticsReadability: 'Lisibilité', analyticsKeywords: 'Mots-clés', analyticsNoContent: "Ouvrez une note pour voir l'analyse", analyticsToneLabel: "Ton d'écriture", keyboardShortcuts: 'Raccourcis clavier', close: 'Fermer', sectionGeneral: 'Général', sectionAi: 'IA', sectionFormatting: 'Mise en forme', sectionNotes: 'Notes', shortcutQuickOpen: 'Ouverture rapide — rechercher et ouvrir une note', shortcutSave: 'Enregistrer immédiatement', shortcutFind: 'Rechercher dans le document', shortcutFocusMode: 'Mode focus (atténue tout sauf le paragraphe actuel)', shortcutShowShortcuts: 'Afficher cette fenêtre', shortcutSlash: 'Commandes IA — /continue, /expand, /summarize, /improve, /bullets, /translate', shortcutTab: 'Accepter la suggestion IA (apparaît après 1,2 s de pause)', shortcutEsc: 'Ignorer la suggestion IA', shortcutBold: 'Gras', shortcutItalic: 'Italique', shortcutH1: 'Titre 1', shortcutH2: 'Titre 2', shortcutH3: 'Titre 3', shortcutCode: 'Code en ligne', shortcutRename: 'Double-cliquez pour renommer', aiActions: 'Actions IA', navigate: '↑↓ naviguer', execute: '↵ exécuter', escClose: 'esc fermer', cmdContinueLabel: 'Continuer', cmdContinueDesc: "Continuer à écrire depuis le point actuel", cmdExpandLabel: 'Développer', cmdExpandDesc: 'Élaborer et approfondir le paragraphe actuel', cmdSummarizeLabel: 'Résumer', cmdSummarizeDesc: 'Synthétiser la note en points clés', cmdImproveLabel: 'Améliorer', cmdImproveDesc: 'Améliorer la clarté et le style du texte', cmdBulletsLabel: 'Convertir en liste', cmdBulletsDesc: 'Transformer en liste à puces', cmdTranslateLabel: 'Traduire', cmdTranslateDesc: "Traduire en anglais (ou en italien si déjà en anglais)", analyzingTags: 'Analyse des tags...', aiSuggestedTags: "Tags suggérés par l'IA", insertInNote: 'Insérer dans la note', dismissSuggestion: 'Ignorer la suggestion', aiAssistant: 'Assistant IA', ragActive: 'RAG actif sur {n} notes', thinking: 'Réflexion...', waitingResponse: 'En attente de réponse...', askSomething: 'Posez une question... (Appuyez sur Entrée)', aiGreeting: "Bonjour ! Je suis votre assistant. Je peux lire ce que vous écrivez et vous aider. Comment puis-je vous aider aujourd'hui ?", aiError: 'Erreur : {msg}. Vérifiez les réglages (Fournisseur et Clé API).', contextTruncated: "La note dépasse la limite de contexte (8 000 caractères) — seule la première partie a été envoyée à l'IA.", clearChat: 'Effacer la conversation', ghostThinking: 'IA', heading1: 'Titre 1', heading2: 'Titre 2', heading3: 'Titre 3', bold: 'Gras (⌘B)', italic: 'Italique (⌘I)', strikethrough: 'Barré', inlineCode: 'Code en ligne', insertTable: 'Insérer un tableau', findShortcut: 'Rechercher (⌘F)', findPlaceholder: 'Rechercher dans le document...', noResults: '0 résultat', findAriaLabel: 'Rechercher dans le document', previous: 'Précédent', next: 'Suivant', closeFind: 'Fermer la recherche', copyCode: 'Copier le code', backlinksHeader_one: 'note cite', backlinksHeader_other: 'notes citent', openNote: 'Ouvrir une note...', navHint: '↑↓ naviguer', openHint: '↵ ouvrir', escHint: 'esc fermer', noteAdvisor: 'Conseiller de notes', closeAdvisor: 'Fermer le conseiller', highPriority: 'Haute priorité', medium: 'Moyenne', suggestion: 'Suggestion', noSuggestions: 'Aucune suggestion pour le moment', notesInOrder: 'Les notes sont en ordre', dismissAll: 'Ignorer toutes les suggestions', templatesTitle: 'Modèles', custom: 'Personnalisé', use: 'Utiliser', saveCurrentNote: 'Enregistrer la note actuelle comme modèle', historyTitle: 'Historique', loading: 'Chargement...', noVersions: 'Aucune version enregistrée. Les versions sont créées automatiquement à chaque sauvegarde.', selectVersion: 'Sélectionnez une version pour prévisualiser', restoreVersion: 'Restaurer cette version', notesImported: 'notes importées', gitTitle: 'Git', gitStatus: 'Statut', gitLoading: 'Chargement...', gitNotInitialized: 'Dépôt non initialisé.', gitInit: 'Initialiser Git', gitInitialized: 'Dépôt Git initialisé', gitInitError: "Erreur d'initialisation", gitDirty: 'Modifications non validées', gitClean: 'Propre — rien à valider', gitCommitSection: 'Commit', gitCommitPlaceholder: 'Message de commit (optionnel)...', gitCommitNote: 'Commiter la note actuelle', gitCommitted: 'Validé', gitCommitError: 'Erreur de commit', gitCommitting: 'Validation...', gitPrSection: 'Créer une Pull Request', gitNoRemote: 'Définissez une URL distante dans les Réglages pour créer un PR.', gitNoToken: 'Token GitHub requis. Ajoutez-le dans les réglages Git.', gitCreatePr: 'Nouvelle Pull Request', gitPrTitleRequired: 'Le titre du PR est obligatoire.', gitPrTitlePlaceholder: 'Titre du PR...', gitPrBodyPlaceholder: 'Description (optionnelle)...', gitBranchError: 'Erreur lors de la création de la branche', gitPushing: 'Envoi en cours...', gitPushError: "Erreur d'envoi", gitCreatingPr: 'Création du PR...', gitPrCreated: 'Pull request créée', gitPrError: 'Erreur lors de la création du PR', gitPublish: 'Publier le PR', gitCancel: 'Annuler', gitSettingsSection: 'Réglages Git', gitRemote: 'URL distante (GitHub)', gitGhToken: 'Token GitHub (PAT)', gitTokenHelp: 'Token stocké chiffré. Nécessite la portée repo.', gitDefaultBase: 'Branche de base par défaut', gitAutoCommit: 'Commit automatique à la sauvegarde',
+  },
+  de: {
+    history: 'Versionsverlauf', focusMode: 'Fokusmodus (⌘⇧F)', exportMarkdown: 'Als Markdown exportieren', exportPdf: 'Als PDF exportieren', exportHtml: 'Als HTML exportieren', exportDocx: 'Als DOCX (Word) exportieren', templates: 'Vorlagen', shortcuts: 'Tastenkürzel (?)', settings: 'Einstellungen', closeSettings: 'Einstellungen schließen', markdownExported: 'Markdown exportiert', markdownExportError: 'Fehler beim Markdown-Export', pdfExported: 'PDF erfolgreich exportiert', pdfExportError: 'Fehler beim PDF-Export', docxExported: 'DOCX exportiert', docxExportError: 'Fehler beim DOCX-Export', htmlExported: 'HTML exportiert', htmlExportError: 'Fehler beim HTML-Export', importError: 'Importfehler', iCloudConfigured: 'iCloud Drive konfiguriert', iCloudError: 'iCloud-Fehler', llmBanner: 'KI-Modell konfigurieren in', llmBannerLink: 'Einstellungen', llmBannerSuffix: 'um KI-Vervollständigung, Schnellbefehle und automatische Tags zu aktivieren.', notes: 'Notizen', sortBy: 'Sortieren nach:', sortDate: 'Datum', sortName: 'Name', sortSize: 'Größe', tags: 'Tags', newFolder: 'Neuer Ordner', dailyNote: 'Tagesnotiz', newNote: 'Neue Notiz', all: 'alle', search: 'Suchen...', folderNamePlaceholder: 'Ordnername...', newNoteHere: 'Neue Notiz hier', deleteFolder: 'Ordner löschen', deleteFolderConfirm: 'Ordner „{name}" löschen? Notizen werden in den Stammordner verschoben.', emptyFolder: 'Leer — ziehe eine Notiz hierher', noNotesWithTag: 'Keine Notizen mit {tag}', noNotesFound: 'Keine Notizen gefunden', noNotes: 'Keine Notizen', noNotesYet: 'Noch keine Notizen — drücke ⌘N, um eine zu erstellen', welcomeTitle: 'Deine Notizen, genau hier', welcomeSubtitleEmpty: 'Erstelle deine erste Notiz, um loszulegen.', welcomeSubtitleHasNotes: 'Wähle eine Notiz in der Seitenleiste oder drücke ⌘P zum Suchen.', welcomeNewNote: 'Neue Notiz  ⌘N', welcomeAiHint: 'KI-Funktionen verfügbar — konfiguriere einen Anbieter in', newNoteFilePrefix: 'Neue_Notiz', newNoteTitle: 'Neue Notiz', newNoteBody: 'Fange hier an zu schreiben…', dailySectionNotes: 'Notizen', dailySectionTodo: 'Aufgaben', dailySectionIdeas: 'Ideen', renameHint: 'Doppelklick zum Umbenennen', selectNote: 'Wähle eine Notiz oder erstelle eine neue', editorPlaceholder: 'Schreibe etwas...', smartPaste: 'Intelligentes Einfügen...', tabAccept: 'annehmen', word: 'Wort', words: 'Wörter', saving: 'Speichern...', saved: 'Gespeichert', settingsTitle: 'Einstellungen', llmProvider: 'LLM-Anbieter', model: 'Modell', detectingModels: 'Erkennung...', detectModels: 'Modelle erkennen', noModelsHelp: 'Starte LM Studio / Ollama und klicke auf „Modelle erkennen"', modelsFound_one: 'Modell gefunden', modelsFound_other: 'Modelle gefunden', openrouterExample: 'z. B. google/gemma-4-e2b, anthropic/claude-3.5-sonnet', defaultModelHelp: 'Leer lassen, um das Standardmodell zu verwenden', lmStudioUrl: 'LM Studio API-URL', lmStudioHelp: 'Die lokale URL, unter der LM Studio läuft.', apiKey: 'API-Schlüssel', apiKeyHelp: 'Dein Schlüssel wird mit dem System-Schlüsselbund verschlüsselt.', theme: 'Design', themeAuto: 'Auto', themeLight: 'Hell', themeDark: 'Dunkel', themeSepia: 'Sepia', accentColor: 'Akzentfarbe', customColor: 'Benutzerdefinierte Farbe', editorSection: 'Editor', showToolbar: 'Formatierungsleiste anzeigen (H1/H2, Fett, Kursiv…)', showAiBar: 'KI-Leiste anzeigen (Fortsetzen, Erweitern, Verfeinern…)', typewriterMode: 'Schreibmaschinenmodus — Cursor immer zentriert', editorFont: 'Editor-Schriftart', fontSystem: 'System', fontSerif: 'Serif', fontMono: 'Mono', fontSize: 'Textgröße', fontSmall: 'Klein', fontNormal: 'Normal', fontLarge: 'Groß', fontXl: 'XL', notesDirectory: 'Notizen-Verzeichnis', directoryDefault: '~/Documents/Noted', change: 'Ändern', useICloud: 'iCloud Drive verwenden', importVault: 'Obsidian / Bear-Tresor importieren', save: 'Speichern', language: 'Sprache', cloudSync: 'Cloud-Speicher &amp; Synchronisierung', cloudSyncDesc: 'Notizen werden im ausgewählten Ordner gespeichert und automatisch synchronisiert.', cloudNotInstalled: 'Nicht installiert', cloudActive: 'Aktiv', cloudCustomFolder: 'Benutzerdefinierter Ordner', cloudLocalOnly: 'Nur lokal', cloudActivate: 'Aktivieren', cloudCurrentPath: 'Aktueller Pfad', piiMasking: 'Maskierung personenbezogener Daten', piiMaskingDesc: 'Maskiert automatisch E-Mails, Telefonnummern, Karten und Ausweise vor dem Senden an die KI.', piiMasked: '{n} Elemente vor dem Senden maskiert', analyticsPanel: 'Analyse', analyticsWords: 'Wörter', analyticsChars: 'Zeichen', analyticsSentences: 'Sätze', analyticsParagraphs: 'Absätze', analyticsReadTime: 'Lesezeit', analyticsReadTimeMin: '{n} Min.', analyticsReadability: 'Lesbarkeit', analyticsKeywords: 'Top-Schlüsselwörter', analyticsNoContent: 'Öffne eine Notiz, um die Analyse zu sehen', analyticsToneLabel: 'Schreibton', keyboardShortcuts: 'Tastenkürzel', close: 'Schließen', sectionGeneral: 'Allgemein', sectionAi: 'KI', sectionFormatting: 'Formatierung', sectionNotes: 'Notizen', shortcutQuickOpen: 'Schnellöffnen — Notiz suchen und öffnen', shortcutSave: 'Sofort speichern', shortcutFind: 'Im Dokument suchen', shortcutFocusMode: 'Fokusmodus (blendet alles außer dem aktuellen Absatz ab)', shortcutShowShortcuts: 'Dieses Fenster anzeigen', shortcutSlash: 'KI-Befehle — /continue, /expand, /summarize, /improve, /bullets, /translate', shortcutTab: 'KI-Vorschlag annehmen (erscheint nach 1,2 s Pause)', shortcutEsc: 'KI-Vorschlag verwerfen', shortcutBold: 'Fett', shortcutItalic: 'Kursiv', shortcutH1: 'Überschrift 1', shortcutH2: 'Überschrift 2', shortcutH3: 'Überschrift 3', shortcutCode: 'Inline-Code', shortcutRename: 'Doppelklick zum Umbenennen', aiActions: 'KI-Aktionen', navigate: '↑↓ navigieren', execute: '↵ ausführen', escClose: 'esc schließen', cmdContinueLabel: 'Fortsetzen', cmdContinueDesc: 'Ab dem aktuellen Punkt weiterschreiben', cmdExpandLabel: 'Erweitern', cmdExpandDesc: 'Den aktuellen Absatz ausarbeiten und vertiefen', cmdSummarizeLabel: 'Zusammenfassen', cmdSummarizeDesc: 'Die Notiz zu Kernpunkten zusammenfassen', cmdImproveLabel: 'Verbessern', cmdImproveDesc: 'Klarheit und Stil des Textes verbessern', cmdBulletsLabel: 'In Liste umwandeln', cmdBulletsDesc: 'In eine Aufzählungsliste umwandeln', cmdTranslateLabel: 'Übersetzen', cmdTranslateDesc: 'Ins Englische übersetzen (oder ins Italienische, wenn bereits auf Englisch)', analyzingTags: 'Tags werden analysiert...', aiSuggestedTags: 'Von der KI vorgeschlagene Tags', insertInNote: 'In Notiz einfügen', dismissSuggestion: 'Vorschlag verwerfen', aiAssistant: 'KI-Assistent', ragActive: 'RAG aktiv auf {n} Notizen', thinking: 'Denkt...', waitingResponse: 'Warte auf Antwort...', askSomething: 'Frage etwas... (Eingabetaste drücken)', aiGreeting: 'Hallo! Ich bin dein Assistent. Ich kann lesen, was du schreibst, und dir helfen. Wie kann ich dir heute helfen?', aiError: 'Fehler: {msg}. Überprüfe die Einstellungen (Anbieter und API-Schlüssel).', contextTruncated: 'Die Notiz überschreitet das Kontextlimit (8.000 Zeichen) — nur der erste Teil wurde an die KI gesendet.', clearChat: 'Gespräch löschen', ghostThinking: 'KI', heading1: 'Überschrift 1', heading2: 'Überschrift 2', heading3: 'Überschrift 3', bold: 'Fett (⌘B)', italic: 'Kursiv (⌘I)', strikethrough: 'Durchgestrichen', inlineCode: 'Inline-Code', insertTable: 'Tabelle einfügen', findShortcut: 'Suchen (⌘F)', findPlaceholder: 'Im Dokument suchen...', noResults: '0 Ergebnisse', findAriaLabel: 'Im Dokument suchen', previous: 'Vorherige', next: 'Nächste', closeFind: 'Suche schließen', copyCode: 'Code kopieren', backlinksHeader_one: 'Notiz zitiert', backlinksHeader_other: 'Notizen zitieren', openNote: 'Notiz öffnen...', navHint: '↑↓ navigieren', openHint: '↵ öffnen', escHint: 'esc schließen', noteAdvisor: 'Notiz-Berater', closeAdvisor: 'Berater schließen', highPriority: 'Hohe Priorität', medium: 'Mittel', suggestion: 'Vorschlag', noSuggestions: 'Derzeit keine Vorschläge', notesInOrder: 'Notizen sind in Ordnung', dismissAll: 'Alle Vorschläge verwerfen', templatesTitle: 'Vorlagen', custom: 'Benutzerdefiniert', use: 'Verwenden', saveCurrentNote: 'Aktuelle Notiz als Vorlage speichern', historyTitle: 'Verlauf', loading: 'Laden...', noVersions: 'Keine gespeicherten Versionen. Versionen werden bei jedem Speichern automatisch erstellt.', selectVersion: 'Version zur Vorschau auswählen', restoreVersion: 'Diese Version wiederherstellen', notesImported: 'Notizen importiert', gitTitle: 'Git', gitStatus: 'Status', gitLoading: 'Laden...', gitNotInitialized: 'Repository nicht initialisiert.', gitInit: 'Git initialisieren', gitInitialized: 'Git-Repository initialisiert', gitInitError: 'Initialisierungsfehler', gitDirty: 'Nicht committete Änderungen', gitClean: 'Sauber — nichts zu committen', gitCommitSection: 'Commit', gitCommitPlaceholder: 'Commit-Nachricht (optional)...', gitCommitNote: 'Aktuelle Notiz committen', gitCommitted: 'Committed', gitCommitError: 'Commit-Fehler', gitCommitting: 'Wird committed...', gitPrSection: 'Pull Request erstellen', gitNoRemote: 'Remote-URL in den Einstellungen festlegen, um einen PR zu erstellen.', gitNoToken: 'GitHub-Token erforderlich. In den Git-Einstellungen hinzufügen.', gitCreatePr: 'Neuer Pull Request', gitPrTitleRequired: 'PR-Titel ist erforderlich.', gitPrTitlePlaceholder: 'PR-Titel...', gitPrBodyPlaceholder: 'Beschreibung (optional)...', gitBranchError: 'Fehler beim Erstellen des Branches', gitPushing: 'Wird gepusht...', gitPushError: 'Push-Fehler', gitCreatingPr: 'PR wird erstellt...', gitPrCreated: 'Pull Request erstellt', gitPrError: 'Fehler beim Erstellen des PR', gitPublish: 'PR veröffentlichen', gitCancel: 'Abbrechen', gitSettingsSection: 'Git-Einstellungen', gitRemote: 'Remote-URL (GitHub)', gitGhToken: 'GitHub-Token (PAT)', gitTokenHelp: 'Token verschlüsselt gespeichert. Erfordert repo-Berechtigung.', gitDefaultBase: 'Standard-Basisbranch', gitAutoCommit: 'Automatisch committen beim Speichern',
+  },
+} satisfies Record&lt;Lang, Record&lt;string, string&gt;&gt;;
+&nbsp;
+export type TranslationKey = keyof typeof translations.en;
+&nbsp;
+export function useI18n() {
+  const language = useStore(s =&gt; s.settings.language ?? <span class="branch-1 cbranch-no" title="branch not covered" >'en')</span>;
+  const dict = translations[language as Lang] ?? <span class="branch-1 cbranch-no" title="branch not covered" >translations.en;</span>
+  return {
+    t: (key: TranslationKey) =&gt; (dict as Record&lt;string, string&gt;)[key] ?? <span class="branch-1 cbranch-no" title="branch not covered" >translations.en[key],</span>
+    language,
+  };
+}
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-05-19T11:26:25.205Z
+            </div>
+        <script src="../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
+    </body>
+</html>
+    
