@@ -2,7 +2,15 @@ import { useEffect } from 'react';
 import type { GlobalShortcutsArgs } from './contracts';
 
 function isTextInputTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return true;
+  if (target instanceof HTMLElement && (target.isContentEditable || !!target.closest('[contenteditable="true"]'))) return true;
+  return false;
+}
+
+function hasShortcutModifier(e: KeyboardEvent): boolean {
+  if (e.metaKey) return true;
+  // Avoid treating AltGr (Ctrl+Alt) combos as app shortcuts on intl layouts.
+  return e.ctrlKey && !e.altKey;
 }
 
 export function useGlobalShortcuts({
@@ -15,26 +23,32 @@ export function useGlobalShortcuts({
 }: GlobalShortcutsArgs): void {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === '?' && !e.metaKey && !e.ctrlKey && !isTextInputTarget(e.target)) {
+      if (e.defaultPrevented || e.isComposing || e.repeat) return;
+
+      const key = e.key.toLowerCase();
+      const accel = hasShortcutModifier(e);
+
+      if (e.key === '?' && !accel && !e.altKey && !isTextInputTarget(e.target)) {
         onToggleShortcuts();
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+      if (accel && key === 'p') {
         e.preventDefault();
         onToggleQuickOpen();
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'f' && !e.shiftKey) {
+      if (accel && key === 'f' && !e.shiftKey) {
         e.preventDefault();
         onToggleFind();
       }
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'F' || e.key === 'f')) {
+      if (accel && e.shiftKey && key === 'f') {
         e.preventDefault();
         onToggleGlobalSearch();
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
+      // Use physical key code for layout-safe behaviour on non-US keyboards.
+      if (accel && e.code === 'Backslash') {
         e.preventDefault();
         onToggleFocusMode();
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'n' && !e.shiftKey) {
+      if (accel && key === 'n' && !e.shiftKey) {
         e.preventDefault();
         onCreateNote();
       }

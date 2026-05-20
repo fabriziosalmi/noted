@@ -108,8 +108,8 @@ export function SmartTagSuggestion({ content, existingTags, onAccept }: SmartTag
             })}
             className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
               selected.has(tag)
-                ? 'bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] text-[var(--accent)] border-[color-mix(in_srgb,var(--accent)_40%,transparent)]'
-                : 'text-gray-400 border-gray-200 dark:border-gray-700 line-through opacity-50'
+                ? 'bg-[color-mix(in_srgb,var(--accent)_22%,transparent)] text-[var(--accent)] border-[color-mix(in_srgb,var(--accent)_52%,transparent)]'
+                : 'text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-700 line-through opacity-60'
             }`}
           >
             {tag}
@@ -121,7 +121,7 @@ export function SmartTagSuggestion({ content, existingTags, onAccept }: SmartTag
         <button
           onClick={handleAccept}
           disabled={selected.size === 0}
-          className="flex-1 flex items-center justify-center gap-1.5 bg-[var(--accent)] text-white text-xs py-1.5 rounded-lg disabled:opacity-40 hover:opacity-90 transition-opacity"
+          className="btn-primary flex-1 flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg transition-all"
         >
           <Check size={11} />
           {t('insertInNote')}

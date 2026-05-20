@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { Bot, Loader2, Database, RotateCcw, ShieldAlert } from 'lucide-react';
 import { marked } from 'marked';
 import { askLLM, AbortedError, describeLlmError } from '../lib/llm';
-import { findRelevantNotes, type NoteChunk } from '../lib/noteSearch';
+import { findRelevantNotesHybrid, type NoteChunk, type RetrievalScoredNote } from '../lib/noteSearch';
 import { useI18n } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import { maskPii } from '../lib/piiMasker';
@@ -54,6 +54,14 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
   const { t } = useI18n();
   const lang = useStore(s => s.settings.language ?? 'en');
   const piiMasking = useStore(s => s.settings.piiMasking ?? false);
+  const ragTopK = useStore(s => Math.max(1, Math.min(10, s.settings.ragTopK ?? 3)));
+  const ragContextChars = useStore(s => Math.max(1500, Math.min(30000, s.settings.ragContextChars ?? 8000)));
+  const ragDebug = useStore(s => s.settings.ragDebug ?? false);
+  const embeddingsEnabled = useStore(s => s.settings.embeddingsEnabled ?? false);
+  const embeddingProvider = useStore(s => s.settings.embeddingProvider ?? 'none');
+  const embeddingModel = useStore(s => s.settings.embeddingModel ?? '');
+  const lmStudioUrl = useStore(s => s.settings.lmStudioUrl ?? '');
+  const llmApiKey = useStore(s => s.settings.llmApiKey ?? '');
   const [piiNotice, setPiiNotice] = useState<number>(0);
   // displayHistory includes the greeting bubble shown in the UI
   const [displayHistory, setDisplayHistory] = useState<ChatMessage[]>([
@@ -63,6 +71,8 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
   const [llmHistory, setLlmHistory] = useState<ChatMessage[]>([]);
   const [aiInput, setAiInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [lastRetrievalMode, setLastRetrievalMode] = useState<'lexical' | 'hybrid'>('lexical');
+  const [lastRetrievalScores, setLastRetrievalScores] = useState<RetrievalScoredNote[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -81,6 +91,7 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
   }, [displayHistory, isLoading]);
 
   const handleSubmit = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing) return;
     if (e.key !== 'Enter' || !aiInput.trim() || isLoading) return;
 
     const rawUserMessage = aiInput.trim();
@@ -113,7 +124,7 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
     abortRef.current = controller;
 
     try {
-      const MAX_CONTEXT_CHARS = 8_000;
+      const MAX_CONTEXT_CHARS = ragContextChars;
       let rawContext = getEditorText();
       if (piiMasking) {
         const r = maskPii(rawContext);
@@ -142,9 +153,18 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
       if (piiMasking && piiCount > 0) setPiiNotice(piiCount);
 
       // RAG: find related notes from the full vault
-      const relevant = noteChunks.length > 0
-        ? findRelevantNotes(userMessage, noteChunks, 3)
-        : [];
+      const retrieval = noteChunks.length > 0
+        ? await findRelevantNotesHybrid(userMessage, noteChunks, ragTopK, {
+          enabled: embeddingsEnabled,
+          provider: embeddingProvider,
+          model: embeddingModel,
+          apiKey: llmApiKey,
+          lmStudioUrl,
+        })
+        : { notes: [], mode: 'lexical' as const, scored: [] };
+      const relevant = retrieval.notes;
+      setLastRetrievalMode(retrieval.mode);
+      setLastRetrievalScores(retrieval.scored);
       const ragContext = relevant.length > 0
         ? relevant.map(n => `### ${n.name.replace('.md', '')}\n${n.text.slice(0, 1500)}`).join('\n\n---\n\n')
         : '';
@@ -190,7 +210,7 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
         </div>
         <div className="flex items-center gap-1.5">
           {noteChunks.length > 0 && (
-            <span className="flex items-center gap-1 text-[10px] font-normal normal-case tracking-normal" style={{ color: 'var(--accent)' }} title={t('ragActive').replace('{n}', String(noteChunks.length))}>
+            <span className="flex items-center gap-1 text-[10px] font-normal normal-case tracking-normal" style={{ color: 'var(--accent)' }} title={`${t('ragActive').replace('{n}', String(noteChunks.length))} · ${embeddingsEnabled ? 'hybrid' : 'lexical'}`}>
               <Database size={10} />
               {t('ragActive').replace('{n}', String(noteChunks.length))}
             </span>
@@ -211,6 +231,27 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
           <ShieldAlert size={10} />
           {t('piiMasking')}
           {piiNotice > 0 && <span className="ml-auto font-medium">{t('piiMasked').replace('{n}', String(piiNotice))}</span>}
+        </div>
+      )}
+
+      {ragDebug && (
+        <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            RAG Debug · {lastRetrievalMode}
+          </p>
+          <div className="mt-1 space-y-1">
+            {lastRetrievalScores.slice(0, 3).map((row) => (
+              <div key={row.note.name} className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center justify-between gap-2">
+                <span className="truncate">{row.note.name.replace('.md', '')}</span>
+                <span className="shrink-0">
+                  L {row.lexical.toFixed(2)} · D {row.dense.toFixed(2)} · C {row.combined.toFixed(2)}
+                </span>
+              </div>
+            ))}
+            {lastRetrievalScores.length === 0 && (
+              <p className="text-[10px] text-gray-400 dark:text-gray-500">No retrieval scores yet.</p>
+            )}
+          </div>
         </div>
       )}
 

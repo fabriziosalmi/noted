@@ -170,6 +170,7 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
             value={findQuery}
             onChange={e => { setFindQuery(e.target.value); runFind(e.target.value); }}
             onKeyDown={e => {
+              if (e.nativeEvent.isComposing || e.repeat) return;
               if (e.key === 'Enter') { e.preventDefault(); goToMatch(e.shiftKey ? matchIndex - 1 : matchIndex + 1); }
               if (e.key === 'Escape') handleClose();
             }}

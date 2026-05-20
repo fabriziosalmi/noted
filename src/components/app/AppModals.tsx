@@ -31,6 +31,8 @@ export function AppModals({
   onUpdateSettings,
   onHandleSelectFolder,
   onHandleImportVault,
+  onHandleCreateNote,
+  onHandleOpenDaily,
 }: AppModalsProps) {
   return (
     <>
@@ -105,6 +107,11 @@ export function AppModals({
         <QuickOpen
           notes={notes}
           onSelect={onOpenNote}
+          onCreateNote={(name) => { void onHandleCreateNote(name); }}
+          onOpenDaily={() => { void onHandleOpenDaily(); }}
+          onOpenSettings={panels.openSettings}
+          onOpenShortcuts={panels.openShortcuts}
+          onOpenTemplates={panels.openTemplates}
           onClose={panels.closeQuickOpen}
         />
       )}

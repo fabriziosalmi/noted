@@ -287,6 +287,18 @@ describe('Sidebar', () => {
     expect(screen.getByText('zeta')).toBeInTheDocument();
   });
 
+  it('clears drag highlight on global dragend', () => {
+    const foldered = [{ name: 'docs', notes: [makeNote('docs/zeta.md', 1000)] }];
+    render(<Sidebar {...defaults} notes={[makeNote('docs/zeta.md', 1000)]} noteFolders={foldered} />);
+    const folderContainer = screen.getByText('docs').closest('div[role="button"]')?.parentElement as HTMLElement;
+
+    fireEvent.dragOver(folderContainer);
+    expect(folderContainer.className).toContain('ring-1');
+
+    fireEvent.dragEnd(window);
+    expect(folderContainer.className).not.toContain('ring-1');
+  });
+
   it('opens settings via keyboard Enter and Space', () => {
     const onOpenSettings = vi.fn();
     const { container } = render(<Sidebar {...defaults} onOpenSettings={onOpenSettings} />);

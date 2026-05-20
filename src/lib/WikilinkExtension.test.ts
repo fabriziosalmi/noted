@@ -19,7 +19,7 @@ describe('WikilinkExtension structural behavior', () => {
     const extension = WikilinkMark as unknown as {
       config: {
         addAttributes: () => Record<string, unknown>;
-        parseHTML: () => Array<{ tag: string }>;
+        parseHTML: () => { tag: string }[];
         renderHTML: (args: { HTMLAttributes: { target: string } }) => unknown[];
       };
     };

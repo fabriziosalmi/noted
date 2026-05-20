@@ -19,6 +19,7 @@ const stack: string[] = [];
 let listenerAttached = false;
 
 function handleKey(e: KeyboardEvent) {
+  if (e.defaultPrevented || e.isComposing || e.repeat) return;
   if (e.key !== 'Escape') return;
   const top = stack[stack.length - 1];
   if (!top) return;

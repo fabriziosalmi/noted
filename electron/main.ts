@@ -256,6 +256,29 @@ app.on('will-quit', () => {
 // Example IPC handler for the magical stuff
 ipcMain.handle('ping', () => 'pong');
 
+// MCP server location — resolved relative to dist-electron/main.cjs so it works
+// both in dev (cloned repo) and in packaged builds that ship dist-mcp/.
+// Used by Settings → MCP tab to populate accurate copy-paste client configs.
+ipcMain.handle('get-mcp-server-path', () => {
+  let candidate = path.join(__dirname, '..', 'dist-mcp', 'index.cjs');
+  // When packaged, dist-mcp is bundled inside app.asar but marked asarUnpack in
+  // electron-builder so it lives on disk at app.asar.unpacked. External clients
+  // (Claude Code, Codex, …) cannot read asar paths — they must spawn the
+  // unpacked copy. Rewrite the path so the value we hand to the renderer is
+  // the one a separate `node` process can actually execute.
+  const asarSeg = `${path.sep}app.asar${path.sep}`;
+  if (app.isPackaged && candidate.includes(asarSeg)) {
+    candidate = candidate.replace(asarSeg, `${path.sep}app.asar.unpacked${path.sep}`);
+  }
+  return { path: candidate, exists: fs.existsSync(candidate) };
+});
+
+ipcMain.handle('reveal-in-finder', (_, fsPath: string) => {
+  if (typeof fsPath !== 'string') return { success: false };
+  shell.showItemInFolder(fsPath);
+  return { success: true };
+});
+
 // FS IPC Handlers
 ipcMain.handle('get-notes-list', (_, syncDir?: string) => {
   try {

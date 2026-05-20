@@ -48,13 +48,22 @@ interface NoteEditorProps {
   onCreateNote?: () => void;
   onOpenDaily?: () => void;
   onOpenSettings?: () => void;
+  onOpenShortcuts?: () => void;
 }
 
-export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError, allNoteNames = [], allTags = [], backlinks = [], onSelectNote, notesCount = 0, onCreateNote, onOpenDaily, onOpenSettings }: NoteEditorProps) {
+function hasShortcutModifier(event: KeyboardEvent | globalThis.KeyboardEvent): boolean {
+  if (event.metaKey) return true;
+  // Avoid AltGr (Ctrl+Alt) false positives on intl keyboard layouts.
+  return event.ctrlKey && !event.altKey;
+}
+
+export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError, allNoteNames = [], allTags = [], backlinks = [], onSelectNote, notesCount = 0, onCreateNote, onOpenDaily, onOpenSettings, onOpenShortcuts }: NoteEditorProps) {
   const { t } = useI18n();
   const llmProvider = useStore(s => s.settings.llmProvider);
   const llmApiKey = useStore(s => s.settings.llmApiKey);
+  const onboardingDismissed = useStore(s => s.settings.onboardingDismissed ?? false);
   const aiGhostMode = useStore(s => s.settings.aiGhostMode ?? 'manual');
+  const updateSettings = useStore(s => s.updateSettings);
   const llmReady = llmProvider === 'lmstudio' || llmProvider === 'ollama' || !!llmApiKey;
   const [isSmartPasting, setIsSmartPasting] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
@@ -199,7 +208,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       handleKeyDown: (_view, event) => {
         // Manual ghost-text trigger: ⌘L (or Ctrl+L). Works in any aiGhostMode
         // except 'off'.
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'l') {
+        if (!event.isComposing && hasShortcutModifier(event) && event.key.toLowerCase() === 'l') {
           event.preventDefault();
           if (aiGhostMode !== 'off') triggerGhost();
           return true;
@@ -279,7 +288,8 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   // Cmd+S
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's' && editor) {
+      if (e.defaultPrevented || e.isComposing) return;
+      if (hasShortcutModifier(e) && e.key.toLowerCase() === 's' && editor) {
         e.preventDefault();
         void flushSave(editor.getHTML());
       }
@@ -305,6 +315,13 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
 
   if (!activeNoteName) {
     const isEmpty = notesCount === 0;
+    const onboardingVisible = !onboardingDismissed;
+    const onboardingSteps = [
+      { key: 'note', done: notesCount > 0, label: t('onboardingStepNote') },
+      { key: 'ai', done: llmReady, label: t('onboardingStepAi') },
+      { key: 'shortcuts', done: false, label: t('onboardingStepShortcuts') },
+    ];
+    const doneCount = onboardingSteps.filter(s => s.done).length;
     return (
       <div className="h-full flex flex-col items-center justify-center px-8">
         <div className="flex flex-col items-center max-w-sm text-center">
@@ -343,6 +360,49 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
                 {t('settings')}
               </button>
             </p>
+          )}
+          {onboardingVisible && (
+            <div className="mt-6 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/60 p-4 text-left">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  {t('onboardingTitle')}
+                </p>
+                <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                  {doneCount}/3
+                </span>
+              </div>
+              <div className="space-y-1.5 mb-3">
+                {onboardingSteps.map(step => (
+                  <div key={step.key} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                    {step.done ? <CheckCheck size={13} className="text-emerald-500" /> : <span className="w-[13px] h-[13px] rounded-full border border-gray-300 dark:border-gray-600" />}
+                    <span>{step.label}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {onCreateNote && (
+                  <button onClick={onCreateNote} className="text-xs px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-700 transition-colors">
+                    {t('welcomeNewNote')}
+                  </button>
+                )}
+                {onOpenSettings && (
+                  <button onClick={onOpenSettings} className="text-xs px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-700 transition-colors">
+                    {t('onboardingCtaAi')}
+                  </button>
+                )}
+                {onOpenShortcuts && (
+                  <button onClick={onOpenShortcuts} className="text-xs px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-700 transition-colors">
+                    {t('onboardingCtaShortcuts')}
+                  </button>
+                )}
+                <button
+                  onClick={() => updateSettings({ onboardingDismissed: true })}
+                  className="text-xs px-2.5 py-1 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                >
+                  {t('dismissSuggestion')}
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>

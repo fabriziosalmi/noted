@@ -37,6 +37,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   moveNote: (fileName: string, toFolder: string, syncDir?: string) => ipcRenderer.invoke('move-note', fileName, toFolder, syncDir),
   setNoteTitle: (noteName: string) => ipcRenderer.invoke('set-note-title', noteName),
   safeStorageStatus: () => ipcRenderer.invoke('safe-storage-status') as Promise<{ encrypted: boolean }>,
+  getMcpServerPath: () => ipcRenderer.invoke('get-mcp-server-path') as Promise<{ path: string; exists: boolean }>,
+  revealInFinder: (fsPath: string) => ipcRenderer.invoke('reveal-in-finder', fsPath) as Promise<{ success: boolean }>,
   gitStoreToken: (token: string) => ipcRenderer.invoke('git-store-token', token),
   gitGetToken: () => ipcRenderer.invoke('git-get-token'),
   // Git ops

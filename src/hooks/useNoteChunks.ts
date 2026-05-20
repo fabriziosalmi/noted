@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { NoteChunk } from '../lib/noteSearch';
 import type { NoteChunksArgs } from './contracts';
 
-export function useNoteChunks({ rightOpen, notes, syncDirectory }: NoteChunksArgs): NoteChunk[] {
+export function useNoteChunks({ rightOpen, notes, syncDirectory, ragMaxNotes = 100 }: NoteChunksArgs): NoteChunk[] {
   const [noteChunks, setNoteChunks] = useState<NoteChunk[]>([]);
 
   useEffect(() => {
@@ -11,7 +11,8 @@ export function useNoteChunks({ rightOpen, notes, syncDirectory }: NoteChunksArg
     const syncDir = syncDirectory || undefined;
 
     (async () => {
-      const capped = notes.slice(0, 100);
+      const safeLimit = Math.max(10, Math.min(500, ragMaxNotes));
+      const capped = notes.slice(0, safeLimit);
       const BATCH = 10;
       const chunks: NoteChunk[] = [];
 
@@ -38,7 +39,7 @@ export function useNoteChunks({ rightOpen, notes, syncDirectory }: NoteChunksArg
     return () => {
       cancelled = true;
     };
-  }, [rightOpen, notes, syncDirectory]);
+  }, [rightOpen, notes, syncDirectory, ragMaxNotes]);
 
   return noteChunks;
 }

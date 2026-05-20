@@ -124,6 +124,8 @@ export function createAppComposition(
     onUpdateSettings: actions.onUpdateSettings,
     onHandleSelectFolder: actions.onHandleSelectFolder,
     onHandleImportVault: actions.onHandleImportVault,
+    onHandleCreateNote: actions.onHandleCreateNote,
+    onHandleOpenDaily: actions.onHandleOpenDaily,
   };
 
   return { chrome, modals };

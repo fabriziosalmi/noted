@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useMemo } from 'react';
+import { useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import {
   FileText, Plus, Trash2, Settings, Search, ArrowUpDown, Star, CalendarDays,
   Tag, X, FolderOpen, Folder, FolderPlus, ChevronRight, ChevronDown
@@ -59,7 +59,10 @@ function NoteRow({
       draggable={!isRenaming}
       onDragStart={onDragStart}
       onClick={() => !isRenaming && onSelect()}
-      onKeyDown={e => { if (!isRenaming && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelect(); } }}
+      onKeyDown={e => {
+        if (e.nativeEvent.isComposing || e.repeat) return;
+        if (!isRenaming && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelect(); }
+      }}
       aria-current={isActive ? 'true' : undefined}
       className={`flex items-center justify-between p-2 rounded text-sm cursor-pointer mb-0.5 group ${
         isActive
@@ -130,6 +133,16 @@ export function Sidebar({
   const [newFolderMode, setNewFolderMode] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [dragOver, setDragOver] = useState<string | null>(null); // folder name or 'root'
+
+  useEffect(() => {
+    const clearDragState = () => setDragOver(null);
+    window.addEventListener('dragend', clearDragState);
+    window.addEventListener('drop', clearDragState);
+    return () => {
+      window.removeEventListener('dragend', clearDragState);
+      window.removeEventListener('drop', clearDragState);
+    };
+  }, []);
 
   const cycleSortBy = useCallback(() => {
     setSortBy(prev => prev === 'date' ? 'name' : prev === 'name' ? 'size' : 'date');
@@ -214,7 +227,11 @@ export function Sidebar({
       onStartRename={e => { e.stopPropagation(); setRenamingNote(note.name); setRenameValue(note.name.replace(/^[^/]+\//, '').replace('.md', '')); setTimeout(() => renameInputRef.current?.select(), 0); }}
       onRenameChange={setRenameValue}
       onRenameBlur={() => void commitNoteRename()}
-      onRenameKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void commitNoteRename(); } if (e.key === 'Escape') setRenamingNote(null); }}
+      onRenameKeyDown={e => {
+        if (e.nativeEvent.isComposing || e.repeat) return;
+        if (e.key === 'Enter') { e.preventDefault(); void commitNoteRename(); }
+        if (e.key === 'Escape') setRenamingNote(null);
+      }}
       onDragStart={e => handleDragStart(e, note.name)}
       renameHint={t('renameHint')}
     />
@@ -281,7 +298,11 @@ export function Sidebar({
             value={newFolderName}
             onChange={e => setNewFolderName(e.target.value)}
             onBlur={() => void commitNewFolder()}
-            onKeyDown={e => { if (e.key === 'Enter') void commitNewFolder(); if (e.key === 'Escape') { setNewFolderMode(false); setNewFolderName(''); } }}
+            onKeyDown={e => {
+              if (e.nativeEvent.isComposing || e.repeat) return;
+              if (e.key === 'Enter') void commitNewFolder();
+              if (e.key === 'Escape') { setNewFolderMode(false); setNewFolderName(''); }
+            }}
             placeholder={t('folderNamePlaceholder')}
             className="w-full bg-white dark:bg-gray-700 border border-[var(--accent)] rounded px-2 py-1 text-xs outline-none"
           />
@@ -324,6 +345,7 @@ export function Sidebar({
                   tabIndex={0}
                   onClick={() => toggleFolder(folder.name)}
                   onKeyDown={(e) => {
+                    if (e.nativeEvent.isComposing || e.repeat) return;
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
                       toggleFolder(folder.name);
@@ -340,7 +362,12 @@ export function Sidebar({
                       value={folderRenameValue}
                       onChange={e => setFolderRenameValue(e.target.value)}
                       onBlur={() => void commitFolderRename()}
-                      onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') void commitFolderRename(); if (e.key === 'Escape') setRenamingFolder(null); }}
+                      onKeyDown={e => {
+                        if (e.nativeEvent.isComposing || e.repeat) return;
+                        e.stopPropagation();
+                        if (e.key === 'Enter') void commitFolderRename();
+                        if (e.key === 'Escape') setRenamingFolder(null);
+                      }}
                       onClick={e => e.stopPropagation()}
                       className="flex-1 bg-white dark:bg-gray-700 border border-[var(--accent)] rounded px-1 text-xs outline-none"
                     />
@@ -396,7 +423,11 @@ export function Sidebar({
 
       {/* Settings */}
       <div role="button" tabIndex={0} className="p-3 border-t border-gray-200/60 dark:border-gray-700/60 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer"
-        onClick={onOpenSettings} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onOpenSettings()}>
+        onClick={onOpenSettings}
+        onKeyDown={e => {
+          if (e.nativeEvent.isComposing || e.repeat) return;
+          if (e.key === 'Enter' || e.key === ' ') onOpenSettings();
+        }}>
         <Settings size={18} />
       </div>
     </>

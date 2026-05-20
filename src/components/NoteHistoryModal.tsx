@@ -45,7 +45,11 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
         type="button"
         aria-label={t('close')}
         className="absolute inset-0 bg-black/40"
-        onMouseDown={onClose}
+        onMouseDown={(e) => {
+          if (e.button !== 0) return;
+          if (e.target !== e.currentTarget) return;
+          onClose();
+        }}
       />
       <div className="relative z-10 bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-[700px] max-h-[80vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">

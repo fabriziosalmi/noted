@@ -57,7 +57,11 @@ export function TemplatesModal({ customTemplates, activeNoteContent, activeNoteN
         type="button"
         aria-label={t('close')}
         className="absolute inset-0 bg-black/40"
-        onMouseDown={onClose}
+        onMouseDown={(e) => {
+          if (e.button !== 0) return;
+          if (e.target !== e.currentTarget) return;
+          onClose();
+        }}
       />
       <div className="relative z-10 bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-96 max-h-[80vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
@@ -103,7 +107,11 @@ export function TemplatesModal({ customTemplates, activeNoteContent, activeNoteN
                   type="text"
                   value={savingName}
                   onChange={e => setSavingName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setShowSave(false); }}
+                  onKeyDown={e => {
+                    if (e.nativeEvent.isComposing || e.repeat) return;
+                    if (e.key === 'Enter') handleSave();
+                    if (e.key === 'Escape') setShowSave(false);
+                  }}
                   placeholder={activeNoteName.replace('.md', '')}
                   className="flex-1 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 outline-none focus:border-indigo-400 dark:text-gray-200"
                 />

@@ -195,6 +195,7 @@ export function AppChrome({
                     onCreateNote={() => { void onHandleCreateNote(); }}
                     onOpenDaily={() => { void onHandleOpenDaily(); }}
                     onOpenSettings={panels.openSettings}
+                    onOpenShortcuts={panels.openShortcuts}
                   />
                 </ErrorBoundary>
               </div>

@@ -77,6 +77,7 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing || e.repeat) return;
       if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, results.length - 1)); }
       if (e.key === 'ArrowUp')   { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)); }
       if (e.key === 'Enter' && results[activeIdx]) confirm(results[activeIdx].relPath);
@@ -97,7 +98,11 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
         type="button"
         aria-label="Close search"
         className="absolute inset-0"
-        onMouseDown={onClose}
+        onMouseDown={(e) => {
+          if (e.button !== 0) return;
+          if (e.target !== e.currentTarget) return;
+          onClose();
+        }}
       />
       <div
         className="relative z-10 w-[620px] bg-white/96 dark:bg-gray-900/96 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-xl shadow-2xl overflow-hidden"

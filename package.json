@@ -6,7 +6,7 @@
     "email": "fabrizio.salmi@gmail.com"
   },
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "build:main": "esbuild electron/main.ts --bundle --platform=node --format=cjs --outfile=dist-electron/main.cjs --external:electron --external:fsevents --packages=external",
@@ -20,7 +20,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:ci": "vitest run --reporter=verbose",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e:keyboard-intl": "node scripts/playwright-keyboard-intl.mjs"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.24",
@@ -89,7 +90,11 @@
     },
     "files": [
       "dist/**/*",
-      "dist-electron/**/*"
+      "dist-electron/**/*",
+      "dist-mcp/**/*"
+    ],
+    "asarUnpack": [
+      "dist-mcp/**/*"
     ],
     "mac": {
       "category": "public.app-category.productivity",

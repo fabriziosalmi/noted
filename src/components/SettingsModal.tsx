@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import {
   X, RefreshCw, Cloud, HardDrive, FolderOpen, CheckCircle2,
-  Bot, Palette, Type, GitBranch, FolderSync,
+  Bot, Palette, Type, GitBranch, FolderSync, Info, Copy, Check,
+  Plug, ExternalLink,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useModalStack } from '../hooks/useModalStack';
@@ -9,7 +10,7 @@ import type { LLMProvider } from '../store/useStore';
 import { fetchAvailableModels } from '../lib/llm';
 import { useI18n, type TranslationKey } from '../lib/i18n';
 
-type SettingsTab = 'ai' | 'appearance' | 'editor' | 'sync' | 'git';
+type SettingsTab = 'ai' | 'appearance' | 'editor' | 'sync' | 'mcp' | 'git';
 
 interface CloudProvider { id: string; name: string; basePath: string; notedPath: string; available: boolean }
 
@@ -38,6 +39,13 @@ interface Settings {
   gitAutoCommit?: boolean;
   gitDefaultBase?: string;
   gitGhToken?: string;
+  ragTopK?: number;
+  ragMaxNotes?: number;
+  ragContextChars?: number;
+  ragDebug?: boolean;
+  embeddingsEnabled?: boolean;
+  embeddingProvider?: 'openai' | 'lmstudio' | 'ollama' | 'none';
+  embeddingModel?: string;
 }
 
 interface SettingsModalProps {
@@ -53,7 +61,8 @@ const TABS: { id: SettingsTab; labelKey: TranslationKey; icon: LucideIcon }[] = 
   { id: 'appearance', labelKey: 'tabAppearance',  icon: Palette },
   { id: 'editor',     labelKey: 'tabEditor',      icon: Type },
   { id: 'sync',       labelKey: 'tabSync',        icon: FolderSync },
-  { id: 'git',        labelKey: 'tabGit',         icon: GitBranch },
+  { id: 'mcp',        labelKey: 'tabMcp',         icon: Plug },
+  { id: 'git',        labelKey: 'tabIntegrations', icon: GitBranch },
 ];
 
 const isLocalProvider = (p: LLMProvider) => p === 'lmstudio' || p === 'ollama';
@@ -140,6 +149,136 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   );
 }
 
+function CopyBlock({ value, kind, copiedCmd, copyText, mono = true, label }: {
+  value: string;
+  kind: string;
+  copiedCmd: string | null;
+  copyText: (v: string, k: string) => void | Promise<void>;
+  mono?: boolean;
+  label?: string;
+}) {
+  const copied = copiedCmd === kind;
+  return (
+    <div className="flex items-start gap-2">
+      <pre className={`flex-1 min-w-0 text-[11px] rounded-md px-2 py-1.5 bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre ${mono ? 'font-mono' : ''}`}>{value}</pre>
+      <button
+        type="button"
+        onClick={() => { void copyText(value, kind); }}
+        className="shrink-0 text-xs px-2 py-1 rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        title={label}
+        aria-label={label}
+      >
+        <span className="inline-flex items-center gap-1">{copied ? <Check size={11} /> : <Copy size={11} />}</span>
+      </button>
+    </div>
+  );
+}
+
+function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath }: {
+  t: (k: TranslationKey) => string;
+  copyText: (v: string, k: string) => void | Promise<void>;
+  copiedCmd: string | null;
+  mcpServer: { path: string; exists: boolean } | null;
+  vaultPath: string;
+}) {
+  const serverPath = mcpServer?.path ?? '/path/to/dist-mcp/index.cjs';
+  const built = mcpServer?.exists === true;
+
+  const claudeCodeCmd = `claude mcp add noted -- node ${serverPath}`;
+  const claudeDesktopJson = JSON.stringify({
+    mcpServers: { noted: { command: 'node', args: [serverPath] } },
+  }, null, 2);
+  const vscodeJson = JSON.stringify({
+    servers: { noted: { type: 'stdio', command: 'node', args: [serverPath] } },
+  }, null, 2);
+  const codexToml = `[mcp_servers.noted]\ncommand = "node"\nargs = ["${serverPath}"]`;
+
+  return (
+    <div className="space-y-3">
+      {/* Status + how it works */}
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-3 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Plug size={13} className="text-gray-500 dark:text-gray-400 shrink-0" />
+            <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate">{t('mcpSectionTitle')}</p>
+          </div>
+          <span
+            className={`shrink-0 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+              built
+                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+            }`}
+          >
+            <span className={`inline-block w-1.5 h-1.5 rounded-full ${built ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            {built ? t('mcpStatusReady') : t('mcpStatusMissing')}
+          </span>
+        </div>
+        <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">{t('mcpTabBody')}</p>
+        <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">{t('mcpHowItWorks')}</p>
+
+        {!built && (
+          <div className="pt-1 space-y-1">
+            <p className="text-[11px] font-medium text-gray-600 dark:text-gray-300">{t('mcpBuildLabel')}</p>
+            <CopyBlock value="npm run build:mcp" kind="build" copiedCmd={copiedCmd} copyText={copyText} label={t('copyCommand')} />
+          </div>
+        )}
+
+        <div className="pt-1 space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-medium text-gray-600 dark:text-gray-300">{t('mcpServerPath')}</p>
+            {built && (
+              <button
+                type="button"
+                onClick={() => { void window.electronAPI?.revealInFinder?.(serverPath); }}
+                className="text-[11px] inline-flex items-center gap-1 text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
+                title={t('mcpRevealInFinder')}
+              >
+                <ExternalLink size={11} />
+                {t('mcpRevealInFinder')}
+              </button>
+            )}
+          </div>
+          <CopyBlock value={serverPath} kind="server-path" copiedCmd={copiedCmd} copyText={copyText} label={t('copy')} />
+        </div>
+
+        <div className="pt-1 space-y-1">
+          <p className="text-[11px] font-medium text-gray-600 dark:text-gray-300">{t('mcpVaultPath')}</p>
+          <CopyBlock value={vaultPath} kind="vault-path" copiedCmd={copiedCmd} copyText={copyText} label={t('copy')} />
+        </div>
+      </div>
+
+      {/* Per-client snippets */}
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-3 space-y-3">
+        <div>
+          <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">{t('mcpClientClaudeCode')}</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">CLI one-liner</p>
+          <CopyBlock value={claudeCodeCmd} kind="cli-claude-code" copiedCmd={copiedCmd} copyText={copyText} label={t('copy')} />
+        </div>
+
+        <div className="pt-1 border-t border-gray-200 dark:border-gray-700">
+          <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-200 mt-2">{t('mcpClientClaudeDesktop')}</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">{t('mcpClientClaudeDesktopHint')}</p>
+          <CopyBlock value={claudeDesktopJson} kind="cfg-claude-desktop" copiedCmd={copiedCmd} copyText={copyText} label={t('copy')} />
+        </div>
+
+        <div className="pt-1 border-t border-gray-200 dark:border-gray-700">
+          <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-200 mt-2">{t('mcpClientVsCode')}</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">{t('mcpClientVsCodeHint')}</p>
+          <CopyBlock value={vscodeJson} kind="cfg-vscode" copiedCmd={copiedCmd} copyText={copyText} label={t('copy')} />
+        </div>
+
+        <div className="pt-1 border-t border-gray-200 dark:border-gray-700">
+          <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-200 mt-2">{t('mcpClientCodex')}</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">{t('mcpClientCodexHint')}</p>
+          <CopyBlock value={codexToml} kind="cfg-codex" copiedCmd={copiedCmd} copyText={copyText} label={t('copy')} />
+        </div>
+
+        <p className="text-[10.5px] text-gray-500 dark:text-gray-400 pt-1 leading-snug">{t('mcpAfterAdding')}</p>
+      </div>
+    </div>
+  );
+}
+
 export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVault, onClose }: SettingsModalProps) {
   useModalStack('settings', true, onClose);
   const { t } = useI18n();
@@ -151,6 +290,8 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
   const [gitTokenInput, setGitTokenInput] = useState('');
   const [savingToken, setSavingToken] = useState(false);
   const [encryptionAvailable, setEncryptionAvailable] = useState(true);
+  const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
+  const [mcpServer, setMcpServer] = useState<{ path: string; exists: boolean } | null>(null);
 
   useEffect(() => {
     window.electronAPI?.safeStorageStatus?.()
@@ -199,13 +340,33 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
     setSavingToken(false);
   }, [gitTokenInput]);
 
+  const copyText = useCallback(async (value: string, kind: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedCmd(kind);
+      window.setTimeout(() => setCopiedCmd(prev => (prev === kind ? null : prev)), 1600);
+    } catch {
+      // Keep silent: clipboard may be blocked by OS policy/focus.
+    }
+  }, []);
+
+  useEffect(() => {
+    window.electronAPI?.getMcpServerPath?.()
+      .then(setMcpServer)
+      .catch(() => { /* leave null — UI shows path-unknown state */ });
+  }, []);
+
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50">
       <button
         type="button"
         aria-label={t('closeSettings')}
         className="absolute inset-0 bg-black/20"
-        onMouseDown={onClose}
+        onMouseDown={(e) => {
+          if (e.button !== 0) return;
+          if (e.target !== e.currentTarget) return;
+          onClose();
+        }}
       />
       <div className="relative z-10 bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-[520px] overflow-hidden flex flex-col">
 
@@ -241,8 +402,30 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
           {/* ── AI Tab ── */}
           {tab === 'ai' && (
             <div className="space-y-4">
+              <div className="rounded-lg border border-blue-200/70 dark:border-blue-800/60 bg-blue-50/70 dark:bg-blue-900/15 p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Info size={13} className="text-blue-600 dark:text-blue-300" />
+                  <p className="text-xs font-semibold text-blue-700 dark:text-blue-200">{t('aiHowItWorksTitle')}</p>
+                </div>
+                <p className="text-[11px] leading-relaxed text-blue-800/95 dark:text-blue-200/90">
+                  {t('aiHowItWorksBody')}
+                </p>
+                <p className="text-[11px] mt-1 leading-relaxed text-blue-800/95 dark:text-blue-200/90">
+                  {t('aiRetrievalMode')}
+                </p>
+              </div>
+
               <div>
-                <FieldLabel>{t('llmProvider')}</FieldLabel>
+                <div className="flex items-center gap-1">
+                  <FieldLabel>{t('llmProvider')}</FieldLabel>
+                  <span
+                    className="inline-flex items-center text-gray-400 dark:text-gray-500"
+                    title={t('llmProviderHelp')}
+                    aria-label={t('llmProviderHelp')}
+                  >
+                    <Info size={12} />
+                  </span>
+                </div>
                 <Select value={settings.llmProvider} onChange={(e) => onUpdate({ llmProvider: e.target.value as LLMProvider })}>
                   <option value="openai">OpenAI (GPT-4o)</option>
                   <option value="anthropic">Anthropic (Claude 3)</option>
@@ -306,6 +489,50 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">{t('apiKeyHelp')}</p>
                 </div>
               )}
+
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-3 space-y-3">
+                <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">{t('ragSectionTitle')}</p>
+                <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">{t('ragSectionBody')}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <FieldLabel>{t('ragTopKLabel')}</FieldLabel>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={settings.ragTopK ?? 3}
+                      onChange={(e) => onUpdate({ ragTopK: Math.max(1, Math.min(10, Number(e.target.value) || 3)) })}
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>{t('ragMaxNotesLabel')}</FieldLabel>
+                    <Input
+                      type="number"
+                      min={10}
+                      max={500}
+                      value={settings.ragMaxNotes ?? 100}
+                      onChange={(e) => onUpdate({ ragMaxNotes: Math.max(10, Math.min(500, Number(e.target.value) || 100)) })}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <FieldLabel>{t('ragContextCharsLabel')}</FieldLabel>
+                  <Input
+                    type="number"
+                    min={1500}
+                    max={30000}
+                    step={500}
+                    value={settings.ragContextChars ?? 8000}
+                    onChange={(e) => onUpdate({ ragContextChars: Math.max(1500, Math.min(30000, Number(e.target.value) || 8000)) })}
+                  />
+                </div>
+                <SegRow
+                  label={t('ragDebugLabel')}
+                  description={t('ragDebugDesc')}
+                  value={!!settings.ragDebug}
+                  onChange={() => onUpdate({ ragDebug: !settings.ragDebug })}
+                />
+              </div>
             </div>
           )}
 
@@ -521,9 +748,53 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
             </div>
           )}
 
+          {/* ── MCP Tab ── */}
+          {tab === 'mcp' && (
+            <McpTab
+              t={t}
+              copyText={copyText}
+              copiedCmd={copiedCmd}
+              mcpServer={mcpServer}
+              vaultPath={settings.syncDirectory ?? '~/Documents/Noted'}
+            />
+          )}
+
           {/* ── Git Tab ── */}
           {tab === 'git' && (
             <div className="space-y-4">
+
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-3 space-y-3">
+                <SegRow
+                  label={t('embeddingsBetaTitle')}
+                  description={t('embeddingsBetaDesc')}
+                  value={!!settings.embeddingsEnabled}
+                  onChange={() => onUpdate({ embeddingsEnabled: !settings.embeddingsEnabled })}
+                />
+                {settings.embeddingsEnabled && (
+                  <div className="space-y-2 pt-1 border-t border-gray-200 dark:border-gray-700">
+                    <div>
+                      <FieldLabel>{t('embeddingsProvider')}</FieldLabel>
+                      <Select value={settings.embeddingProvider ?? 'none'} onChange={e => onUpdate({ embeddingProvider: e.target.value as Settings['embeddingProvider'] })}>
+                        <option value="none">{t('embeddingsProviderNone')}</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="lmstudio">LM Studio (Local)</option>
+                        <option value="ollama">Ollama (Local)</option>
+                      </Select>
+                    </div>
+                    <div>
+                      <FieldLabel>{t('embeddingsModel')}</FieldLabel>
+                      <Input
+                        type="text"
+                        value={settings.embeddingModel ?? ''}
+                        onChange={e => onUpdate({ embeddingModel: e.target.value })}
+                        placeholder="text-embedding-3-small"
+                      />
+                    </div>
+                    <p className="text-[11px] text-amber-600 dark:text-amber-300">{t('embeddingsBetaNote')}</p>
+                  </div>
+                )}
+              </div>
+
               <SegRow
                 label={t('gitEnable')}
                 description={t('gitEnableDesc')}
@@ -557,7 +828,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                         <button
                           onClick={handleSaveToken}
                           disabled={!gitTokenInput.trim() || savingToken}
-                          className="px-3 py-1.5 text-xs rounded-md bg-[var(--accent)] text-white disabled:opacity-50 hover:opacity-90 transition-opacity shrink-0"
+                          className="btn-primary px-3 py-1.5 text-xs rounded-md transition-all shrink-0"
                         >
                           {savingToken ? '…' : t('save')}
                         </button>
@@ -599,8 +870,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
         <div className="px-5 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 flex justify-end">
           <button
             onClick={onClose}
-            className="text-white px-4 py-1.5 rounded-md text-sm font-medium hover:opacity-90 transition-opacity"
-            style={{ background: 'var(--accent)' } as React.CSSProperties}
+            className="btn-primary px-4 py-1.5 rounded-md text-sm font-medium transition-all"
           >
             {t('save')}
           </button>

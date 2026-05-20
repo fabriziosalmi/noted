@@ -49,6 +49,14 @@ export interface SettingsState {
   gitAutoCommit?: boolean;
   gitDefaultBase?: string;   // default base branch for PRs, e.g. 'main'
   gitGhToken?: string;       // NOT persisted — loaded via safeStorage
+  ragTopK?: number;
+  ragMaxNotes?: number;
+  ragContextChars?: number;
+  ragDebug?: boolean;
+  embeddingsEnabled?: boolean;
+  embeddingProvider?: 'openai' | 'lmstudio' | 'ollama' | 'none';
+  embeddingModel?: string;
+  onboardingDismissed?: boolean;
 }
 
 export interface FolderInfo {
@@ -125,6 +133,14 @@ export const useStore = create<NoteState>()(
         gitAutoCommit: false,
         gitDefaultBase: 'main',
         gitGhToken: '',
+        ragTopK: 3,
+        ragMaxNotes: 100,
+        ragContextChars: 8000,
+        ragDebug: false,
+        embeddingsEnabled: false,
+        embeddingProvider: 'none',
+        embeddingModel: '',
+        onboardingDismissed: false,
         showHints: true,
         aiGhostMode: 'manual' as const,
         editorWidth: 'normal' as const,

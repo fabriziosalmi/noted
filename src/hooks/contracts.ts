@@ -42,6 +42,7 @@ export interface NoteChunksArgs {
   rightOpen: boolean;
   notes: NoteFile[];
   syncDirectory: string | null;
+  ragMaxNotes?: number;
 }
 
 export interface AppDerivedStateSettings {

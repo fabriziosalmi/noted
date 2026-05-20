@@ -40,6 +40,8 @@
   --accent: #6366f1;
   --accent-light: color-mix(in srgb, var(--accent) 12%, transparent);
   --accent-mid:   color-mix(in srgb, var(--accent) 25%, transparent);
+  --btn-primary-disabled-bg: color-mix(in srgb, var(--accent) 24%, #6b7280 76%);
+  --btn-primary-disabled-fg: rgba(255, 255, 255, 0.9);
 }
 
 /* ─── Custom editor canvas bg ─────────────────────────────────────────
@@ -162,6 +164,23 @@ body {
 }
 /* But never animate transforms/opacity in animations (feels sluggish) */
 .no-transition, .no-transition * { transition: none !important; }
+
+/* Primary CTA: keep consistent contrast across themes and disabled states. */
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid color-mix(in srgb, var(--accent) 68%, #000 32%);
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+.btn-primary:disabled {
+  background: var(--btn-primary-disabled-bg);
+  border-color: color-mix(in srgb, var(--btn-primary-disabled-bg) 70%, #000 30%);
+  color: var(--btn-primary-disabled-fg);
+  cursor: not-allowed;
+  opacity: 1;
+}
 
 /* ─── Scrollbars (macOS style) ───────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }

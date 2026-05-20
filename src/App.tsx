@@ -70,6 +70,7 @@ function App() {
     rightOpen: panels.rightOpen,
     notes,
     syncDirectory: settings.syncDirectory,
+    ragMaxNotes: settings.ragMaxNotes,
   });
 
   useAppLifecycle({

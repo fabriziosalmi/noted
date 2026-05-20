@@ -85,4 +85,6 @@ export interface AppModalsProps extends AppSharedProps {
   onUpdateSettings: UpdateSettingsFn;
   onHandleSelectFolder: () => Promise<void>;
   onHandleImportVault: () => Promise<void>;
+  onHandleCreateNote: CreateNoteFn;
+  onHandleOpenDaily: OpenDailyFn;
 }

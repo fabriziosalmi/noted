@@ -48,6 +48,8 @@ declare global {
       moveNote: (fileName: string, toFolder: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       setNoteTitle: (noteName: string) => Promise<void>;
       safeStorageStatus: () => Promise<{ encrypted: boolean }>;
+      getMcpServerPath: () => Promise<{ path: string; exists: boolean }>;
+      revealInFinder: (fsPath: string) => Promise<{ success: boolean }>;
       gitStoreToken: (token: string) => Promise<{ success: boolean; error?: string }>;
       gitGetToken: () => Promise<{ success: boolean; data?: string; error?: string }>;
       // Git ops

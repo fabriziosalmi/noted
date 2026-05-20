@@ -157,7 +157,11 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
         type="button"
         aria-label={t('close')}
         className="absolute inset-0 bg-black/40"
-        onMouseDown={onClose}
+        onMouseDown={(e) => {
+          if (e.button !== 0) return;
+          if (e.target !== e.currentTarget) return;
+          onClose();
+        }}
       />
       <div
         className="relative z-10 bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-80 flex flex-col overflow-hidden border border-gray-200/60 dark:border-gray-700/60"
