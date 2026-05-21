@@ -56,14 +56,14 @@ export function TemplatesModal({ customTemplates, activeNoteContent, activeNoteN
       <button
         type="button"
         aria-label={t('close')}
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 modal-backdrop-animate"
         onMouseDown={(e) => {
           if (e.button !== 0) return;
           if (e.target !== e.currentTarget) return;
           onClose();
         }}
       />
-      <div className="relative z-10 bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-96 max-h-[80vh] flex flex-col overflow-hidden">
+      <div className="relative z-10 bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-96 max-h-[80vh] flex flex-col overflow-hidden modal-content-animate">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
           <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('templatesTitle')}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X size={16} /></button>

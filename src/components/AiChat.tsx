@@ -255,7 +255,7 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
         </div>
       )}
 
-      <div className="flex-1 p-4 text-sm text-gray-600 dark:text-gray-300 overflow-y-auto flex flex-col space-y-3">
+      <div className="flex-1 p-4 text-sm text-gray-600 dark:text-gray-300 overflow-y-auto flex flex-col space-y-3 scroll-fade-y">
         {displayHistory.map((msg, idx) => (
           <ChatBubble key={idx} role={msg.role} content={msg.content} />
         ))}

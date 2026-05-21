@@ -52,7 +52,7 @@ const NOTES_DIR = resolveNotesDir();
 // ─── Path security ────────────────────────────────────────────────────────────
 
 /** Validates a note name and throws McpError (InvalidParams) on failure. */
-function validateNoteName(name: unknown): asserts name is string {
+export function validateNoteName(name: unknown): asserts name is string {
   if (typeof name !== 'string' || !name.trim()) {
     throw new McpError(ErrorCode.InvalidParams, 'Note name must be a non-empty string');
   }
@@ -97,22 +97,54 @@ function safeNotePath(name: string): string {
 // bold, italic, inline code, fenced code blocks, unordered/ordered lists, hr,
 // and links. Keeps it self-contained with no runtime dependencies.
 
-function markdownToHtml(md: string): string {
+const escHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+const inlineHtml = (s: string): string => {
+  const parts = s.split('`');
+  for (let idx = 0; idx < parts.length; idx++) {
+    if (idx % 2 === 1) {
+      // Inside inline code
+      parts[idx] = `<code>${escHtml(parts[idx])}</code>`;
+    } else {
+      // Outside inline code: escape HTML first, then parse bold, italic, links
+      let text = escHtml(parts[idx]);
+      text = text
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/__(.+?)__/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/_(.+?)_/g, '<em>$1</em>')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+      parts[idx] = text;
+    }
+  }
+  return parts.join('');
+};
+
+const matchListItem = (line: string) => {
+  const unordered = line.match(/^(\s*)([-*+])\s+(.*)$/);
+  if (unordered) {
+    return {
+      indent: unordered[1].length,
+      type: 'ul' as const,
+      content: unordered[3]
+    };
+  }
+  const ordered = line.match(/^(\s*)(\d+)\.\s+(.*)$/);
+  if (ordered) {
+    return {
+      indent: ordered[1].length,
+      type: 'ol' as const,
+      content: ordered[3]
+    };
+  }
+  return null;
+};
+
+export function markdownToHtml(md: string): string {
   const lines = md.replace(/\r\n/g, '\n').split('\n');
   const out: string[] = [];
   let i = 0;
-
-  const escHtml = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-  const inlineHtml = (s: string): string =>
-    s
-      .replace(/`([^`]+)`/g, (_, c) => `<code>${escHtml(c)}</code>`)
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/__(.+?)__/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/_(.+?)_/g, '<em>$1</em>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
 
   while (i < lines.length) {
     const line = lines[i];
@@ -147,25 +179,64 @@ function markdownToHtml(md: string): string {
       continue;
     }
 
-    // Unordered list
-    if (/^[-*+]\s/.test(line)) {
-      const items: string[] = [];
-      while (i < lines.length && /^[-*+]\s/.test(lines[i])) {
-        items.push(`<li>${inlineHtml(lines[i].replace(/^[-*+]\s+/, '').trim())}</li>`);
-        i++;
-      }
-      out.push(`<ul>${items.join('')}</ul>`);
-      continue;
-    }
+    // Lists (unordered & ordered)
+    const listMatch = matchListItem(line);
+    if (listMatch) {
+      const listStack: { type: 'ul' | 'ol'; indent: number }[] = [];
+      
+      while (i < lines.length) {
+        const currentLine = lines[i];
+        const currentMatch = matchListItem(currentLine);
+        if (!currentMatch) {
+          break;
+        }
 
-    // Ordered list
-    if (/^\d+\.\s/.test(line)) {
-      const items: string[] = [];
-      while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
-        items.push(`<li>${inlineHtml(lines[i].replace(/^\d+\.\s+/, '').trim())}</li>`);
+        const { indent, type, content } = currentMatch;
+
+        if (listStack.length === 0) {
+          listStack.push({ type, indent });
+          out.push(`<${type}>`);
+        } else {
+          const top = listStack[listStack.length - 1];
+          if (indent > top.indent) {
+            // Nested list
+            listStack.push({ type, indent });
+            out.push(`<${type}>`);
+          } else if (indent < top.indent) {
+            // Close nested lists
+            while (listStack.length > 0 && listStack[listStack.length - 1].indent > indent) {
+              const popped = listStack.pop();
+              if (popped) out.push(`</${popped.type}>`);
+            }
+            if (listStack.length === 0 || listStack[listStack.length - 1].indent < indent) {
+              listStack.push({ type, indent });
+              out.push(`<${type}>`);
+            } else if (listStack[listStack.length - 1].type !== type) {
+              const popped = listStack.pop();
+              if (popped) out.push(`</${popped.type}>`);
+              listStack.push({ type, indent });
+              out.push(`<${type}>`);
+            }
+          } else {
+            // Equal indent
+            if (top.type !== type) {
+              listStack.pop();
+              out.push(`</${top.type}>`);
+              listStack.push({ type, indent });
+              out.push(`<${type}>`);
+            }
+          }
+        }
+
+        out.push(`<li>${inlineHtml(content)}</li>`);
         i++;
       }
-      out.push(`<ol>${items.join('')}</ol>`);
+
+      // Close all remaining open lists
+      while (listStack.length > 0) {
+        const popped = listStack.pop();
+        if (popped) out.push(`</${popped.type}>`);
+      }
       continue;
     }
 
@@ -181,8 +252,7 @@ function markdownToHtml(md: string): string {
       i < lines.length &&
       lines[i].trim() !== '' &&
       !/^#{1,6}\s/.test(lines[i]) &&
-      !/^[-*+]\s/.test(lines[i]) &&
-      !/^\d+\.\s/.test(lines[i]) &&
+      !matchListItem(lines[i]) &&
       !/^```/.test(lines[i]) &&
       !/^(?:---|\*\*\*|___)$/.test(lines[i].trim())
     ) {
@@ -197,7 +267,7 @@ function markdownToHtml(md: string): string {
 
 // ─── HTML sanitisation (mirrors electron/ipc-utils.ts) ───────────────────────
 
-function stripUnsafeHtml(html: string): string {
+export function stripUnsafeHtml(html: string): string {
   // Decode numeric entities before scanning so encoded payloads are caught
   const decoded = html
     .replace(/&#x([0-9a-f]+);/gi, (_, h: string) => String.fromCharCode(parseInt(h, 16)))
@@ -214,7 +284,7 @@ function stripUnsafeHtml(html: string): string {
 
 // ─── Markdown → HTML conversion ───────────────────────────────────────────────
 
-function toHtml(content: string): string {
+export function toHtml(content: string): string {
   const trimmed = content.trimStart();
   // If the content already looks like HTML, sanitise and return as-is
   if (trimmed.startsWith('<')) {
@@ -225,7 +295,7 @@ function toHtml(content: string): string {
 
 // ─── Plain-text extraction ────────────────────────────────────────────────────
 
-function htmlToText(html: string): string {
+export function htmlToText(html: string): string {
   return html
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>/gi, '\n')

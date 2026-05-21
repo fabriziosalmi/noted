@@ -442,3 +442,109 @@ body {
 .toast-item {
   animation: slideInRight 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+/* ─── Modal Animations ───────────────────────────────────────────────── */
+@keyframes modalBackdropFadeIn {
+  from {
+    background-color: rgba(0, 0, 0, 0);
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+  to {
+    background-color: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+}
+
+@keyframes modalContentScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-backdrop-animate {
+  animation: modalBackdropFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.modal-content-animate {
+  animation: modalContentScaleIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ─── Scroll Fade Masks ──────────────────────────────────────────────── */
+.scroll-fade-y {
+  mask-image: linear-gradient(to bottom, transparent 0%, black 15px, black calc(100% - 15px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15px, black calc(100% - 15px), transparent 100%);
+}
+
+.scroll-fade-bottom {
+  mask-image: linear-gradient(to bottom, black calc(100% - 24px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 24px), transparent 100%);
+}
+
+/* ─── ProseMirror Typography Refinements ─────────────────────────────── */
+.ProseMirror h1 {
+  border-bottom: 1px solid rgba(127, 127, 127, 0.15);
+  padding-bottom: 0.3em;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+.dark .ProseMirror h1 {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+.ProseMirror h2 {
+  margin-top: 1.4em;
+  margin-bottom: 0.4em;
+}
+.ProseMirror h3 {
+  margin-top: 1.3em;
+  margin-bottom: 0.3em;
+}
+
+.ProseMirror table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid #e5e7eb;
+}
+.dark .ProseMirror table {
+  border-color: #2c2c2e;
+}
+.ProseMirror table td,
+.ProseMirror table th {
+  border-bottom: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+}
+.ProseMirror table tr:last-child td {
+  border-bottom: none;
+}
+.ProseMirror table td:last-child,
+.ProseMirror table th:last-child {
+  border-right: none;
+}
+.ProseMirror table th {
+  border-bottom: 2px solid #e5e7eb;
+}
+.dark .ProseMirror table td,
+.dark .ProseMirror table th {
+  border-color: #2c2c2e;
+}
+.dark .ProseMirror table th {
+  border-bottom-color: #2c2c2e;
+}
+
+.ProseMirror blockquote {
+  border-left: 4px solid var(--accent);
+  padding-left: 1em;
+  margin: 1.5em 0;
+  color: #4b5563;
+  font-style: italic;
+}
+.dark .ProseMirror blockquote {
+  color: #a1a1aa;
+}
+

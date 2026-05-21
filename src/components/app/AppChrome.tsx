@@ -62,7 +62,9 @@ export function AppChrome({
         <div className="flex space-x-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <div className="w-16" />
         </div>
-        <div className="flex-1 flex justify-center text-sm font-medium text-gray-500 dark:text-gray-400">Noted</div>
+        <div className="flex-1 flex justify-center text-sm font-medium text-gray-500 dark:text-gray-400">
+          {activeNoteName ? `Noted — ${activeNoteName.replace('.md', '')}` : 'Noted'}
+        </div>
         <div className="flex space-x-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           {activeNoteName && (
             <>

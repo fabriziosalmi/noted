@@ -31,12 +31,18 @@ export function QuickOpen({ notes, onSelect, onCreateNote, onOpenDaily, onOpenSe
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  const notesKey = useMemo(() => {
+    return notes.map(n => n.path).sort().join('\n');
+  }, [notes]);
+
   const fuse = useMemo(() => new Fuse(notes, {
     keys: ['name'],
     threshold: 0.4,
     ignoreLocation: true,
     includeScore: true,
-  }), [notes]);
+  }),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [notesKey]);
 
   const results = useMemo(() => {
     if (query.startsWith('/')) return [];
@@ -45,7 +51,11 @@ export function QuickOpen({ notes, onSelect, onCreateNote, onOpenDaily, onOpenSe
         .sort((a, b) => b.stats.mtimeMs - a.stats.mtimeMs)
         .slice(0, 20);
     }
-    return fuse.search(query).map((r) => r.item);
+    const searchResults = fuse.search(query);
+    const notesMap = new Map(notes.map(n => [n.path, n]));
+    return searchResults
+      .map((r) => notesMap.get(r.item.path))
+      .filter((n): n is NoteFile => !!n);
   }, [fuse, query, notes]);
   const normalizedQuery = query.trim().replace(/\.md$/i, '');
   const actions = useMemo<QuickAction[]>(() => ([
@@ -159,7 +169,7 @@ export function QuickOpen({ notes, onSelect, onCreateNote, onOpenDaily, onOpenSe
       <button
         type="button"
         aria-label={t('close')}
-        className="absolute inset-0"
+        className="absolute inset-0 modal-backdrop-animate"
         onMouseDown={(e) => {
           if (e.button !== 0) return;
           if (e.target !== e.currentTarget) return;
@@ -167,7 +177,7 @@ export function QuickOpen({ notes, onSelect, onCreateNote, onOpenDaily, onOpenSe
         }}
       />
       <div
-        className="relative z-10 w-[560px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-xl shadow-2xl overflow-hidden"
+        className="relative z-10 w-[560px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-xl shadow-2xl overflow-hidden modal-content-animate"
       >
         {/* Search input */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800">

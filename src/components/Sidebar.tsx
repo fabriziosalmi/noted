@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback, useMemo, useEffect } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   FileText, Plus, Trash2, Settings, Search, ArrowUpDown, Star, CalendarDays,
   Tag, X, FolderOpen, Folder, FolderPlus, ChevronRight, ChevronDown
@@ -7,6 +8,12 @@ import type { NoteFile, FolderInfo } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
 
 type SortBy = 'date' | 'name' | 'size';
+
+type SidebarRow =
+  | { type: 'root-note'; note: NoteFile }
+  | { type: 'folder-header'; folder: FolderInfo; isCollapsed: boolean; isDragTarget: boolean }
+  | { type: 'folder-note'; note: NoteFile; folderName: string }
+  | { type: 'folder-empty'; folderName: string };
 
 interface SidebarProps {
   notes: NoteFile[];                     // flat (all notes for search)
@@ -38,6 +45,25 @@ function relativeTime(ms: number): string {
   return `${Math.floor(diff / 604_800_000)}w`;
 }
 
+function getNoteCounterText(count: number, language: string): string {
+  if (language === 'it') {
+    return count === 1 ? '1 nota' : `${count} note`;
+  }
+  if (language === 'de') {
+    return count === 1 ? '1 Notiz' : `${count} Notizen`;
+  }
+  if (language === 'es') {
+    return count === 1 ? '1 nota' : `${count} notas`;
+  }
+  if (language === 'pt') {
+    return count === 1 ? '1 nota' : `${count} notas`;
+  }
+  if (language === 'fr') {
+    return (count === 1 || count === 0) ? `${count} note` : `${count} notes`;
+  }
+  return count === 1 ? '1 note' : `${count} notes`;
+}
+
 function NoteRow({
   note, isActive, isPinned, isRenaming, renameValue, renameInputRef,
   onSelect, onDelete, onTogglePin, onStartRename, onRenameChange, onRenameBlur, onRenameKeyDown,
@@ -64,10 +90,10 @@ function NoteRow({
         if (!isRenaming && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelect(); }
       }}
       aria-current={isActive ? 'true' : undefined}
-      className={`flex items-center justify-between p-2 rounded text-sm cursor-pointer mb-0.5 group ${
+      className={`flex items-center justify-between p-2 rounded text-sm cursor-pointer mb-0.5 group transition-all duration-150 ease-out border-l-2 ${
         isActive
-          ? 'bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)]'
-          : 'hover:bg-gray-200/70 dark:hover:bg-gray-700/60 text-gray-700 dark:text-gray-300'
+          ? 'bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)] border-[var(--accent)] pl-2.5 font-medium'
+          : 'hover:bg-gray-200/70 dark:hover:bg-gray-700/60 text-gray-700 dark:text-gray-300 border-transparent pl-2'
       }`}
     >
       <div className="flex items-center space-x-2 truncate flex-1 min-w-0">
@@ -117,7 +143,7 @@ export function Sidebar({
   onCreateFolder, onRenameFolder, onDeleteFolder, onMoveNote,
   allTags = [], activeTagFilter = null, onTagFilter,
 }: SidebarProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('date');
   const [renamingNote, setRenamingNote] = useState<string | null>(null);
@@ -237,6 +263,73 @@ export function Sidebar({
     />
   );
 
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  // Flat rows calculation for virtualization
+  const rows = useMemo<SidebarRow[]>(() => {
+    const list: SidebarRow[] = [];
+
+    // 1. Add root notes
+    for (const note of rootNotes) {
+      list.push({
+        type: 'root-note',
+        note,
+      });
+    }
+
+    // 2. Add folder rows and their contents
+    const filteredFolders = noteFolders.filter(
+      f => !query || f.notes.some(n => n.name.toLowerCase().includes(query.toLowerCase()))
+    );
+
+    for (const folder of filteredFolders) {
+      const isCollapsed = collapsedFolders.has(folder.name);
+      const isDragTarget = dragOver === folder.name;
+      const filteredFolderNotes = query
+        ? folder.notes.filter(n => n.name.toLowerCase().includes(query.toLowerCase()))
+        : folder.notes;
+
+      list.push({
+        type: 'folder-header',
+        folder,
+        isCollapsed,
+        isDragTarget,
+      });
+
+      if (!isCollapsed) {
+        for (const note of filteredFolderNotes) {
+          list.push({
+            type: 'folder-note',
+            note,
+            folderName: folder.name,
+          });
+        }
+        if (filteredFolderNotes.length === 0 && !query) {
+          list.push({
+            type: 'folder-empty',
+            folderName: folder.name,
+          });
+        }
+      }
+    }
+
+    return list;
+  }, [rootNotes, noteFolders, query, collapsedFolders, dragOver]);
+
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: useCallback((index: number) => {
+      const row = rows[index];
+      if (!row) return 32;
+      if (row.type === 'folder-empty') return 22;
+      if (row.type === 'folder-header') return 32;
+      return 34; // root-note and folder-note
+    }, [rows]),
+    overscan: 10,
+  });
+
   return (
     <>
       {/* Header */}
@@ -282,10 +375,13 @@ export function Sidebar({
 
       {/* Search */}
       <div className="px-2 pb-2">
-        <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-700/60 rounded px-2 py-1">
+        <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-700/60 rounded px-2 py-1 group focus-within:ring-1 focus-within:ring-[var(--accent)]/30 transition-all">
           <Search size={12} className="text-gray-400 shrink-0" />
           <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder={t('search')}
             className="bg-transparent text-xs text-gray-700 dark:text-gray-200 placeholder-gray-400 outline-none w-full" />
+          <kbd className="text-[9px] font-sans font-medium text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-800 px-1 py-0.5 rounded shadow-sm border border-gray-200 dark:border-gray-700 shrink-0 select-none pointer-events-none transition-colors">
+            ⌘P
+          </kbd>
         </div>
       </div>
 
@@ -310,125 +406,232 @@ export function Sidebar({
       )}
 
       {/* Note list */}
-      <div className="flex-1 px-2 overflow-y-auto">
-
-        {/* Root notes drop zone */}
-        <div
-          onDragOver={e => { e.preventDefault(); setDragOver('root'); }}
-          onDragLeave={() => setDragOver(null)}
-          onDrop={e => void handleDrop(e, '')}
-          className={`min-h-[4px] rounded transition-colors ${dragOver === 'root' ? 'bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] ring-1 ring-[var(--accent)]' : ''}`}
-        >
-          {rootNotes.map(renderNote)}
-        </div>
-
-        {/* Folders */}
-        {noteFolders
-          .filter(f => !query || f.notes.some(n => n.name.toLowerCase().includes(query.toLowerCase())))
-          .map(folder => {
-            const isCollapsed = collapsedFolders.has(folder.name);
-            const isDragTarget = dragOver === folder.name;
-            const filteredFolderNotes = query
-              ? folder.notes.filter(n => n.name.toLowerCase().includes(query.toLowerCase()))
-              : folder.notes;
-
-            return (
-              <div key={folder.name} className={`mb-1 rounded transition-colors ${isDragTarget ? 'bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] ring-1 ring-[var(--accent)]' : ''}`}
-                onDragOver={e => { e.preventDefault(); setDragOver(folder.name); }}
-                onDragLeave={() => setDragOver(null)}
-                onDrop={e => void handleDrop(e, folder.name)}>
-
-                {/* Folder header */}
-                <div
-                  className="flex items-center gap-1 px-1 py-1.5 rounded hover:bg-gray-200/60 dark:hover:bg-gray-700/50 group cursor-pointer select-none"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => toggleFolder(folder.name)}
-                  onKeyDown={(e) => {
-                    if (e.nativeEvent.isComposing || e.repeat) return;
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      toggleFolder(folder.name);
-                    }
-                  }}
-                >
-                  <span className="text-gray-400">{isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}</span>
-                  {isCollapsed ? <Folder size={13} className="text-gray-400" /> : <FolderOpen size={13} className="text-[var(--accent)]" />}
-
-                  {renamingFolder === folder.name ? (
-                    <input
-                      // eslint-disable-next-line jsx-a11y/no-autofocus
-                      autoFocus
-                      value={folderRenameValue}
-                      onChange={e => setFolderRenameValue(e.target.value)}
-                      onBlur={() => void commitFolderRename()}
-                      onKeyDown={e => {
-                        if (e.nativeEvent.isComposing || e.repeat) return;
-                        e.stopPropagation();
-                        if (e.key === 'Enter') void commitFolderRename();
-                        if (e.key === 'Escape') setRenamingFolder(null);
-                      }}
-                      onClick={e => e.stopPropagation()}
-                      className="flex-1 bg-white dark:bg-gray-700 border border-[var(--accent)] rounded px-1 text-xs outline-none"
-                    />
-                  ) : (
-                    <span className="flex-1 text-xs font-medium text-gray-600 dark:text-gray-400 truncate"
-                      onDoubleClick={e => { e.stopPropagation(); setRenamingFolder(folder.name); setFolderRenameValue(folder.name); }}>
-                      {folder.name}
-                    </span>
-                  )}
-
-                  <span className="text-[10px] text-gray-400">{folder.notes.length}</span>
-
-                  {/* Folder actions */}
-                  <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
-                    <button
-                      onMouseDown={e => e.stopPropagation()}
-                      onClick={() => onCreateNote(folder.name)}
-                      className="p-0.5 hover:text-[var(--accent)] text-gray-400"
-                      title={t('newNoteHere')}
-                    >
-                      <Plus size={11} />
-                    </button>
-                    <button
-                      onMouseDown={e => e.stopPropagation()}
-                      onClick={async () => { if (confirm(t('deleteFolderConfirm').replace('{name}', folder.name))) await onDeleteFolder(folder.name); }}
-                      className="p-0.5 hover:text-red-500 text-gray-400"
-                      title={t('deleteFolder')}
-                    >
-                      <Trash2 size={11} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Folder notes */}
-                {!isCollapsed && (
-                  <div className="pl-4">
-                    {filteredFolderNotes.map(renderNote)}
-                    {filteredFolderNotes.length === 0 && !query && (
-                      <p className="text-[10px] text-gray-400 px-2 py-1 italic">{t('emptyFolder')}</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-        {rootNotes.length === 0 && noteFolders.length === 0 && (
+      <div
+        ref={parentRef}
+        onDragOver={e => {
+          e.preventDefault();
+          if (dragOver === null || dragOver === 'root') {
+            setDragOver('root');
+          }
+        }}
+        onDragLeave={() => setDragOver(null)}
+        onDrop={e => void handleDrop(e, '')}
+        className={`flex-1 px-2 overflow-y-auto scroll-fade-bottom transition-colors ${
+          dragOver === 'root' ? 'bg-[color-mix(in_srgb,var(--accent)_5%,transparent)] ring-1 ring-[var(--accent)]/30' : ''
+        }`}
+      >
+        {rows.length === 0 ? (
           <p className="text-xs text-gray-400 text-center mt-4 px-2">
             {activeTagFilter ? t('noNotesWithTag').replace('{tag}', activeTagFilter) : query ? t('noNotesFound') : t('noNotesYet')}
           </p>
+        ) : (
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+              const row = rows[virtualItem.index];
+              if (!row) return null;
+
+              return (
+                <div
+                  key={
+                    virtualItem.key !== undefined
+                      ? virtualItem.key
+                      : row.type === 'root-note'
+                      ? `root-note-${row.note.name}`
+                      : row.type === 'folder-header'
+                      ? `folder-header-${row.folder.name}`
+                      : row.type === 'folder-note'
+                      ? `folder-note-${row.note.name}`
+                      : `folder-empty-${row.folderName}`
+                  }
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: `${virtualItem.size}px`,
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
+                >
+                  {row.type === 'root-note' && renderNote(row.note)}
+
+                  {row.type === 'folder-header' && (
+                    <div
+                      className={`mb-1 rounded transition-colors ${
+                        row.isDragTarget ? 'bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] ring-1 ring-[var(--accent)]' : ''
+                      }`}
+                      onDragOver={e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDragOver(row.folder.name);
+                      }}
+                      onDragLeave={e => {
+                        e.stopPropagation();
+                        setDragOver(null);
+                      }}
+                      onDrop={e => {
+                        e.stopPropagation();
+                        void handleDrop(e, row.folder.name);
+                      }}
+                    >
+                      {/* Folder header */}
+                      <div
+                        className="flex items-center gap-1 px-1 py-1.5 rounded hover:bg-gray-200/60 dark:hover:bg-gray-700/50 group cursor-pointer select-none"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => toggleFolder(row.folder.name)}
+                        onKeyDown={(e) => {
+                          if (e.nativeEvent.isComposing || e.repeat) return;
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            toggleFolder(row.folder.name);
+                          }
+                        }}
+                      >
+                        <span className="text-gray-400">
+                          {row.isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                        </span>
+                        {row.isCollapsed ? (
+                          <Folder size={13} className="text-gray-400" />
+                        ) : (
+                          <FolderOpen size={13} className="text-[var(--accent)]" />
+                        )}
+
+                        {renamingFolder === row.folder.name ? (
+                          <input
+                            // eslint-disable-next-line jsx-a11y/no-autofocus
+                            autoFocus
+                            value={folderRenameValue}
+                            onChange={e => setFolderRenameValue(e.target.value)}
+                            onBlur={() => void commitFolderRename()}
+                            onKeyDown={e => {
+                              if (e.nativeEvent.isComposing || e.repeat) return;
+                              e.stopPropagation();
+                              if (e.key === 'Enter') void commitFolderRename();
+                              if (e.key === 'Escape') setRenamingFolder(null);
+                            }}
+                            onClick={e => e.stopPropagation()}
+                            className="flex-1 bg-white dark:bg-gray-700 border border-[var(--accent)] rounded px-1 text-xs outline-none"
+                          />
+                        ) : (
+                          <span
+                            className="flex-1 text-xs font-medium text-gray-600 dark:text-gray-400 truncate"
+                            onDoubleClick={e => {
+                              e.stopPropagation();
+                              setRenamingFolder(row.folder.name);
+                              setFolderRenameValue(row.folder.name);
+                            }}
+                          >
+                            {row.folder.name}
+                          </span>
+                        )}
+
+                        <span className="text-[10px] text-gray-400">{row.folder.notes.length}</span>
+
+                        {/* Folder actions */}
+                        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
+                          <button
+                            onMouseDown={e => e.stopPropagation()}
+                            onClick={() => onCreateNote(row.folder.name)}
+                            className="p-0.5 hover:text-[var(--accent)] text-gray-400"
+                            title={t('newNoteHere')}
+                          >
+                            <Plus size={11} />
+                          </button>
+                          <button
+                            onMouseDown={e => e.stopPropagation()}
+                            onClick={async () => {
+                              if (confirm(t('deleteFolderConfirm').replace('{name}', row.folder.name))) {
+                                await onDeleteFolder(row.folder.name);
+                              }
+                            }}
+                            className="p-0.5 hover:text-red-500 text-gray-400"
+                            title={t('deleteFolder')}
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {row.type === 'folder-note' && (
+                    <div
+                      className="pl-4"
+                      onDragOver={e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDragOver(row.folderName);
+                      }}
+                      onDragLeave={e => {
+                        e.stopPropagation();
+                        setDragOver(null);
+                      }}
+                      onDrop={e => {
+                        e.stopPropagation();
+                        void handleDrop(e, row.folderName);
+                      }}
+                    >
+                      {renderNote(row.note)}
+                    </div>
+                  )}
+
+                  {row.type === 'folder-empty' && (
+                    <p
+                      className="text-[10px] text-gray-400 px-2 py-1 italic pl-4"
+                      onDragOver={e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDragOver(row.folderName);
+                      }}
+                      onDragLeave={e => {
+                        e.stopPropagation();
+                        setDragOver(null);
+                      }}
+                      onDrop={e => {
+                        e.stopPropagation();
+                        void handleDrop(e, row.folderName);
+                      }}
+                    >
+                      {t('emptyFolder')}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
       {/* Settings */}
-      <div role="button" tabIndex={0} className="p-3 border-t border-gray-200/60 dark:border-gray-700/60 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer"
+      <div role="button" tabIndex={0} className="p-3 border-t border-gray-200/60 dark:border-gray-700/60 flex items-center justify-between text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer select-none bg-gray-50/20 dark:bg-gray-800/10"
         onClick={onOpenSettings}
         onKeyDown={e => {
           if (e.nativeEvent.isComposing || e.repeat) return;
           if (e.key === 'Enter' || e.key === ' ') onOpenSettings();
         }}>
-        <Settings size={18} />
+        <span className="text-[10px] font-medium tracking-wide">
+          {getNoteCounterText(notes.length, language)}
+        </span>
+        <span className="text-[10px] font-mono opacity-50">
+          v1.0.1
+        </span>
+        <button
+          type="button"
+          aria-label={t('settingsTitle') || 'Settings'}
+          className="hover:rotate-45 transition-transform duration-300 ease-out focus:outline-none shrink-0"
+          onClick={e => {
+            e.stopPropagation();
+            onOpenSettings();
+          }}
+        >
+          <Settings size={14} />
+        </button>
       </div>
     </>
   );

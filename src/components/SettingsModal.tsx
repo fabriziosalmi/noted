@@ -361,14 +361,14 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
       <button
         type="button"
         aria-label={t('closeSettings')}
-        className="absolute inset-0 bg-black/20"
+        className="absolute inset-0 modal-backdrop-animate"
         onMouseDown={(e) => {
           if (e.button !== 0) return;
           if (e.target !== e.currentTarget) return;
           onClose();
         }}
       />
-      <div className="relative z-10 bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-[520px] overflow-hidden flex flex-col">
+      <div className="relative z-10 bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-[520px] overflow-hidden flex flex-col modal-content-animate">
 
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">

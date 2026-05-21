@@ -97,7 +97,7 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
       <button
         type="button"
         aria-label="Close search"
-        className="absolute inset-0"
+        className="absolute inset-0 modal-backdrop-animate"
         onMouseDown={(e) => {
           if (e.button !== 0) return;
           if (e.target !== e.currentTarget) return;
@@ -105,7 +105,7 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
         }}
       />
       <div
-        className="relative z-10 w-[620px] bg-white/96 dark:bg-gray-900/96 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-xl shadow-2xl overflow-hidden"
+        className="relative z-10 w-[620px] bg-white/96 dark:bg-gray-900/96 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-xl shadow-2xl overflow-hidden modal-content-animate"
       >
         {/* Input */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
