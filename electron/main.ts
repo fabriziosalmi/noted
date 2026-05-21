@@ -176,7 +176,8 @@ ipcMain.handle('save-capture', (_, text: string) => {
     const pad = (n: number) => String(n).padStart(2, '0');
     const now = new Date();
     const fileName = `Capture_${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}.md`;
-    const content = `<p>${text.replace(/\n/g, '</p><p>')}</p>`;
+    const sanitizedText = stripUnsafeHtml(text);
+    const content = `<p>${sanitizedText.replace(/\n/g, '</p><p>')}</p>`;
     fs.writeFileSync(path.join(DEFAULT_NOTES_DIR, fileName), content, 'utf-8');
     captureWin?.close();
     win?.webContents.send('refresh-notes');
@@ -789,7 +790,7 @@ ipcMain.handle('import-apple-notes', async (_, targetDir?: string) => {
     `;
 
     return new Promise((resolve) => {
-      exec(`osascript -l JavaScript -e ${JSON.stringify(jxaScript)}`, { maxBuffer: 1024 * 1024 * 100 }, (error, stdout, stderr) => {
+      const child = exec('osascript -l JavaScript', { maxBuffer: 1024 * 1024 * 100 }, (error, stdout, stderr) => {
         if (error) {
           resolve({ success: false, error: error.message || stderr });
           return;
@@ -855,6 +856,9 @@ ipcMain.handle('import-apple-notes', async (_, targetDir?: string) => {
           resolve({ success: false, error: `Parse error: ${(err as Error).message}` });
         }
       });
+
+      child.stdin?.write(jxaScript);
+      child.stdin?.end();
     });
   } catch (err) {
     return { success: false, error: (err as Error).message };

@@ -133,5 +133,18 @@ describe('formatAppleNoteToMarkdown', () => {
       'converted: Content'
     ].join('\n'));
   });
+
+  it('sanitizes unsafe HTML body content to prevent stored XSS injections', () => {
+    const title = 'Safe Import';
+    const body = '<script>alert("XSS")</script><div>Clean content</div><iframe src="malicious.html"></iframe>';
+    const result = formatAppleNoteToMarkdown(title, body, null, null, dummyTurndown);
+    expect(result).toBe([
+      '---',
+      'title: "Safe Import"',
+      '---',
+      '',
+      'converted: <div>Clean content</div>'
+    ].join('\n'));
+  });
 });
 

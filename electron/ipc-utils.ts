@@ -48,7 +48,8 @@ export function formatAppleNoteToMarkdown(
   modificationDate: string | null,
   turndown: TurndownService
 ): string {
-  const markdown = turndown.turndown(body);
+  const sanitizedBody = stripUnsafeHtml(body);
+  const markdown = turndown.turndown(sanitizedBody);
   const frontmatter = [
     '---',
     `title: "${title.replace(/"/g, '\\"')}"`,
