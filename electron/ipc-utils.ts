@@ -1,3 +1,5 @@
+import type TurndownService from 'turndown';
+
 function isAbsolutePath(p: string): boolean {
   // Covers Unix (/foo) and Windows (C:\foo or C:/foo) absolute paths
   return p.startsWith('/') || /^[A-Za-z]:[/\\]/.test(p);
@@ -38,3 +40,24 @@ export function stripUnsafeHtml(html: string): string {
     .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
     .replace(/javascript\s*:/gi, '');
 }
+
+export function formatAppleNoteToMarkdown(
+  title: string,
+  body: string,
+  creationDate: string | null,
+  modificationDate: string | null,
+  turndown: TurndownService
+): string {
+  const markdown = turndown.turndown(body);
+  const frontmatter = [
+    '---',
+    `title: "${title.replace(/"/g, '\\"')}"`,
+    creationDate ? `created: ${creationDate}` : null,
+    modificationDate ? `modified: ${modificationDate}` : null,
+    '---'
+  ].filter((line): line is string => line !== null);
+
+  return frontmatter.join('\n') + '\n\n' + markdown;
+}
+
+

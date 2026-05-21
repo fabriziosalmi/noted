@@ -10,7 +10,7 @@ import type { LLMProvider } from '../store/useStore';
 import { fetchAvailableModels } from '../lib/llm';
 import { useI18n, type TranslationKey } from '../lib/i18n';
 
-type SettingsTab = 'ai' | 'appearance' | 'editor' | 'sync' | 'mcp' | 'git';
+type SettingsTab = 'ai' | 'appearance' | 'editor' | 'sync' | 'mcp' | 'git' | 'import';
 
 interface CloudProvider { id: string; name: string; basePath: string; notedPath: string; available: boolean }
 
@@ -63,6 +63,7 @@ const TABS: { id: SettingsTab; labelKey: TranslationKey; icon: LucideIcon }[] = 
   { id: 'sync',       labelKey: 'tabSync',        icon: FolderSync },
   { id: 'mcp',        labelKey: 'tabMcp',         icon: Plug },
   { id: 'git',        labelKey: 'tabIntegrations', icon: GitBranch },
+  { id: 'import',     labelKey: 'tabImport',      icon: FolderOpen },
 ];
 
 const isLocalProvider = (p: LLMProvider) => p === 'lmstudio' || p === 'ollama';
@@ -193,6 +194,26 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath }: {
   }, null, 2);
   const codexToml = `[mcp_servers.noted]\ncommand = "node"\nargs = ["${serverPath}"]`;
 
+  const [setupStatus, setSetupStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [setupError, setSetupError] = useState<string | null>(null);
+
+  const handleSetupClaudeMcp = async () => {
+    setSetupStatus('loading');
+    setSetupError(null);
+    try {
+      const res = await window.electronAPI?.setupClaudeMcp();
+      if (res?.success) {
+        setSetupStatus('success');
+      } else {
+        setSetupStatus('error');
+        setSetupError(res?.error ?? 'Errore sconosciuto');
+      }
+    } catch (err) {
+      setSetupStatus('error');
+      setSetupError((err as Error).message);
+    }
+  };
+
   return (
     <div className="space-y-3">
       {/* Status + how it works */}
@@ -258,7 +279,30 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath }: {
         <div className="pt-1 border-t border-gray-200 dark:border-gray-700">
           <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-200 mt-2">{t('mcpClientClaudeDesktop')}</p>
           <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">{t('mcpClientClaudeDesktopHint')}</p>
-          <CopyBlock value={claudeDesktopJson} kind="cfg-claude-desktop" copiedCmd={copiedCmd} copyText={copyText} label={t('copy')} />
+          <div className="flex flex-col gap-2">
+            <CopyBlock value={claudeDesktopJson} kind="cfg-claude-desktop" copiedCmd={copiedCmd} copyText={copyText} label={t('copy')} />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSetupClaudeMcp}
+                disabled={setupStatus === 'loading'}
+                className="text-xs bg-[var(--accent)] text-[var(--accent-contrast)] hover:opacity-90 disabled:opacity-50 py-1.5 px-3 rounded font-medium flex items-center justify-center gap-1.5 transition-opacity"
+              >
+                {setupStatus === 'loading' ? (
+                  <span>Configurazione in corso...</span>
+                ) : setupStatus === 'success' ? (
+                  <span>Configurato con successo! ✓</span>
+                ) : setupStatus === 'error' ? (
+                  <span>Errore di configurazione! ✗</span>
+                ) : (
+                  <span>Configura Claude Desktop in 1-Click</span>
+                )}
+              </button>
+              {setupError && (
+                <span className="text-[10px] text-red-500 font-medium">{setupError}</span>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="pt-1 border-t border-gray-200 dark:border-gray-700">
@@ -292,6 +336,43 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
   const [encryptionAvailable, setEncryptionAvailable] = useState(true);
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
   const [mcpServer, setMcpServer] = useState<{ path: string; exists: boolean } | null>(null);
+  const [importingObsidian, setImportingObsidian] = useState(false);
+  const [importingApple, setImportingApple] = useState(false);
+  const [importStatus, setImportStatus] = useState<{ success: boolean; count: number; error?: string } | null>(null);
+
+  const handleImportVault = useCallback(async () => {
+    setImportingObsidian(true);
+    setImportStatus(null);
+    try {
+      const res = await window.electronAPI.importVault(settings.syncDirectory ?? undefined);
+      if (res.success) {
+        setImportStatus({ success: true, count: res.data ?? 0 });
+      } else {
+        setImportStatus({ success: false, count: 0, error: res.error });
+      }
+    } catch (err) {
+      setImportStatus({ success: false, count: 0, error: (err as Error).message });
+    } finally {
+      setImportingObsidian(false);
+    }
+  }, [settings.syncDirectory]);
+
+  const handleImportAppleNotes = useCallback(async () => {
+    setImportingApple(true);
+    setImportStatus(null);
+    try {
+      const res = await window.electronAPI.importAppleNotes(settings.syncDirectory ?? undefined);
+      if (res.success) {
+        setImportStatus({ success: true, count: res.data ?? 0 });
+      } else {
+        setImportStatus({ success: false, count: 0, error: res.error });
+      }
+    } catch (err) {
+      setImportStatus({ success: false, count: 0, error: (err as Error).message });
+    } finally {
+      setImportingApple(false);
+    }
+  }, [settings.syncDirectory]);
 
   useEffect(() => {
     window.electronAPI?.safeStorageStatus?.()
@@ -862,6 +943,90 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   </p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ── Import Tab ── */}
+          {tab === 'import' && (
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-0.5">{t('importTitle')}</p>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-4">
+                  {t('importTitle')} — Importa note da altre fonti locali.
+                </p>
+
+                <div className="flex flex-col gap-3">
+                  {/* Obsidian / Markdown Folder */}
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-3 flex flex-col justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <FolderOpen size={14} className="text-[var(--accent)]" />
+                        <span className="text-xs font-medium text-gray-700 dark:text-gray-200">
+                          Obsidian Vault / Markdown Folder
+                        </span>
+                      </div>
+                      <p className="text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">
+                        {t('importObsidianDesc')}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleImportVault}
+                        disabled={importingObsidian}
+                        className="btn-primary text-xs py-1.5 px-3 rounded-md transition-all font-medium disabled:opacity-50"
+                      >
+                        {importingObsidian ? t('importing') : t('importObsidian')}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Apple Notes */}
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-3 flex flex-col justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <Info size={14} className="text-amber-500 dark:text-amber-400" />
+                        <span className="text-xs font-medium text-gray-700 dark:text-gray-200">
+                          Apple Notes
+                        </span>
+                      </div>
+                      <p className="text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">
+                        {t('importAppleNotesDesc')}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleImportAppleNotes}
+                        disabled={importingApple}
+                        className="btn-primary text-xs py-1.5 px-3 rounded-md transition-all font-medium disabled:opacity-50"
+                      >
+                        {importingApple ? t('importing') : t('importAppleNotes')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {importStatus && (
+                  <div className={`mt-3 p-2.5 rounded-md text-xs font-medium flex items-center gap-2 ${
+                    importStatus.success
+                      ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-900/50'
+                      : 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300 border border-red-100 dark:border-red-900/50'
+                  }`}>
+                    {importStatus.success ? (
+                      <>
+                        <CheckCircle2 size={13} className="text-emerald-500" />
+                        <span>{t('importSuccess').replace('{count}', String(importStatus.count))}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-red-500 font-bold">✗</span>
+                        <span>{importStatus.error}</span>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

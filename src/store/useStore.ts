@@ -57,6 +57,9 @@ export interface SettingsState {
   embeddingProvider?: 'openai' | 'lmstudio' | 'ollama' | 'none';
   embeddingModel?: string;
   onboardingDismissed?: boolean;
+  detectedLocalModels?: string[];
+  autoCommitInterval?: number;
+  enableAutoCommit?: boolean;
 }
 
 export interface FolderInfo {
@@ -145,6 +148,9 @@ export const useStore = create<NoteState>()(
         aiGhostMode: 'manual' as const,
         editorWidth: 'normal' as const,
         editorBg: null,
+        detectedLocalModels: [],
+        autoCommitInterval: 5,
+        enableAutoCommit: false,
       },
 
       updateSettings: (newSettings) => {

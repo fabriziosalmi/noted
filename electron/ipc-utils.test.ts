@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { validateFileName, stripUnsafeHtml } from './ipc-utils';
+import { validateFileName, stripUnsafeHtml, formatAppleNoteToMarkdown } from './ipc-utils';
+import type TurndownService from 'turndown';
 
 describe('validateFileName', () => {
   it('accepts valid markdown filenames', () => {
@@ -83,3 +84,54 @@ describe('stripUnsafeHtml', () => {
     expect(stripUnsafeHtml(input)).toContain('<p>ok</p>');
   });
 });
+
+describe('formatAppleNoteToMarkdown', () => {
+  const dummyTurndown = {
+    turndown: (body: string) => `converted: ${body}`
+  } as unknown as TurndownService;
+
+  it('correctly converts HTML to markdown and prepends frontmatter with dates', () => {
+    const title = 'A Nice Note';
+    const body = '<div>Hello World</div>';
+    const created = '2026-05-20T10:00:00Z';
+    const modified = '2026-05-21T15:30:00Z';
+
+    const result = formatAppleNoteToMarkdown(title, body, created, modified, dummyTurndown);
+    expect(result).toBe([
+      '---',
+      'title: "A Nice Note"',
+      'created: 2026-05-20T10:00:00Z',
+      'modified: 2026-05-21T15:30:00Z',
+      '---',
+      '',
+      'converted: <div>Hello World</div>'
+    ].join('\n'));
+  });
+
+  it('handles null dates by omitting them from frontmatter', () => {
+    const title = 'Date-less Note';
+    const body = 'No dates';
+    const result = formatAppleNoteToMarkdown(title, body, null, null, dummyTurndown);
+    expect(result).toBe([
+      '---',
+      'title: "Date-less Note"',
+      '---',
+      '',
+      'converted: No dates'
+    ].join('\n'));
+  });
+
+  it('escapes quotes inside the title to prevent broken YAML frontmatter', () => {
+    const title = 'My "Special" Title';
+    const body = 'Content';
+    const result = formatAppleNoteToMarkdown(title, body, null, null, dummyTurndown);
+    expect(result).toBe([
+      '---',
+      'title: "My \\"Special\\" Title"',
+      '---',
+      '',
+      'converted: Content'
+    ].join('\n'));
+  });
+});
+

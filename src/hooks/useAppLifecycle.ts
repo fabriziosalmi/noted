@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import type { AppLifecycleArgs } from './contracts';
+import { useStore, type SettingsState } from '../store/useStore';
+import { detectLocalLLMs } from '../lib/llmAutoDetect';
 
 function getContrastColor(hex: string): string {
   const color = hex.startsWith('#') ? hex.slice(1) : hex;
@@ -46,4 +48,54 @@ export function useAppLifecycle({
   useEffect(() => {
     window.electronAPI?.setNoteTitle(activeNoteName ?? '');
   }, [activeNoteName]);
+
+  // Scans for Ollama & LM Studio locally on startup
+  useEffect(() => {
+    async function runDetection() {
+      try {
+        const store = useStore.getState();
+        const currentProvider = store.settings.llmProvider;
+        const isCurrentlyLocal = currentProvider === 'ollama' || currentProvider === 'lmstudio';
+        const result = await detectLocalLLMs(store.settings.lmStudioUrl);
+        if (result.provider) {
+          const update: Partial<SettingsState> = {
+            detectedLocalModels: result.models
+          };
+          const hasCloudKey = !!store.settings.llmApiKey;
+          if (!hasCloudKey || isCurrentlyLocal) {
+            update.llmProvider = result.provider;
+            // set to first model if no model set yet or if old model not in detected list
+            if ((!store.settings.llmModel || !result.models.includes(store.settings.llmModel)) && result.models.length > 0) {
+              update.llmModel = result.models[0];
+            }
+          }
+          store.updateSettings(update);
+        }
+      } catch (err) {
+        console.error('LLM local auto-detection failed:', err);
+      }
+    }
+    void runDetection();
+  }, []);
+
+  // Background Auto-Commit Timer
+  const enableAutoCommit = useStore((state) => state.settings.enableAutoCommit);
+  const autoCommitInterval = useStore((state) => state.settings.autoCommitInterval);
+  const gitEnabled = useStore((state) => state.settings.gitEnabled);
+  const syncDirectory = useStore((state) => state.settings.syncDirectory);
+
+  useEffect(() => {
+    if (!gitEnabled || !enableAutoCommit || !window.electronAPI?.gitCommitAll) {
+      return;
+    }
+    const intervalMs = (autoCommitInterval || 5) * 60 * 1000;
+    const intervalId = setInterval(() => {
+      window.electronAPI?.gitCommitAll('Auto-commit: update notes', syncDirectory || undefined)
+        .catch((err) => console.error('Auto-commit failed:', err));
+    }, intervalMs);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [gitEnabled, enableAutoCommit, autoCommitInterval, syncDirectory]);
 }

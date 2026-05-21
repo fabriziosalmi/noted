@@ -1,7 +1,9 @@
 import { app, BrowserWindow, ipcMain, dialog, safeStorage, globalShortcut, nativeTheme, protocol, shell } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
-import { validateFileName, validateFolderName, stripUnsafeHtml } from './ipc-utils.js';
+import { exec } from 'node:child_process';
+import TurndownService from 'turndown';
+import { validateFileName, validateFolderName, stripUnsafeHtml, formatAppleNoteToMarkdown } from './ipc-utils.js';
 import * as gitOps from './git-ops.js';
 import { sanitizeGitError } from './git-ops.js';
 
@@ -654,6 +656,47 @@ ipcMain.handle('export-html', async (_, htmlContent: string, noteTitle: string) 
   }
 });
 
+function importVaultRecursive(srcRoot: string, srcDir: string, destRoot: string): number {
+  let imported = 0;
+  if (!fs.existsSync(srcDir)) return 0;
+  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(srcDir, entry.name);
+    if (entry.name.startsWith('.')) continue; // ignore hidden folders
+
+    if (entry.isDirectory()) {
+      imported += importVaultRecursive(srcRoot, srcPath, destRoot);
+    } else {
+      const ext = path.extname(entry.name).toLowerCase();
+      const isMarkdown = ext === '.md';
+      const isMedia = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.pdf'].includes(ext);
+      if (!isMarkdown && !isMedia) continue;
+
+      const relPath = path.relative(srcRoot, srcPath);
+      const dirName = path.dirname(relPath);
+      
+      let destPath: string;
+      if (dirName === '.') {
+        destPath = path.join(destRoot, entry.name);
+      } else {
+        // Flatten folder structure to 1-level of folder (e.g. "Folder-Subfolder")
+        const flattenedFolder = dirName.replace(/[/\\]/g, '-').replace(/[^\w\- .()]/g, '');
+        const folderPath = path.join(destRoot, flattenedFolder);
+        if (!fs.existsSync(folderPath)) {
+          fs.mkdirSync(folderPath, { recursive: true });
+        }
+        destPath = path.join(folderPath, entry.name);
+      }
+
+      if (!fs.existsSync(destPath)) {
+        fs.copyFileSync(srcPath, destPath);
+        imported++;
+      }
+    }
+  }
+  return imported;
+}
+
 ipcMain.handle('import-vault', async (_, targetDir?: string) => {
   try {
     const { filePaths, canceled } = await dialog.showOpenDialog({
@@ -663,16 +706,156 @@ ipcMain.handle('import-vault', async (_, targetDir?: string) => {
     if (canceled || !filePaths.length) return { success: false, error: 'Annullato' };
     const srcDir = filePaths[0];
     const dest = targetDir && fs.existsSync(targetDir) ? targetDir : DEFAULT_NOTES_DIR;
-    const mdFiles = fs.readdirSync(srcDir).filter(f => f.endsWith('.md'));
-    let imported = 0;
-    for (const f of mdFiles) {
-      const destPath = path.join(dest, f);
-      if (!fs.existsSync(destPath)) {
-        fs.copyFileSync(path.join(srcDir, f), destPath);
-        imported++;
+    const importedCount = importVaultRecursive(srcDir, srcDir, dest);
+    return { success: true, data: importedCount };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
+ipcMain.handle('setup-claude-mcp', async () => {
+  try {
+    const homeDir = process.env.HOME || '';
+    if (!homeDir) throw new Error('Impossibile determinare la cartella utente HOME');
+    const claudeConfigDir = path.join(homeDir, 'Library/Application Support/Claude');
+    const configPath = path.join(claudeConfigDir, 'claude_desktop_config.json');
+
+    // Get the actual MCP server path
+    const mcpPath = app.isPackaged
+      ? path.join(process.resourcesPath, 'app.asar.unpacked', 'dist-mcp', 'index.cjs')
+      : path.join(__dirname, '../dist-mcp/index.cjs');
+
+    if (!fs.existsSync(mcpPath)) {
+      throw new Error(`Server MCP non trovato al path: ${mcpPath}. Esegui prima il build.`);
+    }
+
+    if (!fs.existsSync(claudeConfigDir)) {
+      fs.mkdirSync(claudeConfigDir, { recursive: true });
+    }
+
+    let config: { mcpServers?: Record<string, unknown> } & Record<string, unknown> = { mcpServers: {} };
+    if (fs.existsSync(configPath)) {
+      try {
+        const raw = fs.readFileSync(configPath, 'utf-8');
+        config = JSON.parse(raw);
+      } catch {
+        // if file is corrupted, preserve empty structure
+        config = { mcpServers: {} };
       }
     }
-    return { success: true, data: imported };
+
+    if (!config.mcpServers) {
+      config.mcpServers = {};
+    }
+
+    config.mcpServers.noted = {
+      command: 'node',
+      args: [mcpPath]
+    };
+
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
+ipcMain.handle('import-apple-notes', async (_, targetDir?: string) => {
+  try {
+    const dest = targetDir && fs.existsSync(targetDir) ? targetDir : DEFAULT_NOTES_DIR;
+    
+    // Execute JXA script to fetch notes
+    const jxaScript = `
+      const notesApp = Application("Notes");
+      const results = [];
+      const folders = notesApp.folders();
+      for (let i = 0; i < folders.length; i++) {
+        const folder = folders[i];
+        const folderName = folder.name();
+        if (folderName === "Recently Deleted") continue;
+        const notes = folder.notes();
+        for (let j = 0; j < notes.length; j++) {
+          const note = notes[j];
+          results.push({
+            folder: folderName,
+            title: note.name() || "Untitled Note",
+            body: note.body() || "",
+            creationDate: note.creationDate() ? note.creationDate().toISOString() : null,
+            modificationDate: note.modificationDate() ? note.modificationDate().toISOString() : null
+          });
+        }
+      }
+      JSON.stringify(results);
+    `;
+
+    return new Promise((resolve) => {
+      exec(`osascript -l JavaScript -e ${JSON.stringify(jxaScript)}`, { maxBuffer: 1024 * 1024 * 100 }, (error, stdout, stderr) => {
+        if (error) {
+          resolve({ success: false, error: error.message || stderr });
+          return;
+        }
+
+        try {
+          const rawNotes = JSON.parse(stdout) as {
+            folder: string;
+            title: string;
+            body: string;
+            creationDate: string | null;
+            modificationDate: string | null;
+          }[];
+
+          const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
+          let imported = 0;
+
+          for (const note of rawNotes) {
+            // Clean up the note title for file name
+            let fileName = note.title.replace(/[\\?%*:|"<>]/g, '-').replace(/\//g, '-').trim();
+            if (!fileName) fileName = 'Untitled Note';
+            
+            // Keep folder structure (1-level limit in Noted)
+            const folderName = note.folder.replace(/[\\?%*:|"<>]/g, '-').replace(/\//g, '-').replace(/[^\w\- .()]/g, '').trim();
+            
+            let destPath = '';
+            if (folderName && folderName !== 'Notes') {
+              const folderPath = path.join(dest, folderName);
+              if (!fs.existsSync(folderPath)) {
+                fs.mkdirSync(folderPath, { recursive: true });
+              }
+              destPath = path.join(folderPath, `${fileName}.md`);
+            } else {
+              destPath = path.join(dest, `${fileName}.md`);
+            }
+
+            // If file already exists, make filename unique (e.g. "Note_1.md")
+            let finalDestPath = destPath;
+            let counter = 1;
+            const ext = '.md';
+            const baseDir = path.dirname(destPath);
+            const baseName = path.basename(destPath, ext);
+            
+            while (fs.existsSync(finalDestPath)) {
+              finalDestPath = path.join(baseDir, `${baseName}_${counter}${ext}`);
+              counter++;
+            }
+
+            const fm = formatAppleNoteToMarkdown(
+              note.title,
+              note.body,
+              note.creationDate,
+              note.modificationDate,
+              turndown
+            );
+
+            fs.writeFileSync(finalDestPath, fm, 'utf-8');
+            imported++;
+          }
+
+          resolve({ success: true, data: imported });
+        } catch (err) {
+          resolve({ success: false, error: `Parse error: ${(err as Error).message}` });
+        }
+      });
+    });
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
