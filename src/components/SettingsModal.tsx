@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useModalStack } from '../hooks/useModalStack';
+import { useStore } from '../store/useStore';
 import type { LLMProvider } from '../store/useStore';
 import { fetchAvailableModels } from '../lib/llm';
 import { useI18n, type TranslationKey } from '../lib/i18n';
@@ -326,6 +327,7 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath }: {
 export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVault, onClose }: SettingsModalProps) {
   useModalStack('settings', true, onClose);
   const { t } = useI18n();
+  const fetchNotes = useStore(state => state.fetchNotes);
   const [tab, setTab] = useState<SettingsTab>('ai');
   const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
   const [discovering, setDiscovering] = useState(false);
@@ -347,6 +349,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
       const res = await window.electronAPI.importVault(settings.syncDirectory ?? undefined);
       if (res.success) {
         setImportStatus({ success: true, count: res.data ?? 0 });
+        void fetchNotes();
       } else {
         setImportStatus({ success: false, count: 0, error: res.error });
       }
@@ -355,7 +358,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
     } finally {
       setImportingObsidian(false);
     }
-  }, [settings.syncDirectory]);
+  }, [settings.syncDirectory, fetchNotes]);
 
   const handleImportAppleNotes = useCallback(async () => {
     setImportingApple(true);
@@ -364,6 +367,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
       const res = await window.electronAPI.importAppleNotes(settings.syncDirectory ?? undefined);
       if (res.success) {
         setImportStatus({ success: true, count: res.data ?? 0 });
+        void fetchNotes();
       } else {
         setImportStatus({ success: false, count: 0, error: res.error });
       }
@@ -372,7 +376,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
     } finally {
       setImportingApple(false);
     }
-  }, [settings.syncDirectory]);
+  }, [settings.syncDirectory, fetchNotes]);
 
   useEffect(() => {
     window.electronAPI?.safeStorageStatus?.()

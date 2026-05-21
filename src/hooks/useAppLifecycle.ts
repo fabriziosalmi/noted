@@ -20,6 +20,8 @@ export function useAppLifecycle({
   fetchNotes,
   loadApiKey,
 }: AppLifecycleArgs): void {
+  const syncDirectory = useStore((state) => state.settings.syncDirectory);
+
   useEffect(() => {
     const accent = accentColor ?? '#6366f1';
     document.documentElement.style.setProperty('--accent', accent);
@@ -38,12 +40,15 @@ export function useAppLifecycle({
   }, [editorBg]);
 
   useEffect(() => {
-    void fetchNotes();
     void loadApiKey();
     window.electronAPI?.onRefreshNotes(() => {
       void fetchNotes();
     });
   }, [fetchNotes, loadApiKey]);
+
+  useEffect(() => {
+    void fetchNotes();
+  }, [syncDirectory, fetchNotes]);
 
   useEffect(() => {
     window.electronAPI?.setNoteTitle(activeNoteName ?? '');
@@ -82,7 +87,6 @@ export function useAppLifecycle({
   const enableAutoCommit = useStore((state) => state.settings.enableAutoCommit);
   const autoCommitInterval = useStore((state) => state.settings.autoCommitInterval);
   const gitEnabled = useStore((state) => state.settings.gitEnabled);
-  const syncDirectory = useStore((state) => state.settings.syncDirectory);
 
   useEffect(() => {
     if (!gitEnabled || !enableAutoCommit || !window.electronAPI?.gitCommitAll) {
