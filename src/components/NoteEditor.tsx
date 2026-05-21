@@ -338,8 +338,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
             <div className="flex gap-3">
               <button
                 onClick={onCreateNote}
-                className="px-4 py-2 rounded-lg text-white text-sm font-medium shadow-sm transition-opacity hover:opacity-90"
-                style={{ background: 'var(--accent)' }}
+                className="btn-primary px-4 py-2 rounded-lg text-sm font-medium shadow-sm"
               >
                 {t('welcomeNewNote')}
               </button>
@@ -356,7 +355,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
           {isEmpty && onOpenSettings && (
             <p className="mt-8 text-xs text-gray-400 dark:text-gray-600">
               {t('welcomeAiHint')}{' '}
-              <button onClick={onOpenSettings} className="underline underline-offset-2 hover:text-indigo-500 transition-colors">
+              <button onClick={onOpenSettings} className="underline underline-offset-2 hover:text-[var(--accent)] transition-colors">
                 {t('settings')}
               </button>
             </p>
@@ -475,7 +474,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       )}
 
       {isSmartPasting && (
-        <div className="fixed top-14 right-4 text-white text-xs px-3 py-1.5 rounded-full flex items-center space-x-2 shadow-lg animate-pulse z-30" style={{ background: 'var(--accent)' }}>
+        <div className="fixed top-14 right-4 text-xs px-3 py-1.5 rounded-full flex items-center space-x-2 shadow-lg animate-pulse z-30" style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}>
           <Bot size={14} />
           <span>{t('smartPaste')}</span>
         </div>

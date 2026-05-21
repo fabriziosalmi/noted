@@ -226,8 +226,7 @@ export function ShareMenu({
                   </div>
                   <button
                     onClick={handleCreateGist}
-                    className="w-full py-1.5 rounded text-xs font-medium text-white hover:opacity-90 transition-opacity"
-                    style={{ background: 'var(--accent)' }}
+                    className="btn-primary w-full py-1.5 rounded text-xs font-medium"
                   >
                     {t('gistCreate')}
                   </button>

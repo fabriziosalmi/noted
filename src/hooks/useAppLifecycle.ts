@@ -1,6 +1,16 @@
 import { useEffect } from 'react';
 import type { AppLifecycleArgs } from './contracts';
 
+function getContrastColor(hex: string): string {
+  const color = hex.startsWith('#') ? hex.slice(1) : hex;
+  if (color.length !== 6) return '#ffffff';
+  const r = parseInt(color.substring(0, 2), 16);
+  const g = parseInt(color.substring(2, 4), 16);
+  const b = parseInt(color.substring(4, 6), 16);
+  const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+  return (yiq >= 170) ? '#111111' : '#ffffff';
+}
+
 export function useAppLifecycle({
   accentColor,
   editorBg,
@@ -9,7 +19,9 @@ export function useAppLifecycle({
   loadApiKey,
 }: AppLifecycleArgs): void {
   useEffect(() => {
-    document.documentElement.style.setProperty('--accent', accentColor ?? '#6366f1');
+    const accent = accentColor ?? '#6366f1';
+    document.documentElement.style.setProperty('--accent', accent);
+    document.documentElement.style.setProperty('--accent-contrast', getContrastColor(accent));
   }, [accentColor]);
 
   useEffect(() => {

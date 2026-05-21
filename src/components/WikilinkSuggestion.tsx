@@ -88,7 +88,7 @@ export function WikilinkSuggestion({ editor, notes }: WikilinkSuggestionProps) {
         <button
           key={n}
           onMouseDown={e => { e.preventDefault(); insert(n); }}
-          className={`w-full text-left flex items-center gap-2 px-3 py-2 text-sm transition-colors ${i === selected ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
+          className={`w-full text-left flex items-center gap-2 px-3 py-2 text-sm transition-colors ${i === selected ? 'bg-[var(--accent-light)] text-[var(--accent)] font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
         >
           <FileText size={13} className="shrink-0 text-gray-400" />
           <span className="truncate">{n}</span>

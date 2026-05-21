@@ -92,8 +92,7 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
           <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700 flex justify-end">
             <button
               onClick={handleRestore}
-              className="flex items-center gap-2 text-sm px-4 py-1.5 text-white rounded-lg hover:opacity-90 transition-opacity"
-              style={{ background: 'var(--accent)' } as React.CSSProperties}
+              className="btn-primary flex items-center gap-2 text-sm px-4 py-1.5 rounded-lg"
             >
               <RotateCcw size={13} />
               {t('restoreVersion')}

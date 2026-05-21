@@ -168,7 +168,7 @@ body {
 /* Primary CTA: keep consistent contrast across themes and disabled states. */
 .btn-primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-contrast, #ffffff);
   border: 1px solid color-mix(in srgb, var(--accent) 68%, #000 32%);
 }
 .btn-primary:hover:not(:disabled) {
@@ -180,6 +180,21 @@ body {
   color: var(--btn-primary-disabled-fg);
   cursor: not-allowed;
   opacity: 1;
+}
+
+.dark .btn-primary {
+  background: color-mix(in srgb, var(--accent) 18%, #161619);
+  color: #ffffff;
+  border-color: color-mix(in srgb, var(--accent) 35%, #2c2c2e);
+}
+.dark .btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 26%, #161619);
+  filter: none;
+}
+.dark .btn-primary:disabled {
+  background: color-mix(in srgb, var(--accent) 10%, #161619);
+  border-color: #2c2c2e;
+  color: rgba(255, 255, 255, 0.3);
 }
 
 /* ─── Scrollbars (macOS style) ───────────────────────────────────────── */

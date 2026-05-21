@@ -84,7 +84,7 @@ export function TemplatesModal({ customTemplates, activeNoteContent, activeNoteN
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={() => { onApply(tmpl); onClose(); }}
-                  className="text-xs px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+                  className="text-xs px-2 py-1 bg-[var(--accent-light)] text-[var(--accent)] rounded hover:bg-[var(--accent-mid)]"
                 >
                   {t('use')}
                 </button>
@@ -113,15 +113,15 @@ export function TemplatesModal({ customTemplates, activeNoteContent, activeNoteN
                     if (e.key === 'Escape') setShowSave(false);
                   }}
                   placeholder={activeNoteName.replace('.md', '')}
-                  className="flex-1 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 outline-none focus:border-indigo-400 dark:text-gray-200"
+                  className="flex-1 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 outline-none focus:border-[var(--accent)] dark:text-gray-200"
                 />
-                <button onClick={handleSave} className="text-xs px-3 py-1 bg-indigo-500 text-white rounded hover:bg-indigo-600">{t('save')}</button>
+                <button onClick={handleSave} className="btn-primary text-xs px-3 py-1 rounded">{t('save')}</button>
                 <button onClick={() => setShowSave(false)} className="text-xs px-2 py-1 text-gray-500 hover:text-gray-700"><X size={13} /></button>
               </div>
             ) : (
               <button
                 onClick={() => setShowSave(true)}
-                className="w-full flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 py-1"
+                className="w-full flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] py-1"
               >
                 <Plus size={13} />
                 {t('saveCurrentNote')}

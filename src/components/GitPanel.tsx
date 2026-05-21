@@ -217,7 +217,7 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
                 <button
                   onClick={handleInit}
                   disabled={busy}
-                  className="w-full text-xs bg-[var(--accent)] text-white py-1.5 rounded-lg disabled:opacity-40 hover:opacity-90 transition-opacity"
+                  className="btn-primary w-full text-xs py-1.5 rounded-lg"
                 >
                   {t('gitInit')}
                 </button>
@@ -267,7 +267,7 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
                   <button
                     onClick={handleCommitNote}
                     disabled={busy || !status.dirty}
-                    className="flex-1 flex items-center justify-center gap-1.5 text-xs bg-[var(--accent)] text-white py-1.5 rounded-lg disabled:opacity-40 hover:opacity-90 transition-opacity"
+                    className="btn-primary flex-1 flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg"
                   >
                     <GitCommit size={11} />
                     {t('gitCommitNote')}
@@ -320,7 +320,7 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
                     <button
                       onClick={handleCreatePr}
                       disabled={busy || !prTitle.trim()}
-                      className="flex-1 flex items-center justify-center gap-1.5 text-xs bg-[var(--accent)] text-white py-1.5 rounded-lg disabled:opacity-40 hover:opacity-90 transition-opacity"
+                      className="btn-primary flex-1 flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg"
                     >
                       {busy ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />}
                       {busy ? phaseLabel[phase] : t('gitPublish')}
