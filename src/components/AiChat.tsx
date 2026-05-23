@@ -6,20 +6,9 @@ import { findRelevantNotesHybrid, type NoteChunk, type RetrievalScoredNote } fro
 import { useI18n } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import { maskPii } from '../lib/piiMasker';
+import { sanitizeHtml } from '../lib/sanitizeHtml';
 
 marked.setOptions({ breaks: true, gfm: true });
-
-// Minimal renderer-side HTML sanitizer for LLM output rendered as markdown.
-// Strips dangerous tags/attributes that marked would otherwise pass through verbatim.
-function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
-    .replace(/<embed\b[^>]*>/gi, '')
-    .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
-    .replace(/javascript\s*:/gi, '');
-}
 
 function renderMarkdown(src: string): string {
   return sanitizeHtml(marked.parse(src, { async: false }) as string);

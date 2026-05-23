@@ -431,50 +431,57 @@ const MAX_HISTORY_SNAPSHOTS = 20;
 const SNAPSHOT_MIN_DIFF_CHARS = 200;
 const SNAPSHOT_MIN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
-function saveSnapshot(targetDir: string, fileName: string, content: string) {
+async function saveSnapshot(targetDir: string, fileName: string, content: string): Promise<void> {
   try {
     const histDir = path.join(targetDir, '.noted_history', fileName);
-    if (!fs.existsSync(histDir)) fs.mkdirSync(histDir, { recursive: true });
+    await fs.promises.mkdir(histDir, { recursive: true });
 
     // Compare against the most recent snapshot; skip the write if the delta is
     // small AND we snapshot-ed recently.
-    const existing = fs.readdirSync(histDir).filter(f => f.endsWith('.html')).sort();
+    const existing = (await fs.promises.readdir(histDir)).filter(f => f.endsWith('.html')).sort();
     if (existing.length > 0) {
       const latest = existing[existing.length - 1];
       const latestPath = path.join(histDir, latest);
       let prevContent = '';
-      try { prevContent = fs.readFileSync(latestPath, 'utf-8'); } catch { /* ignore */ }
+      try { prevContent = await fs.promises.readFile(latestPath, 'utf-8'); } catch { /* ignore */ }
       const diff = Math.abs(prevContent.length - content.length);
       let ageMs = Infinity;
-      try { ageMs = Date.now() - fs.statSync(latestPath).mtimeMs; } catch { /* ignore */ }
+      try {
+        const stat = await fs.promises.stat(latestPath);
+        ageMs = Date.now() - stat.mtimeMs;
+      } catch { /* ignore */ }
       if (diff < SNAPSHOT_MIN_DIFF_CHARS && ageMs < SNAPSHOT_MIN_INTERVAL_MS) {
         return; // not worth a new snapshot
       }
     }
 
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
-    fs.writeFileSync(path.join(histDir, `${ts}.html`), content, 'utf-8');
+    await fs.promises.writeFile(path.join(histDir, `${ts}.html`), content, 'utf-8');
     // Prune oldest beyond limit (re-list since we may have just added one).
-    const snapshots = fs.readdirSync(histDir).filter(f => f.endsWith('.html')).sort();
+    const snapshots = (await fs.promises.readdir(histDir)).filter(f => f.endsWith('.html')).sort();
     for (const old of snapshots.slice(0, Math.max(0, snapshots.length - MAX_HISTORY_SNAPSHOTS))) {
-      fs.unlinkSync(path.join(histDir, old));
+      try {
+        await fs.promises.unlink(path.join(histDir, old));
+      } catch {
+        // best effort
+      }
     }
   } catch { /* history is best-effort */ }
 }
 
-ipcMain.handle('save-note', (_, fileName: string, content: string, syncDir?: string) => {
+ipcMain.handle('save-note', async (_, fileName: string, content: string, syncDir?: string) => {
   try {
     validateFileName(fileName);
     if (typeof content !== 'string') throw new Error('Content must be a string');
     const targetDir = getTargetDir(syncDir);
     const filePath = safeResolve(targetDir, fileName);
-    saveSnapshot(targetDir, fileName, content);
+    await saveSnapshot(targetDir, fileName, content);
     // Atomic write: write to a tmp sibling, then rename. fs.renameSync is atomic
     // on POSIX, so a crash mid-write leaves either the old file intact or the
     // fully-written new file — never a half-written one.
     const tmpPath = `${filePath}.${process.pid}.tmp`;
-    fs.writeFileSync(tmpPath, content, 'utf-8');
-    fs.renameSync(tmpPath, filePath);
+    await fs.promises.writeFile(tmpPath, content, 'utf-8');
+    await fs.promises.rename(tmpPath, filePath);
     return { success: true };
   } catch (error: unknown) {
     const err = error as Error;
@@ -482,13 +489,17 @@ ipcMain.handle('save-note', (_, fileName: string, content: string, syncDir?: str
   }
 });
 
-ipcMain.handle('get-note-history', (_, fileName: string, syncDir?: string) => {
+ipcMain.handle('get-note-history', async (_, fileName: string, syncDir?: string) => {
   try {
     validateFileName(fileName);
     const targetDir = getTargetDir(syncDir);
     const histDir = path.join(targetDir, '.noted_history', fileName);
-    if (!fs.existsSync(histDir)) return { success: true, data: [] };
-    const snapshots = fs.readdirSync(histDir)
+    try {
+      await fs.promises.access(histDir);
+    } catch {
+      return { success: true, data: [] };
+    }
+    const snapshots = (await fs.promises.readdir(histDir))
       .filter(f => f.endsWith('.html'))
       .sort()
       .reverse()
@@ -499,13 +510,13 @@ ipcMain.handle('get-note-history', (_, fileName: string, syncDir?: string) => {
   }
 });
 
-ipcMain.handle('read-note-snapshot', (_, fileName: string, snapshotName: string, syncDir?: string) => {
+ipcMain.handle('read-note-snapshot', async (_, fileName: string, snapshotName: string, syncDir?: string) => {
   try {
     validateFileName(fileName);
     if (!/^[\w\-:.]+\.html$/.test(snapshotName)) throw new Error('Invalid snapshot name');
     const targetDir = getTargetDir(syncDir);
     const snapshotPath = path.join(targetDir, '.noted_history', fileName, snapshotName);
-    const content = fs.readFileSync(snapshotPath, 'utf-8');
+    const content = await fs.promises.readFile(snapshotPath, 'utf-8');
     return { success: true, data: content };
   } catch (error: unknown) {
     return { success: false, error: (error as Error).message };
@@ -1179,19 +1190,36 @@ ipcMain.handle('export-docx', async (_, htmlContent: string, noteTitle: string) 
 // ─── Multi-folder / notebooks ─────────────────────────────────────────────────
 
 async function scanNotesTree(targetDir: string) {
-  const rootNotes: any[] = [];
-  const folders: { name: string; notes: any[] }[] = [];
+  interface TreeNoteEntry {
+    name: string;
+    path: string;
+    stats: fs.Stats;
+  }
+  interface TreeFolderResult {
+    type: 'folder';
+    name: string;
+    notes: TreeNoteEntry[];
+  }
+  interface TreeRootResult {
+    type: 'rootNote';
+    name: string;
+    path: string;
+    stats: fs.Stats;
+  }
+
+  const rootNotes: TreeNoteEntry[] = [];
+  const folders: { name: string; notes: TreeNoteEntry[] }[] = [];
 
   const entries = await fs.promises.readdir(targetDir, { withFileTypes: true });
   
-  const results = await Promise.all(entries.map(async (entry) => {
+  const results = await Promise.all<(TreeFolderResult | TreeRootResult | null)>(entries.map(async (entry) => {
     if (entry.name.startsWith('.')) return null;
     if (entry.isDirectory()) {
       const folderPath = path.join(targetDir, entry.name);
       try {
         const files = await fs.promises.readdir(folderPath);
         const mdFiles = files.filter(f => f.endsWith('.md'));
-        const folderNotes: any[] = [];
+        const folderNotes: TreeNoteEntry[] = [];
         for (const f of mdFiles) {
           const relName = `${entry.name}/${f}`;
           try {
@@ -1239,7 +1267,7 @@ async function scanNotesTree(targetDir: string) {
     }
   }
 
-  rootNotes.sort((a: any, b: any) => b.stats.mtimeMs - a.stats.mtimeMs);
+  rootNotes.sort((a, b) => b.stats.mtimeMs - a.stats.mtimeMs);
   return { rootNotes, folders };
 }
 
@@ -1602,7 +1630,7 @@ const FT_MAX_FILES = 1500;
 const FT_MAX_TOTAL_BYTES = 50 * 1024 * 1024; // 50 MB
 const FT_MAX_FILE_BYTES = 2 * 1024 * 1024;   // 2 MB per file
 
-ipcMain.handle('search-notes-fulltext', (_, query: string, syncDir?: string) => {
+ipcMain.handle('search-notes-fulltext', async (_, query: string, syncDir?: string) => {
   if (!query || query.trim().length < 2) return { success: true, data: [] };
 
   const dir = getTargetDir(syncDir);
@@ -1614,15 +1642,22 @@ ipcMain.handle('search-notes-fulltext', (_, query: string, syncDir?: string) => 
   const mdFiles: { filePath: string; relPath: string; size: number; mtimeMs: number }[] = [];
   let truncated = false;
   try {
-    outer: for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const rootEntries = await fs.promises.readdir(dir, { withFileTypes: true });
+    outer: for (const entry of rootEntries) {
       if (entry.isDirectory() && !entry.name.startsWith('.')) {
         const sub = path.join(dir, entry.name);
-        for (const f of fs.readdirSync(sub, { withFileTypes: true })) {
+        let subEntries: fs.Dirent[];
+        try {
+          subEntries = await fs.promises.readdir(sub, { withFileTypes: true });
+        } catch {
+          continue;
+        }
+        for (const f of subEntries) {
           if (!f.isDirectory() && f.name.endsWith('.md')) {
             try {
               validateFileName(`${entry.name}/${f.name}`);
               const fp = path.join(sub, f.name);
-              const stat = fs.statSync(fp);
+              const stat = await fs.promises.stat(fp);
               mdFiles.push({ filePath: fp, relPath: `${entry.name}/${f.name}`, size: stat.size, mtimeMs: stat.mtimeMs });
             } catch { /* skip unreadable */ }
             if (mdFiles.length >= FT_MAX_FILES) { truncated = true; break outer; }
@@ -1632,7 +1667,7 @@ ipcMain.handle('search-notes-fulltext', (_, query: string, syncDir?: string) => 
         try {
           validateFileName(entry.name);
           const fp = path.join(dir, entry.name);
-          const stat = fs.statSync(fp);
+          const stat = await fs.promises.stat(fp);
           mdFiles.push({ filePath: fp, relPath: entry.name, size: stat.size, mtimeMs: stat.mtimeMs });
         } catch { /* skip unreadable */ }
         if (mdFiles.length >= FT_MAX_FILES) { truncated = true; break outer; }
@@ -1652,7 +1687,7 @@ ipcMain.handle('search-notes-fulltext', (_, query: string, syncDir?: string) => 
     if (size > FT_MAX_FILE_BYTES) continue; // skip pathologically large files
     if (bytesRead + size > FT_MAX_TOTAL_BYTES) { truncated = true; break; }
     let raw: string;
-    try { raw = fs.readFileSync(filePath, 'utf-8'); bytesRead += raw.length; } catch { continue; }
+    try { raw = await fs.promises.readFile(filePath, 'utf-8'); bytesRead += raw.length; } catch { continue; }
 
     const plain = stripHtmlToText(raw);
     const lower = plain.toLowerCase();

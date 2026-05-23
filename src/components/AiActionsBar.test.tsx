@@ -207,8 +207,7 @@ describe('AiActionsBar', () => {
   });
 
   it('aborts previous request when a new one starts', async () => {
-    let resolve1: any;
-    const promise1 = new Promise((resolve) => { resolve1 = resolve; });
+    const promise1 = new Promise(() => undefined);
     vi.mocked(askLLM).mockImplementationOnce(() => promise1 as any);
 
     render(<AiActionsBar {...defaultProps} />);
@@ -227,7 +226,7 @@ describe('AiActionsBar', () => {
     );
     if (propKey) {
       act(() => {
-        (expandBtn as any)[propKey].onClick({ preventDefault: () => {}, stopPropagation: () => {} });
+        (expandBtn as any)[propKey].onClick({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
       });
     } else {
       expandBtn.removeAttribute('disabled');
@@ -242,8 +241,7 @@ describe('AiActionsBar', () => {
   });
 
   it('aborts request on unmount', async () => {
-    let resolve1: any;
-    const promise1 = new Promise((resolve) => { resolve1 = resolve; });
+    const promise1 = new Promise(() => undefined);
     vi.mocked(askLLM).mockImplementationOnce(() => promise1 as any);
 
     const { unmount } = render(<AiActionsBar {...defaultProps} />);

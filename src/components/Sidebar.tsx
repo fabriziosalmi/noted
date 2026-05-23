@@ -153,7 +153,7 @@ export function Sidebar({
 
   useEffect(() => {
     if (window.electronAPI?.getAppVersion) {
-      window.electronAPI.getAppVersion().then(setAppVersion).catch(() => {});
+      window.electronAPI.getAppVersion().then(setAppVersion).catch(() => undefined);
     }
   }, []);
   const setSortBy = useStore(state => state.setSortBy);

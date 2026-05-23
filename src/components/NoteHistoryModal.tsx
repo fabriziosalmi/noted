@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { X, RotateCcw, Clock } from 'lucide-react';
 import { useModalStack } from '../hooks/useModalStack';
 import { useI18n } from '../lib/i18n';
+import { sanitizeHtml } from '../lib/sanitizeHtml';
 
 interface Snapshot { name: string; ts: string }
 
@@ -19,6 +20,7 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
   const [preview, setPreview] = useState<string | null>(null);
   const [selected, setSelected] = useState<Snapshot | null>(null);
   const [loading, setLoading] = useState(!!window.electronAPI);
+  const previewHtml = useMemo(() => preview ? sanitizeHtml(preview) : null, [preview]);
 
   useEffect(() => {
     if (!window.electronAPI) return;
@@ -80,8 +82,8 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
 
           {/* Preview */}
           <div className="flex-1 overflow-y-auto p-4">
-            {preview ? (
-              <div className="prose prose-sm dark:prose-invert max-w-none text-xs" dangerouslySetInnerHTML={{ __html: preview }} />
+            {previewHtml ? (
+              <div className="prose prose-sm dark:prose-invert max-w-none text-xs" dangerouslySetInnerHTML={{ __html: previewHtml }} />
             ) : (
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-8 text-center">{t('selectVersion')}</p>
             )}

@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
 import React, { useState } from 'react';
+import type * as ReactModule from 'react';
 
 vi.mock('react', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('react')>();
+  const actual = await importOriginal<typeof ReactModule>();
   return {
     ...actual,
     useEffect: (effect: any, deps: any) => {
@@ -131,7 +132,7 @@ describe('useModalStack hook', () => {
       cleanup = effect();
     };
 
-    useModalStack('not-found-id', true, () => {});
+    useModalStack('not-found-id', true, vi.fn());
 
     expect(cleanup).toBeTypeOf('function');
     if (cleanup) {

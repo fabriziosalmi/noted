@@ -22,7 +22,7 @@ vi.mock('node:fs', async (importOriginal) => {
       }
       return actual.existsSync(p);
     },
-    realpathSync: (p: fs.PathLike, options?: any) => {
+    realpathSync: (p: fs.PathLike, _options?: any) => {
       const strPath = String(p);
       if (strPath.endsWith('symfolder')) {
         return '/etc'; // Escape route!
@@ -34,7 +34,7 @@ vi.mock('node:fs', async (importOriginal) => {
       if (strPath.includes('mockdir')) {
         // Return files and folders for listAllNotes
         const entries: any[] = [];
-        for (const [key, val] of mockFiles.entries()) {
+        for (const [key] of mockFiles.entries()) {
           if (key.startsWith(strPath)) {
             const rel = key.slice(strPath.length).replace(/^\//, '');
             if (rel && !rel.includes('/')) {
@@ -69,7 +69,7 @@ vi.mock('node:fs', async (importOriginal) => {
       }
       return actual.readFileSync(p, encoding);
     },
-    writeFileSync: (p: fs.PathLike, content: any, options?: any) => {
+    writeFileSync: (p: fs.PathLike, content: any, _options?: any) => {
       const strPath = String(p);
       const cleanPath = strPath.replace(/\.[a-f0-9]+\.tmp$/, '');
       mockFiles.set(cleanPath, {
@@ -96,7 +96,7 @@ vi.mock('node:fs', async (importOriginal) => {
       }
       return actual.unlinkSync(p);
     },
-    mkdirSync: () => {},
+    mkdirSync: vi.fn(),
     renameSync: (from: fs.PathLike, to: fs.PathLike) => {
       const strFrom = String(from);
       const strTo = String(to);
@@ -807,7 +807,7 @@ describe('MCP server additional coverage', () => {
     
     const connectSpy = vi.spyOn(Server.prototype, 'connect').mockRejectedValue(new Error('Fatal Bootstrap Error'));
     const writeSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: string | number | null | undefined) => {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((_code?: string | number | null | undefined) => {
       return undefined as never;
     });
     
@@ -1077,7 +1077,7 @@ describe('MCP server additional coverage', () => {
     
     const connectSpy = vi.spyOn(Server.prototype, 'connect').mockRejectedValue('Fatal String Error');
     const writeSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: string | number | null | undefined) => {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((_code?: string | number | null | undefined) => {
       return undefined as never;
     });
     

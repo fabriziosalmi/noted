@@ -177,7 +177,7 @@ describe('QuickOpen', () => {
     const notes = [mk('a.md', now), mk('b.md', now)];
     render(<QuickOpen notes={notes} onSelect={vi.fn()} onClose={vi.fn()} />);
 
-    let buttons = screen.getAllByRole('button').filter((b) => b.getAttribute('data-idx') !== null);
+    const buttons = screen.getAllByRole('button').filter((b) => b.getAttribute('data-idx') !== null);
     
     // Starts with activeIdx = 0. Verify the class names or data properties.
     expect(buttons[0].className).toContain('bg-[var(--accent)]');
@@ -334,5 +334,4 @@ describe('QuickOpen', () => {
     expect(onClose).toHaveBeenCalled();
   });
 });
-
 
