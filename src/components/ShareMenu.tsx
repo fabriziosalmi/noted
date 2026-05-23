@@ -1,9 +1,11 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useReducer } from 'react';
 import {
   Share2, Cloud, FolderOpen, FileDown, Wifi, Code2, Check, Globe, Lock,
   FileText as PdfIcon, FileCode, FileText as DocxIcon, Printer,
 } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
+import { getElectronApi } from '../lib/electronApi';
+import { initialShareWorkflowState, isShareWorkflowBusy, shareWorkflowReducer } from '../lib/shareWorkflow';
 
 interface ShareMenuProps {
   getCurrentNoteContent: () => string;
@@ -16,8 +18,6 @@ interface ShareMenuProps {
   hasNote: boolean;
 }
 
-type GistState = 'idle' | 'confirm' | 'saving' | 'done';
-
 export function ShareMenu({
   getCurrentNoteContent,
   getCurrentNoteTitle,
@@ -29,13 +29,11 @@ export function ShareMenu({
 }: ShareMenuProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [gistState, setGistState] = useState<GistState>('idle');
-  const [gistPublic, setGistPublic] = useState(false);
-  const [gistUrl, setGistUrl] = useState('');
+  const [workflow, dispatchWorkflow] = useReducer(shareWorkflowReducer, initialShareWorkflowState);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) { setGistState('idle'); setGistUrl(''); }
+    if (!open) dispatchWorkflow({ type: 'RESET' });
   }, [open]);
 
   useEffect(() => {
@@ -49,107 +47,209 @@ export function ShareMenu({
 
   // ── Vault-wide ────────────────────────────────────────────────────────
   const handleCopyVaultToICloud = async () => {
+    if (isShareWorkflowBusy(workflow.stage)) return;
+    const api = getElectronApi();
+    if (!api) return;
+    dispatchWorkflow({ type: 'START_ACTION', action: 'copyVaultToICloud' });
     setOpen(false);
-    const icloudRes = await window.electronAPI.getICloudPath();
+    const icloudRes = await api.getICloudPath();
     if (!icloudRes.success || !icloudRes.data) {
-      onToast(icloudRes.error ?? 'iCloud Drive not available', 'error'); return;
+      onToast(icloudRes.error ?? 'iCloud Drive not available', 'error');
+      dispatchWorkflow({ type: 'ACTION_FAILED', message: icloudRes.error ?? 'iCloud Drive not available' });
+      return;
     }
-    const res = await window.electronAPI.copyVaultToFolder({ destDir: icloudRes.data, syncDir: syncDirectory });
-    if (res.success) onToast(`${res.data?.copied ?? 0} notes copied to iCloud Drive`, 'success');
-    else if (!res.canceled) onToast(res.error ?? 'Export failed', 'error');
+    const res = await api.copyVaultToFolder({ destDir: icloudRes.data, syncDir: syncDirectory });
+    if (res.success) {
+      onToast(`${res.data?.copied ?? 0} notes copied to iCloud Drive`, 'success');
+      dispatchWorkflow({ type: 'ACTION_SUCCESS' });
+    } else if (!res.canceled) {
+      onToast(res.error ?? 'Export failed', 'error');
+      dispatchWorkflow({ type: 'ACTION_FAILED', message: res.error ?? 'Export failed' });
+    } else {
+      dispatchWorkflow({ type: 'ACTION_SUCCESS' });
+    }
   };
 
   const handleExportVaultToFolder = async () => {
+    if (isShareWorkflowBusy(workflow.stage)) return;
+    const api = getElectronApi();
+    if (!api) return;
+    dispatchWorkflow({ type: 'START_ACTION', action: 'exportVaultToFolder' });
     setOpen(false);
-    const res = await window.electronAPI.copyVaultToFolder({ syncDir: syncDirectory });
-    if (res.success) onToast(`${res.data?.copied ?? 0} notes exported to ${res.data?.destDir ?? 'folder'}`, 'success');
-    else if (!res.canceled) onToast(res.error ?? 'Export failed', 'error');
+    const res = await api.copyVaultToFolder({ syncDir: syncDirectory });
+    if (res.success) {
+      onToast(`${res.data?.copied ?? 0} notes exported to ${res.data?.destDir ?? 'folder'}`, 'success');
+      dispatchWorkflow({ type: 'ACTION_SUCCESS' });
+    } else if (!res.canceled) {
+      onToast(res.error ?? 'Export failed', 'error');
+      dispatchWorkflow({ type: 'ACTION_FAILED', message: res.error ?? 'Export failed' });
+    } else {
+      dispatchWorkflow({ type: 'ACTION_SUCCESS' });
+    }
   };
 
   // ── Current note: format exports ──────────────────────────────────────
   const handleExportMd = async () => {
+    if (isShareWorkflowBusy(workflow.stage)) return;
+    const api = getElectronApi();
+    if (!api) return;
+    dispatchWorkflow({ type: 'START_ACTION', action: 'exportMarkdown' });
     setOpen(false);
     const content = getCurrentNoteContent();
-    if (!content) { onToast('No active note', 'error'); return; }
-    const res = await window.electronAPI.exportMarkdown(content);
-    if (res.success) onToast(t('markdownExported'), 'success');
-    else onToast(res.error ?? t('markdownExportError'), 'error');
+    if (!content) {
+      onToast('No active note', 'error');
+      dispatchWorkflow({ type: 'ACTION_FAILED', message: 'No active note' });
+      return;
+    }
+    const res = await api.exportMarkdown(content);
+    if (res.success) {
+      onToast(t('markdownExported'), 'success');
+      dispatchWorkflow({ type: 'ACTION_SUCCESS' });
+    } else {
+      onToast(res.error ?? t('markdownExportError'), 'error');
+      dispatchWorkflow({ type: 'ACTION_FAILED', message: res.error ?? t('markdownExportError') });
+    }
   };
 
   const handleExportPdf = async () => {
+    if (isShareWorkflowBusy(workflow.stage)) return;
+    const api = getElectronApi();
+    if (!api) return;
+    dispatchWorkflow({ type: 'START_ACTION', action: 'exportPdf' });
     setOpen(false);
     const html = getCurrentNoteHtml();
-    if (!html) { onToast('No active note', 'error'); return; }
-    const res = await window.electronAPI.exportPdf(html);
-    if (res.success) onToast(t('pdfExported'), 'success');
-    else onToast(res.error ?? t('pdfExportError'), 'error');
+    if (!html) {
+      onToast('No active note', 'error');
+      dispatchWorkflow({ type: 'ACTION_FAILED', message: 'No active note' });
+      return;
+    }
+    const res = await api.exportPdf(html);
+    if (res.success) {
+      onToast(t('pdfExported'), 'success');
+      dispatchWorkflow({ type: 'ACTION_SUCCESS' });
+    } else {
+      onToast(res.error ?? t('pdfExportError'), 'error');
+      dispatchWorkflow({ type: 'ACTION_FAILED', message: res.error ?? t('pdfExportError') });
+    }
   };
 
   const handleExportHtml = async () => {
+    if (isShareWorkflowBusy(workflow.stage)) return;
+    const api = getElectronApi();
+    if (!api) return;
+    dispatchWorkflow({ type: 'START_ACTION', action: 'exportHtml' });
     setOpen(false);
     const html = getCurrentNoteHtml();
-    if (!html) { onToast('No active note', 'error'); return; }
+    if (!html) {
+      onToast('No active note', 'error');
+      dispatchWorkflow({ type: 'ACTION_FAILED', message: 'No active note' });
+      return;
+    }
     const title = getCurrentNoteTitle() || 'Nota';
-    const res = await window.electronAPI.exportHtml(html, title);
-    if (res.success) onToast(t('htmlExported'), 'success');
-    else onToast(res.error ?? t('htmlExportError'), 'error');
+    const res = await api.exportHtml(html, title);
+    if (res.success) {
+      onToast(t('htmlExported'), 'success');
+      dispatchWorkflow({ type: 'ACTION_SUCCESS' });
+    } else {
+      onToast(res.error ?? t('htmlExportError'), 'error');
+      dispatchWorkflow({ type: 'ACTION_FAILED', message: res.error ?? t('htmlExportError') });
+    }
   };
 
   const handleExportDocx = async () => {
+    if (isShareWorkflowBusy(workflow.stage)) return;
+    const api = getElectronApi();
+    if (!api) return;
+    dispatchWorkflow({ type: 'START_ACTION', action: 'exportDocx' });
     setOpen(false);
     const html = getCurrentNoteHtml();
-    if (!html) { onToast('No active note', 'error'); return; }
+    if (!html) {
+      onToast('No active note', 'error');
+      dispatchWorkflow({ type: 'ACTION_FAILED', message: 'No active note' });
+      return;
+    }
     const title = getCurrentNoteTitle() || 'Nota';
-    const res = await window.electronAPI.exportDocx(html, title);
-    if (res.success) onToast(t('docxExported'), 'success');
-    else onToast(res.error ?? t('docxExportError'), 'error');
+    const res = await api.exportDocx(html, title);
+    if (res.success) {
+      onToast(t('docxExported'), 'success');
+      dispatchWorkflow({ type: 'ACTION_SUCCESS' });
+    } else {
+      onToast(res.error ?? t('docxExportError'), 'error');
+      dispatchWorkflow({ type: 'ACTION_FAILED', message: res.error ?? t('docxExportError') });
+    }
   };
 
   const handlePrint = async () => {
+    if (isShareWorkflowBusy(workflow.stage)) return;
+    const api = getElectronApi();
+    if (!api) return;
+    dispatchWorkflow({ type: 'START_ACTION', action: 'printNote' });
     setOpen(false);
     const html = getCurrentNoteHtml();
-    if (!html || !window.electronAPI?.printNote) return;
-    const res = await window.electronAPI.printNote(html, getCurrentNoteTitle() || 'Nota');
-    if (!res.success && res.error) onToast(res.error || t('printError'), 'error');
+    if (!html || !api.printNote) {
+      dispatchWorkflow({ type: 'ACTION_FAILED', message: 'No active note' });
+      return;
+    }
+    const res = await api.printNote(html, getCurrentNoteTitle() || 'Nota');
+    if (!res.success && res.error) {
+      onToast(res.error || t('printError'), 'error');
+      dispatchWorkflow({ type: 'ACTION_FAILED', message: res.error || t('printError') });
+    } else {
+      dispatchWorkflow({ type: 'ACTION_SUCCESS' });
+    }
   };
 
   const handleShareNote = async () => {
+    if (isShareWorkflowBusy(workflow.stage)) return;
+    const api = getElectronApi();
+    if (!api) return;
+    dispatchWorkflow({ type: 'START_ACTION', action: 'shareNote' });
     setOpen(false);
     const content = getCurrentNoteContent();
     const title = getCurrentNoteTitle();
-    if (!content && !title) { onToast('No active note', 'error'); return; }
-    const res = await window.electronAPI.shareNoteMacOS({ content, title });
-    if (!res.success) onToast(res.error ?? 'Share failed', 'error');
+    if (!content && !title) {
+      onToast('No active note', 'error');
+      dispatchWorkflow({ type: 'ACTION_FAILED', message: 'No active note' });
+      return;
+    }
+    const res = await api.shareNoteMacOS({ content, title });
+    if (!res.success) {
+      onToast(res.error ?? 'Share failed', 'error');
+      dispatchWorkflow({ type: 'ACTION_FAILED', message: res.error ?? 'Share failed' });
+    } else {
+      dispatchWorkflow({ type: 'ACTION_SUCCESS' });
+    }
   };
 
   const handleCreateGist = useCallback(async () => {
-    setGistState('saving');
-    const tokenRes = await window.electronAPI.gitGetToken?.();
+    const api = getElectronApi();
+    if (!api) return;
+    dispatchWorkflow({ type: 'START_GIST_SAVE' });
+    const tokenRes = await api.gitGetToken?.();
     const token = tokenRes?.data ?? '';
     if (!token) {
       onToast('GitHub token required — add it in Settings → Git', 'error');
-      setGistState('idle');
+      dispatchWorkflow({ type: 'OPEN_GIST_CONFIRM' });
       return;
     }
     const content = getCurrentNoteContent();
     const fileName = getCurrentNoteFileName() || 'note.md';
-    const res = await window.electronAPI.gitSaveAsGist?.({ fileName, content, isPublic: gistPublic, token });
+    const res = await api.gitSaveAsGist?.({ fileName, content, isPublic: workflow.gistPublic, token });
     if (res?.success && res.data) {
       await navigator.clipboard.writeText(res.data);
-      setGistUrl(res.data);
-      setGistState('done');
+      dispatchWorkflow({ type: 'GIST_SAVED', url: res.data });
       onToast(t('gistCreated'), 'success');
     } else {
       onToast(t('gistError').replace('{msg}', res?.error ?? 'unknown'), 'error');
-      setGistState('confirm');
+      dispatchWorkflow({ type: 'OPEN_GIST_CONFIRM' });
     }
-  }, [gistPublic, getCurrentNoteContent, getCurrentNoteFileName, onToast, t]);
+  }, [getCurrentNoteContent, getCurrentNoteFileName, onToast, t, workflow.gistPublic]);
 
   // ── UI helpers ────────────────────────────────────────────────────────
   const menuItem = (icon: React.ReactNode, label: string, onClick: () => void, disabled = false) => (
     <button
       onClick={onClick}
-      disabled={disabled}
+      disabled={disabled || isShareWorkflowBusy(workflow.stage)}
       className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
     >
       <span className="shrink-0 text-gray-400 dark:text-gray-500">{icon}</span>
@@ -193,9 +293,9 @@ export function ShareMenu({
           {hasNote && (
             <>
               <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
-              {gistState === 'idle' && (
+              {(workflow.stage === 'idle' || workflow.stage === 'failed') && (
                 <button
-                  onClick={() => setGistState('confirm')}
+                  onClick={() => dispatchWorkflow({ type: 'OPEN_GIST_CONFIRM' })}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                 >
                   <Code2 size={14} className="shrink-0 text-gray-400 dark:text-gray-500" />
@@ -203,7 +303,7 @@ export function ShareMenu({
                 </button>
               )}
 
-              {gistState === 'confirm' && (
+              {workflow.stage === 'gistConfirming' && (
                 <div className="px-3 py-2 space-y-2 border-t border-gray-100 dark:border-gray-700">
                   <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{t('gistVisibility')}</p>
                   <div className="flex gap-2">
@@ -213,9 +313,9 @@ export function ShareMenu({
                     ].map(({ value, icon, label }) => (
                       <button
                         key={String(value)}
-                        onClick={() => setGistPublic(value)}
+                        onClick={() => dispatchWorkflow({ type: 'SET_GIST_VISIBILITY', isPublic: value })}
                         className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-xs border transition-colors ${
-                          gistPublic === value
+                          workflow.gistPublic === value
                             ? 'border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]'
                             : 'border-gray-200 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
                         }`}
@@ -233,22 +333,22 @@ export function ShareMenu({
                 </div>
               )}
 
-              {gistState === 'saving' && (
+              {workflow.stage === 'gistSaving' && (
                 <div className="px-3 py-2 text-xs text-gray-400 animate-pulse border-t border-gray-100 dark:border-gray-700">
                   Creating gist…
                 </div>
               )}
 
-              {gistState === 'done' && (
+              {workflow.stage === 'gistDone' && (
                 <div className="px-3 py-2 space-y-1.5 border-t border-gray-100 dark:border-gray-700">
                   <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                     <Check size={11} /> {t('gistCreated')}
                   </div>
                   <button
-                    onClick={() => { if (gistUrl) window.open(gistUrl, '_blank'); }}
+                    onClick={() => { if (workflow.gistUrl) window.open(workflow.gistUrl, '_blank'); }}
                     className="w-full text-left text-[11px] text-[var(--accent)] hover:underline truncate"
                   >
-                    {gistUrl}
+                    {workflow.gistUrl}
                   </button>
                 </div>
               )}

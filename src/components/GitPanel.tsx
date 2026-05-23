@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useReducer } from 'react';
 import { GitBranch, GitCommit, Upload, GitPullRequest, RefreshCw, X, Check, AlertCircle, Loader2, ExternalLink } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
+import { gitWorkflowReducer, initialGitWorkflowState, isGitWorkflowBusy, type GitWorkflowStage } from '../lib/gitWorkflow';
 
 interface GitPanelProps {
   syncDir?: string | null;
@@ -18,8 +19,6 @@ interface LocalGitStatus {
   modifiedFiles: string[];
 }
 
-type Phase = 'idle' | 'committing' | 'pushing' | 'creating-pr';
-
 export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
   const { t } = useI18n();
   const { settings, updateSettings } = useStore();
@@ -27,7 +26,7 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
 
   const [status, setStatus] = useState<LocalGitStatus | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
-  const [phase, setPhase] = useState<Phase>('idle');
+  const [workflow, dispatchWorkflow] = useReducer(gitWorkflowReducer, initialGitWorkflowState);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -69,55 +68,86 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
   // ── Actions ──────────────────────────────────────────────────────────────────
 
   const handleInit = async () => {
+    if (isGitWorkflowBusy(workflow.stage)) return;
     if (!window.electronAPI?.gitInit) return;
-    setPhase('committing');
+    dispatchWorkflow({ type: 'START_INIT' });
     const res = await window.electronAPI.gitInit(syncDir);
-    setPhase('idle');
-    if (res.success) { showSuccess(t('gitInitialized')); void refreshStatus(); }
-    else showError(res.error ?? t('gitInitError'));
+    if (res.success) {
+      dispatchWorkflow({ type: 'COMPLETED' });
+      showSuccess(t('gitInitialized'));
+      void refreshStatus();
+    } else {
+      const message = res.error ?? t('gitInitError');
+      dispatchWorkflow({ type: 'FAILED', message });
+      showError(message);
+    }
   };
 
   const handleCommitNote = async () => {
+    if (isGitWorkflowBusy(workflow.stage)) return;
     if (!activeNoteName || !window.electronAPI?.gitCommitNote) return;
-    setPhase('committing');
+    dispatchWorkflow({ type: 'START_COMMIT_NOTE' });
     const res = await window.electronAPI.gitCommitNote(activeNoteName, commitMsg.trim() || undefined, syncDir);
-    setPhase('idle');
     if (res.success) {
+      dispatchWorkflow({ type: 'COMPLETED' });
       showSuccess(`${t('gitCommitted')} ${res.data?.hash ?? ''}`);
       setCommitMsg('');
       void refreshStatus();
-    } else showError(res.error ?? t('gitCommitError'));
+    } else {
+      const message = res.error ?? t('gitCommitError');
+      dispatchWorkflow({ type: 'FAILED', message });
+      showError(message);
+    }
   };
 
   const handleCreatePr = async () => {
+    if (isGitWorkflowBusy(workflow.stage)) return;
     if (!activeNoteName || !window.electronAPI) return;
-    if (!settings.gitRemote) { showError(t('gitNoRemote')); return; }
+    dispatchWorkflow({ type: 'START_PR' });
+    if (!settings.gitRemote) {
+      const message = t('gitNoRemote');
+      dispatchWorkflow({ type: 'FAILED', message });
+      showError(message);
+      return;
+    }
     const tokenRes = await window.electronAPI.gitGetToken();
     const token = tokenRes.success ? (tokenRes.data ?? '') : '';
-    if (!token) { showError(t('gitNoToken')); return; }
-    if (!prTitle.trim()) { showError(t('gitPrTitleRequired')); return; }
+    if (!token) {
+      const message = t('gitNoToken');
+      dispatchWorkflow({ type: 'FAILED', message });
+      showError(message);
+      return;
+    }
+    if (!prTitle.trim()) {
+      const message = t('gitPrTitleRequired');
+      dispatchWorkflow({ type: 'FAILED', message });
+      showError(message);
+      return;
+    }
 
-    setPhase('committing');
+    dispatchWorkflow({ type: 'PR_VALIDATED' });
     // 1. Prepare branch (commit + create note/slug branch)
     const branchRes = await window.electronAPI.gitPreparePrBranch(activeNoteName, commitMsg.trim() || undefined, syncDir);
     if (!branchRes.success || !branchRes.data) {
-      setPhase('idle');
-      showError(branchRes.error ?? t('gitBranchError'));
+      const message = branchRes.error ?? t('gitBranchError');
+      dispatchWorkflow({ type: 'FAILED', message });
+      showError(message);
       return;
     }
     const { branch } = branchRes.data;
+    dispatchWorkflow({ type: 'BRANCH_PREPARED', branch });
 
     // 2. Push branch
-    setPhase('pushing');
     const pushRes = await window.electronAPI.gitPushBranch(branch, settings.gitRemote, syncDir);
     if (!pushRes.success) {
-      setPhase('idle');
-      showError(pushRes.error ?? t('gitPushError'));
+      const message = pushRes.error ?? t('gitPushError');
+      dispatchWorkflow({ type: 'FAILED', message });
+      showError(message);
       return;
     }
+    dispatchWorkflow({ type: 'PUSHED' });
 
     // 3. Create PR
-    setPhase('creating-pr');
     const prRes = await window.electronAPI.gitCreatePr({
       remoteUrl: settings.gitRemote,
       token,
@@ -126,12 +156,16 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
       title: prTitle.trim(),
       body: prBody.trim(),
     });
-    setPhase('idle');
     if (prRes.success && prRes.data) {
+      dispatchWorkflow({ type: 'COMPLETED' });
       setPrUrl(prRes.data.url);
       showSuccess(t('gitPrCreated'));
       setShowPrForm(false);
-    } else showError(prRes.error ?? t('gitPrError'));
+    } else {
+      const message = prRes.error ?? t('gitPrError');
+      dispatchWorkflow({ type: 'FAILED', message });
+      showError(message);
+    }
   };
 
   const handleSaveToken = async (token: string) => {
@@ -142,13 +176,18 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
-  const busy = phase !== 'idle';
+  const busy = isGitWorkflowBusy(workflow.stage);
 
-  const phaseLabel: Record<Phase, string> = {
+  const phaseLabel: Record<GitWorkflowStage, string> = {
     idle: '',
-    committing: t('gitCommitting'),
-    pushing: t('gitPushing'),
-    'creating-pr': t('gitCreatingPr'),
+    initializing: t('gitCommitting'),
+    committingNote: t('gitCommitting'),
+    validatingPr: t('gitCommitting'),
+    preparingPrBranch: t('gitCommitting'),
+    pushingPrBranch: t('gitPushing'),
+    creatingPr: t('gitCreatingPr'),
+    completed: '',
+    failed: '',
   };
 
   return (
@@ -323,7 +362,7 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
                       className="btn-primary flex-1 flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg"
                     >
                       {busy ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />}
-                      {busy ? phaseLabel[phase] : t('gitPublish')}
+                      {busy ? phaseLabel[workflow.stage] : t('gitPublish')}
                     </button>
                   </div>
                 </div>
