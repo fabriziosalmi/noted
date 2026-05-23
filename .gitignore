@@ -15,10 +15,13 @@ dist-ssr
 # Electron runtime artifacts
 .electron_session/
 dist-electron/
+dist-mcp/
+coverage/
 release/
 notes_dev/
 .claude/
 .electron_data/
+.eslintcache
 
 # Editor directories and files
 .vscode/*
