@@ -15,6 +15,7 @@ import { AppChrome } from './components/app/AppChrome';
 import { AppModals } from './components/app/AppModals';
 import { createAppComposition } from './components/app/composition';
 import type { Suggestion } from './lib/noteAdvisor';
+import { getElectronApi } from './lib/electronApi';
 
 function App() {
   const { t } = useI18n();
@@ -170,30 +171,30 @@ function App() {
           try {
             const syncDir = settings.syncDirectory || undefined;
             let mergedContent = '';
-            
-            if (window.electronAPI) {
-              const targetRes = await window.electronAPI.readNote(s.noteName, syncDir);
-              if (targetRes.success && targetRes.data !== undefined) {
-                mergedContent = targetRes.data as string;
-              } else {
-                mergedContent = activeNoteName === s.noteName ? activeNoteContent : '';
-              }
-              
-              for (const relatedNote of s.relatedNotes || []) {
-                const res = await window.electronAPI.readNote(relatedNote, syncDir);
-                if (res.success && res.data !== undefined) {
-                  const noteContent = res.data as string;
-                  const noteTitle = relatedNote.replace(/\.md$/, '');
-                  mergedContent += `\n\n<hr />\n\n<h2>Merged: ${noteTitle}</h2>\n\n${noteContent}`;
-                }
-              }
-              
-              const saveRes = await window.electronAPI.saveNote(s.noteName, mergedContent, syncDir);
-              if (!saveRes.success) {
-                throw new Error(saveRes.error || 'Failed to save merged note');
-              }
-            } else {
+            const api = getElectronApi();
+            if (!api) {
               throw new Error('electronAPI is not available');
+            }
+
+            const targetRes = await api.readNote(s.noteName, syncDir);
+            if (targetRes.success && targetRes.data !== undefined) {
+              mergedContent = targetRes.data as string;
+            } else {
+              mergedContent = activeNoteName === s.noteName ? activeNoteContent : '';
+            }
+
+            for (const relatedNote of s.relatedNotes || []) {
+              const res = await api.readNote(relatedNote, syncDir);
+              if (res.success && res.data !== undefined) {
+                const noteContent = res.data as string;
+                const noteTitle = relatedNote.replace(/\.md$/, '');
+                mergedContent += `\n\n<hr />\n\n<h2>Merged: ${noteTitle}</h2>\n\n${noteContent}`;
+              }
+            }
+
+            const saveRes = await api.saveNote(s.noteName, mergedContent, syncDir);
+            if (!saveRes.success) {
+              throw new Error(saveRes.error || 'Failed to save merged note');
             }
             
             for (const relatedNote of s.relatedNotes || []) {

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useStore } from '../store/useStore';
+import { getElectronApi } from '../lib/electronApi';
 
 function applyTheme(dark: boolean) {
   document.documentElement.classList.toggle('dark', dark);
@@ -49,12 +50,13 @@ export function useTheme() {
     applyTheme(mq.matches);
     mq.addEventListener('change', handleMqChange);
 
-    if (window.electronAPI?.getNativeTheme) {
-      void window.electronAPI.getNativeTheme().then(({ isDark }) => {
+    const api = getElectronApi();
+    if (api?.getNativeTheme) {
+      void api.getNativeTheme().then(({ isDark }) => {
         if (active) applyTheme(isDark);
       });
-      if (window.electronAPI.onNativeThemeUpdated) {
-        unsubscribeNative = window.electronAPI.onNativeThemeUpdated((t) => {
+      if (api.onNativeThemeUpdated) {
+        unsubscribeNative = api.onNativeThemeUpdated((t) => {
           if (active) applyTheme(t === 'dark');
         });
       }

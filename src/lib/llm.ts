@@ -1,4 +1,5 @@
 import { useStore } from '../store/useStore';
+import { getElectronApi } from './electronApi';
 
 // ==========================================
 // HTTP helper — uses IPC proxy in Electron to bypass CORS/CSP,
@@ -103,7 +104,8 @@ async function apiFetchOnce(
 ): Promise<FetchLike> {
   if (signal?.aborted) throw new AbortedError();
 
-  if (window.electronAPI?.llmFetch) {
+  const api = getElectronApi();
+  if (api?.llmFetch) {
     // IPC path: can't pass AbortSignal across the bridge today (see audit #5),
     // but we can short-circuit the wait on the renderer side.
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -114,7 +116,7 @@ async function apiFetchOnce(
       signal?.addEventListener('abort', () => { clearTimeout(timer); reject(new AbortedError()); }, { once: true });
     });
     const res = await Promise.race([
-      window.electronAPI.llmFetch(url, options),
+      api.llmFetch(url, options),
       timeoutPromise,
     ]);
     return {

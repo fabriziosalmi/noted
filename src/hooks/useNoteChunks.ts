@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import type { NoteChunk } from '../lib/noteSearch';
 import type { NoteChunksArgs } from './contracts';
+import { getElectronApi } from '../lib/electronApi';
 
 export function useNoteChunks({ rightOpen, notes, syncDirectory, ragMaxNotes = 100 }: NoteChunksArgs): NoteChunk[] {
   const [noteChunks, setNoteChunks] = useState<NoteChunk[]>([]);
 
   useEffect(() => {
-    if (!rightOpen || !window.electronAPI || notes.length === 0) return;
+    const api = getElectronApi();
+    if (!rightOpen || !api || notes.length === 0) return;
     let cancelled = false;
     const syncDir = syncDirectory || undefined;
 
@@ -20,7 +22,7 @@ export function useNoteChunks({ rightOpen, notes, syncDirectory, ragMaxNotes = 1
         if (cancelled) return;
         const batch = capped.slice(i, i + BATCH);
         const results = await Promise.all(
-          batch.map((note) => window.electronAPI.readNote(note.name, syncDir))
+          batch.map((note) => api.readNote(note.name, syncDir))
         );
         if (cancelled) return;
 

@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import type { AppActionsArgs } from './contracts';
+import { getElectronApi } from '../lib/electronApi';
 
 export function useAppActions({
   t,
@@ -35,8 +36,9 @@ export function useAppActions({
   }, [openOrCreateDaily, toast]);
 
   const handleSelectFolder = useCallback(async () => {
-    if (!window.electronAPI) return;
-    const res = await window.electronAPI.selectSyncFolder();
+    const api = getElectronApi();
+    if (!api) return;
+    const res = await api.selectSyncFolder();
     if (res.success && res.data) {
       updateSettings({ syncDirectory: res.data });
       void fetchNotes();
@@ -60,8 +62,9 @@ export function useAppActions({
   }, [renameNote, toast]);
 
   const handleImportVault = useCallback(async () => {
-    if (!window.electronAPI) return;
-    const res = await window.electronAPI.importVault(syncDirectory || undefined);
+    const api = getElectronApi();
+    if (!api) return;
+    const res = await api.importVault(syncDirectory || undefined);
     if (res.success) {
       toast(`${res.data ?? 0} ${t('notesImported')}`, 'success');
       void fetchNotes();

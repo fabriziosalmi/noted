@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import type { AppLifecycleArgs } from './contracts';
 import { useStore, type SettingsState } from '../store/useStore';
 import { detectLocalLLMs } from '../lib/llmAutoDetect';
+import { getElectronApi } from '../lib/electronApi';
 
 function getContrastColor(hex: string): string {
   const color = hex.startsWith('#') ? hex.slice(1) : hex;
@@ -41,7 +42,8 @@ export function useAppLifecycle({
 
   useEffect(() => {
     void loadApiKey();
-    window.electronAPI?.onRefreshNotes(() => {
+    const api = getElectronApi();
+    api?.onRefreshNotes(() => {
       void fetchNotes();
     });
   }, [fetchNotes, loadApiKey]);
@@ -51,7 +53,8 @@ export function useAppLifecycle({
   }, [syncDirectory, fetchNotes]);
 
   useEffect(() => {
-    window.electronAPI?.setNoteTitle(activeNoteName ?? '');
+    const api = getElectronApi();
+    api?.setNoteTitle(activeNoteName ?? '');
   }, [activeNoteName]);
 
   // Scans for Ollama & LM Studio locally on startup
@@ -89,7 +92,8 @@ export function useAppLifecycle({
   const gitEnabled = useStore((state) => state.settings.gitEnabled);
 
   useEffect(() => {
-    if (!gitEnabled || !enableAutoCommit || !window.electronAPI?.gitCommitAll) {
+    const api = getElectronApi();
+    if (!gitEnabled || !enableAutoCommit || !api?.gitCommitAll) {
       return;
     }
     let isCommitting = false;
@@ -100,7 +104,7 @@ export function useAppLifecycle({
         return;
       }
       isCommitting = true;
-      window.electronAPI?.gitCommitAll('Auto-commit: update notes', syncDirectory || undefined)
+      api.gitCommitAll('Auto-commit: update notes', syncDirectory || undefined)
         .catch((err) => console.error('Auto-commit failed:', err))
         .finally(() => {
           isCommitting = false;
@@ -117,8 +121,9 @@ export function useAppLifecycle({
   const mcpSsePort = useStore((state) => state.settings.mcpSsePort);
 
   useEffect(() => {
-    if (window.electronAPI?.updateMcpSseConfig) {
-      window.electronAPI.updateMcpSseConfig({
+    const api = getElectronApi();
+    if (api?.updateMcpSseConfig) {
+      api.updateMcpSseConfig({
         enabled: !!mcpSseEnabled,
         port: mcpSsePort ?? 3000,
         syncDir: syncDirectory || undefined,

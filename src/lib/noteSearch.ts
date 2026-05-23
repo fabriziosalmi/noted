@@ -1,6 +1,7 @@
 // Hybrid retrieval for RAG:
 // - lexical TF-IDF (always available, local, deterministic)
 // - optional dense embeddings (when enabled/configured)
+import { getElectronApi } from './electronApi';
 
 const STOPWORDS = new Set([
   'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our',
@@ -119,8 +120,9 @@ const embeddingCache = new Map<string, number[]>();
 const noteEmbeddingKeyIndex = new Map<string, string>();
 
 async function transportFetch(url: string, init: { method: string; headers: Record<string, string>; body: string }): Promise<{ ok: boolean; status: number; text: string; }> {
-  if (window.electronAPI?.llmFetch) {
-    const res = await window.electronAPI.llmFetch(url, init);
+  const api = getElectronApi();
+  if (api?.llmFetch) {
+    const res = await api.llmFetch(url, init);
     return { ok: res.ok, status: res.status, text: res.text };
   }
   const res = await fetch(url, init);

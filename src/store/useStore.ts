@@ -4,6 +4,7 @@ import { marked } from 'marked';
 import type { NoteTemplate } from '../lib/templates';
 import { extractWikilinks } from '../lib/WikilinkExtension';
 import { extractTags } from '../lib/tagUtils';
+import { getElectronApi } from '../lib/electronApi';
 
 export interface NoteFile {
   name: string;
@@ -177,7 +178,8 @@ export const useStore = create<NoteState>()(
       },
 
       updateSettings: (newSettings) => {
-        if (newSettings.gitGhToken !== undefined && window.electronAPI) {
+        const api = getElectronApi();
+        if (newSettings.gitGhToken !== undefined && api) {
           // Store GitHub token encrypted — same mechanism as LLM API key
           // We reuse the same safeStorage slot with a namespaced key approach:
           // Electron safeStorage only has one slot, so we store a JSON object.
@@ -185,16 +187,17 @@ export const useStore = create<NoteState>()(
           // otherwise keep in memory only (not persisted).
           newSettings = { ...newSettings, gitGhToken: '' };
         }
-        if (newSettings.llmApiKey !== undefined && window.electronAPI) {
-          window.electronAPI.storeApiKey(newSettings.llmApiKey);
+        if (newSettings.llmApiKey !== undefined && api) {
+          api.storeApiKey(newSettings.llmApiKey);
           newSettings = { ...newSettings, llmApiKey: '' };
         }
         set({ settings: { ...get().settings, ...newSettings } });
       },
 
       loadApiKey: async () => {
-        if (window.electronAPI) {
-          const res = await window.electronAPI.getApiKey();
+        const api = getElectronApi();
+        if (api) {
+          const res = await api.getApiKey();
           if (res.success && res.data) {
             set((state) => ({ settings: { ...state.settings, llmApiKey: res.data as string } }));
           }
@@ -203,9 +206,10 @@ export const useStore = create<NoteState>()(
 
       fetchNotes: async () => {
     set({ isLoading: true });
-    if (window.electronAPI) {
+    const api = getElectronApi();
+    if (api) {
       const syncDir = get().settings.syncDirectory || undefined;
-      const treeRes = await window.electronAPI.getNotesTree?.(syncDir);
+      const treeRes = await api.getNotesTree?.(syncDir);
       if (treeRes?.success && treeRes.data) {
         const { rootNotes, folders } = treeRes.data as { rootNotes: NoteFile[]; folders: FolderInfo[] };
         const allNotes = [...rootNotes, ...folders.flatMap(f => f.notes)];
@@ -217,7 +221,7 @@ export const useStore = create<NoteState>()(
         }
       } else {
         // Fallback to flat list for older preload
-        const res = await window.electronAPI.getNotesList(syncDir);
+        const res = await api.getNotesList(syncDir);
         if (res.success && res.data) {
           set({ notes: res.data as NoteFile[], isLoading: false });
           const { activeNoteName, lastOpenedNote } = get();
@@ -235,13 +239,14 @@ export const useStore = create<NoteState>()(
 
   createNote: async (fileName: string, initialContent?: string) => {
     if (!fileName.endsWith('.md')) fileName += '.md';
-    if (!window.electronAPI) throw new Error('electronAPI non disponibile');
+    const api = getElectronApi();
+    if (!api) throw new Error('electronAPI non disponibile');
     const lang = get().settings.language ?? 'en';
     const defaultContent = lang === 'it'
       ? '<h1>Nuova Nota</h1><p>Inizia a scrivere qui…</p>'
       : '<h1>New Note</h1><p>Start writing here…</p>';
     const content = initialContent ?? defaultContent;
-    const res = await window.electronAPI.saveNote(fileName, content, get().settings.syncDirectory || undefined);
+    const res = await api.saveNote(fileName, content, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile creare la nota');
 
     const currentNotesOrder = get().customNotesOrder || [];
@@ -256,8 +261,9 @@ export const useStore = create<NoteState>()(
   },
 
   openNote: async (fileName: string) => {
-    if (window.electronAPI) {
-      const res = await window.electronAPI.readNote(fileName, get().settings.syncDirectory || undefined);
+    const api = getElectronApi();
+    if (api) {
+      const res = await api.readNote(fileName, get().settings.syncDirectory || undefined);
       if (res.success && res.data !== undefined) {
         let content = res.data as string;
         const trimmed = content.trimStart();
@@ -283,8 +289,9 @@ export const useStore = create<NoteState>()(
 
   saveActiveNote: async (content: string) => {
     const { activeNoteName } = get();
-    if (activeNoteName && window.electronAPI) {
-      const res = await window.electronAPI.saveNote(activeNoteName, content, get().settings.syncDirectory || undefined);
+    const api = getElectronApi();
+    if (activeNoteName && api) {
+      const res = await api.saveNote(activeNoteName, content, get().settings.syncDirectory || undefined);
       if (res.success) {
         const links = extractWikilinks(content);
         const tags = extractTags(content);
@@ -308,8 +315,8 @@ export const useStore = create<NoteState>()(
         await get().fetchNotes();
         // Auto-commit if enabled
         const { gitEnabled, gitAutoCommit, syncDirectory } = get().settings;
-        if (gitEnabled && gitAutoCommit && window.electronAPI?.gitCommitNote) {
-          void window.electronAPI.gitCommitNote(activeNoteName, undefined, syncDirectory || undefined);
+        if (gitEnabled && gitAutoCommit && api?.gitCommitNote) {
+          void api.gitCommitNote(activeNoteName, undefined, syncDirectory || undefined);
         }
       }
     }
@@ -317,8 +324,9 @@ export const useStore = create<NoteState>()(
 
   renameNote: async (oldName: string, newName: string) => {
     if (!newName.endsWith('.md')) newName += '.md';
-    if (!window.electronAPI) return;
-    const res = await window.electronAPI.renameNote(oldName, newName, get().settings.syncDirectory || undefined);
+    const api = getElectronApi();
+    if (!api) return;
+    const res = await api.renameNote(oldName, newName, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Rinomina fallita');
 
     const currentNotesOrder = get().customNotesOrder || [];
@@ -381,8 +389,9 @@ export const useStore = create<NoteState>()(
 
   createFromTemplate: async (template: NoteTemplate) => {
     const fileName = `${template.name.replace(/\s+/g, '_')}_${Math.floor(Date.now() / 1000)}.md`;
-    if (!window.electronAPI) return;
-    const res = await window.electronAPI.saveNote(fileName, template.content, get().settings.syncDirectory || undefined);
+    const api = getElectronApi();
+    if (!api) return;
+    const res = await api.saveNote(fileName, template.content, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile creare la nota');
     await get().fetchNotes();
     await get().openNote(fileName);
@@ -406,8 +415,9 @@ export const useStore = create<NoteState>()(
       ? { notes: 'Note', todo: 'Da fare', ideas: 'Idee' }
       : { notes: 'Notes', todo: 'To do', ideas: 'Ideas' };
     const initialContent = `<h1>${title}</h1><h2>${sec.notes}</h2><p></p><h2>${sec.todo}</h2><ul><li><p></p></li></ul><h2>${sec.ideas}</h2><p></p>`;
-    if (!window.electronAPI) return;
-    const res = await window.electronAPI.saveNote(fileName, initialContent, get().settings.syncDirectory || undefined);
+    const api = getElectronApi();
+    if (!api) return;
+    const res = await api.saveNote(fileName, initialContent, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile creare la nota giornaliera');
     await get().fetchNotes();
     await get().openNote(fileName);
@@ -423,8 +433,9 @@ export const useStore = create<NoteState>()(
   },
 
   deleteNote: async (fileName: string) => {
-    if (!window.electronAPI) return;
-    const res = await window.electronAPI.deleteNote(fileName, get().settings.syncDirectory || undefined);
+    const api = getElectronApi();
+    if (!api) return;
+    const res = await api.deleteNote(fileName, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile eliminare la nota');
     const { activeNoteName } = get();
     
@@ -439,8 +450,9 @@ export const useStore = create<NoteState>()(
   },
 
   createFolder: async (name: string) => {
-    if (!window.electronAPI) return;
-    const res = await window.electronAPI.createFolder(name, get().settings.syncDirectory || undefined);
+    const api = getElectronApi();
+    if (!api) return;
+    const res = await api.createFolder(name, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile creare la cartella');
     
     const currentFoldersOrder = get().customFoldersOrder || [];
@@ -454,8 +466,9 @@ export const useStore = create<NoteState>()(
   },
 
   renameFolder: async (oldName: string, newName: string) => {
-    if (!window.electronAPI) return;
-    const res = await window.electronAPI.renameFolder(oldName, newName, get().settings.syncDirectory || undefined);
+    const api = getElectronApi();
+    if (!api) return;
+    const res = await api.renameFolder(oldName, newName, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile rinominare la cartella');
     
     const currentFoldersOrder = get().customFoldersOrder || [];
@@ -483,8 +496,9 @@ export const useStore = create<NoteState>()(
   },
 
   deleteFolder: async (name: string) => {
-    if (!window.electronAPI) return;
-    const res = await window.electronAPI.deleteFolder(name, get().settings.syncDirectory || undefined);
+    const api = getElectronApi();
+    if (!api) return;
+    const res = await api.deleteFolder(name, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile eliminare la cartella');
     
     const currentFoldersOrder = get().customFoldersOrder || [];
@@ -498,8 +512,9 @@ export const useStore = create<NoteState>()(
   },
 
   moveNote: async (fileName: string, toFolder: string) => {
-    if (!window.electronAPI) return;
-    const res = await window.electronAPI.moveNote(fileName, toFolder, get().settings.syncDirectory || undefined);
+    const api = getElectronApi();
+    if (!api) return;
+    const res = await api.moveNote(fileName, toFolder, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile spostare la nota');
     const { activeNoteName } = get();
     
@@ -519,8 +534,9 @@ export const useStore = create<NoteState>()(
   },
 
   wipeAllNotes: async () => {
-    if (!window.electronAPI) return;
-    const res = await window.electronAPI.wipeAllNotes(get().settings.syncDirectory || undefined);
+    const api = getElectronApi();
+    if (!api) return;
+    const res = await api.wipeAllNotes(get().settings.syncDirectory || undefined);
     if (!res.success) {
       throw new Error(res.error ?? 'Impossibile cancellare tutte le note');
     }
