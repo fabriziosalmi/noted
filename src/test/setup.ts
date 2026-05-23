@@ -45,7 +45,7 @@ window.electronAPI = {
   closeCapture: vi.fn().mockResolvedValue(undefined),
   onRefreshNotes: vi.fn(),
   getNativeTheme: vi.fn().mockResolvedValue({ isDark: false }),
-  onNativeThemeUpdated: vi.fn(),
+  onNativeThemeUpdated: vi.fn().mockImplementation(() => () => undefined),
   exportHtml: vi.fn().mockResolvedValue({ success: true }),
   exportDocx: vi.fn().mockResolvedValue({ success: true }),
   importVault: vi.fn().mockResolvedValue({ success: true, data: 0 }),

@@ -92,14 +92,39 @@ export function useAppLifecycle({
     if (!gitEnabled || !enableAutoCommit || !window.electronAPI?.gitCommitAll) {
       return;
     }
+    let isCommitting = false;
     const intervalMs = (autoCommitInterval || 5) * 60 * 1000;
     const intervalId = setInterval(() => {
+      if (isCommitting) {
+        console.warn('Auto-commit skipped: previous commit still in progress');
+        return;
+      }
+      isCommitting = true;
       window.electronAPI?.gitCommitAll('Auto-commit: update notes', syncDirectory || undefined)
-        .catch((err) => console.error('Auto-commit failed:', err));
+        .catch((err) => console.error('Auto-commit failed:', err))
+        .finally(() => {
+          isCommitting = false;
+        });
     }, intervalMs);
 
     return () => {
       clearInterval(intervalId);
     };
   }, [gitEnabled, enableAutoCommit, autoCommitInterval, syncDirectory]);
+
+  // Sync MCP SSE configuration to Electron
+  const mcpSseEnabled = useStore((state) => state.settings.mcpSseEnabled);
+  const mcpSsePort = useStore((state) => state.settings.mcpSsePort);
+
+  useEffect(() => {
+    if (window.electronAPI?.updateMcpSseConfig) {
+      window.electronAPI.updateMcpSseConfig({
+        enabled: !!mcpSseEnabled,
+        port: mcpSsePort ?? 3000,
+        syncDir: syncDirectory || undefined,
+      }).catch((err) => {
+        console.error('Failed to update MCP SSE config:', err);
+      });
+    }
+  }, [mcpSseEnabled, mcpSsePort, syncDirectory]);
 }

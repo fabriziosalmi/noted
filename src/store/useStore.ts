@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { marked } from 'marked';
 import type { NoteTemplate } from '../lib/templates';
 import { extractWikilinks } from '../lib/WikilinkExtension';
 import { extractTags } from '../lib/tagUtils';
@@ -60,6 +61,9 @@ export interface SettingsState {
   detectedLocalModels?: string[];
   autoCommitInterval?: number;
   enableAutoCommit?: boolean;
+  mcpSseEnabled?: boolean;
+  mcpSsePort?: number;
+  smartTagsEnabled?: boolean;
 }
 
 export interface FolderInfo {
@@ -77,6 +81,14 @@ interface NoteState {
   noteLinksIndex: Record<string, string[]>;
   tagIndex: Record<string, string[]>;
   lastOpenedNote: string | null;
+
+  // Custom Sort / Drag and Drop Reordering
+  customNotesOrder: string[];
+  customFoldersOrder: string[];
+  sortBy: 'date' | 'name' | 'size' | 'custom';
+  setCustomNotesOrder: (order: string[]) => void;
+  setCustomFoldersOrder: (order: string[]) => void;
+  setSortBy: (sortBy: 'date' | 'name' | 'size' | 'custom') => void;
 
   // Settings
   settings: SettingsState;
@@ -100,6 +112,7 @@ interface NoteState {
   renameFolder: (oldName: string, newName: string) => Promise<void>;
   deleteFolder: (name: string) => Promise<void>;
   moveNote: (fileName: string, toFolder: string) => Promise<void>;
+  wipeAllNotes: () => Promise<void>;
 }
 
 export const useStore = create<NoteState>()(
@@ -115,6 +128,13 @@ export const useStore = create<NoteState>()(
       tagIndex: {},
       noteFolders: [],
       lastOpenedNote: null,
+      customNotesOrder: [],
+      customFoldersOrder: [],
+      sortBy: 'date',
+
+      setCustomNotesOrder: (order) => set({ customNotesOrder: order }),
+      setCustomFoldersOrder: (order) => set({ customFoldersOrder: order }),
+      setSortBy: (sortBy) => set({ sortBy }),
 
       settings: {
         llmProvider: 'lmstudio',
@@ -123,7 +143,7 @@ export const useStore = create<NoteState>()(
         lmStudioUrl: 'http://localhost:1234/v1',
         syncDirectory: null,
         showToolbar: true,
-        showAiBar: true,
+        showAiBar: false,
         theme: 'auto' as const,
         accentColor: '#6366f1',
         focusMode: false,
@@ -151,6 +171,9 @@ export const useStore = create<NoteState>()(
         detectedLocalModels: [],
         autoCommitInterval: 5,
         enableAutoCommit: false,
+        mcpSseEnabled: false,
+        mcpSsePort: 3000,
+        smartTagsEnabled: false,
       },
 
       updateSettings: (newSettings) => {
@@ -220,6 +243,14 @@ export const useStore = create<NoteState>()(
     const content = initialContent ?? defaultContent;
     const res = await window.electronAPI.saveNote(fileName, content, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile creare la nota');
+
+    const currentNotesOrder = get().customNotesOrder || [];
+    const newOrder = [fileName, ...currentNotesOrder.filter(n => n !== fileName)];
+    set({
+      customNotesOrder: newOrder,
+      sortBy: 'custom',
+    });
+
     await get().openNote(fileName);
     await get().fetchNotes();
   },
@@ -228,10 +259,21 @@ export const useStore = create<NoteState>()(
     if (window.electronAPI) {
       const res = await window.electronAPI.readNote(fileName, get().settings.syncDirectory || undefined);
       if (res.success && res.data !== undefined) {
-        const links = extractWikilinks(res.data);
+        let content = res.data as string;
+        const trimmed = content.trimStart();
+        if (!trimmed.startsWith('<')) {
+          // If it has frontmatter, let's strip it before parsing Markdown
+          let markdownBody = content;
+          const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+          if (match) {
+            markdownBody = content.slice(match[0].length);
+          }
+          content = marked.parse(markdownBody, { breaks: true, gfm: true, async: false }) as string;
+        }
+        const links = extractWikilinks(content);
         set(state => ({
           activeNoteName: fileName,
-          activeNoteContent: res.data as string,
+          activeNoteContent: content,
           noteLinksIndex: { ...state.noteLinksIndex, [fileName]: links },
           lastOpenedNote: fileName,
         }));
@@ -278,6 +320,12 @@ export const useStore = create<NoteState>()(
     if (!window.electronAPI) return;
     const res = await window.electronAPI.renameNote(oldName, newName, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Rinomina fallita');
+
+    const currentNotesOrder = get().customNotesOrder || [];
+    const newNotesOrder = currentNotesOrder.map(n => n === oldName ? newName : n);
+    set({
+      customNotesOrder: newNotesOrder,
+    });
 
     // Update indices inline so backlinks render against the new name even
     // during the brief window before fetchNotes resolves.
@@ -379,10 +427,13 @@ export const useStore = create<NoteState>()(
     const res = await window.electronAPI.deleteNote(fileName, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile eliminare la nota');
     const { activeNoteName } = get();
+    
+    const currentNotesOrder = get().customNotesOrder || [];
     set(state => ({
       activeNoteName: activeNoteName === fileName ? null : state.activeNoteName,
       activeNoteContent: activeNoteName === fileName ? '' : state.activeNoteContent,
       pinnedNotes: state.pinnedNotes.filter(n => n !== fileName),
+      customNotesOrder: currentNotesOrder.filter(n => n !== fileName),
     }));
     await get().fetchNotes();
   },
@@ -391,6 +442,14 @@ export const useStore = create<NoteState>()(
     if (!window.electronAPI) return;
     const res = await window.electronAPI.createFolder(name, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile creare la cartella');
+    
+    const currentFoldersOrder = get().customFoldersOrder || [];
+    const newOrder = [name, ...currentFoldersOrder.filter(f => f !== name)];
+    set({
+      customFoldersOrder: newOrder,
+      sortBy: 'custom',
+    });
+    
     await get().fetchNotes();
   },
 
@@ -398,6 +457,23 @@ export const useStore = create<NoteState>()(
     if (!window.electronAPI) return;
     const res = await window.electronAPI.renameFolder(oldName, newName, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile rinominare la cartella');
+    
+    const currentFoldersOrder = get().customFoldersOrder || [];
+    const newFoldersOrder = currentFoldersOrder.map(f => f === oldName ? newName : f);
+    
+    const currentNotesOrder = get().customNotesOrder || [];
+    const newNotesOrder = currentNotesOrder.map(n => {
+      if (n.startsWith(`${oldName}/`)) {
+        return `${newName}/${n.slice(oldName.length + 1)}`;
+      }
+      return n;
+    });
+
+    set({
+      customFoldersOrder: newFoldersOrder,
+      customNotesOrder: newNotesOrder,
+    });
+
     const { activeNoteName } = get();
     await get().fetchNotes();
     if (activeNoteName?.startsWith(`${oldName}/`)) {
@@ -410,6 +486,14 @@ export const useStore = create<NoteState>()(
     if (!window.electronAPI) return;
     const res = await window.electronAPI.deleteFolder(name, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile eliminare la cartella');
+    
+    const currentFoldersOrder = get().customFoldersOrder || [];
+    const currentNotesOrder = get().customNotesOrder || [];
+    set({
+      customFoldersOrder: currentFoldersOrder.filter(f => f !== name),
+      customNotesOrder: currentNotesOrder.filter(n => !n.startsWith(`${name}/`)),
+    });
+
     await get().fetchNotes();
   },
 
@@ -418,9 +502,41 @@ export const useStore = create<NoteState>()(
     const res = await window.electronAPI.moveNote(fileName, toFolder, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile spostare la nota');
     const { activeNoteName } = get();
+    
+    const newPath = res.data as string;
+    if (newPath) {
+      const currentNotesOrder = get().customNotesOrder || [];
+      const newNotesOrder = currentNotesOrder.map(n => n === fileName ? newPath : n);
+      set({
+        customNotesOrder: newNotesOrder,
+      });
+    }
+
     if (activeNoteName === fileName && res.data) {
       await get().openNote(res.data);
     }
+    await get().fetchNotes();
+  },
+
+  wipeAllNotes: async () => {
+    if (!window.electronAPI) return;
+    const res = await window.electronAPI.wipeAllNotes(get().settings.syncDirectory || undefined);
+    if (!res.success) {
+      throw new Error(res.error ?? 'Impossibile cancellare tutte le note');
+    }
+    set({
+      notes: [],
+      pinnedNotes: [],
+      customTemplates: [],
+      noteLinksIndex: {},
+      tagIndex: {},
+      noteFolders: [],
+      lastOpenedNote: null,
+      customNotesOrder: [],
+      customFoldersOrder: [],
+      activeNoteName: null,
+      activeNoteContent: '',
+    });
     await get().fetchNotes();
   },
 }),
@@ -433,6 +549,9 @@ export const useStore = create<NoteState>()(
     customTemplates: state.customTemplates,
     noteLinksIndex: state.noteLinksIndex,
     lastOpenedNote: state.lastOpenedNote,
+    customNotesOrder: state.customNotesOrder,
+    customFoldersOrder: state.customFoldersOrder,
+    sortBy: state.sortBy,
   }),
   // Custom storage wrapper that handles QuotaExceededError gracefully:
   // - on quota exhaustion drop the heaviest field (noteLinksIndex) and retry

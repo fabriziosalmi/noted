@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { validateFileName, stripUnsafeHtml, formatAppleNoteToMarkdown } from './ipc-utils';
+import { validateFileName, validateFolderName, stripUnsafeHtml, formatAppleNoteToMarkdown } from './ipc-utils';
 import type TurndownService from 'turndown';
 
 describe('validateFileName', () => {
@@ -9,6 +9,19 @@ describe('validateFileName', () => {
     expect(() => validateFileName('Nuova Nota.md')).not.toThrow();
     expect(() => validateFileName('my-note_1.md')).not.toThrow();
     expect(() => validateFileName('note (copy).md')).not.toThrow();
+    expect(() => validateFileName('Café.md')).not.toThrow();
+    expect(() => validateFileName('venerdì.md')).not.toThrow();
+    expect(() => validateFileName('folder/[test] note.md')).not.toThrow();
+    expect(() => validateFileName("note's copy.md")).not.toThrow();
+    expect(() => validateFileName("note, copy.md")).not.toThrow();
+    expect(() => validateFileName("📝 Nota.md")).not.toThrow();
+    expect(() => validateFileName("Idea & Draft.md")).not.toThrow();
+    expect(() => validateFileName("Lavoro + Progetti.md")).not.toThrow();
+    expect(() => validateFileName("100% done.md")).not.toThrow();
+    expect(() => validateFileName("user@domain.md")).not.toThrow();
+    expect(() => validateFileName("tag #urgent.md")).not.toThrow();
+    expect(() => validateFileName("test~name.md")).not.toThrow();
+    expect(() => validateFileName("obj={val}.md")).not.toThrow();
   });
 
   it('rejects non-string values', () => {
@@ -82,6 +95,65 @@ describe('stripUnsafeHtml', () => {
     const input = '<SCRIPT>alert(1)</SCRIPT><p>ok</p>';
     expect(stripUnsafeHtml(input)).not.toContain('SCRIPT');
     expect(stripUnsafeHtml(input)).toContain('<p>ok</p>');
+  });
+
+  it('strips unclosed script and iframe tags', () => {
+    expect(stripUnsafeHtml('<script src="bad.js"')).toBe('');
+    expect(stripUnsafeHtml('<script src="bad.js">alert(1)')).toBe('');
+    expect(stripUnsafeHtml('<iframe src="evil.com"')).toBe('');
+  });
+
+  it('strips inline event handlers with slash separators or no whitespace', () => {
+    expect(stripUnsafeHtml('<body/onload=alert(1)>')).toBe('<body>');
+    expect(stripUnsafeHtml('<img/onerror="alert(1)">')).toBe('<img>');
+    expect(stripUnsafeHtml('<p onclick=alert(1)>Click</p>')).toBe('<p>Click</p>');
+  });
+
+  it('strips obfuscated javascript and vbscript protocols', () => {
+    expect(stripUnsafeHtml('<a href="java\tscript:alert(1)">Link</a>')).toBe('<a href="alert(1)">Link</a>');
+    expect(stripUnsafeHtml('<a href="j\na\r\x00v\tascript:alert(1)">Link</a>')).toBe('<a href="alert(1)">Link</a>');
+    expect(stripUnsafeHtml('<a href="java&Tab;script&colon;alert(1)">Link</a>')).toBe('<a href="alert(1)">Link</a>');
+    expect(stripUnsafeHtml('<a href="vb\tscript:alert(1)">Link</a>')).toBe('<a href="alert(1)">Link</a>');
+  });
+
+  it('handles recursive entity obfuscation', () => {
+    const nested = '&amp;#x3C;script&amp;#x3E;alert(1)&amp;#x3C;/script&amp;#x3E;';
+    expect(stripUnsafeHtml(nested)).toBe('');
+  });
+});
+
+describe('validateFolderName', () => {
+  it('accepts valid folder names', () => {
+    expect(() => validateFolderName('Lavoro')).not.toThrow();
+    expect(() => validateFolderName('Sprint 2026')).not.toThrow();
+    expect(() => validateFolderName('Progetti (2026)')).not.toThrow();
+    expect(() => validateFolderName('my-notes_1')).not.toThrow();
+    expect(() => validateFolderName('Café')).not.toThrow();
+    expect(() => validateFolderName('[Progetti]')).not.toThrow();
+    expect(() => validateFolderName("L'ufficio")).not.toThrow();
+    expect(() => validateFolderName("Progetti, Idee")).not.toThrow();
+    expect(() => validateFolderName("📝 Folder")).not.toThrow();
+    expect(() => validateFolderName("Folder & Co.")).not.toThrow();
+    expect(() => validateFolderName("Lavoro + Personale")).not.toThrow();
+    expect(() => validateFolderName("tag #urgent")).not.toThrow();
+  });
+
+  it('rejects invalid types and empty strings', () => {
+    expect(() => validateFolderName(null)).toThrow('Folder name must be a non-empty string');
+    expect(() => validateFolderName(undefined)).toThrow('Folder name must be a non-empty string');
+    expect(() => validateFolderName('')).toThrow('Folder name must be a non-empty string');
+    expect(() => validateFolderName('   ')).toThrow('Folder name must be a non-empty string');
+  });
+
+  it('rejects folder names with traversal or slashes', () => {
+    expect(() => validateFolderName('..')).toThrow('Invalid folder name');
+    expect(() => validateFolderName('a/b')).toThrow('Invalid folder name');
+    expect(() => validateFolderName('a\\b')).toThrow('Invalid folder name');
+  });
+
+  it('rejects invalid characters', () => {
+    expect(() => validateFolderName('Lavoro;')).toThrow('Invalid folder name');
+    expect(() => validateFolderName('Lavoro$')).toThrow('Invalid folder name');
   });
 });
 

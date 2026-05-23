@@ -38,7 +38,7 @@ function ChatBubble({ role, content }: ChatMessage) {
   if (role === 'assistant') {
     return (
       <div
-        className={`${base} ai-chat-md bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700`}
+        className={`${base} ai-chat-md bg-white/80 dark:bg-gray-800/60 border-gray-100/40 dark:border-gray-700/40`}
         dangerouslySetInnerHTML={{ __html: html ?? '' }}
       />
     );
@@ -203,7 +203,7 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
 
   return (
     <>
-      <div className="p-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
+      <div className="p-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center justify-between border-b border-gray-200/40 dark:border-gray-700/40">
         <div className="flex items-center space-x-2">
           <Bot size={14} />
           <span>{t('aiAssistant')}</span>
@@ -227,7 +227,7 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
       </div>
 
       {piiMasking && (
-        <div className="px-3 py-1.5 flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-100 dark:border-amber-800">
+        <div className="px-3 py-1.5 flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50/40 dark:bg-amber-900/15 border-b border-amber-100/40 dark:border-amber-800/40">
           <ShieldAlert size={10} />
           {t('piiMasking')}
           {piiNotice > 0 && <span className="ml-auto font-medium">{t('piiMasked').replace('{n}', String(piiNotice))}</span>}
@@ -235,7 +235,7 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
       )}
 
       {ragDebug && (
-        <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70">
+        <div className="px-3 py-2 border-b border-gray-200/40 dark:border-gray-700/40 bg-gray-50/20 dark:bg-gray-850/40">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
             RAG Debug · {lastRetrievalMode}
           </p>
@@ -260,7 +260,7 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
           <ChatBubble key={idx} role={msg.role} content={msg.content} />
         ))}
         {isLoading && (
-          <div className="p-3 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center space-x-2 text-gray-400 dark:text-gray-500 self-start">
+          <div className="p-3 rounded-lg shadow-sm border border-gray-100/40 dark:border-gray-700/40 bg-white/80 dark:bg-gray-800/60 flex items-center space-x-2 text-gray-400 dark:text-gray-500 self-start">
             <Loader2 size={14} className="animate-spin" />
             <span>{t('thinking')}</span>
           </div>
@@ -268,7 +268,7 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
         <div ref={messagesEndRef} aria-hidden="true" />
       </div>
 
-      <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+      <div className="p-3 border-t border-gray-200/40 dark:border-gray-700/40 bg-transparent">
         <input
           type="text"
           value={aiInput}
@@ -276,7 +276,7 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
           onKeyDown={handleSubmit}
           disabled={isLoading}
           placeholder={isLoading ? t('waitingResponse') : t('askSomething')}
-          className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:border-[var(--accent)] bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-500 disabled:opacity-50"
+          className="w-full p-2 border border-gray-300/40 dark:border-gray-600/40 rounded text-sm focus:outline-none focus:border-[var(--accent)] bg-white dark:bg-gray-900 dark:text-gray-200 dark:placeholder-gray-500 disabled:opacity-50"
         />
       </div>
     </>

@@ -217,8 +217,9 @@ describe('Sidebar', () => {
     fireEvent.dragStart(row, { dataTransfer });
     fireEvent.dragOver(folderHeader, { dataTransfer });
     fireEvent.drop(folderHeader, { dataTransfer });
-    await Promise.resolve();
-    expect(onMoveNote).toHaveBeenCalledWith('root.md', 'docs');
+    await waitFor(() => {
+      expect(onMoveNote).toHaveBeenCalledWith('root.md', 'docs');
+    });
   });
 
   it('renders empty state for active tag filter', () => {

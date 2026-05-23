@@ -10,7 +10,6 @@ import { GlobalSearch } from '../GlobalSearch';
 import { ToastStack } from '../Toast';
 
 export function AppModals({
-  t,
   panels,
   settings,
   notes,
@@ -33,19 +32,10 @@ export function AppModals({
   onHandleImportVault,
   onHandleCreateNote,
   onHandleOpenDaily,
+  onToast,
 }: AppModalsProps) {
   return (
     <>
-      {suggestions.length > 0 && !panels.isAdvisorOpen && activeNoteName && (
-        <button
-          onClick={panels.openAdvisor}
-          className="fixed left-4 bottom-3 z-30 inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 shadow-sm transition-colors"
-          aria-label={`${t('noteAdvisor')} — ${suggestions.length}`}
-        >
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
-          {suggestions.length} {suggestions.length === 1 ? t('suggestion') : t('suggestions')}
-        </button>
-      )}
 
       {panels.isAdvisorOpen && (
         <NoteAdvisorPanel
@@ -100,6 +90,7 @@ export function AppModals({
           onSelectFolder={() => { void onHandleSelectFolder(); }}
           onImportVault={() => { void onHandleImportVault(); }}
           onClose={panels.closeSettings}
+          onToast={onToast}
         />
       )}
 

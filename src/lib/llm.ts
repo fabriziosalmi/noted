@@ -192,8 +192,8 @@ export async function fetchAvailableModels(provider: string, lmStudioUrl: string
 }
 
 // Auto-resolve model: if llmModel is empty for local providers, fetch and use first available
-async function resolveModel(provider: string, llmModel: string, lmStudioUrl: string): Promise<string> {
-  if (llmModel.trim()) return llmModel.trim();
+async function resolveModel(provider: string, llmModel: string | undefined, lmStudioUrl: string): Promise<string> {
+  if (llmModel && typeof llmModel === 'string' && llmModel.trim()) return llmModel.trim();
   if (provider === 'lmstudio' || provider === 'ollama') {
     const models = await fetchAvailableModels(provider, lmStudioUrl);
     if (models.length > 0) return models[0];

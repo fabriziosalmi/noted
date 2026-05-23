@@ -1,4 +1,4 @@
-import { X, ShieldAlert, FolderOpen, Lightbulb, ArrowRight, Pencil, Heading } from 'lucide-react';
+import { X, ShieldAlert, FolderOpen, Lightbulb, ArrowRight, Pencil, Heading, GitMerge } from 'lucide-react';
 import { useModalStack } from '../hooks/useModalStack';
 import type { Suggestion, SuggestionSeverity, SuggestionKind, SuggestionActionKind } from '../lib/noteAdvisor';
 import { useI18n } from '../lib/i18n';
@@ -28,6 +28,7 @@ function kindIcon(kind: SuggestionKind) {
 function actionIcon(action: SuggestionActionKind) {
   if (action === 'rename') return <Pencil size={12} />;
   if (action === 'addHeadings') return <Heading size={12} />;
+  if (action === 'merge') return <GitMerge size={12} />;
   return <ArrowRight size={12} />;
 }
 
@@ -71,6 +72,7 @@ export function NoteAdvisorPanel({ suggestions, onDismiss, onDismissAll, onClose
       case 'rename': return t('advActionRename');
       case 'addHeadings': return t('advActionAddHeadings');
       case 'openFirst': return t('advActionOpenFirst');
+      case 'merge': return t('advActionMerge');
       default: return t('advActionOpen');
     }
   }

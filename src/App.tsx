@@ -159,6 +159,56 @@ function App() {
         }, 120);
         break;
       }
+      case 'merge': {
+        const listStr = (s.relatedNotes || []).map(n => n.replace(/\.md$/, '')).join(', ');
+        const targetTitle = s.noteName.replace(/\.md$/, '');
+        const confirmationMsg = t('confirmMergeNotes')
+          .replace('{list}', listStr)
+          .replace('{target}', targetTitle);
+        
+        if (window.confirm(confirmationMsg)) {
+          try {
+            const syncDir = settings.syncDirectory || undefined;
+            let mergedContent = '';
+            
+            if (window.electronAPI) {
+              const targetRes = await window.electronAPI.readNote(s.noteName, syncDir);
+              if (targetRes.success && targetRes.data !== undefined) {
+                mergedContent = targetRes.data as string;
+              } else {
+                mergedContent = activeNoteName === s.noteName ? activeNoteContent : '';
+              }
+              
+              for (const relatedNote of s.relatedNotes || []) {
+                const res = await window.electronAPI.readNote(relatedNote, syncDir);
+                if (res.success && res.data !== undefined) {
+                  const noteContent = res.data as string;
+                  const noteTitle = relatedNote.replace(/\.md$/, '');
+                  mergedContent += `\n\n<hr />\n\n<h2>Merged: ${noteTitle}</h2>\n\n${noteContent}`;
+                }
+              }
+              
+              const saveRes = await window.electronAPI.saveNote(s.noteName, mergedContent, syncDir);
+              if (!saveRes.success) {
+                throw new Error(saveRes.error || 'Failed to save merged note');
+              }
+            } else {
+              throw new Error('electronAPI is not available');
+            }
+            
+            for (const relatedNote of s.relatedNotes || []) {
+              await deleteNote(relatedNote);
+            }
+            
+            await openNote(s.noteName);
+            toast(t('notesMergedSuccess'), 'success');
+          } catch (err) {
+            console.error('Merge failed:', err);
+            toast(t('mergeNotesError'), 'error');
+          }
+        }
+        break;
+      }
     }
     dismissSuggestion(s.id);
     panels.closeAdvisor();

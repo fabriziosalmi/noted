@@ -83,9 +83,10 @@ export function GraphView({ notes, noteLinksIndex, activeNoteName, onOpenNote, a
   } | null>(null);
 
   const hexToRgb = (hex: string) => {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
+    const clean = hex.startsWith('#') ? hex.slice(1) : hex;
+    const r = parseInt(clean.slice(0, 2), 16) || 99;
+    const g = parseInt(clean.slice(2, 4), 16) || 102;
+    const b = parseInt(clean.slice(4, 6), 16) || 241;
     return { r, g, b };
   };
 
@@ -98,70 +99,231 @@ export function GraphView({ notes, noteLinksIndex, activeNoteName, onOpenNote, a
 
     const W = canvas.width, H = canvas.height;
     const isDark = document.documentElement.classList.contains('dark');
+    const isSepia = document.documentElement.classList.contains('sepia');
+    const rgb = hexToRgb(accentColor);
 
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = isDark ? '#111827' : '#f9fafb';
+    if (isDark) {
+      const bgGrad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.85);
+      bgGrad.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},0.08)`);
+      bgGrad.addColorStop(1, '#050508');
+      ctx.fillStyle = bgGrad;
+    } else if (isSepia) {
+      const bgGrad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.85);
+      bgGrad.addColorStop(0, '#fbf3e0');
+      bgGrad.addColorStop(1, '#f3e6c9');
+      ctx.fillStyle = bgGrad;
+    } else {
+      const bgGrad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.85);
+      bgGrad.addColorStop(0, '#ffffff');
+      bgGrad.addColorStop(1, '#f8f9fa');
+      ctx.fillStyle = bgGrad;
+    }
     ctx.fillRect(0, 0, W, H);
 
     ctx.save();
     ctx.translate(W / 2 + s.pan.x, H / 2 + s.pan.y);
     ctx.scale(s.zoom, s.zoom);
 
-    const nodeMap = new Map(s.nodes.map(n => [n.id, n]));
-    const rgb = hexToRgb(accentColor);
+    // Draw background grid in world coordinates
+    const left = (-W / 2 - s.pan.x) / s.zoom;
+    const right = (W / 2 - s.pan.x) / s.zoom;
+    const top = (-H / 2 - s.pan.y) / s.zoom;
+    const bottom = (H / 2 - s.pan.y) / s.zoom;
 
-    // Edges
-    ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
+    const gridSpacing = 100;
+    const startX = Math.floor(left / gridSpacing) * gridSpacing;
+    const endX = Math.ceil(right / gridSpacing) * gridSpacing;
+    const startY = Math.floor(top / gridSpacing) * gridSpacing;
+    const endY = Math.ceil(bottom / gridSpacing) * gridSpacing;
+
+    ctx.beginPath();
+    ctx.strokeStyle = isDark
+      ? 'rgba(255, 255, 255, 0.035)'
+      : isSepia
+      ? 'rgba(139, 94, 60, 0.045)'
+      : 'rgba(0, 0, 0, 0.03)';
     ctx.lineWidth = 1 / s.zoom;
+
+    for (let x = startX; x <= endX; x += gridSpacing) {
+      ctx.moveTo(x, top);
+      ctx.lineTo(x, bottom);
+    }
+    for (let y = startY; y <= endY; y += gridSpacing) {
+      ctx.moveTo(left, y);
+      ctx.lineTo(right, y);
+    }
+    ctx.stroke();
+
+    const nodeMap = new Map(s.nodes.map(n => [n.id, n]));
+
+    // Edges - Fading opacity gradients
     for (const e of s.edges) {
       const a = nodeMap.get(e.source), b = nodeMap.get(e.target);
       if (!a || !b) continue;
+
+      const isHighlighted = a.id === activeNoteName || b.id === activeNoteName || a.id === s.hovered || b.id === s.hovered;
+
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
       ctx.lineTo(b.x, b.y);
+
+      const edgeGrad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+      if (isHighlighted) {
+        const aIsKey = a.id === activeNoteName || a.id === s.hovered;
+        const bIsKey = b.id === activeNoteName || b.id === s.hovered;
+
+        if (aIsKey && bIsKey) {
+          edgeGrad.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},0.85)`);
+          edgeGrad.addColorStop(0.5, `rgba(${rgb.r},${rgb.g},${rgb.b},0.4)`);
+          edgeGrad.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0.85)`);
+        } else if (aIsKey) {
+          edgeGrad.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},0.85)`);
+          edgeGrad.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0.05)`);
+        } else {
+          edgeGrad.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},0.05)`);
+          edgeGrad.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0.85)`);
+        }
+        ctx.strokeStyle = edgeGrad;
+        ctx.lineWidth = 1.8 / s.zoom;
+      } else {
+        edgeGrad.addColorStop(0, isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(0, 0, 0, 0.14)');
+        edgeGrad.addColorStop(0.5, isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)');
+        edgeGrad.addColorStop(1, isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(0, 0, 0, 0.14)');
+        ctx.strokeStyle = edgeGrad;
+        ctx.lineWidth = 1.0 / s.zoom;
+      }
       ctx.stroke();
     }
 
-    // Nodes
+    // Nodes - Glowing radial gradients
     for (const n of s.nodes) {
       const isActive  = n.id === activeNoteName;
       const isHovered = n.id === s.hovered;
-      const r = n.radius * (isHovered ? 1.3 : 1);
+      const r = n.radius * (isHovered ? 1.35 : 1);
+
+      // Draw subtle halo rings for active or hovered nodes
+      if (isActive || isHovered) {
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r * 1.5, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.15)`;
+        ctx.lineWidth = 1.5 / s.zoom;
+        ctx.stroke();
+      }
 
       ctx.beginPath();
       ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
 
+      let fillStyle: string | CanvasGradient;
       if (isActive) {
-        ctx.fillStyle = accentColor;
+        const activeGrad = ctx.createRadialGradient(n.x, n.y, r * 0.05, n.x, n.y, r);
+        activeGrad.addColorStop(0, '#ffffff');
+        activeGrad.addColorStop(0.15, accentColor);
+        activeGrad.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0.3)`);
+        fillStyle = activeGrad;
+
         ctx.shadowColor = accentColor;
-        ctx.shadowBlur = 12 / s.zoom;
+        ctx.shadowBlur = 14 / s.zoom;
+      } else if (isHovered) {
+        const hoverGrad = ctx.createRadialGradient(n.x, n.y, r * 0.05, n.x, n.y, r);
+        hoverGrad.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},1)`);
+        hoverGrad.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0.2)`);
+        fillStyle = hoverGrad;
+
+        ctx.shadowColor = accentColor;
+        ctx.shadowBlur = 10 / s.zoom;
       } else if (n.degree > 0) {
-        ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.55)`;
+        const degGrad = ctx.createRadialGradient(n.x, n.y, r * 0.1, n.x, n.y, r);
+        degGrad.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},0.95)`);
+        degGrad.addColorStop(0.65, `rgba(${rgb.r},${rgb.g},${rgb.b},0.8)`);
+        degGrad.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0.55)`);
+        fillStyle = degGrad;
         ctx.shadowBlur = 0;
       } else {
-        ctx.fillStyle = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.18)';
+        const orphanGrad = ctx.createRadialGradient(n.x, n.y, r * 0.1, n.x, n.y, r);
+        orphanGrad.addColorStop(0, isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.35)');
+        orphanGrad.addColorStop(1, isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.15)');
+        fillStyle = orphanGrad;
         ctx.shadowBlur = 0;
       }
+
+      ctx.fillStyle = fillStyle;
       ctx.fill();
       ctx.shadowBlur = 0;
 
       if (isActive || isHovered) {
-        ctx.strokeStyle = accentColor;
-        ctx.lineWidth = 1.5 / s.zoom;
+        ctx.strokeStyle = isActive ? '#ffffff' : accentColor;
+        ctx.lineWidth = (isActive ? 1.5 : 1.0) / s.zoom;
         ctx.stroke();
       }
     }
 
-    // Labels for hovered / active / high-degree nodes
+    // Labels for hovered / active / high-degree nodes - Translucent backing bubbles
     ctx.textAlign = 'center';
-    const LABEL_THRESHOLD = Math.max(2, s.nodes.length > 80 ? 3 : 1);
+    ctx.textBaseline = 'middle';
+    
+    // Determine visibility threshold based on zoom level:
+    // - Zoomed in (zoom > 1.2): show labels for all connected nodes (degree >= 1)
+    // - Medium zoom (zoom > 0.75): show labels for nodes with degree >= 2
+    // - Zoomed out (zoom <= 0.75): only show labels for highly connected nodes (degree >= 3)
+    const threshold = s.zoom > 1.2 ? 1 : s.zoom > 0.75 ? 2 : 3;
+
     for (const n of s.nodes) {
-      const show = n.id === s.hovered || n.id === activeNoteName || (n.degree >= LABEL_THRESHOLD && s.zoom > 0.6);
+      const isKey = n.id === s.hovered || n.id === activeNoteName;
+      const show = isKey || (n.degree >= threshold && s.zoom > 0.55);
       if (!show) continue;
+
+      // Compute dynamic opacity based on zoom and degree:
+      // Active and hovered nodes are always fully visible.
+      // Other nodes fade out smoothly as zoom decreases.
+      let labelOpacity = 1.0;
+      if (!isKey) {
+        if (n.degree < 2) {
+          labelOpacity = Math.max(0, Math.min(0.75, (s.zoom - 0.85) * 2));
+        } else {
+          labelOpacity = Math.max(0.2, Math.min(0.85, (s.zoom - 0.45) * 1.5));
+        }
+      }
+
+      if (labelOpacity <= 0.08) continue;
+      
       const fontSize = Math.max(9, Math.min(13, 11 / s.zoom));
       ctx.font = `${n.id === activeNoteName ? '600' : '400'} ${fontSize}px system-ui, sans-serif`;
-      ctx.fillStyle = isDark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.75)';
-      ctx.fillText(n.label, n.x, n.y + n.radius + fontSize + 2 / s.zoom);
+      
+      const textWidth = ctx.measureText(n.label).width;
+      const textX = n.x;
+      const textY = n.y + n.radius + fontSize + 9 / s.zoom;
+
+      const paddingX = 8 / s.zoom;
+      const paddingY = 4 / s.zoom;
+      const pillW = textWidth + paddingX * 2;
+      const pillH = fontSize + paddingY * 2;
+      const pillX = textX - pillW / 2;
+      const pillY = textY - fontSize / 2 - paddingY - 0.5 / s.zoom;
+      const pillR = pillH / 2;
+
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(pillX, pillY, pillW, pillH, pillR);
+      } else {
+        ctx.rect(pillX, pillY, pillW, pillH);
+      }
+
+      ctx.fillStyle = isDark
+        ? `rgba(10, 10, 12, ${0.80 * labelOpacity})`
+        : `rgba(255, 255, 255, ${0.85 * labelOpacity})`;
+      ctx.fill();
+
+      ctx.strokeStyle = n.id === activeNoteName
+        ? `rgba(${rgb.r},${rgb.g},${rgb.b},${0.5 * labelOpacity})`
+        : (isDark ? `rgba(255, 255, 255, ${0.12 * labelOpacity})` : `rgba(0, 0, 0, ${0.08 * labelOpacity})`);
+      ctx.lineWidth = 1 / s.zoom;
+      ctx.stroke();
+
+      ctx.fillStyle = n.id === activeNoteName
+        ? (isDark ? `rgba(255, 255, 255, ${labelOpacity})` : `rgba(0, 0, 0, ${labelOpacity})`)
+        : (isDark ? `rgba(255, 255, 255, ${0.85 * labelOpacity})` : `rgba(0, 0, 0, ${0.8 * labelOpacity})`);
+      ctx.fillText(n.label, textX, textY);
     }
 
     ctx.restore();

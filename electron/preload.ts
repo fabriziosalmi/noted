@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readNote: (fileName: string, syncDir?: string) => ipcRenderer.invoke('read-note', fileName, syncDir),
   saveNote: (fileName: string, content: string, syncDir?: string) => ipcRenderer.invoke('save-note', fileName, content, syncDir),
   deleteNote: (fileName: string, syncDir?: string) => ipcRenderer.invoke('delete-note', fileName, syncDir),
+  wipeAllNotes: (syncDir?: string) => ipcRenderer.invoke('wipe-all-notes', syncDir),
   selectSyncFolder: () => ipcRenderer.invoke('select-sync-folder'),
   exportPdf: (htmlContent: string) => ipcRenderer.invoke('export-pdf', htmlContent),
   printNote: (htmlContent: string, title?: string) => ipcRenderer.invoke('print-note', htmlContent, title),
@@ -20,8 +21,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeCapture: () => ipcRenderer.invoke('close-capture'),
   onRefreshNotes: (cb: () => void) => ipcRenderer.on('refresh-notes', cb),
   getNativeTheme: () => ipcRenderer.invoke('get-native-theme') as Promise<{ isDark: boolean }>,
-  onNativeThemeUpdated: (cb: (theme: 'dark' | 'light') => void) =>
-    ipcRenderer.on('native-theme-updated', (_e, theme: 'dark' | 'light') => cb(theme)),
+  onNativeThemeUpdated: (cb: (theme: 'dark' | 'light') => void) => {
+    const listener = (_e: unknown, theme: 'dark' | 'light') => cb(theme);
+    ipcRenderer.on('native-theme-updated', listener);
+    return () => {
+      ipcRenderer.removeListener('native-theme-updated', listener);
+    };
+  },
   exportHtml: (htmlContent: string, title: string) => ipcRenderer.invoke('export-html', htmlContent, title),
   exportDocx: (htmlContent: string, title: string) => ipcRenderer.invoke('export-docx', htmlContent, title),
   importVault: (targetDir?: string) => ipcRenderer.invoke('import-vault', targetDir),
@@ -54,4 +60,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   searchNotesFulltext: (query: string, syncDir?: string) => ipcRenderer.invoke('search-notes-fulltext', query, syncDir),
   setupClaudeMcp: () => ipcRenderer.invoke('setup-claude-mcp'),
   importAppleNotes: (targetDir?: string) => ipcRenderer.invoke('import-apple-notes', targetDir),
+  updateMcpSseConfig: (config: { enabled: boolean; port: number; syncDir?: string }) =>
+    ipcRenderer.invoke('update-mcp-sse-config', config),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
 });

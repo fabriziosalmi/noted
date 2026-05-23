@@ -1,7 +1,8 @@
 import { app, BrowserWindow, ipcMain, dialog, safeStorage, globalShortcut, nativeTheme, protocol, shell } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
-import { exec } from 'node:child_process';
+import { exec, spawn } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import TurndownService from 'turndown';
 import { validateFileName, validateFolderName, stripUnsafeHtml, formatAppleNoteToMarkdown } from './ipc-utils.js';
 import * as gitOps from './git-ops.js';
@@ -126,11 +127,6 @@ function createWindow() {
     },
   });
 
-  // Forward native theme changes to renderer
-  nativeTheme.on('updated', () => {
-    win?.webContents.send('native-theme-updated', nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
-  });
-
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL);
   } else {
@@ -138,6 +134,13 @@ function createWindow() {
     win.loadURL('app://./index.html');
   }
 }
+
+// Forward native theme changes to renderer
+nativeTheme.on('updated', () => {
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('native-theme-updated', nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
+  }
+});
 
 // ==========================================
 // Quick Capture window
@@ -253,27 +256,119 @@ app.whenReady().then(() => {
 });
 
 app.on('will-quit', () => {
+  stopMcpSseServer();
   globalShortcut.unregisterAll();
 });
 
 // Example IPC handler for the magical stuff
 ipcMain.handle('ping', () => 'pong');
+ipcMain.handle('get-app-version', () => app.getVersion());
+
+function getMcpServerPathInternal(): string {
+  let candidate = path.join(__dirname, '..', 'dist-mcp', 'index.cjs');
+  const asarSeg = `${path.sep}app.asar${path.sep}`;
+  if (app.isPackaged && candidate.includes(asarSeg)) {
+    candidate = candidate.replace(asarSeg, `${path.sep}app.asar.unpacked${path.sep}`);
+  }
+  return candidate;
+}
+
+let mcpSseChild: ChildProcess | null = null;
+let currentMcpPort: number | null = null;
+let currentMcpSyncDir: string | null = null;
+
+/* eslint-disable no-console */
+function stopMcpSseServer() {
+  if (mcpSseChild) {
+    console.log('[main] stopping MCP SSE Server child process...');
+    mcpSseChild.kill('SIGTERM');
+    mcpSseChild = null;
+    currentMcpPort = null;
+    currentMcpSyncDir = null;
+  }
+}
+
+function startMcpSseServer(port: number, syncDir?: string) {
+  stopMcpSseServer();
+
+  const mcpPath = getMcpServerPathInternal();
+  if (!fs.existsSync(mcpPath)) {
+    console.error(`[main] MCP server binary not found at ${mcpPath}`);
+    return;
+  }
+
+  const targetDir = getTargetDir(syncDir);
+  console.log(`[main] starting MCP SSE Server on port ${port} with notes-dir ${targetDir}`);
+
+  try {
+    mcpSseChild = spawn('node', [
+      mcpPath,
+      '--transport',
+      'sse',
+      '--port',
+      String(port),
+      '--notes-dir',
+      targetDir
+    ], {
+      env: { ...process.env },
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    currentMcpPort = port;
+    currentMcpSyncDir = targetDir;
+
+    mcpSseChild.stdout?.on('data', (data) => {
+      console.log(`[noted-mcp-out] ${data.toString().trim()}`);
+    });
+
+    mcpSseChild.stderr?.on('data', (data) => {
+      console.error(`[noted-mcp-err] ${data.toString().trim()}`);
+    });
+
+    mcpSseChild.on('close', (code) => {
+      console.log(`[main] MCP SSE Server exited with code ${code}`);
+      if (mcpSseChild) {
+        mcpSseChild = null;
+      }
+    });
+
+    mcpSseChild.on('error', (err) => {
+      console.error('[main] MCP SSE Server spawn error:', err);
+    });
+  } catch (err) {
+    console.error('[main] failed to spawn MCP SSE Server:', err);
+  }
+}
+/* eslint-enable no-console */
 
 // MCP server location — resolved relative to dist-electron/main.cjs so it works
 // both in dev (cloned repo) and in packaged builds that ship dist-mcp/.
 // Used by Settings → MCP tab to populate accurate copy-paste client configs.
 ipcMain.handle('get-mcp-server-path', () => {
-  let candidate = path.join(__dirname, '..', 'dist-mcp', 'index.cjs');
-  // When packaged, dist-mcp is bundled inside app.asar but marked asarUnpack in
-  // electron-builder so it lives on disk at app.asar.unpacked. External clients
-  // (Claude Code, Codex, …) cannot read asar paths — they must spawn the
-  // unpacked copy. Rewrite the path so the value we hand to the renderer is
-  // the one a separate `node` process can actually execute.
-  const asarSeg = `${path.sep}app.asar${path.sep}`;
-  if (app.isPackaged && candidate.includes(asarSeg)) {
-    candidate = candidate.replace(asarSeg, `${path.sep}app.asar.unpacked${path.sep}`);
-  }
+  const candidate = getMcpServerPathInternal();
   return { path: candidate, exists: fs.existsSync(candidate) };
+});
+
+ipcMain.handle('update-mcp-sse-config', (_, config: { enabled: boolean; port: number; syncDir?: string }) => {
+  try {
+    const { enabled, port, syncDir } = config;
+    const targetDir = getTargetDir(syncDir);
+
+    if (!enabled) {
+      stopMcpSseServer();
+      return { success: true };
+    }
+
+    if (mcpSseChild && currentMcpPort === port && currentMcpSyncDir === targetDir) {
+      return { success: true };
+    }
+
+    startMcpSseServer(port, syncDir);
+    return { success: true };
+  } catch (err) {
+    console.error('[main] update-mcp-sse-config failed:', err);
+    return { success: false, error: (err as Error).message };
+  }
 });
 
 ipcMain.handle('reveal-in-finder', (_, fsPath: string) => {
@@ -283,18 +378,32 @@ ipcMain.handle('reveal-in-finder', (_, fsPath: string) => {
 });
 
 // FS IPC Handlers
-ipcMain.handle('get-notes-list', (_, syncDir?: string) => {
+ipcMain.handle('get-notes-list', async (_, syncDir?: string) => {
   try {
     if (syncDir !== undefined && typeof syncDir !== 'string') throw new Error('syncDir must be a string');
     const targetDir = getTargetDir(syncDir);
-    const files = fs.readdirSync(targetDir)
-      .filter(f => f.endsWith('.md'))
-      .map(f => ({
-        name: f,
-        path: path.join(targetDir, f),
-        stats: fs.statSync(path.join(targetDir, f))
-      }))
-      .sort((a, b) => b.stats.mtimeMs - a.stats.mtimeMs); // Sort by modified time
+    const filenames = await fs.promises.readdir(targetDir);
+    const files: { name: string; path: string; stats: fs.Stats }[] = [];
+    for (const f of filenames) {
+      if (!f.endsWith('.md')) continue;
+      try {
+        validateFileName(f);
+      } catch {
+        continue;
+      }
+      try {
+        const p = path.join(targetDir, f);
+        const stat = await fs.promises.stat(p);
+        files.push({
+          name: f,
+          path: p,
+          stats: stat
+        });
+      } catch {
+        // Skip unreadable entries and continue
+      }
+    }
+    files.sort((a, b) => b.stats.mtimeMs - a.stats.mtimeMs); // Sort by modified time
     return { success: true, data: files };
   } catch (error: unknown) {
     const err = error as Error;
@@ -302,12 +411,12 @@ ipcMain.handle('get-notes-list', (_, syncDir?: string) => {
   }
 });
 
-ipcMain.handle('read-note', (_, fileName: string, syncDir?: string) => {
+ipcMain.handle('read-note', async (_, fileName: string, syncDir?: string) => {
   try {
     validateFileName(fileName);
     const targetDir = getTargetDir(syncDir);
     const filePath = safeResolve(targetDir, fileName);
-    const content = fs.readFileSync(filePath, 'utf-8');
+    const content = await fs.promises.readFile(filePath, 'utf-8');
     return { success: true, data: content };
   } catch (error: unknown) {
     const err = error as Error;
@@ -442,6 +551,39 @@ ipcMain.handle('delete-note', (_, fileName: string, syncDir?: string) => {
     const targetDir = getTargetDir(syncDir);
     const filePath = safeResolve(targetDir, fileName);
     fs.unlinkSync(filePath);
+    return { success: true };
+  } catch (error: unknown) {
+    const err = error as Error;
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('wipe-all-notes', (_, syncDir?: string) => {
+  try {
+    if (syncDir !== undefined && typeof syncDir !== 'string') throw new Error('syncDir must be a string');
+    const targetDir = getTargetDir(syncDir);
+    
+    // Delete all note files (.md) and subfolders (directories that don't start with '.')
+    const entries = fs.readdirSync(targetDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      const fullPath = path.join(targetDir, entry.name);
+      if (entry.isDirectory()) {
+        fs.rmSync(fullPath, { recursive: true, force: true });
+      } else {
+        const ext = path.extname(entry.name).toLowerCase();
+        if (ext === '.md' || ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.pdf'].includes(ext)) {
+          fs.unlinkSync(fullPath);
+        }
+      }
+    }
+
+    // Delete the history folder if it exists
+    const histDir = path.join(targetDir, '.noted_history');
+    if (fs.existsSync(histDir)) {
+      fs.rmSync(histDir, { recursive: true, force: true });
+    }
+
     return { success: true };
   } catch (error: unknown) {
     const err = error as Error;
@@ -681,7 +823,11 @@ function importVaultRecursive(srcRoot: string, srcDir: string, destRoot: string)
         destPath = path.join(destRoot, entry.name);
       } else {
         // Flatten folder structure to 1-level of folder (e.g. "Folder-Subfolder")
-        const flattenedFolder = dirName.replace(/[/\\]/g, '-').replace(/[^\w\- .()]/g, '');
+        const flattenedFolder = dirName
+          .replace(/[/\\]/g, '-')
+          // eslint-disable-next-line no-control-regex
+          .replace(/[\x00-\x1F\x7F\\/:*?"<>|;`$]/g, '')
+          .trim();
         const folderPath = path.join(destRoot, flattenedFolder);
         if (!fs.existsSync(folderPath)) {
           fs.mkdirSync(folderPath, { recursive: true });
@@ -805,16 +951,154 @@ ipcMain.handle('import-apple-notes', async (_, targetDir?: string) => {
             modificationDate: string | null;
           }[];
 
+          /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/prefer-for-of */
           const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
+
+          // Add span rule to format rich text styles (bold, italic, strikethrough, underline)
+          turndown.addRule('span', {
+            filter: 'span',
+            replacement: function (content, node: any) {
+              let result = content;
+              const style = node.getAttribute('style') || '';
+              
+              // Bold
+              if (style.includes('font-weight: bold') || style.includes('font-weight:bold') || style.includes('font-weight: 700') || style.includes('font-weight:700')) {
+                result = '**' + result + '**';
+              }
+              // Italic
+              if (style.includes('font-style: italic') || style.includes('font-style:italic')) {
+                result = '*' + result + '*';
+              }
+              // Strikethrough
+              if (style.includes('text-decoration: line-through') || style.includes('text-decoration:line-through')) {
+                result = '~~' + result + '~~';
+              }
+              // Underline
+              if (style.includes('text-decoration: underline') || style.includes('text-decoration:underline')) {
+                result = '<u>' + result + '</u>';
+              }
+              
+              return result;
+            }
+          });
+
+          // Add div rule to handle single line breaks instead of double newlines
+          turndown.addRule('div', {
+            filter: 'div',
+            replacement: function (content, node: any) {
+              // Avoid adding extra linebreaks inside list items, pre, code, blockquotes
+              let parent = node.parentNode;
+              while (parent) {
+                const tag = parent.nodeName?.toLowerCase();
+                if (tag === 'li' || tag === 'pre' || tag === 'code' || tag === 'blockquote') {
+                  return content;
+                }
+                parent = parent.parentNode;
+              }
+              return '\n' + content + '\n';
+            }
+          });
+
+          // Add table rules to support Markdown table imports
+          turndown.addRule('table', {
+            filter: 'table',
+            replacement: function (content) {
+              const cleanContent = content.split('\n').filter((line: string) => line.trim() !== '').join('\n');
+              return '\n\n' + cleanContent + '\n\n';
+            }
+          });
+
+          turndown.addRule('thead-tbody-tfoot', {
+            filter: ['thead', 'tbody', 'tfoot'],
+            replacement: function (content) {
+              return content;
+            }
+          });
+
+          turndown.addRule('tr', {
+            filter: 'tr',
+            replacement: function (content, node: any) {
+              let tableNode = node;
+              while (tableNode && tableNode.nodeName?.toUpperCase() !== 'TABLE') {
+                tableNode = tableNode.parentNode;
+              }
+              
+              function getTrElements(element: any) {
+                const trs: any[] = [];
+                function traverse(n: any) {
+                  if (n.nodeName?.toUpperCase() === 'TR') {
+                    trs.push(n);
+                  } else if (n.childNodes) {
+                    for (let i = 0; i < n.childNodes.length; i++) {
+                      traverse(n.childNodes[i]);
+                    }
+                  }
+                }
+                traverse(element);
+                return trs;
+              }
+              
+              function hasThDirectChild(trNode: any) {
+                if (!trNode.childNodes) return false;
+                for (let i = 0; i < trNode.childNodes.length; i++) {
+                  if (trNode.childNodes[i].nodeName?.toUpperCase() === 'TH') {
+                    return true;
+                  }
+                }
+                return false;
+              }
+              
+              function getCellCount(trNode: any) {
+                let count = 0;
+                if (!trNode.childNodes) return 0;
+                for (let i = 0; i < trNode.childNodes.length; i++) {
+                  const name = trNode.childNodes[i].nodeName?.toUpperCase();
+                  if (name === 'TH' || name === 'TD') {
+                    count++;
+                  }
+                }
+                return count;
+              }
+
+              const allRows = tableNode ? getTrElements(tableNode) : [];
+              const isFirstRow = allRows[0] === node;
+              const hasTh = hasThDirectChild(node);
+              const isHeader = hasTh || (isFirstRow && !hasTh);
+
+              let separator = '';
+              if (isHeader) {
+                const cellCount = getCellCount(node);
+                separator = '\n|' + Array(cellCount).fill(' --- ').join('|') + '|';
+              }
+              return '\n|' + content + separator;
+            }
+          });
+
+          turndown.addRule('td-or-th', {
+            filter: ['td', 'th'],
+            replacement: function (content) {
+              const cleanContent = content.trim().replace(/\n/g, ' ').replace(/\|/g, '\\|');
+              return ' ' + cleanContent + ' |';
+            }
+          });
+
           let imported = 0;
 
           for (const note of rawNotes) {
-            // Clean up the note title for file name
-            let fileName = note.title.replace(/[\\?%*:|"<>]/g, '-').replace(/\//g, '-').trim();
+            // Clean up the note title for file name (aligning with validateFileName character set)
+            let fileName = note.title
+              .replace(/[\\/:*?"<>|;`$]/g, '-')
+              // eslint-disable-next-line no-control-regex
+              .replace(/[\x00-\x1F\x7F]/g, '')
+              .trim();
             if (!fileName) fileName = 'Untitled Note';
             
-            // Keep folder structure (1-level limit in Noted)
-            const folderName = note.folder.replace(/[\\?%*:|"<>]/g, '-').replace(/\//g, '-').replace(/[^\w\- .()]/g, '').trim();
+            // Keep folder structure (1-level limit in Noted, aligning with validateFolderName character set)
+            const folderName = note.folder
+              .replace(/[\\/:*?"<>|;`$]/g, '-')
+              // eslint-disable-next-line no-control-regex
+              .replace(/[\x00-\x1F\x7F]/g, '')
+              .trim();
             
             let destPath = '';
             if (folderName && folderName !== 'Notes') {
@@ -850,6 +1134,7 @@ ipcMain.handle('import-apple-notes', async (_, targetDir?: string) => {
             fs.writeFileSync(finalDestPath, fm, 'utf-8');
             imported++;
           }
+          /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/prefer-for-of */
 
           resolve({ success: true, data: imported });
         } catch (err) {
@@ -893,37 +1178,77 @@ ipcMain.handle('export-docx', async (_, htmlContent: string, noteTitle: string) 
 
 // ─── Multi-folder / notebooks ─────────────────────────────────────────────────
 
-function scanNotesTree(targetDir: string) {
-  const rootNotes: object[] = [];
-  const folders: { name: string; notes: object[] }[] = [];
+async function scanNotesTree(targetDir: string) {
+  const rootNotes: any[] = [];
+  const folders: { name: string; notes: any[] }[] = [];
 
-  const entries = fs.readdirSync(targetDir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (entry.name.startsWith('.')) continue;
+  const entries = await fs.promises.readdir(targetDir, { withFileTypes: true });
+  
+  const results = await Promise.all(entries.map(async (entry) => {
+    if (entry.name.startsWith('.')) return null;
     if (entry.isDirectory()) {
       const folderPath = path.join(targetDir, entry.name);
-      const folderNotes = fs.readdirSync(folderPath)
-        .filter(f => f.endsWith('.md'))
-        .map(f => {
-          const p = path.join(folderPath, f);
-          return { name: `${entry.name}/${f}`, path: p, stats: fs.statSync(p) };
-        })
-        .sort((a, b) => b.stats.mtimeMs - a.stats.mtimeMs);
-      folders.push({ name: entry.name, notes: folderNotes });
+      try {
+        const files = await fs.promises.readdir(folderPath);
+        const mdFiles = files.filter(f => f.endsWith('.md'));
+        const folderNotes: any[] = [];
+        for (const f of mdFiles) {
+          const relName = `${entry.name}/${f}`;
+          try {
+            validateFileName(relName);
+          } catch {
+            continue;
+          }
+          try {
+            const p = path.join(folderPath, f);
+            const stat = await fs.promises.stat(p);
+            folderNotes.push({ name: relName, path: p, stats: stat });
+          } catch {
+            // Skip unreadable entries and continue
+          }
+        }
+        
+        folderNotes.sort((a, b) => b.stats.mtimeMs - a.stats.mtimeMs);
+        return { type: 'folder', name: entry.name, notes: folderNotes };
+      } catch {
+        return null;
+      }
     } else if (entry.name.endsWith('.md')) {
+      try {
+        validateFileName(entry.name);
+      } catch {
+        return null;
+      }
       const p = path.join(targetDir, entry.name);
-      rootNotes.push({ name: entry.name, path: p, stats: fs.statSync(p) });
+      try {
+        const stat = await fs.promises.stat(p);
+        return { type: 'rootNote', name: entry.name, path: p, stats: stat };
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }));
+
+  for (const res of results) {
+    if (!res) continue;
+    if (res.type === 'folder') {
+      folders.push({ name: res.name, notes: res.notes });
+    } else if (res.type === 'rootNote') {
+      rootNotes.push({ name: res.name, path: res.path, stats: res.stats });
     }
   }
-  rootNotes.sort((a: { stats: { mtimeMs: number } }, b: { stats: { mtimeMs: number } }) => b.stats.mtimeMs - a.stats.mtimeMs);
+
+  rootNotes.sort((a: any, b: any) => b.stats.mtimeMs - a.stats.mtimeMs);
   return { rootNotes, folders };
 }
 
-ipcMain.handle('get-notes-tree', (_, syncDir?: string) => {
+ipcMain.handle('get-notes-tree', async (_, syncDir?: string) => {
   try {
     if (syncDir !== undefined && typeof syncDir !== 'string') throw new Error('syncDir must be a string');
     const targetDir = getTargetDir(syncDir);
-    return { success: true, data: scanNotesTree(targetDir) };
+    const data = await scanNotesTree(targetDir);
+    return { success: true, data };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -1286,7 +1611,7 @@ ipcMain.handle('search-notes-fulltext', (_, query: string, syncDir?: string) => 
 
   // Collect all .md files (root + one level of subfolders). Bail out early
   // once we hit FT_MAX_FILES so a 50k-note vault doesn't blow up the renderer.
-  const mdFiles: { filePath: string; relPath: string; size: number }[] = [];
+  const mdFiles: { filePath: string; relPath: string; size: number; mtimeMs: number }[] = [];
   let truncated = false;
   try {
     outer: for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -1295,18 +1620,20 @@ ipcMain.handle('search-notes-fulltext', (_, query: string, syncDir?: string) => 
         for (const f of fs.readdirSync(sub, { withFileTypes: true })) {
           if (!f.isDirectory() && f.name.endsWith('.md')) {
             try {
+              validateFileName(`${entry.name}/${f.name}`);
               const fp = path.join(sub, f.name);
-              const size = fs.statSync(fp).size;
-              mdFiles.push({ filePath: fp, relPath: `${entry.name}/${f.name}`, size });
+              const stat = fs.statSync(fp);
+              mdFiles.push({ filePath: fp, relPath: `${entry.name}/${f.name}`, size: stat.size, mtimeMs: stat.mtimeMs });
             } catch { /* skip unreadable */ }
             if (mdFiles.length >= FT_MAX_FILES) { truncated = true; break outer; }
           }
         }
       } else if (!entry.isDirectory() && entry.name.endsWith('.md')) {
         try {
+          validateFileName(entry.name);
           const fp = path.join(dir, entry.name);
-          const size = fs.statSync(fp).size;
-          mdFiles.push({ filePath: fp, relPath: entry.name, size });
+          const stat = fs.statSync(fp);
+          mdFiles.push({ filePath: fp, relPath: entry.name, size: stat.size, mtimeMs: stat.mtimeMs });
         } catch { /* skip unreadable */ }
         if (mdFiles.length >= FT_MAX_FILES) { truncated = true; break outer; }
       }
@@ -1315,10 +1642,8 @@ ipcMain.handle('search-notes-fulltext', (_, query: string, syncDir?: string) => 
 
   // Prefer recent and smaller files: searching them first means a query that
   // hits the soft byte cap still returns useful results from the working set.
-  mdFiles.sort((a, b) => {
-    try { return fs.statSync(b.filePath).mtimeMs - fs.statSync(a.filePath).mtimeMs; }
-    catch { return 0; }
-  });
+  // In-memory mtimeMs sorting avoids thousands of slow synchronous disk stats.
+  mdFiles.sort((a, b) => b.mtimeMs - a.mtimeMs);
 
   const results: FtSearchResult[] = [];
   let bytesRead = 0;

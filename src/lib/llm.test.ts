@@ -82,6 +82,30 @@ describe('llm API client', () => {
     expect(describeLlmError(new AbortedError(), 'en')).toContain('Request cancelled');
     expect(describeLlmError(new LlmHttpError(429, 'limit'), 'en')).toContain('Rate limit');
     expect(describeLlmError(new LlmHttpError(401, 'auth'), 'it')).toContain('API key');
+
+    // status 503
+    expect(describeLlmError(new LlmHttpError(503, 'service unavailable'), 'it')).toContain('temporaneamente non disponibile');
+    expect(describeLlmError(new LlmHttpError(503, 'service unavailable'), 'en')).toContain('temporarily unavailable');
+
+    // status 0
+    expect(describeLlmError(new LlmHttpError(0, ''), 'it')).toContain('Impossibile raggiungere');
+    expect(describeLlmError(new LlmHttpError(0, ''), 'en')).toContain('Cannot reach the AI provider');
+
+    // other http status
+    expect(describeLlmError(new LlmHttpError(400, 'forbidden'), 'en')).toContain('HTTP 400: forbidden');
+
+    // timeout errors
+    expect(describeLlmError(new Error('timeout request'), 'it')).toContain('Timeout: il provider AI');
+    expect(describeLlmError(new Error('timeout request'), 'en')).toContain('Timeout: the AI provider');
+    expect(describeLlmError(new Error('Richiesta scaduta'), 'it')).toContain('Timeout: il provider AI');
+
+    // network errors
+    expect(describeLlmError(new Error('fetch failed'), 'it')).toContain('Errore di rete');
+    expect(describeLlmError(new Error('ECONNREFUSED'), 'en')).toContain('Network error');
+
+    // other error
+    expect(describeLlmError(new Error('something else'), 'en')).toBe('something else');
+    expect(describeLlmError('string error', 'en')).toBe('string error');
   });
 
   it('should discover models from LM Studio and Ollama', async () => {
@@ -150,7 +174,20 @@ describe('llm API client', () => {
       mockFetchOk({ candidates: [{ content: { parts: [{ text: 'Gemini OK' }] } }] })
     );
 
-    await expect(askLLM([{ role: 'user', content: 'hi' }])).resolves.toBe('Gemini OK');
+    const res = await askLLM([
+      { role: 'system', content: 'be prompt' },
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: 'hello' },
+    ]);
+    expect(res).toBe('Gemini OK');
+
+    const lastCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.at(-1);
+    const body = JSON.parse(lastCall?.[1]?.body as string);
+    expect(body.systemInstruction).toEqual({ parts: [{ text: 'be prompt' }] });
+    expect(body.contents).toEqual([
+      { role: 'user', parts: [{ text: 'hi' }] },
+      { role: 'model', parts: [{ text: 'hello' }] },
+    ]);
   });
 
   it('should keep AbortedError unwrapped', async () => {
@@ -259,5 +296,190 @@ describe('llm API client', () => {
     });
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockFetchOk({ choices: [] }));
     await expect(askLLM([{ role: 'user', content: 'x' }])).rejects.toThrow('Errore LLM: LM Studio: risposta vuota o non valida');
+  });
+
+  it('should throw unsupported provider error', async () => {
+    useStore.setState({
+      settings: { llmProvider: 'unsupported-provider' } as any
+    });
+    await expect(askLLM([{ role: 'user', content: 'hello' }]))
+      .rejects.toThrow('Errore LLM: Provider non supportato');
+  });
+
+  it('should fallback to user role for system-only messages when system role is not supported', async () => {
+    useStore.setState({
+      settings: {
+        llmProvider: 'openrouter',
+        llmApiKey: 'k',
+        llmModel: 'google/gemma-2-9b-it',
+        lmStudioUrl: '',
+      } as any
+    });
+
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      mockFetchOk({ choices: [{ message: { content: 'OpenRouter OK' } }] })
+    );
+
+    const res = await askLLM([
+      { role: 'system', content: 'system only instruction' },
+    ]);
+
+    const lastCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.at(-1);
+    const body = JSON.parse(lastCall?.[1]?.body as string) as { messages: { role: string; content: string }[] };
+    expect(body.messages).toHaveLength(1);
+    expect(body.messages[0].role).toBe('user');
+    expect(body.messages[0].content).toBe('system only instruction');
+    expect(res).toBe('OpenRouter OK');
+  });
+
+  it('should successfully query LM Studio and parse the response', async () => {
+    useStore.setState({
+      settings: {
+        llmProvider: 'lmstudio',
+        llmApiKey: '',
+        llmModel: 'local',
+        lmStudioUrl: 'http://localhost:1234/v1',
+      } as any
+    });
+
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      mockFetchOk({ choices: [{ message: { content: 'LM Studio Response' } }] })
+    );
+
+    const res = await askLLM([{ role: 'user', content: 'hello' }]);
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      'http://localhost:1234/v1/chat/completions',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+        }),
+      })
+    );
+    expect(res).toBe('LM Studio Response');
+  });
+
+  it('should use browser fetch path if electronAPI.llmFetch is not defined', async () => {
+    const originalLlmFetch = window.electronAPI.llmFetch;
+    delete (window.electronAPI as any).llmFetch;
+
+    useStore.setState({
+      settings: { llmProvider: 'openai', llmApiKey: 'test-key', llmModel: 'gpt-4o', lmStudioUrl: '', syncDirectory: null, showToolbar: true, showAiBar: true, theme: 'auto' as const, focusMode: false, editorFont: 'system' as const, editorFontSize: 'md' as const, typewriterMode: false, accentColor: '#6366f1' }
+    });
+
+    // 1. Without signal
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      mockFetchOk({ choices: [{ message: { content: 'Browser Fetch OK' } }] })
+    );
+
+    let res = await askLLM([{ role: 'user', content: 'hello' }]);
+    expect(res).toBe('Browser Fetch OK');
+
+    // 2. With signal
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      mockFetchOk({ choices: [{ message: { content: 'Browser Fetch with Signal OK' } }] })
+    );
+
+    const controller = new AbortController();
+    res = await askLLM([{ role: 'user', content: 'hello' }], { signal: controller.signal });
+    expect(res).toBe('Browser Fetch with Signal OK');
+
+    window.electronAPI.llmFetch = originalLlmFetch;
+  });
+
+  it('should handle fetchAvailableModels failure gracefully and return empty array', async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('Network Error'));
+    const models = await fetchAvailableModels('lmstudio', 'http://localhost:1234/v1');
+    expect(models).toEqual([]);
+  });
+
+  it('should resolve first available model if llmModel is empty for local providers', async () => {
+    useStore.setState({
+      settings: {
+        llmProvider: 'lmstudio',
+        llmApiKey: '',
+        llmModel: '', // empty
+        lmStudioUrl: 'http://localhost:1234/v1',
+      } as any
+    });
+
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      mockFetchOk({ data: [{ id: 'resolved-lm-studio-model' }] })
+    );
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      mockFetchOk({ choices: [{ message: { content: 'Studio Response' } }] })
+    );
+
+    const res = await askLLM([{ role: 'user', content: 'hello' }]);
+    expect(res).toBe('Studio Response');
+    
+    // Check that we requested the resolved model
+    const lastCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.at(-1);
+    const body = JSON.parse(lastCall?.[1]?.body as string);
+    expect(body.model).toBe('resolved-lm-studio-model');
+  });
+
+  it('should fallback to default model if llmModel is empty and fetchAvailableModels returns empty list', async () => {
+    useStore.setState({
+      settings: {
+        llmProvider: 'ollama',
+        llmApiKey: '',
+        llmModel: '', // empty
+        lmStudioUrl: '',
+      } as any
+    });
+
+    // mock fetchAvailableModels to return no models
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      mockFetchOk({ models: [] })
+    );
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      mockFetchOk({ message: { content: 'Ollama Fallback Response' } })
+    );
+
+    const res = await askLLM([{ role: 'user', content: 'hello' }]);
+    expect(res).toBe('Ollama Fallback Response');
+
+    // Ollama fallback model is llama3
+    const lastCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.at(-1);
+    const body = JSON.parse(lastCall?.[1]?.body as string);
+    expect(body.model).toBe('llama3');
+  });
+
+  it('should surface Ollama upstream error body on non-zero status', async () => {
+    useStore.setState({
+      settings: {
+        llmProvider: 'ollama',
+        llmApiKey: '',
+        llmModel: 'llama3',
+        lmStudioUrl: '',
+      } as any
+    });
+
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockFetchFail('Ollama Server Overloaded', 503)
+    );
+
+    await expect(askLLM([{ role: 'user', content: 'hello' }]))
+      .rejects.toThrow('Errore LLM: Ollama: Ollama Server Overloaded');
+  });
+
+  it('should throw error when Ollama returns empty message content', async () => {
+    useStore.setState({
+      settings: {
+        llmProvider: 'ollama',
+        llmApiKey: '',
+        llmModel: 'llama3',
+        lmStudioUrl: '',
+      } as any
+    });
+
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      mockFetchOk({ message: { content: '' } })
+    );
+
+    await expect(askLLM([{ role: 'user', content: 'hello' }]))
+      .rejects.toThrow('Errore LLM: Ollama: risposta vuota o non valida');
   });
 });

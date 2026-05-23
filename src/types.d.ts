@@ -18,6 +18,7 @@ declare global {
       readNote: (fileName: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       saveNote: (fileName: string, content: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       deleteNote: (fileName: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
+      wipeAllNotes: (syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       selectSyncFolder: () => Promise<{ success: boolean; data?: string }>;
       exportPdf: (htmlContent: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       printNote: (htmlContent: string, title?: string) => Promise<{ success: boolean; error?: string }>;
@@ -32,7 +33,7 @@ declare global {
       closeCapture: () => Promise<void>;
       onRefreshNotes: (cb: () => void) => void;
       getNativeTheme: () => Promise<{ isDark: boolean }>;
-      onNativeThemeUpdated?: (cb: (theme: 'dark' | 'light') => void) => void;
+      onNativeThemeUpdated?: (cb: (theme: 'dark' | 'light') => void) => () => void;
       exportHtml: (htmlContent: string, title: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       exportDocx: (htmlContent: string, title: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       importVault: (targetDir?: string) => Promise<{ success: boolean; data?: number; error?: string }>;
@@ -65,6 +66,8 @@ declare global {
       searchNotesFulltext: (query: string, syncDir?: string) => Promise<{ success: boolean; data?: { relPath: string; title: string; snippet: string; score: number; terms: string[] }[]; truncated?: boolean; error?: string }>;
       setupClaudeMcp: () => Promise<{ success: boolean; error?: string }>;
       importAppleNotes: (targetDir?: string) => Promise<{ success: boolean; data?: number; error?: string }>;
+      updateMcpSseConfig: (config: { enabled: boolean; port: number; syncDir?: string }) => Promise<{ success: boolean; error?: string }>;
+      getAppVersion: () => Promise<string>;
     };
   }
 }

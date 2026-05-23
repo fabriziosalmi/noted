@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import {
   X, RefreshCw, Cloud, HardDrive, FolderOpen, CheckCircle2,
   Bot, Palette, Type, GitBranch, FolderSync, Info, Copy, Check,
-  Plug, ExternalLink,
+  Plug, ExternalLink, Globe,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useModalStack } from '../hooks/useModalStack';
@@ -47,6 +47,9 @@ interface Settings {
   embeddingsEnabled?: boolean;
   embeddingProvider?: 'openai' | 'lmstudio' | 'ollama' | 'none';
   embeddingModel?: string;
+  mcpSseEnabled?: boolean;
+  mcpSsePort?: number;
+  smartTagsEnabled?: boolean;
 }
 
 interface SettingsModalProps {
@@ -55,6 +58,7 @@ interface SettingsModalProps {
   onSelectFolder: () => void;
   onImportVault?: () => void;
   onClose: () => void;
+  onToast?: (text: string, variant?: 'success' | 'error') => void;
 }
 
 const TABS: { id: SettingsTab; labelKey: TranslationKey; icon: LucideIcon }[] = [
@@ -137,7 +141,7 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full border border-gray-200 dark:border-gray-600 rounded-md px-2.5 py-1.5 text-sm focus:border-[var(--accent)] focus:outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 ${props.className ?? ''}`}
+      className={`w-full border border-gray-200/40 dark:border-gray-750/40 rounded-md px-2.5 py-1.5 text-sm focus:border-[var(--accent)] focus:outline-none bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 ${props.className ?? ''}`}
     />
   );
 }
@@ -146,7 +150,7 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className={`w-full border border-gray-200 dark:border-gray-600 rounded-md px-2.5 py-1.5 text-sm focus:border-[var(--accent)] focus:outline-none bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 ${props.className ?? ''}`}
+      className={`w-full border border-gray-200/40 dark:border-gray-750/40 rounded-md px-2.5 py-1.5 text-sm focus:border-[var(--accent)] focus:outline-none bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 ${props.className ?? ''}`}
     />
   );
 }
@@ -162,11 +166,11 @@ function CopyBlock({ value, kind, copiedCmd, copyText, mono = true, label }: {
   const copied = copiedCmd === kind;
   return (
     <div className="flex items-start gap-2">
-      <pre className={`flex-1 min-w-0 text-[11px] rounded-md px-2 py-1.5 bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre ${mono ? 'font-mono' : ''}`}>{value}</pre>
+      <pre className={`flex-1 min-w-0 text-[11px] rounded-md px-2 py-1.5 bg-gray-100/40 dark:bg-gray-900/30 text-gray-700 dark:text-gray-200 border border-gray-200/40 dark:border-gray-700/40 overflow-x-auto whitespace-pre ${mono ? 'font-mono' : ''}`}>{value}</pre>
       <button
         type="button"
         onClick={() => { void copyText(value, kind); }}
-        className="shrink-0 text-xs px-2 py-1 rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        className="shrink-0 text-xs px-2 py-1 rounded-md border border-gray-200/40 dark:border-gray-700/40 text-gray-600 dark:text-gray-300 hover:bg-gray-100/40 dark:hover:bg-gray-800/30 transition-colors"
         title={label}
         aria-label={label}
       >
@@ -176,12 +180,14 @@ function CopyBlock({ value, kind, copiedCmd, copyText, mono = true, label }: {
   );
 }
 
-function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath }: {
+function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath, settings, onUpdate }: {
   t: (k: TranslationKey) => string;
   copyText: (v: string, k: string) => void | Promise<void>;
   copiedCmd: string | null;
   mcpServer: { path: string; exists: boolean } | null;
   vaultPath: string;
+  settings: Settings;
+  onUpdate: (patch: Partial<Settings>) => void;
 }) {
   const serverPath = mcpServer?.path ?? '/path/to/dist-mcp/index.cjs';
   const built = mcpServer?.exists === true;
@@ -218,7 +224,7 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath }: {
   return (
     <div className="space-y-3">
       {/* Status + how it works */}
-      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-3 space-y-2">
+      <div className="rounded-lg border border-gray-200/40 dark:border-gray-700/40 bg-gray-50/40 dark:bg-gray-800/25 p-3 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
             <Plug size={13} className="text-gray-500 dark:text-gray-400 shrink-0" />
@@ -269,15 +275,82 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath }: {
         </div>
       </div>
 
+      {/* Remote Access (HTTP/SSE) */}
+      <div className="rounded-lg border border-gray-200/40 dark:border-gray-700/40 bg-gray-50/40 dark:bg-gray-800/25 p-3 space-y-3">
+        <div className="flex items-center gap-1.5 border-b border-gray-200/40 dark:border-gray-700/40 pb-2">
+          <Globe size={13} className="text-gray-500 dark:text-gray-400 shrink-0" />
+          <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate">{t('mcpSseToggle')}</p>
+        </div>
+
+        <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+          {t('mcpSseToggleHelp')}
+        </p>
+
+        <SegRow
+          label={t('mcpSseToggle')}
+          value={!!settings.mcpSseEnabled}
+          onChange={() => onUpdate({ mcpSseEnabled: !settings.mcpSseEnabled })}
+        />
+
+        {settings.mcpSseEnabled && (
+          <div className="pt-1 space-y-3 border-t border-gray-200/40 dark:border-gray-700/40">
+            {/* Port selector */}
+            <div className="flex items-center justify-between gap-4 py-1">
+              <div>
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-200">{t('mcpSsePortLabel')}</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 leading-tight">{t('mcpSsePortHelp')}</p>
+              </div>
+              <input
+                type="number"
+                min="1024"
+                max="65535"
+                value={settings.mcpSsePort ?? 3000}
+                onChange={(e) => {
+                  const port = parseInt(e.target.value, 10);
+                  if (!isNaN(port)) {
+                    onUpdate({ mcpSsePort: port });
+                  }
+                }}
+                className="w-20 px-2 py-1 text-xs text-right border border-gray-300/40 dark:border-gray-600/40 rounded bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+              />
+            </div>
+
+            {/* Local SSE URL */}
+            <div className="space-y-1">
+              <p className="text-[11px] font-medium text-gray-600 dark:text-gray-300">{t('mcpSseLocalUrl')}</p>
+              <CopyBlock
+                value={`http://localhost:${settings.mcpSsePort ?? 3000}/sse`}
+                kind="mcp-sse-url"
+                copiedCmd={copiedCmd}
+                copyText={copyText}
+                label={t('copy')}
+              />
+            </div>
+
+            {/* Cloudflare Tunnel Helper */}
+            <div className="space-y-1">
+              <p className="text-[11px] font-medium text-gray-600 dark:text-gray-300">{t('mcpSseCloudflareHelp')}</p>
+              <CopyBlock
+                value={`cloudflared tunnel --url http://localhost:${settings.mcpSsePort ?? 3000}`}
+                kind="mcp-cloudflare-cmd"
+                copiedCmd={copiedCmd}
+                copyText={copyText}
+                label={t('copy')}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Per-client snippets */}
-      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-3 space-y-3">
+      <div className="rounded-lg border border-gray-200/40 dark:border-gray-700/40 bg-gray-50/40 dark:bg-gray-800/25 p-3 space-y-3">
         <div>
           <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">{t('mcpClientClaudeCode')}</p>
           <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">CLI one-liner</p>
           <CopyBlock value={claudeCodeCmd} kind="cli-claude-code" copiedCmd={copiedCmd} copyText={copyText} label={t('copy')} />
         </div>
 
-        <div className="pt-1 border-t border-gray-200 dark:border-gray-700">
+        <div className="pt-1 border-t border-gray-200/40 dark:border-gray-700/40">
           <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-200 mt-2">{t('mcpClientClaudeDesktop')}</p>
           <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">{t('mcpClientClaudeDesktopHint')}</p>
           <div className="flex flex-col gap-2">
@@ -306,13 +379,13 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath }: {
           </div>
         </div>
 
-        <div className="pt-1 border-t border-gray-200 dark:border-gray-700">
+        <div className="pt-1 border-t border-gray-200/40 dark:border-gray-700/40">
           <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-200 mt-2">{t('mcpClientVsCode')}</p>
           <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">{t('mcpClientVsCodeHint')}</p>
           <CopyBlock value={vscodeJson} kind="cfg-vscode" copiedCmd={copiedCmd} copyText={copyText} label={t('copy')} />
         </div>
 
-        <div className="pt-1 border-t border-gray-200 dark:border-gray-700">
+        <div className="pt-1 border-t border-gray-200/40 dark:border-gray-700/40">
           <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-200 mt-2">{t('mcpClientCodex')}</p>
           <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">{t('mcpClientCodexHint')}</p>
           <CopyBlock value={codexToml} kind="cfg-codex" copiedCmd={copiedCmd} copyText={copyText} label={t('copy')} />
@@ -324,10 +397,22 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath }: {
   );
 }
 
-export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVault, onClose }: SettingsModalProps) {
+export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVault, onClose, onToast }: SettingsModalProps) {
   useModalStack('settings', true, onClose);
   const { t } = useI18n();
   const fetchNotes = useStore(state => state.fetchNotes);
+  const wipeAllNotes = useStore(state => state.wipeAllNotes);
+
+  const handleWipe = useCallback(async () => {
+    if (window.confirm(t('wipeAllNotesConfirm'))) {
+      try {
+        await wipeAllNotes();
+        onToast?.(t('wipeAllNotesSuccess'), 'success');
+      } catch (err) {
+        onToast?.(t('wipeAllNotesError') + ': ' + (err as Error).message, 'error');
+      }
+    }
+  }, [wipeAllNotes, onToast, t]);
   const [tab, setTab] = useState<SettingsTab>('ai');
   const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
   const [discovering, setDiscovering] = useState(false);
@@ -453,10 +538,10 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
           onClose();
         }}
       />
-      <div className="relative z-10 bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-[520px] overflow-hidden flex flex-col modal-content-animate">
+      <div className="relative z-10 glass-modal rounded-xl shadow-2xl w-[520px] overflow-hidden flex flex-col modal-content-animate">
 
         {/* Header */}
-        <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+        <div className="px-5 py-3.5 border-b border-gray-100/40 dark:border-gray-700/40 flex justify-between items-center">
           <h2 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{t('settingsTitle')}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors" aria-label={t('closeSettings')}>
             <X size={16} />
@@ -464,7 +549,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
         </div>
 
         {/* Tab bar */}
-        <div className="flex border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+        <div className="flex border-b border-gray-100/40 dark:border-gray-700/40 bg-gray-50/40 dark:bg-gray-800/30">
           {TABS.map(({ id, labelKey, icon: Icon }) => (
             <button
               key={id}
@@ -487,7 +572,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
           {/* ── AI Tab ── */}
           {tab === 'ai' && (
             <div className="space-y-4">
-              <div className="rounded-lg border border-blue-200/70 dark:border-blue-800/60 bg-blue-50/70 dark:bg-blue-900/15 p-3">
+              <div className="rounded-lg border border-blue-200/40 dark:border-blue-800/40 bg-blue-50/30 dark:bg-blue-900/15 p-3">
                 <div className="flex items-center gap-1.5 mb-1">
                   <Info size={13} className="text-blue-600 dark:text-blue-300" />
                   <p className="text-xs font-semibold text-blue-700 dark:text-blue-200">{t('aiHowItWorksTitle')}</p>
@@ -566,7 +651,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                 <div>
                   <FieldLabel>{t('apiKey')}</FieldLabel>
                   {!encryptionAvailable && (
-                    <div className="mb-1.5 text-[11px] px-2.5 py-1.5 rounded-md bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-200">
+                    <div className="mb-1.5 text-[11px] px-2.5 py-1.5 rounded-md bg-amber-50/30 dark:bg-amber-900/15 border border-amber-200/40 dark:border-amber-800/40 text-amber-800 dark:text-amber-200">
                       {t('safeStorageUnavailable')}
                     </div>
                   )}
@@ -575,7 +660,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                 </div>
               )}
 
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-3 space-y-3">
+              <div className="rounded-lg border border-gray-200/40 dark:border-gray-700/40 bg-gray-50/40 dark:bg-gray-800/25 p-3 space-y-3">
                 <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">{t('ragSectionTitle')}</p>
                 <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">{t('ragSectionBody')}</p>
                 <div className="grid grid-cols-2 gap-2">
@@ -616,6 +701,15 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   description={t('ragDebugDesc')}
                   value={!!settings.ragDebug}
                   onChange={() => onUpdate({ ragDebug: !settings.ragDebug })}
+                />
+              </div>
+
+              <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                <SegRow
+                  label={t('smartTagsLabel')}
+                  description={t('smartTagsDesc')}
+                  value={!!settings.smartTagsEnabled}
+                  onChange={() => onUpdate({ smartTagsEnabled: !settings.smartTagsEnabled })}
                 />
               </div>
             </div>
@@ -774,8 +868,8 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                           isActive
                             ? 'border-[var(--accent)] bg-[var(--accent-light)]'
                             : p.available
-                              ? 'border-gray-200 dark:border-gray-700 hover:border-[var(--accent-mid)] hover:bg-gray-50 dark:hover:bg-gray-800'
-                              : 'border-gray-200 dark:border-gray-700 opacity-40 cursor-not-allowed'
+                              ? 'border-gray-200/40 dark:border-gray-700/40 hover:border-[var(--accent-mid)] hover:bg-gray-50/40 dark:hover:bg-gray-800/30'
+                              : 'border-gray-200/40 dark:border-gray-700/40 opacity-40 cursor-not-allowed'
                         }`}
                       >
                         {isActive && <CheckCircle2 size={11} className="absolute top-2 right-2 text-[var(--accent)]" />}
@@ -795,7 +889,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                     return (
                       <button onClick={() => !isLocal && onUpdate({ syncDirectory: null })}
                         className={`flex flex-col items-start gap-1 p-2.5 rounded-lg border text-left transition-all ${
-                          isLocal ? 'border-[var(--accent)] bg-[var(--accent-light)]' : 'border-gray-200 dark:border-gray-700 hover:border-[var(--accent-mid)] hover:bg-gray-50 dark:hover:bg-gray-800'
+                          isLocal ? 'border-[var(--accent)] bg-[var(--accent-light)]' : 'border-gray-200/40 dark:border-gray-700/40 hover:border-[var(--accent-mid)] hover:bg-gray-50/40 dark:hover:bg-gray-800/30'
                         }`}
                       >
                         <div className="flex items-center gap-1.5">
@@ -808,7 +902,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   })()}
 
                   <button onClick={onSelectFolder}
-                    className="flex flex-col items-start gap-1 p-2.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-left hover:border-[var(--accent-mid)] hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+                    className="flex flex-col items-start gap-1 p-2.5 rounded-lg border border-dashed border-gray-300/40 dark:border-gray-600/40 text-left hover:border-[var(--accent-mid)] hover:bg-gray-50/40 dark:hover:bg-gray-800/30 transition-all"
                   >
                     <div className="flex items-center gap-1.5">
                       <FolderOpen size={12} className="text-gray-400" />
@@ -826,10 +920,26 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
 
               {onImportVault && (
                 <button onClick={onImportVault}
-                  className="w-full py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                  className="w-full py-1.5 text-xs border border-gray-200/40 dark:border-gray-650/40 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-50/40 dark:hover:bg-gray-800/30 transition-colors">
                   {t('importVault')}
                 </button>
               )}
+
+              {/* Danger Zone */}
+              <div className="border border-red-200/40 dark:border-red-900/30 bg-red-50/30 dark:bg-red-950/10 p-3 rounded-lg mt-4 space-y-2">
+                <div className="flex items-center gap-1.5 text-red-600 dark:text-red-400">
+                  <Info size={12} className="shrink-0" />
+                  <span className="text-xs font-semibold">{t('dangerZone')}</span>
+                </div>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">{t('dangerZoneDesc')}</p>
+                <button
+                  type="button"
+                  onClick={handleWipe}
+                  className="w-full py-1.5 text-xs font-medium text-red-600 dark:text-red-400 border border-red-200/40 dark:border-red-800/40 rounded-md hover:bg-red-50/30 dark:hover:bg-red-950/15 active:bg-red-100/40 transition-colors"
+                >
+                  {t('wipeAllNotes')}
+                </button>
+              </div>
             </div>
           )}
 
@@ -840,7 +950,9 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
               copyText={copyText}
               copiedCmd={copiedCmd}
               mcpServer={mcpServer}
-              vaultPath={settings.syncDirectory ?? '~/Documents/Noted'}
+              vaultPath={settings.syncDirectory || t('directoryDefault')}
+              settings={settings}
+              onUpdate={onUpdate}
             />
           )}
 
@@ -848,7 +960,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
           {tab === 'git' && (
             <div className="space-y-4">
 
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-3 space-y-3">
+              <div className="rounded-lg border border-gray-200/40 dark:border-gray-700/40 bg-gray-50/40 dark:bg-gray-800/25 p-3 space-y-3">
                 <SegRow
                   label={t('embeddingsBetaTitle')}
                   description={t('embeddingsBetaDesc')}
@@ -856,7 +968,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   onChange={() => onUpdate({ embeddingsEnabled: !settings.embeddingsEnabled })}
                 />
                 {settings.embeddingsEnabled && (
-                  <div className="space-y-2 pt-1 border-t border-gray-200 dark:border-gray-700">
+                  <div className="space-y-2 pt-1 border-t border-gray-200/40 dark:border-gray-700/40">
                     <div>
                       <FieldLabel>{t('embeddingsProvider')}</FieldLabel>
                       <Select value={settings.embeddingProvider ?? 'none'} onChange={e => onUpdate({ embeddingProvider: e.target.value as Settings['embeddingProvider'] })}>
@@ -889,7 +1001,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
 
               {settings.gitEnabled && (
                 <>
-                  <div className="pt-1 space-y-3 border-t border-gray-100 dark:border-gray-700">
+                  <div className="pt-1 space-y-3 border-t border-gray-100/40 dark:border-gray-700/40">
                     <div>
                       <FieldLabel>{t('gitRemote')}</FieldLabel>
                       <Input
@@ -941,7 +1053,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
               )}
 
               {!settings.gitEnabled && (
-                <div className="mt-2 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+                <div className="mt-2 p-3 rounded-lg bg-gray-50/40 dark:bg-gray-800/25 border border-gray-100/40 dark:border-gray-700/40">
                   <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-relaxed">
                     Git integration lets you version-control your notes, create branches, push to GitHub, open PRs, and save notes as public or private Gists — all from inside Noted.
                   </p>
@@ -961,7 +1073,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
 
                 <div className="flex flex-col gap-3">
                   {/* Obsidian / Markdown Folder */}
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-3 flex flex-col justify-between gap-3">
+                  <div className="rounded-lg border border-gray-200/40 dark:border-gray-700/40 bg-gray-50/40 dark:bg-gray-800/25 p-3 flex flex-col justify-between gap-3">
                     <div className="space-y-1">
                       <div className="flex items-center gap-1.5">
                         <FolderOpen size={14} className="text-[var(--accent)]" />
@@ -986,7 +1098,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   </div>
 
                   {/* Apple Notes */}
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-3 flex flex-col justify-between gap-3">
+                  <div className="rounded-lg border border-gray-200/40 dark:border-gray-700/40 bg-gray-50/40 dark:bg-gray-800/25 p-3 flex flex-col justify-between gap-3">
                     <div className="space-y-1">
                       <div className="flex items-center gap-1.5">
                         <Info size={14} className="text-amber-500 dark:text-amber-400" />
@@ -1014,8 +1126,8 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                 {importStatus && (
                   <div className={`mt-3 p-2.5 rounded-md text-xs font-medium flex items-center gap-2 ${
                     importStatus.success
-                      ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-900/50'
-                      : 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300 border border-red-100 dark:border-red-900/50'
+                      ? 'bg-emerald-50/30 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300 border border-emerald-100/40 dark:border-emerald-900/40'
+                      : 'bg-red-50/30 text-red-800 dark:bg-red-950/20 dark:text-red-300 border border-red-100/40 dark:border-red-900/40'
                   }`}>
                     {importStatus.success ? (
                       <>
@@ -1036,7 +1148,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+        <div className="px-5 py-3 bg-gray-50/40 dark:bg-gray-800/30 border-t border-gray-100/40 dark:border-gray-700/40 flex justify-end">
           <button
             onClick={onClose}
             className="btn-primary px-4 py-1.5 rounded-md text-sm font-medium transition-all"

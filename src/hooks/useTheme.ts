@@ -38,16 +38,32 @@ export function useTheme() {
     if (theme === 'light') { applyTheme(false); return; }
 
     // auto — prefer Electron's nativeTheme for accuracy; fall back to CSS media query
-    if (window.electronAPI?.getNativeTheme) {
-      void window.electronAPI.getNativeTheme().then(({ isDark }) => applyTheme(isDark));
-      window.electronAPI.onNativeThemeUpdated?.((t) => applyTheme(t === 'dark'));
-      return;
-    }
+    let active = true;
+    let unsubscribeNative: (() => void) | undefined;
 
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const apply = (e: MediaQueryList | MediaQueryListEvent) => applyTheme(e.matches);
-    apply(mq);
-    mq.addEventListener('change', apply);
-    return () => mq.removeEventListener('change', apply);
+    const handleMqChange = (e: MediaQueryListEvent) => {
+      if (active) applyTheme(e.matches);
+    };
+
+    applyTheme(mq.matches);
+    mq.addEventListener('change', handleMqChange);
+
+    if (window.electronAPI?.getNativeTheme) {
+      void window.electronAPI.getNativeTheme().then(({ isDark }) => {
+        if (active) applyTheme(isDark);
+      });
+      if (window.electronAPI.onNativeThemeUpdated) {
+        unsubscribeNative = window.electronAPI.onNativeThemeUpdated((t) => {
+          if (active) applyTheme(t === 'dark');
+        });
+      }
+    }
+
+    return () => {
+      active = false;
+      if (unsubscribeNative) unsubscribeNative();
+      mq.removeEventListener('change', handleMqChange);
+    };
   }, [theme]);
 }

@@ -12,7 +12,7 @@ export type SuggestionKind =
 
 export type SuggestionSeverity = 'high' | 'medium' | 'low';
 
-export type SuggestionActionKind = 'open' | 'rename' | 'addHeadings' | 'openFirst';
+export type SuggestionActionKind = 'open' | 'rename' | 'addHeadings' | 'openFirst' | 'merge';
 
 export interface Suggestion {
   id: string;
@@ -279,7 +279,7 @@ export function analyzeCrossNotes(notes: NoteInput[]): Suggestion[] {
         },
         noteName: noteNames[0],
         relatedNotes: noteNames.slice(1),
-        action: 'openFirst',
+        action: 'merge',
       });
     }
   }

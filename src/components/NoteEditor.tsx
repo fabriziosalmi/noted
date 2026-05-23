@@ -11,7 +11,7 @@ import Image from '@tiptap/extension-image';
 import Mathematics from '@tiptap/extension-mathematics';
 import { createLowlight, common } from 'lowlight';
 import 'katex/dist/katex.min.css';
-import { Bold, Italic, Strikethrough, Code, Bot, FileText, CheckCheck } from 'lucide-react';
+import { Bold, Italic, Strikethrough, Code, FileText, CheckCheck } from 'lucide-react';
 import { askLLM } from '../lib/llm';
 import { useStore } from '../store/useStore';
 import { WikilinkMark, createWikilinkHighlightPlugin } from '../lib/WikilinkExtension';
@@ -63,9 +63,9 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   const llmApiKey = useStore(s => s.settings.llmApiKey);
   const onboardingDismissed = useStore(s => s.settings.onboardingDismissed ?? false);
   const aiGhostMode = useStore(s => s.settings.aiGhostMode ?? 'manual');
+  const smartTagsEnabled = useStore(s => s.settings.smartTagsEnabled ?? false);
   const updateSettings = useStore(s => s.updateSettings);
   const llmReady = llmProvider === 'lmstudio' || llmProvider === 'ollama' || !!llmApiKey;
-  const [isSmartPasting, setIsSmartPasting] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [wordCount, setWordCount] = useState(0);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -245,29 +245,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
           return true;
         }
 
-        // Smart paste for text
-        const text = event.clipboardData?.getData('text/plain');
-        if (!text || text.length < 150) return false;
-        event.preventDefault();
-        (async () => {
-          if (!mountedRef.current) return;
-          setIsSmartPasting(true);
-          try {
-            const result = await askLLM([
-              { role: 'system', content: `Sei un esperto di formattazione Markdown. L'utente ha incollato del testo grezzo. Il tuo unico compito è restituire lo STESSO testo, ma pulito e formattato in Markdown (titoli, liste, grassetti, codice). Non aggiungere saluti o commenti. Restituisci SOLO il Markdown finale.` },
-              { role: 'user', content: text },
-            ]);
-            if (mountedRef.current) editor?.chain().focus().insertContent(result).run();
-          } catch (err) {
-            if (mountedRef.current) {
-              editor?.chain().focus().insertContent(text).run();
-              onAiError?.((err as Error).message);
-            }
-          } finally {
-            if (mountedRef.current) setIsSmartPasting(false);
-          }
-        })();
-        return true;
+        return false;
       },
       handleDrop: (_view, event) => {
         const files = Array.from(event.dataTransfer?.files ?? []).filter(f => f.type.startsWith('image/'));
@@ -457,7 +435,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
         <SlashCommands editor={editor} onAiError={onAiError} />
       )}
 
-      {activeNoteContent && (
+      {smartTagsEnabled && activeNoteContent && (
         <SmartTagSuggestion
           content={activeNoteContent}
           existingTags={allTags}
@@ -473,12 +451,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
         <BacklinksPanel activeNoteName={activeNoteName} backlinks={backlinks} onSelectNote={onSelectNote} />
       )}
 
-      {isSmartPasting && (
-        <div className="fixed top-14 right-4 text-xs px-3 py-1.5 rounded-full flex items-center space-x-2 shadow-lg animate-pulse z-30" style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}>
-          <Bot size={14} />
-          <span>{t('smartPaste')}</span>
-        </div>
-      )}
+
 
       {/* Status bar */}
       <div className="fixed bottom-4 right-4 flex items-center gap-3 z-20">
@@ -497,7 +470,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
         {wordCount > 0 && (
           <span className="text-xs text-gray-300 dark:text-gray-600">{wordCount} {t(wordCount === 1 ? 'word' : 'words')}</span>
         )}
-        {!isSmartPasting && saveStatus !== 'idle' && (
+        {saveStatus !== 'idle' && (
           <div className={`text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5 ${
             saveStatus === 'saving' ? 'text-gray-400 dark:text-gray-500' : 'text-emerald-600 dark:text-emerald-400'
           }`}>

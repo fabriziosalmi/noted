@@ -87,4 +87,5 @@ export interface AppModalsProps extends AppSharedProps {
   onHandleImportVault: () => Promise<void>;
   onHandleCreateNote: CreateNoteFn;
   onHandleOpenDaily: OpenDailyFn;
+  onToast?: (text: string, variant?: ToastVariant) => void;
 }

@@ -16,6 +16,7 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -27,10 +28,14 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
+import * as http from 'node:http';
+import { URL } from 'node:url';
+import { marked } from 'marked';
+import pkg from '../package.json';
 
 // ─── Notes-directory resolution ───────────────────────────────────────────────
 
-function resolveNotesDir(): string {
+export function resolveNotesDir(): string {
   // Accept --notes-dir <path> or --notes-dir=<path>
   const argv = process.argv.slice(2);
   const eqIdx = argv.findIndex(a => a.startsWith('--notes-dir='));
@@ -70,216 +75,119 @@ export function validateNoteName(name: unknown): asserts name is string {
     throw new McpError(ErrorCode.InvalidParams, 'Only one level of subfolder is allowed (e.g. "folder/note.md")');
   }
   for (const seg of segments) {
-    // Allow the same character set as Noted's ipc-utils.ts
     const base = seg.endsWith('.md') ? seg.slice(0, -3) : seg;
-    if (!/^[\w\- .()]+$/.test(base)) {
+    if (!base.trim()) {
+      throw new McpError(ErrorCode.InvalidParams, `Invalid segment "${seg}": segment cannot be empty or whitespace only`);
+    }
+    // eslint-disable-next-line no-control-regex
+    if (/[\x00-\x1F\x7F\\/:*?"<>|;`$]/.test(base)) {
       throw new McpError(
         ErrorCode.InvalidParams,
-        `Invalid segment "${seg}": only alphanumeric, spaces, hyphens, underscores, dots, parentheses allowed`,
+        `Invalid segment "${seg}": contains reserved characters (\\ / : * ? " < > | ; \` $)`,
       );
     }
   }
 }
 
+/** Validates a folder name and throws McpError (InvalidParams) on failure. */
+export function validateFolderName(name: unknown): asserts name is string {
+  if (typeof name !== 'string' || !name.trim()) {
+    throw new McpError(ErrorCode.InvalidParams, 'Folder name must be a non-empty string');
+  }
+  if (name.includes('..') || name.includes('/') || name.includes('\\')) {
+    throw new McpError(ErrorCode.InvalidParams, 'Folder name must not contain "..", slashes, or backslashes');
+  }
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x1F\x7F\\/:*?"<>|;`$]/.test(name)) {
+    throw new McpError(
+      ErrorCode.InvalidParams,
+      'Folder name contains invalid characters: reserved characters (\\ / : * ? " < > | ; ` $) are not allowed',
+    );
+  }
+}
+
 /** Returns the absolute path to a note, validated to stay inside NOTES_DIR. */
-function safeNotePath(name: string): string {
+export function safeNotePath(name: string): string {
   validateNoteName(name);
-  const resolved = path.resolve(NOTES_DIR, name);
+  let resolved = path.resolve(NOTES_DIR, name);
+  
+  // Resolve physical path of the file or its parent directory to prevent symlink traversal
+  try {
+    if (fs.existsSync(resolved)) {
+      resolved = fs.realpathSync(resolved);
+    } else {
+      const parent = path.dirname(resolved);
+      if (fs.existsSync(parent)) {
+        const realParent = fs.realpathSync(parent);
+        resolved = path.join(realParent, path.basename(resolved));
+      }
+    }
+  } catch { /* fallback to path.resolve */ }
+
   const root = path.resolve(NOTES_DIR);
-  if (resolved !== root && !resolved.startsWith(root + path.sep)) {
+  const rootReal = fs.existsSync(root) ? fs.realpathSync(root) : root;
+  if (resolved !== rootReal && !resolved.startsWith(rootReal + path.sep)) {
     throw new McpError(ErrorCode.InvalidParams, 'Path traversal detected');
   }
   return resolved;
 }
 
-// ─── Markdown → HTML (dependency-free) ───────────────────────────────────────
-// Covers the subset of GFM an LLM is likely to produce: headings, paragraphs,
-// bold, italic, inline code, fenced code blocks, unordered/ordered lists, hr,
-// and links. Keeps it self-contained with no runtime dependencies.
 
-const escHtml = (s: string) =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-const inlineHtml = (s: string): string => {
-  const parts = s.split('`');
-  for (let idx = 0; idx < parts.length; idx++) {
-    if (idx % 2 === 1) {
-      // Inside inline code
-      parts[idx] = `<code>${escHtml(parts[idx])}</code>`;
-    } else {
-      // Outside inline code: escape HTML first, then parse bold, italic, links
-      let text = escHtml(parts[idx]);
-      text = text
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/__(.+?)__/g, '<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        .replace(/_(.+?)_/g, '<em>$1</em>')
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-      parts[idx] = text;
-    }
-  }
-  return parts.join('');
-};
-
-const matchListItem = (line: string) => {
-  const unordered = line.match(/^(\s*)([-*+])\s+(.*)$/);
-  if (unordered) {
-    return {
-      indent: unordered[1].length,
-      type: 'ul' as const,
-      content: unordered[3]
-    };
-  }
-  const ordered = line.match(/^(\s*)(\d+)\.\s+(.*)$/);
-  if (ordered) {
-    return {
-      indent: ordered[1].length,
-      type: 'ol' as const,
-      content: ordered[3]
-    };
-  }
-  return null;
-};
+// ─── Markdown → HTML (marked-powered) ───────────────────────────────────────
 
 export function markdownToHtml(md: string): string {
-  const lines = md.replace(/\r\n/g, '\n').split('\n');
-  const out: string[] = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-
-    // Fenced code block
-    if (/^```/.test(line)) {
-      const lang = line.slice(3).trim();
-      const codeLines: string[] = [];
-      i++;
-      while (i < lines.length && !/^```/.test(lines[i])) {
-        codeLines.push(escHtml(lines[i]));
-        i++;
-      }
-      out.push(`<pre><code${lang ? ` class="language-${escHtml(lang)}"` : ''}>${codeLines.join('\n')}</code></pre>`);
-      i++;
-      continue;
-    }
-
-    // Headings
-    const hm = line.match(/^(#{1,6})\s+(.+)$/);
-    if (hm) {
-      const lvl = hm[1].length;
-      out.push(`<h${lvl}>${inlineHtml(hm[2].trim())}</h${lvl}>`);
-      i++;
-      continue;
-    }
-
-    // Horizontal rule
-    if (/^(?:---|\*\*\*|___)$/.test(line.trim())) {
-      out.push('<hr>');
-      i++;
-      continue;
-    }
-
-    // Lists (unordered & ordered)
-    const listMatch = matchListItem(line);
-    if (listMatch) {
-      const listStack: { type: 'ul' | 'ol'; indent: number }[] = [];
-      
-      while (i < lines.length) {
-        const currentLine = lines[i];
-        const currentMatch = matchListItem(currentLine);
-        if (!currentMatch) {
-          break;
-        }
-
-        const { indent, type, content } = currentMatch;
-
-        if (listStack.length === 0) {
-          listStack.push({ type, indent });
-          out.push(`<${type}>`);
-        } else {
-          const top = listStack[listStack.length - 1];
-          if (indent > top.indent) {
-            // Nested list
-            listStack.push({ type, indent });
-            out.push(`<${type}>`);
-          } else if (indent < top.indent) {
-            // Close nested lists
-            while (listStack.length > 0 && listStack[listStack.length - 1].indent > indent) {
-              const popped = listStack.pop();
-              if (popped) out.push(`</${popped.type}>`);
-            }
-            if (listStack.length === 0 || listStack[listStack.length - 1].indent < indent) {
-              listStack.push({ type, indent });
-              out.push(`<${type}>`);
-            } else if (listStack[listStack.length - 1].type !== type) {
-              const popped = listStack.pop();
-              if (popped) out.push(`</${popped.type}>`);
-              listStack.push({ type, indent });
-              out.push(`<${type}>`);
-            }
-          } else {
-            // Equal indent
-            if (top.type !== type) {
-              listStack.pop();
-              out.push(`</${top.type}>`);
-              listStack.push({ type, indent });
-              out.push(`<${type}>`);
-            }
-          }
-        }
-
-        out.push(`<li>${inlineHtml(content)}</li>`);
-        i++;
-      }
-
-      // Close all remaining open lists
-      while (listStack.length > 0) {
-        const popped = listStack.pop();
-        if (popped) out.push(`</${popped.type}>`);
-      }
-      continue;
-    }
-
-    // Blank line → paragraph separator
-    if (line.trim() === '') {
-      i++;
-      continue;
-    }
-
-    // Paragraph: collect consecutive non-empty, non-special lines
-    const paraLines: string[] = [];
-    while (
-      i < lines.length &&
-      lines[i].trim() !== '' &&
-      !/^#{1,6}\s/.test(lines[i]) &&
-      !matchListItem(lines[i]) &&
-      !/^```/.test(lines[i]) &&
-      !/^(?:---|\*\*\*|___)$/.test(lines[i].trim())
-    ) {
-      paraLines.push(inlineHtml(lines[i]));
-      i++;
-    }
-    if (paraLines.length) out.push(`<p>${paraLines.join('<br>')}</p>`);
-  }
-
-  return out.join('\n');
+  return marked.parse(md, { breaks: true, gfm: true, async: false }) as string;
 }
 
 // ─── HTML sanitisation (mirrors electron/ipc-utils.ts) ───────────────────────
 
 export function stripUnsafeHtml(html: string): string {
-  // Decode numeric entities before scanning so encoded payloads are caught
-  const decoded = html
-    .replace(/&#x([0-9a-f]+);/gi, (_, h: string) => String.fromCharCode(parseInt(h, 16)))
-    .replace(/&#([0-9]+);/gi, (_, d: string) => String.fromCharCode(parseInt(d, 10)));
+  // Decode numeric and named HTML entities (with optional semicolons to match browsers)
+  // and do it recursively or in a loop to handle nested/obfuscated entities.
+  let decoded = html;
+  let lastDecoded: string;
+  // Repeat up to 3 times to catch recursive entity obfuscation, e.g. &amp;#x3C;
+  for (let i = 0; i < 3; i++) {
+    lastDecoded = decoded;
+    decoded = decoded
+      .replace(/&amp;?/gi, '&')
+      .replace(/&quot;?/gi, '"')
+      .replace(/&apos;?/gi, "'")
+      .replace(/&#x([0-9a-f]+);?/gi, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+      .replace(/&#([0-9]+);?/gi, (_, dec: string) => String.fromCharCode(parseInt(dec, 10)))
+      .replace(/&Tab;?/gi, '\t')
+      .replace(/&NewLine;?/gi, '\n')
+      .replace(/&colon;?/gi, ':');
+    if (decoded === lastDecoded) break;
+  }
 
-  return decoded
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
-    .replace(/<embed\b[^>]*>/gi, '')
-    .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
-    .replace(/javascript\s*:/gi, '');
+  // Strip dangerous tags completely (both closed and unclosed)
+  let clean = decoded
+    .replace(/<script\b[\s\S]*?(?:<\/script>|$)/gi, '')
+    .replace(/<iframe\b[\s\S]*?(?:<\/iframe>|$)/gi, '')
+    .replace(/<object\b[\s\S]*?(?:<\/object>|$)/gi, '')
+    .replace(/<embed\b[\s\S]*?(?:<\/embed>|$)/gi, '')
+    .replace(/<applet\b[\s\S]*?(?:<\/applet>|$)/gi, '')
+    .replace(/<meta\b[\s\S]*?(?:<\/meta>|$)/gi, '')
+    .replace(/<link\b[\s\S]*?(?:<\/link>|$)/gi, '');
+
+  // Strip any remaining/dangling opening or closing dangerous tags to catch unclosed cases
+  clean = clean
+    .replace(/<\/?(?:script|iframe|object|embed|applet|meta|link)\b[^>]*(?:>|$)/gi, '')
+    .replace(/<\/?(?:script|iframe|object|embed|applet|meta|link)\b/gi, '');
+
+  // Strip inline event handlers using a word boundary rather than a whitespace match
+  // This blocks bypasses like <img/onerror=...> or <body/onload=...>
+  // We match preceding whitespace or slash to avoid leaving trailing space or slashes.
+  clean = clean.replace(/(?:[\s/]+)\bon[a-zA-Z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '');
+
+  // Strip javascript: and vbscript: protocols, supporting obfuscation with any space/control characters inside the scheme name
+  /* eslint-disable no-control-regex */
+  const jsRx = /j[\s\x00-\x20]*a[\s\x00-\x20]*v[\s\x00-\x20]*a[\s\x00-\x20]*s[\s\x00-\x20]*c[\s\x00-\x20]*r[\s\x00-\x20]*i[\s\x00-\x20]*p[\s\x00-\x20]*t[\s\x00-\x20]*:/gi;
+  const vbRx = /v[\s\x00-\x20]*b[\s\x00-\x20]*s[\s\x00-\x20]*c[\s\x00-\x20]*r[\s\x00-\x20]*i[\s\x00-\x20]*p[\s\x00-\x20]*t[\s\x00-\x20]*:/gi;
+  /* eslint-enable no-control-regex */
+  
+  return clean.replace(jsRx, '').replace(vbRx, '');
 }
 
 // ─── Markdown → HTML conversion ───────────────────────────────────────────────
@@ -290,7 +198,13 @@ export function toHtml(content: string): string {
   if (trimmed.startsWith('<')) {
     return stripUnsafeHtml(content);
   }
-  return stripUnsafeHtml(markdownToHtml(content));
+  // Strip YAML frontmatter matching useStore.ts
+  let markdownBody = content;
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+  if (match) {
+    markdownBody = content.slice(match[0].length);
+  }
+  return stripUnsafeHtml(markdownToHtml(markdownBody));
 }
 
 // ─── Plain-text extraction ────────────────────────────────────────────────────
@@ -337,12 +251,22 @@ function listAllNotes(folder?: string): NoteEntry[] {
     try {
       const items = fs.readdirSync(dir, { withFileTypes: true });
       for (const item of items) {
-        if (item.isFile() && item.name.endsWith('.md')) {
-          const stat = fs.statSync(path.join(dir, item.name));
-          entries.push({ name: prefix ? `${prefix}/${item.name}` : item.name, mtime: stat.mtime, size: stat.size });
-        } else if (item.isDirectory() && !item.name.startsWith('.') && !prefix) {
-          // One level deep only
-          entries = entries.concat(collect(path.join(dir, item.name), item.name));
+        try {
+          if (item.isFile() && item.name.endsWith('.md')) {
+            const name = prefix ? `${prefix}/${item.name}` : item.name;
+            try {
+              validateNoteName(name);
+            } catch {
+              continue;
+            }
+            const stat = fs.statSync(path.join(dir, item.name));
+            entries.push({ name, mtime: stat.mtime, size: stat.size });
+          } else if (item.isDirectory() && !item.name.startsWith('.') && !prefix) {
+            // One level deep only
+            entries = entries.concat(collect(path.join(dir, item.name), item.name));
+          }
+        } catch {
+          // Skip unreadable/invalid entries but continue scanning siblings
         }
       }
     } catch { /* skip unreadable */ }
@@ -360,7 +284,7 @@ function listAllNotes(folder?: string): NoteEntry[] {
 
 // ─── Excerpt helper ───────────────────────────────────────────────────────────
 
-function excerpt(text: string, query: string, windowChars = 120): string {
+export function excerpt(text: string, query: string, windowChars = 120): string {
   const lower = text.toLowerCase();
   const idx = lower.indexOf(query.toLowerCase());
   if (idx === -1) return text.slice(0, windowChars).replace(/\s+$/, '') + '…';
@@ -497,8 +421,11 @@ const TOOLS: Tool[] = [
 
 // ─── Tool handlers ────────────────────────────────────────────────────────────
 
-async function handleListNotes(args: Record<string, unknown>) {
+export async function handleListNotes(args: Record<string, unknown>) {
   const folder = typeof args.folder === 'string' ? args.folder : undefined;
+  if (folder !== undefined) {
+    validateFolderName(folder);
+  }
   const notes = listAllNotes(folder);
   if (notes.length === 0) {
     return { content: [{ type: 'text', text: folder ? `No notes found in folder "${folder}".` : 'No notes found.' }] };
@@ -516,7 +443,7 @@ async function handleListNotes(args: Record<string, unknown>) {
   };
 }
 
-async function handleReadNote(args: Record<string, unknown>) {
+export async function handleReadNote(args: Record<string, unknown>) {
   const name = args.name;
   validateNoteName(name);
   const filePath = safeNotePath(name as string);
@@ -543,7 +470,7 @@ async function handleReadNote(args: Record<string, unknown>) {
   };
 }
 
-async function handleCreateNote(args: Record<string, unknown>) {
+export async function handleCreateNote(args: Record<string, unknown>) {
   const name = args.name;
   const rawContent = args.content;
   validateNoteName(name);
@@ -564,7 +491,7 @@ async function handleCreateNote(args: Record<string, unknown>) {
   };
 }
 
-async function handleUpdateNote(args: Record<string, unknown>) {
+export async function handleUpdateNote(args: Record<string, unknown>) {
   const name = args.name;
   const rawContent = args.content;
   const append = args.append === true;
@@ -595,7 +522,7 @@ async function handleUpdateNote(args: Record<string, unknown>) {
   };
 }
 
-async function handleSearchNotes(args: Record<string, unknown>) {
+export async function handleSearchNotes(args: Record<string, unknown>) {
   const query = args.query;
   if (typeof query !== 'string' || !query.trim()) {
     throw new McpError(ErrorCode.InvalidParams, 'query must be a non-empty string');
@@ -609,8 +536,8 @@ async function handleSearchNotes(args: Record<string, unknown>) {
 
   for (const note of notes) {
     if (results.length >= maxResults) break;
-    const filePath = safeNotePath(note.name);
     try {
+      const filePath = safeNotePath(note.name);
       const html = fs.readFileSync(filePath, 'utf8');
       const text = htmlToText(html);
       if (text.toLowerCase().includes(query.toLowerCase())) {
@@ -632,7 +559,7 @@ async function handleSearchNotes(args: Record<string, unknown>) {
   };
 }
 
-async function handleDeleteNote(args: Record<string, unknown>) {
+export async function handleDeleteNote(args: Record<string, unknown>) {
   const name = args.name;
   validateNoteName(name);
   const filePath = safeNotePath(name as string);
@@ -648,7 +575,7 @@ async function handleDeleteNote(args: Record<string, unknown>) {
 // ─── Server bootstrap ─────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: 'noted', version: '1.0.0' },
+  { name: 'noted', version: pkg.version },
   { capabilities: { tools: {} } },
 );
 
@@ -679,16 +606,94 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
-async function main() {
-  // Log to stderr only (stdout is reserved for MCP messages)
+export function getArgValue(flag: string): string | undefined {
+  const argv = process.argv.slice(2);
+  const eqIdx = argv.findIndex(a => a.startsWith(`${flag}=`));
+  if (eqIdx !== -1) return argv[eqIdx].slice(`${flag}=`.length);
+  const spaceIdx = argv.indexOf(flag);
+  if (spaceIdx !== -1 && argv[spaceIdx + 1]) return argv[spaceIdx + 1];
+  return undefined;
+}
+
+export async function main() {
+  // Log to stderr only (stdout is reserved for MCP messages in stdio mode)
   process.stderr.write(`[noted-mcp] notes directory: ${NOTES_DIR}\n`);
   if (!fs.existsSync(NOTES_DIR)) {
     process.stderr.write(`[noted-mcp] WARNING: notes directory does not exist yet — it will be created on first write.\n`);
   }
 
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  process.stderr.write('[noted-mcp] server ready\n');
+  const transportType = getArgValue('--transport') ?? 'stdio';
+
+  if (transportType === 'sse') {
+    const portStr = getArgValue('--port');
+    const port = portStr ? parseInt(portStr, 10) : 3000;
+    const transports = new Map<string, SSEServerTransport>();
+
+    const serverHttp = http.createServer(async (req, res) => {
+      // CORS headers
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+      if (req.method === 'OPTIONS') {
+        res.writeHead(200);
+        res.end();
+        return;
+      }
+
+      const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+
+      if (req.method === 'GET' && parsedUrl.pathname === '/sse') {
+        const transport = new SSEServerTransport('/messages', res);
+        const sessionId = transport.sessionId;
+        transports.set(sessionId, transport);
+
+        transport.onclose = () => {
+          transports.delete(sessionId);
+          process.stderr.write(`[noted-mcp] SSE session closed: ${sessionId}\n`);
+        };
+
+        await server.connect(transport);
+        process.stderr.write(`[noted-mcp] SSE session started: ${sessionId}\n`);
+        return;
+      }
+
+      if (req.method === 'POST' && parsedUrl.pathname === '/messages') {
+        const sessionId = parsedUrl.searchParams.get('sessionId');
+        if (!sessionId) {
+          res.writeHead(400);
+          res.end('Missing sessionId parameter');
+          return;
+        }
+
+        const transport = transports.get(sessionId);
+        if (!transport) {
+          res.writeHead(404);
+          res.end('Session not found');
+          return;
+        }
+
+        try {
+          await transport.handlePostMessage(req, res);
+        } catch (err) {
+          process.stderr.write(`[noted-mcp] Error handling post message: ${err}\n`);
+        }
+        return;
+      }
+
+      res.writeHead(404);
+      res.end('Not Found');
+    });
+
+    serverHttp.listen(port, '0.0.0.0', () => {
+      process.stderr.write(`[noted-mcp] SSE server listening on http://0.0.0.0:${port}\n`);
+      process.stderr.write(`[noted-mcp] SSE endpoint: http://localhost:${port}/sse\n`);
+    });
+  } else {
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    process.stderr.write('[noted-mcp] stdio server ready\n');
+  }
 }
 
 main().catch(err => {

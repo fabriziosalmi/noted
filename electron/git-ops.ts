@@ -111,6 +111,9 @@ function git(dir: string): SimpleGit {
 
 /** Returns true if dir is inside a git repository. */
 export async function isRepo(dir: string): Promise<boolean> {
+  if (!fs.existsSync(path.join(dir, '.git'))) {
+    return false;
+  }
   try {
     await git(dir).revparse(['--git-dir']);
     return true;
@@ -163,7 +166,7 @@ export async function initRepo(dir: string): Promise<GitResult> {
 /** Returns the current git status of the notes directory. */
 export async function getStatus(dir: string): Promise<GitResult<GitStatusData>> {
   try {
-    const initialized = await isRepo(dir);
+    const initialized = fs.existsSync(path.join(dir, '.git'));
     if (!initialized) {
       return { success: true, data: { initialized: false, branch: '', dirty: false, ahead: 0, stagedFiles: [], modifiedFiles: [] } };
     }
@@ -181,7 +184,11 @@ export async function getStatus(dir: string): Promise<GitResult<GitStatusData>> 
       },
     };
   } catch (err) {
-    return { success: false, error: sanitizeGitError((err as Error).message) };
+    const errMsg = (err as Error).message;
+    if (errMsg.includes('not a git repository')) {
+      return { success: true, data: { initialized: false, branch: '', dirty: false, ahead: 0, stagedFiles: [], modifiedFiles: [] } };
+    }
+    return { success: false, error: sanitizeGitError(errMsg) };
   }
 }
 

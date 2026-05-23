@@ -21,7 +21,7 @@ function HighlightedText({ text, terms }: { text: string; terms: string[] }) {
     <>
       {parts.map((part, i) =>
         terms.some(t => t.toLowerCase() === part.toLowerCase())
-          ? <mark key={i} className="bg-yellow-200 dark:bg-yellow-700/50 text-inherit rounded-[2px] px-0.5 not-italic font-semibold">{part}</mark>
+          ? <mark key={i} className="bg-[var(--accent-light)] text-[var(--accent)] rounded-[2px] px-0.5 not-italic font-semibold">{part}</mark>
           : <span key={i}>{part}</span>
       )}
     </>
@@ -105,10 +105,10 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
         }}
       />
       <div
-        className="relative z-10 w-[620px] bg-white/96 dark:bg-gray-900/96 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-xl shadow-2xl overflow-hidden modal-content-animate"
+        className="relative z-10 w-[620px] glass-modal rounded-xl overflow-hidden modal-content-animate"
       >
         {/* Input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100/40 dark:border-gray-800/40">
           {loading
             ? <Loader2 size={15} className="text-gray-400 shrink-0 animate-spin" />
             : <Search size={15} className="text-gray-400 shrink-0" />
@@ -125,7 +125,7 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
               <X size={13} />
             </button>
           )}
-          <kbd className="text-[11px] text-gray-400 border border-gray-200 dark:border-gray-700 rounded px-1.5 py-0.5 ml-1">esc</kbd>
+          <kbd className="text-[11px] text-gray-400 border border-gray-200/40 dark:border-gray-700/40 bg-gray-100/40 dark:bg-gray-850/30 rounded px-1.5 py-0.5 ml-1">esc</kbd>
         </div>
 
         {/* Results */}
@@ -150,7 +150,7 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
               className={`w-full flex items-start gap-3 px-4 py-2.5 text-left transition-colors ${
                 i === activeIdx
                   ? 'bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]'
-                  : 'hover:bg-gray-50 dark:hover:bg-gray-800/60'
+                  : 'hover:bg-gray-50/40 dark:hover:bg-gray-850/30'
               }`}
             >
               <FileText size={14} className="shrink-0 mt-0.5 text-gray-300 dark:text-gray-600" />
@@ -174,7 +174,7 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-800 flex items-center gap-4 text-[11px] text-gray-400">
+        <div className="px-4 py-2 border-t border-gray-100/40 dark:border-gray-800/40 flex items-center gap-4 text-[11px] text-gray-400">
           <span>{t('navHint')}</span>
           <span>{t('openHint')}</span>
           <span>{t('escHint')}</span>

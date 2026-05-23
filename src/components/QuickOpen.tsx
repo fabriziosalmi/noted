@@ -169,7 +169,7 @@ export function QuickOpen({ notes, onSelect, onCreateNote, onOpenDaily, onOpenSe
       <button
         type="button"
         aria-label={t('close')}
-        className="absolute inset-0 modal-backdrop-animate"
+        className="absolute inset-0 bg-black/20 dark:bg-black/45 backdrop-blur-[3px] modal-backdrop-animate"
         onMouseDown={(e) => {
           if (e.button !== 0) return;
           if (e.target !== e.currentTarget) return;
@@ -177,25 +177,25 @@ export function QuickOpen({ notes, onSelect, onCreateNote, onOpenDaily, onOpenSe
         }}
       />
       <div
-        className="relative z-10 w-[560px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-xl shadow-2xl overflow-hidden modal-content-animate"
+        className="relative z-10 w-[560px] glass-modal rounded-xl overflow-hidden modal-content-animate"
       >
         {/* Search input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-          <Search size={16} className="text-gray-400 flex-shrink-0" />
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-200/40 dark:border-gray-800/60">
+          <Search size={16} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
           <input
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder={`${t('openNote')}  ·  / ${t('quickOpenCommands')}`}
-            className="flex-1 bg-transparent outline-none text-gray-800 dark:text-gray-200 text-sm placeholder-gray-400"
+            className="flex-1 bg-transparent outline-none text-gray-800 dark:text-gray-200 text-sm placeholder-gray-400 dark:placeholder-gray-500"
           />
-          <kbd className="text-xs text-gray-400 border border-gray-200 dark:border-gray-700 rounded px-1.5 py-0.5">esc</kbd>
+          <kbd className="text-[10px] font-sans font-medium text-gray-400 dark:text-gray-500 bg-gray-100/40 dark:bg-gray-850/30 px-1.5 py-0.5 rounded border border-gray-200/40 dark:border-gray-700/40 shadow-sm select-none pointer-events-none">esc</kbd>
         </div>
 
         {/* Results */}
-        <div ref={listRef} className="max-h-72 overflow-y-auto py-1">
+        <div ref={listRef} className="max-h-72 overflow-y-auto px-2 py-2 space-y-0.5">
           {actionResults.length === 0 && results.length === 0 && !createCandidate ? (
-            <p className="text-center text-sm text-gray-400 py-8">{t('noNotesFound')}</p>
+            <p className="text-center text-xs text-gray-400 dark:text-gray-500 py-8">{t('noNotesFound')}</p>
           ) : (
             <>
               {actionResults.map((action, i) => (
@@ -204,53 +204,75 @@ export function QuickOpen({ notes, onSelect, onCreateNote, onOpenDaily, onOpenSe
                   data-idx={i}
                   onClick={action.run}
                   onMouseEnter={() => setActiveIdx(i)}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-left rounded-lg transition-all duration-150 group group/btn ${
                     i === activeIdx
-                      ? 'bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60'
+                      ? 'bg-[var(--accent)] text-white shadow-sm'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/40 dark:hover:bg-gray-850/30'
                   }`}
                 >
-                  {action.icon}
-                  <span className="text-sm truncate">{action.label}</span>
+                  <div className={`flex-shrink-0 transition-colors ${i === activeIdx ? 'text-white' : 'text-gray-400 dark:text-gray-500'}`}>
+                    {action.icon}
+                  </div>
+                  <span className="text-sm truncate font-medium">
+                    <HighlightedText text={action.label} query={actionQuery} isActive={i === activeIdx} />
+                  </span>
                 </button>
               ))}
-              {results.map((note, i) => (
-                <button
-                  key={note.name}
-                  data-idx={actionResults.length + i}
-                  onClick={() => confirm(note.name)}
-                  onMouseEnter={() => setActiveIdx(actionResults.length + i)}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                    actionResults.length + i === activeIdx
-                      ? 'bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60'
-                  }`}
-                >
-                  <FileText size={14} className="flex-shrink-0 opacity-60" />
-                  <span className="text-sm truncate">{note.name.replace('.md', '')}</span>
-                </button>
-              ))}
+              
+              {results.map((note, i) => {
+                const idx = actionResults.length + i;
+                const isSelected = idx === activeIdx;
+                return (
+                  <button
+                    key={note.name}
+                    data-idx={idx}
+                    onClick={() => confirm(note.name)}
+                    onMouseEnter={() => setActiveIdx(idx)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-left rounded-lg transition-all duration-150 group group/btn ${
+                      isSelected
+                        ? 'bg-[var(--accent)] text-white shadow-sm'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/40 dark:hover:bg-gray-850/30'
+                    }`}
+                  >
+                    <FileText size={14} className={`flex-shrink-0 transition-colors ${
+                      isSelected ? 'text-white' : 'text-gray-400 dark:text-gray-500 opacity-70'
+                    }`} />
+                    <span className="text-sm truncate font-medium">
+                      <HighlightedText text={note.name.replace('.md', '')} query={query} isActive={isSelected} />
+                    </span>
+                  </button>
+                );
+              })}
+
               {createCandidate && onCreateNote && (
-                <button
-                  data-idx={actionResults.length + results.length}
-                  onClick={() => { onCreateNote(createCandidate); onClose(); }}
-                  onMouseEnter={() => setActiveIdx(actionResults.length + results.length)}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-left border-t border-dashed border-gray-200 dark:border-gray-700 transition-colors ${
-                    activeIdx === actionResults.length + results.length
-                      ? 'bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]'
-                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60'
-                  }`}
-                >
-                  <span className="text-sm font-medium">+</span>
-                  <span className="text-sm truncate">{t('quickOpenCreate').replace('{name}', createCandidate)}</span>
-                </button>
+                <>
+                  <div className="border-t border-dashed border-gray-200/60 dark:border-gray-800/60 my-1 mx-1" />
+                  <button
+                    data-idx={actionResults.length + results.length}
+                    onClick={() => { onCreateNote(createCandidate); onClose(); }}
+                    onMouseEnter={() => setActiveIdx(actionResults.length + results.length)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-left rounded-lg transition-all duration-150 group group/btn ${
+                      activeIdx === actionResults.length + results.length
+                        ? 'bg-[var(--accent)] text-white shadow-sm'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/40 dark:hover:bg-gray-850/30'
+                    }`}
+                  >
+                    <span className={`text-sm font-semibold ${activeIdx === actionResults.length + results.length ? 'text-white' : 'text-[var(--accent)]'}`}>+</span>
+                    <span className="text-sm truncate">
+                      {t('quickOpenCreate').replace('{name}', '')}
+                      <strong className={activeIdx === actionResults.length + results.length ? 'text-white font-bold' : 'text-gray-900 dark:text-gray-100 font-bold'}>
+                        {createCandidate}
+                      </strong>
+                    </span>
+                  </button>
+                </>
               )}
             </>
           )}
         </div>
 
         {totalRows > 0 && (
-          <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-800 flex gap-4 text-xs text-gray-400">
+          <div className="px-4 py-2 border-t border-gray-200/40 dark:border-gray-800/60 flex gap-4 text-[10px] font-medium text-gray-400 dark:text-gray-500 bg-gray-50/10 dark:bg-gray-900/10 shrink-0 select-none">
             <span>{t('navHint')}</span>
             <span>{t('openHint')}</span>
             <span>{t('escHint')}</span>
@@ -258,5 +280,30 @@ export function QuickOpen({ notes, onSelect, onCreateNote, onOpenDaily, onOpenSe
         )}
       </div>
     </div>
+  );
+}
+
+function HighlightedText({ text, query, isActive }: { text: string; query: string; isActive: boolean }) {
+  if (!query.trim()) return <span>{text}</span>;
+  const parts = text.split(new RegExp(`(${query.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')})`, 'gi'));
+  return (
+    <span>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark
+            key={i}
+            className={`rounded-[2px] px-0.5 font-semibold ${
+              isActive
+                ? 'bg-white/30 text-white'
+                : 'bg-[var(--accent-light)] text-[var(--accent)]'
+            }`}
+          >
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </span>
   );
 }

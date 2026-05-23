@@ -63,16 +63,16 @@ export function TemplatesModal({ customTemplates, activeNoteContent, activeNoteN
           onClose();
         }}
       />
-      <div className="relative z-10 bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-96 max-h-[80vh] flex flex-col overflow-hidden modal-content-animate">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+      <div className="relative z-10 glass-modal rounded-xl w-96 max-h-[80vh] flex flex-col overflow-hidden modal-content-animate">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100/40 dark:border-gray-700/40">
           <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('templatesTitle')}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X size={16} /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {allTemplates.map(tmpl => (
-            <div key={tmpl.id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 group">
-              <span className="shrink-0 w-7 h-7 rounded-md bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700 flex items-center justify-center">
+            <div key={tmpl.id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100/40 dark:border-gray-700/40 hover:bg-gray-50/40 dark:hover:bg-gray-800/30 group">
+              <span className="shrink-0 w-7 h-7 rounded-md bg-gray-50/40 dark:bg-gray-900/30 border border-gray-100/40 dark:border-gray-700/40 flex items-center justify-center">
                 <TemplateIcon name={tmpl.icon} />
               </span>
               <div className="flex-1 min-w-0">
@@ -99,7 +99,7 @@ export function TemplatesModal({ customTemplates, activeNoteContent, activeNoteN
         </div>
 
         {activeNoteName && (
-          <div className="px-4 pb-4 border-t border-gray-100 dark:border-gray-700 pt-3">
+          <div className="px-4 pb-4 border-t border-gray-100/40 dark:border-gray-700/40 pt-3">
             {showSave ? (
               <div className="flex gap-2">
                 <input
@@ -113,7 +113,7 @@ export function TemplatesModal({ customTemplates, activeNoteContent, activeNoteN
                     if (e.key === 'Escape') setShowSave(false);
                   }}
                   placeholder={activeNoteName.replace('.md', '')}
-                  className="flex-1 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 outline-none focus:border-[var(--accent)] dark:text-gray-200"
+                  className="flex-1 text-sm bg-gray-50/40 dark:bg-gray-800/25 border border-gray-200/40 dark:border-gray-700/40 rounded px-2 py-1 outline-none focus:border-[var(--accent)] dark:text-gray-200"
                 />
                 <button onClick={handleSave} className="btn-primary text-xs px-3 py-1 rounded">{t('save')}</button>
                 <button onClick={() => setShowSave(false)} className="text-xs px-2 py-1 text-gray-500 hover:text-gray-700"><X size={13} /></button>

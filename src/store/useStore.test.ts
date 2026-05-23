@@ -304,4 +304,246 @@ describe('useStore', () => {
     window.localStorage.setItem = originalSetItem;
     warnSpy.mockRestore();
   });
+
+  it('should wipe all notes, reset specific state fields, and fetch notes', async () => {
+    useStore.setState({
+      notes: [{ name: 'a.md', path: '/a.md', stats: { mtimeMs: 1, ctimeMs: 1, size: 1 } }],
+      pinnedNotes: ['a.md'],
+      customTemplates: [{ id: 'tpl', name: 'Tpl', icon: 'custom', content: 'tpl' }],
+      noteLinksIndex: { 'a.md': ['b'] },
+      tagIndex: { tag: ['a.md'] },
+      noteFolders: ['folder'],
+      lastOpenedNote: 'a.md',
+      customNotesOrder: ['a.md'],
+      customFoldersOrder: ['folder'],
+      activeNoteName: 'a.md',
+      activeNoteContent: 'content',
+    });
+
+    window.electronAPI.wipeAllNotes = vi.fn().mockResolvedValue({ success: true });
+    window.electronAPI.getNotesTree = vi.fn().mockResolvedValue({
+      success: true,
+      data: { rootNotes: [], folders: [] },
+    });
+
+    await useStore.getState().wipeAllNotes();
+
+    expect(window.electronAPI.wipeAllNotes).toHaveBeenCalledWith(undefined);
+    const state = useStore.getState();
+    expect(state.notes).toEqual([]);
+    expect(state.pinnedNotes).toEqual([]);
+    expect(state.customTemplates).toEqual([]);
+    expect(state.noteLinksIndex).toEqual({});
+    expect(state.tagIndex).toEqual({});
+    expect(state.noteFolders).toEqual([]);
+    expect(state.lastOpenedNote).toBeNull();
+    expect(state.customNotesOrder).toEqual([]);
+    expect(state.customFoldersOrder).toEqual([]);
+    expect(state.activeNoteName).toBeNull();
+    expect(state.activeNoteContent).toBe('');
+    expect(window.electronAPI.getNotesTree).toHaveBeenCalled();
+  });
+
+  it('should throw error when wipeAllNotes API call fails', async () => {
+    window.electronAPI.wipeAllNotes = vi.fn().mockResolvedValue({ success: false, error: 'wipe failed' });
+    await expect(useStore.getState().wipeAllNotes()).rejects.toThrow('wipe failed');
+  });
+
+  it('should parse markdown, strip frontmatter, convert tables to HTML and extract wikilinks when opening a note', async () => {
+    const mdContent = `---
+title: Note Title
+tags: [tag1, tag2]
+---
+# Welcome
+Here is a table:
+| Col A | Col B |
+|---|---|
+| Val A | [[WikilinkTarget]] |
+`;
+    window.electronAPI.readNote = vi.fn().mockResolvedValue({ success: true, data: mdContent });
+
+    await useStore.getState().openNote('markdown-note.md');
+
+    const state = useStore.getState();
+    expect(window.electronAPI.readNote).toHaveBeenCalledWith('markdown-note.md', undefined);
+    
+    // Check that frontmatter is stripped
+    expect(state.activeNoteContent).not.toContain('title: Note Title');
+    
+    // Check that Markdown headings are converted to HTML
+    expect(state.activeNoteContent).toContain('<h1>Welcome</h1>');
+    
+    // Check that table is converted to HTML
+    expect(state.activeNoteContent).toContain('<table>');
+    expect(state.activeNoteContent).toContain('<th>Col A</th>');
+    expect(state.activeNoteContent).toContain('<td>Val A</td>');
+    
+    // Check that wikilink is preserved and extracted
+    expect(state.activeNoteContent).toContain('[[WikilinkTarget]]');
+    expect(state.noteLinksIndex['markdown-note.md']).toEqual(['WikilinkTarget']);
+  });
+
+  it('should save a template and delete it', () => {
+    useStore.setState({ customTemplates: [] });
+    useStore.getState().saveAsTemplate('New Tpl', 'tpl content');
+    const state1 = useStore.getState();
+    expect(state1.customTemplates).toHaveLength(1);
+    expect(state1.customTemplates[0].name).toBe('New Tpl');
+    expect(state1.customTemplates[0].content).toBe('tpl content');
+
+    const tplId = state1.customTemplates[0].id;
+    useStore.getState().deleteTemplate(tplId);
+    const state2 = useStore.getState();
+    expect(state2.customTemplates).toHaveLength(0);
+  });
+
+  it('should remove notes from pinnedNotes and customNotesOrder when note is deleted', async () => {
+    useStore.setState({
+      activeNoteName: 'to_delete.md',
+      pinnedNotes: ['to_delete.md', 'keep.md'],
+      customNotesOrder: ['to_delete.md', 'keep.md'],
+    });
+    window.electronAPI.deleteNote = vi.fn().mockResolvedValue({ success: true });
+    window.electronAPI.getNotesTree = vi.fn().mockResolvedValue({
+      success: true,
+      data: { rootNotes: [], folders: [] },
+    });
+
+    await useStore.getState().deleteNote('to_delete.md');
+
+    const state = useStore.getState();
+    expect(state.pinnedNotes).toEqual(['keep.md']);
+    expect(state.customNotesOrder).toEqual(['keep.md']);
+  });
+
+  it('should update folder prefix matching in customNotesOrder when folder is renamed', async () => {
+    useStore.setState({
+      customNotesOrder: ['folderA/note1.md', 'folderB/note2.md', 'note3.md'],
+      customFoldersOrder: ['folderA', 'folderB'],
+    });
+    window.electronAPI.renameFolder = vi.fn().mockResolvedValue({ success: true });
+    window.electronAPI.getNotesTree = vi.fn().mockResolvedValue({
+      success: true,
+      data: { rootNotes: [], folders: [] },
+    });
+
+    await useStore.getState().renameFolder('folderA', 'folderNew');
+
+    const state = useStore.getState();
+    expect(state.customNotesOrder).toEqual(['folderNew/note1.md', 'folderB/note2.md', 'note3.md']);
+    expect(state.customFoldersOrder).toEqual(['folderNew', 'folderB']);
+  });
+
+  it('handles custom storage getItem errors gracefully', () => {
+    const persistOptions = (useStore as any).persist?.getOptions();
+    const storage = persistOptions?.storage;
+    expect(storage).toBeDefined();
+
+    const originalGetItem = window.localStorage.getItem;
+    window.localStorage.getItem = vi.fn(() => {
+      throw new Error('get-fail');
+    });
+
+    expect(storage.getItem('dummy')).toBeNull();
+
+    window.localStorage.getItem = originalGetItem;
+  });
+
+  it('handles custom storage removeItem errors gracefully', () => {
+    const persistOptions = (useStore as any).persist?.getOptions();
+    const storage = persistOptions?.storage;
+    expect(storage).toBeDefined();
+
+    const originalRemoveItem = window.localStorage.removeItem;
+    window.localStorage.removeItem = vi.fn(() => {
+      throw new Error('remove-fail');
+    });
+
+    expect(() => storage.removeItem('dummy')).not.toThrow();
+
+    window.localStorage.removeItem = originalRemoveItem;
+  });
+
+  it('should support setCustomNotesOrder, setCustomFoldersOrder, and setSortBy', () => {
+    useStore.getState().setCustomNotesOrder(['a.md']);
+    useStore.getState().setCustomFoldersOrder(['f']);
+    useStore.getState().setSortBy('title');
+
+    const state = useStore.getState();
+    expect(state.customNotesOrder).toEqual(['a.md']);
+    expect(state.customFoldersOrder).toEqual(['f']);
+    expect(state.sortBy).toBe('title');
+  });
+
+  it('should handle gitGhToken update in settings and strip it to empty', () => {
+    useStore.getState().updateSettings({ gitGhToken: 'secret-github-token' });
+    const state = useStore.getState();
+    expect(state.settings.gitGhToken).toBe('');
+  });
+
+  it('should auto-open last opened note during getNotesList fallback', async () => {
+    const fallbackNotes = [{ name: 'fallback.md', path: '/fallback.md', stats: { mtimeMs: 1, ctimeMs: 1, size: 1 } }];
+    useStore.setState({ lastOpenedNote: 'fallback.md', activeNoteName: null });
+    window.electronAPI.getNotesTree = vi.fn().mockResolvedValue({ success: false });
+    window.electronAPI.getNotesList = vi.fn().mockResolvedValue({ success: true, data: fallbackNotes });
+    window.electronAPI.readNote = vi.fn().mockResolvedValue({ success: true, data: '<p>fallback content</p>' });
+
+    await useStore.getState().fetchNotes();
+
+    expect(window.electronAPI.readNote).toHaveBeenCalledWith('fallback.md', undefined);
+  });
+
+  it('should handle fetchNotes when electronAPI is not defined', async () => {
+    const originalAPI = window.electronAPI;
+    delete (window as any).electronAPI;
+
+    useStore.setState({ isLoading: true });
+    await useStore.getState().fetchNotes();
+
+    expect(useStore.getState().isLoading).toBe(false);
+
+    window.electronAPI = originalAPI;
+  });
+
+  it('should return early from folder/note operations if electronAPI is not defined', async () => {
+    const originalAPI = window.electronAPI;
+    delete (window as any).electronAPI;
+
+    // Call early-return methods and make sure they don't throw and just noop
+    await expect(useStore.getState().deleteNote('x.md')).resolves.toBeUndefined();
+    await expect(useStore.getState().createFolder('x')).resolves.toBeUndefined();
+    await expect(useStore.getState().renameFolder('a', 'b')).resolves.toBeUndefined();
+    await expect(useStore.getState().deleteFolder('x')).resolves.toBeUndefined();
+    await expect(useStore.getState().moveNote('a.md', 'x')).resolves.toBeUndefined();
+    await expect(useStore.getState().wipeAllNotes()).resolves.toBeUndefined();
+    await expect(useStore.getState().createFromTemplate({ id: 'tpl', name: 'Tpl', icon: 'custom', content: 'tpl' })).resolves.toBeUndefined();
+
+    window.electronAPI = originalAPI;
+  });
+
+  it('handles localStorage quota when noteLinksIndex is not in state', () => {
+    const originalSetItem = window.localStorage.setItem;
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    let calls = 0;
+    window.localStorage.setItem = vi.fn((key: string, value: string) => {
+      calls += 1;
+      if (calls === 1) {
+        const err = new Error('quota');
+        (err as Error & { name: string }).name = 'QuotaExceededError';
+        throw err;
+      }
+      return originalSetItem.call(window.localStorage, key, value);
+    }) as typeof window.localStorage.setItem;
+
+    const persistOptions = (useStore as any).persist?.getOptions();
+    const storage = persistOptions?.storage;
+    
+    // Set item directly with JSON that doesn't have noteLinksIndex in state
+    storage.setItem('dummy-key', JSON.stringify({ state: { pinnedNotes: [] } }));
+
+    expect(warnSpy).toHaveBeenCalledWith('[useStore] persist write failed:', 'quota');
+
+    window.localStorage.setItem = originalSetItem;
+    warnSpy.mockRestore();
+  });
 });

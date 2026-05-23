@@ -68,9 +68,9 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
         }}
       />
       <div
-        className="relative z-10 bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden modal-content-animate"
+        className="relative z-10 glass-modal rounded-xl w-full max-w-md mx-4 overflow-hidden modal-content-animate"
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100/40 dark:border-gray-700/40">
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('keyboardShortcuts')}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded" aria-label={t('close')}>
             <X size={16} />
@@ -89,7 +89,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
                       {row.keys.map((k, i) => (
                         <kbd
                           key={i}
-                          className="px-1.5 py-0.5 text-xs font-mono bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-700 dark:text-gray-300"
+                          className="px-1.5 py-0.5 text-xs font-mono bg-gray-100/40 dark:bg-gray-800/30 border border-gray-200/40 dark:border-gray-700/40 rounded text-gray-700 dark:text-gray-300"
                         >
                           {k}
                         </kbd>

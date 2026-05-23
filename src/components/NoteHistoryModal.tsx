@@ -51,8 +51,8 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
           onClose();
         }}
       />
-      <div className="relative z-10 bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-[700px] max-h-[80vh] flex flex-col overflow-hidden modal-content-animate">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+      <div className="relative z-10 glass-modal rounded-xl shadow-2xl w-[700px] max-h-[80vh] flex flex-col overflow-hidden modal-content-animate">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100/40 dark:border-gray-700/40">
           <div className="flex items-center gap-2">
             <Clock size={15} className="text-gray-400" />
             <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('historyTitle')} — {fileName.replace('.md', '')}</h2>
@@ -62,7 +62,7 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
 
         <div className="flex flex-1 overflow-hidden">
           {/* Snapshot list */}
-          <div className="w-48 border-r border-gray-100 dark:border-gray-700 overflow-y-auto shrink-0">
+          <div className="w-48 border-r border-gray-100/40 dark:border-gray-700/40 overflow-y-auto shrink-0">
             {loading && <p className="text-xs text-gray-400 p-4">{t('loading')}</p>}
             {!loading && snapshots.length === 0 && (
               <p className="text-xs text-gray-400 p-4">{t('noVersions')}</p>
@@ -71,7 +71,7 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
               <button
                 key={snap.name}
                 onClick={() => void loadPreview(snap)}
-                className={`w-full text-left px-3 py-2 text-xs border-b border-gray-50 dark:border-gray-700/50 transition-colors ${selected?.name === snap.name ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-600 dark:text-gray-400'}`}
+                className={`w-full text-left px-3 py-2 text-xs border-b border-gray-50/20 dark:border-gray-700/30 transition-colors ${selected?.name === snap.name ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'hover:bg-gray-50/40 dark:hover:bg-gray-850/30 text-gray-600 dark:text-gray-400'}`}
               >
                 {snap.ts}
               </button>
@@ -89,7 +89,7 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
         </div>
 
         {selected && preview && (
-          <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+          <div className="px-5 py-3 border-t border-gray-100/40 dark:border-gray-700/40 flex justify-end">
             <button
               onClick={handleRestore}
               className="btn-primary flex items-center gap-2 text-sm px-4 py-1.5 rounded-lg"

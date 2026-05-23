@@ -5,9 +5,10 @@ import {
   Tag, X, FolderOpen, Folder, FolderPlus, ChevronRight, ChevronDown
 } from 'lucide-react';
 import type { NoteFile, FolderInfo } from '../store/useStore';
+import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
 
-type SortBy = 'date' | 'name' | 'size';
+type SortBy = 'date' | 'name' | 'size' | 'custom';
 
 type SidebarRow =
   | { type: 'root-note'; note: NoteFile }
@@ -90,12 +91,13 @@ function NoteRow({
         if (!isRenaming && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelect(); }
       }}
       aria-current={isActive ? 'true' : undefined}
-      className={`flex items-center justify-between p-2 rounded text-sm cursor-pointer mb-0.5 group transition-all duration-150 ease-out border-l-2 ${
+      className={`relative flex items-center justify-between p-2 rounded text-sm cursor-pointer mb-0.5 group transition-all duration-150 ease-out pl-4 ${
         isActive
-          ? 'bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)] border-[var(--accent)] pl-2.5 font-medium'
-          : 'hover:bg-gray-200/70 dark:hover:bg-gray-700/60 text-gray-700 dark:text-gray-300 border-transparent pl-2'
+          ? 'bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] text-[var(--accent)] font-medium sidebar-note-active'
+          : 'hover:bg-gray-200/50 dark:hover:bg-gray-800/40 text-gray-700 dark:text-gray-300'
       }`}
     >
+      <span className="sidebar-note-indicator" />
       <div className="flex items-center space-x-2 truncate flex-1 min-w-0">
         <FileText size={14} className="shrink-0 opacity-70" />
         {isRenaming ? (
@@ -124,11 +126,11 @@ function NoteRow({
       {!isRenaming && (
         <div className="flex items-center shrink-0">
           <button onClick={e => { e.stopPropagation(); onTogglePin(); }}
-            className={`p-1 transition-colors ${isPinned ? 'text-amber-400' : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-amber-400'}`}>
+            className={`p-1 transition-colors animate-spring-scale ${isPinned ? 'text-amber-400' : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-amber-400'}`}>
             <Star size={11} fill={isPinned ? 'currentColor' : 'none'} />
           </button>
           <button onClick={e => { e.stopPropagation(); onDelete(); }}
-            className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 p-1">
+            className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 p-1 animate-spring-scale">
             <Trash2 size={13} />
           </button>
         </div>
@@ -145,12 +147,31 @@ export function Sidebar({
 }: SidebarProps) {
   const { t, language } = useI18n();
   const [query, setQuery] = useState('');
-  const [sortBy, setSortBy] = useState<SortBy>('date');
+  
+  const sortBy = useStore(state => state.sortBy);
+  const [appVersion, setAppVersion] = useState('1.0.12');
+
+  useEffect(() => {
+    if (window.electronAPI?.getAppVersion) {
+      window.electronAPI.getAppVersion().then(setAppVersion).catch(() => {});
+    }
+  }, []);
+  const setSortBy = useStore(state => state.setSortBy);
+  const customNotesOrder = useStore(state => state.customNotesOrder);
+  const customFoldersOrder = useStore(state => state.customFoldersOrder);
+  const setCustomNotesOrder = useStore(state => state.setCustomNotesOrder);
+  const setCustomFoldersOrder = useStore(state => state.setCustomFoldersOrder);
+
   const [renamingNote, setRenamingNote] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
 
-  const SORT_LABELS: Record<SortBy, string> = { date: t('sortDate'), name: t('sortName'), size: t('sortSize') };
+  const SORT_LABELS: Record<SortBy, string> = {
+    date: t('sortDate'),
+    name: t('sortName'),
+    size: t('sortSize'),
+    custom: t('custom'),
+  };
 
   const [showTags, setShowTags] = useState(false);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
@@ -158,10 +179,21 @@ export function Sidebar({
   const [folderRenameValue, setFolderRenameValue] = useState('');
   const [newFolderMode, setNewFolderMode] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  
   const [dragOver, setDragOver] = useState<string | null>(null); // folder name or 'root'
+  const [dragOverFolderHeader, setDragOverFolderHeader] = useState<string | null>(null);
+  const [dragOverFolderPosition, setDragOverFolderPosition] = useState<'before' | 'after' | null>(null);
+  const [dragOverNote, setDragOverNote] = useState<string | null>(null);
+  const [dragOverNotePosition, setDragOverNotePosition] = useState<'before' | 'after' | null>(null);
 
   useEffect(() => {
-    const clearDragState = () => setDragOver(null);
+    const clearDragState = () => {
+      setDragOver(null);
+      setDragOverFolderHeader(null);
+      setDragOverFolderPosition(null);
+      setDragOverNote(null);
+      setDragOverNotePosition(null);
+    };
     window.addEventListener('dragend', clearDragState);
     window.addEventListener('drop', clearDragState);
     return () => {
@@ -171,8 +203,13 @@ export function Sidebar({
   }, []);
 
   const cycleSortBy = useCallback(() => {
-    setSortBy(prev => prev === 'date' ? 'name' : prev === 'name' ? 'size' : 'date');
-  }, []);
+    let next: SortBy;
+    if (sortBy === 'custom') next = 'date';
+    else if (sortBy === 'date') next = 'name';
+    else if (sortBy === 'name') next = 'size';
+    else next = 'custom';
+    setSortBy(next);
+  }, [sortBy, setSortBy]);
 
   const toggleFolder = (name: string) => {
     setCollapsedFolders(prev => {
@@ -192,11 +229,20 @@ export function Sidebar({
       const ap = pinnedNotes.includes(a.name) ? 0 : 1;
       const bp = pinnedNotes.includes(b.name) ? 0 : 1;
       if (ap !== bp) return ap - bp;
+      
+      if (sortBy === 'custom') {
+        const idxA = customNotesOrder.indexOf(a.name);
+        const idxB = customNotesOrder.indexOf(b.name);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return b.stats.mtimeMs - a.stats.mtimeMs;
+      }
       if (sortBy === 'name') return a.name.localeCompare(b.name);
       if (sortBy === 'size') return b.stats.size - a.stats.size;
       return b.stats.mtimeMs - a.stats.mtimeMs;
     });
-  }, [notes, query, sortBy, pinnedNotes]);
+  }, [notes, query, sortBy, pinnedNotes, customNotesOrder]);
 
   // Commits rename
   const commitNoteRename = useCallback(async () => {
@@ -223,45 +269,205 @@ export function Sidebar({
     try { await onCreateFolder(name); } catch { /* toast */ }
   }, [newFolderName, onCreateFolder]);
 
-  // Drag handlers
+  // Drag helpers
+  const isDraggingFolder = (types: readonly string[] | DOMStringList | undefined) =>
+    types ? Array.from(types).includes('text/folder-name') : false;
+  const isDraggingNote = (types: readonly string[] | DOMStringList | undefined) =>
+    types ? Array.from(types).includes('text/note-name') : false;
+
   const handleDragStart = (e: React.DragEvent, noteName: string) => {
-    e.dataTransfer.setData('text/note-name', noteName);
+    e.dataTransfer?.setData('text/note-name', noteName);
   };
 
   const handleDrop = async (e: React.DragEvent, toFolder: string) => {
     e.preventDefault();
     setDragOver(null);
-    const noteName = e.dataTransfer.getData('text/note-name');
+    const noteName = e.dataTransfer?.getData('text/note-name');
     if (!noteName) return;
     const currentFolder = noteName.includes('/') ? noteName.split('/')[0] : '';
     if (currentFolder === toFolder) return;
-    try { await onMoveNote(noteName, toFolder); } catch { /* toast */ }
+    try {
+      await onMoveNote(noteName, toFolder);
+      setSortBy('custom');
+    } catch { /* toast */ }
   };
 
-  const renderNote = (note: NoteFile) => (
-    <NoteRow
-      key={note.name}
-      note={note}
-      isActive={activeNoteName === note.name}
-      isPinned={pinnedNotes.includes(note.name)}
-      isRenaming={renamingNote === note.name}
-      renameValue={renameValue}
-      renameInputRef={renameInputRef}
-      onSelect={() => onSelectNote(note.name)}
-      onDelete={() => onDeleteNote(note.name)}
-      onTogglePin={() => onTogglePin(note.name)}
-      onStartRename={e => { e.stopPropagation(); setRenamingNote(note.name); setRenameValue(note.name.replace(/^[^/]+\//, '').replace('.md', '')); setTimeout(() => renameInputRef.current?.select(), 0); }}
-      onRenameChange={setRenameValue}
-      onRenameBlur={() => void commitNoteRename()}
-      onRenameKeyDown={e => {
-        if (e.nativeEvent.isComposing || e.repeat) return;
-        if (e.key === 'Enter') { e.preventDefault(); void commitNoteRename(); }
-        if (e.key === 'Escape') setRenamingNote(null);
-      }}
-      onDragStart={e => handleDragStart(e, note.name)}
-      renameHint={t('renameHint')}
-    />
-  );
+  const handleFolderDragOver = (e: React.DragEvent, targetFolderName: string) => {
+    const types = e.dataTransfer?.types;
+    if (!types || isDraggingNote(types)) {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragOver(targetFolderName);
+      setDragOverFolderHeader(null);
+      setDragOverFolderPosition(null);
+    } else if (isDraggingFolder(types)) {
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = e.currentTarget.getBoundingClientRect();
+      const relativeY = e.clientY - rect.top;
+      const position = relativeY < rect.height / 2 ? 'before' : 'after';
+      setDragOverFolderHeader(targetFolderName);
+      setDragOverFolderPosition(position);
+      setDragOver(null);
+    }
+  };
+
+  const handleFolderDrop = async (e: React.DragEvent, targetFolderName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const types = e.dataTransfer?.types;
+    const isFolder = types ? isDraggingFolder(types) : false;
+    
+    const position = dragOverFolderPosition;
+    setDragOverFolderHeader(null);
+    setDragOverFolderPosition(null);
+    setDragOver(null);
+    
+    if (isFolder) {
+      const folderName = e.dataTransfer?.getData('text/folder-name');
+      if (folderName && folderName !== targetFolderName) {
+        const order = [...customFoldersOrder];
+        const allFolderNames = noteFolders.map(f => f.name);
+        for (const fName of allFolderNames) {
+          if (!order.includes(fName)) {
+            order.push(fName);
+          }
+        }
+        const fromIndex = order.indexOf(folderName);
+        let toIndex = order.indexOf(targetFolderName);
+        if (fromIndex !== -1 && toIndex !== -1) {
+          order.splice(fromIndex, 1);
+          toIndex = order.indexOf(targetFolderName);
+          if (position === 'after') {
+            order.splice(toIndex + 1, 0, folderName);
+          } else {
+            order.splice(toIndex, 0, folderName);
+          }
+          setCustomFoldersOrder(order);
+          setSortBy('custom');
+        }
+      }
+    } else {
+      const noteName = e.dataTransfer?.getData('text/note-name');
+      if (noteName) {
+        const currentFolder = noteName.includes('/') ? noteName.split('/')[0] : '';
+        if (currentFolder === targetFolderName) return;
+        try {
+          await onMoveNote(noteName, targetFolderName);
+          setSortBy('custom');
+        } catch { /* toast */ }
+      }
+    }
+  };
+
+  const handleNoteDragOver = (e: React.DragEvent, targetNote: NoteFile) => {
+    const types = e.dataTransfer?.types;
+    if (!types || isDraggingNote(types)) {
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = e.currentTarget.getBoundingClientRect();
+      const relativeY = e.clientY - rect.top;
+      const position = relativeY < rect.height / 2 ? 'before' : 'after';
+      setDragOverNote(targetNote.name);
+      setDragOverNotePosition(position);
+    }
+  };
+
+  const handleNoteDragLeave = () => {
+    setDragOverNote(null);
+    setDragOverNotePosition(null);
+  };
+
+  const handleNoteDrop = async (e: React.DragEvent, targetNote: NoteFile, folderName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const noteName = e.dataTransfer?.getData('text/note-name');
+    const position = dragOverNotePosition;
+    setDragOverNote(null);
+    setDragOverNotePosition(null);
+    
+    if (!noteName || noteName === targetNote.name) return;
+    
+    const currentFolder = noteName.includes('/') ? noteName.split('/')[0] : '';
+    let finalNoteName = noteName;
+    if (currentFolder !== folderName) {
+      try {
+        await onMoveNote(noteName, folderName);
+        const stem = noteName.includes('/') ? noteName.split('/').pop()! : noteName;
+        finalNoteName = folderName ? `${folderName}/${stem}` : stem;
+      } catch {
+        return;
+      }
+    }
+    
+    const latestOrder = useStore.getState().customNotesOrder;
+    const order = [...latestOrder];
+    const allNoteNames = notes.map(n => n.name);
+    for (const name of allNoteNames) {
+      if (!order.includes(name)) {
+        order.push(name);
+      }
+    }
+    
+    const fromIndex = order.indexOf(finalNoteName);
+    let toIndex = order.indexOf(targetNote.name);
+    if (fromIndex !== -1 && toIndex !== -1) {
+      order.splice(fromIndex, 1);
+      toIndex = order.indexOf(targetNote.name);
+      if (position === 'after') {
+        order.splice(toIndex + 1, 0, finalNoteName);
+      } else {
+        order.splice(toIndex, 0, finalNoteName);
+      }
+      setCustomNotesOrder(order);
+      setSortBy('custom');
+    }
+  };
+
+  const renderNote = (note: NoteFile, folderName = '') => {
+    const isDragOverTarget = dragOverNote === note.name;
+    const dragOverPos = isDragOverTarget ? dragOverNotePosition : null;
+
+    return (
+      <div
+        onDragOver={e => handleNoteDragOver(e, note)}
+        onDragLeave={handleNoteDragLeave}
+        onDrop={e => void handleNoteDrop(e, note, folderName)}
+        style={{
+          boxShadow: dragOverPos === 'before'
+            ? 'inset 0 2px 0 var(--accent)'
+            : dragOverPos === 'after'
+            ? 'inset 0 -2px 0 var(--accent)'
+            : undefined,
+        }}
+      >
+        <NoteRow
+          key={note.name}
+          note={note}
+          isActive={activeNoteName === note.name}
+          isPinned={pinnedNotes.includes(note.name)}
+          isRenaming={renamingNote === note.name}
+          renameValue={renameValue}
+          renameInputRef={renameInputRef}
+          onSelect={() => onSelectNote(note.name)}
+          onDelete={() => onDeleteNote(note.name)}
+          onTogglePin={() => onTogglePin(note.name)}
+          onStartRename={e => { e.stopPropagation(); setRenamingNote(note.name); setRenameValue(note.name.replace(/^[^/]+\//, '').replace('.md', '')); setTimeout(() => renameInputRef.current?.select(), 0); }}
+          onRenameChange={setRenameValue}
+          onRenameBlur={() => void commitNoteRename()}
+          onRenameKeyDown={e => {
+            if (e.nativeEvent.isComposing || e.repeat) return;
+            if (e.key === 'Enter') { e.preventDefault(); void commitNoteRename(); }
+            if (e.key === 'Escape') setRenamingNote(null);
+          }}
+          onDragStart={e => handleDragStart(e, note.name)}
+          renameHint={t('renameHint')}
+        />
+      </div>
+    );
+  };
 
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -282,12 +488,41 @@ export function Sidebar({
       f => !query || f.notes.some(n => n.name.toLowerCase().includes(query.toLowerCase()))
     );
 
-    for (const folder of filteredFolders) {
+    const foldersSorted = [...filteredFolders].sort((a, b) => {
+      if (sortBy === 'custom') {
+        const idxA = customFoldersOrder.indexOf(a.name);
+        const idxB = customFoldersOrder.indexOf(b.name);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.name.localeCompare(b.name);
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    for (const folder of foldersSorted) {
       const isCollapsed = collapsedFolders.has(folder.name);
       const isDragTarget = dragOver === folder.name;
       const filteredFolderNotes = query
         ? folder.notes.filter(n => n.name.toLowerCase().includes(query.toLowerCase()))
         : folder.notes;
+
+      const sortedFolderNotes = [...filteredFolderNotes].sort((a, b) => {
+        const ap = pinnedNotes.includes(a.name) ? 0 : 1;
+        const bp = pinnedNotes.includes(b.name) ? 0 : 1;
+        if (ap !== bp) return ap - bp;
+        if (sortBy === 'custom') {
+          const idxA = customNotesOrder.indexOf(a.name);
+          const idxB = customNotesOrder.indexOf(b.name);
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
+          return b.stats.mtimeMs - a.stats.mtimeMs;
+        }
+        if (sortBy === 'name') return a.name.localeCompare(b.name);
+        if (sortBy === 'size') return b.stats.size - a.stats.size;
+        return b.stats.mtimeMs - a.stats.mtimeMs;
+      });
 
       list.push({
         type: 'folder-header',
@@ -297,14 +532,14 @@ export function Sidebar({
       });
 
       if (!isCollapsed) {
-        for (const note of filteredFolderNotes) {
+        for (const note of sortedFolderNotes) {
           list.push({
             type: 'folder-note',
             note,
             folderName: folder.name,
           });
         }
-        if (filteredFolderNotes.length === 0 && !query) {
+        if (sortedFolderNotes.length === 0 && !query) {
           list.push({
             type: 'folder-empty',
             folderName: folder.name,
@@ -314,7 +549,7 @@ export function Sidebar({
     }
 
     return list;
-  }, [rootNotes, noteFolders, query, collapsedFolders, dragOver]);
+  }, [rootNotes, noteFolders, query, collapsedFolders, dragOver, sortBy, customNotesOrder, customFoldersOrder, pinnedNotes]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer({
@@ -336,21 +571,21 @@ export function Sidebar({
       <div className="p-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex justify-between items-center">
         <span>{activeTagFilter ?? t('notes')}</span>
         <div className="flex items-center gap-1">
-          <button onClick={cycleSortBy} className="flex items-center gap-0.5 hover:text-gray-800 dark:hover:text-gray-200 px-1 py-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700" title={`${t('sortBy')} ${SORT_LABELS[sortBy]}`}>
+          <button onClick={cycleSortBy} className="flex items-center gap-0.5 hover:text-gray-800 dark:hover:text-gray-200 px-1 py-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 animate-spring-scale" title={`${t('sortBy')} ${SORT_LABELS[sortBy]}`}>
             <ArrowUpDown size={11} /><span className="text-[10px]">{SORT_LABELS[sortBy]}</span>
           </button>
           {allTags.length > 0 && (
-            <button onClick={() => setShowTags(v => !v)} className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ${showTags ? 'text-[var(--accent)]' : 'hover:text-gray-800 dark:hover:text-gray-200'}`} title={t('tags')}>
+            <button onClick={() => setShowTags(v => !v)} className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 animate-spring-scale ${showTags ? 'text-[var(--accent)]' : 'hover:text-gray-800 dark:hover:text-gray-200'}`} title={t('tags')}>
               <Tag size={13} />
             </button>
           )}
-          <button onClick={() => setNewFolderMode(true)} className="hover:text-gray-800 dark:hover:text-gray-200 p-1" title={t('newFolder')}>
+          <button onClick={() => setNewFolderMode(true)} className="hover:text-gray-800 dark:hover:text-gray-200 p-1 animate-spring-scale" title={t('newFolder')}>
             <FolderPlus size={13} />
           </button>
-          <button onClick={onOpenDaily} className="hover:text-gray-800 dark:hover:text-gray-200 p-1" title={t('dailyNote')}>
+          <button onClick={onOpenDaily} className="hover:text-gray-800 dark:hover:text-gray-200 p-1 animate-spring-scale" title={t('dailyNote')}>
             <CalendarDays size={14} />
           </button>
-          <button onClick={() => onCreateNote()} className="hover:text-gray-800 dark:hover:text-gray-200 p-1" aria-label={t('newNote')}>
+          <button onClick={() => onCreateNote()} className="hover:text-gray-800 dark:hover:text-gray-200 p-1 animate-spring-scale" aria-label={t('newNote')}>
             <Plus size={14} />
           </button>
         </div>
@@ -375,11 +610,11 @@ export function Sidebar({
 
       {/* Search */}
       <div className="px-2 pb-2">
-        <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-700/60 rounded px-2 py-1 group focus-within:ring-1 focus-within:ring-[var(--accent)]/30 transition-all">
-          <Search size={12} className="text-gray-400 shrink-0" />
+        <div className="flex items-center gap-1.5 bg-gray-200/40 dark:bg-gray-800/40 rounded-lg px-2.5 py-1.5 group focus-within:bg-white dark:focus-within:bg-gray-800 focus-within:ring-1 focus-within:ring-[var(--accent)]/35 focus-within:shadow-sm transition-all duration-200">
+          <Search size={12} className="text-gray-400 group-focus-within:text-[var(--accent)] shrink-0 transition-colors duration-200" />
           <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder={t('search')}
             className="bg-transparent text-xs text-gray-700 dark:text-gray-200 placeholder-gray-400 outline-none w-full" />
-          <kbd className="text-[9px] font-sans font-medium text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-800 px-1 py-0.5 rounded shadow-sm border border-gray-200 dark:border-gray-700 shrink-0 select-none pointer-events-none transition-colors">
+          <kbd className="text-[9px] font-sans font-medium text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-900 group-focus-within:bg-white dark:group-focus-within:bg-gray-800 px-1 py-0.5 rounded shadow-sm border border-gray-200 dark:border-gray-700 shrink-0 select-none pointer-events-none transition-colors duration-200">
             ⌘P
           </kbd>
         </div>
@@ -465,22 +700,25 @@ export function Sidebar({
                       className={`mb-1 rounded transition-colors ${
                         row.isDragTarget ? 'bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] ring-1 ring-[var(--accent)]' : ''
                       }`}
-                      onDragOver={e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setDragOver(row.folder.name);
+                      style={{
+                        boxShadow: dragOverFolderHeader === row.folder.name
+                          ? (dragOverFolderPosition === 'before' ? 'inset 0 2px 0 var(--accent)' : 'inset 0 -2px 0 var(--accent)')
+                          : undefined,
                       }}
-                      onDragLeave={e => {
-                        e.stopPropagation();
+                      onDragOver={e => handleFolderDragOver(e, row.folder.name)}
+                      onDragLeave={() => {
                         setDragOver(null);
+                        setDragOverFolderHeader(null);
+                        setDragOverFolderPosition(null);
                       }}
-                      onDrop={e => {
-                        e.stopPropagation();
-                        void handleDrop(e, row.folder.name);
-                      }}
+                      onDrop={e => void handleFolderDrop(e, row.folder.name)}
                     >
                       {/* Folder header */}
                       <div
+                        draggable={true}
+                        onDragStart={e => {
+                          e.dataTransfer?.setData('text/folder-name', row.folder.name);
+                        }}
                         className="flex items-center gap-1 px-1 py-1.5 rounded hover:bg-gray-200/60 dark:hover:bg-gray-700/50 group cursor-pointer select-none"
                         role="button"
                         tabIndex={0}
@@ -561,23 +799,8 @@ export function Sidebar({
                   )}
 
                   {row.type === 'folder-note' && (
-                    <div
-                      className="pl-4"
-                      onDragOver={e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setDragOver(row.folderName);
-                      }}
-                      onDragLeave={e => {
-                        e.stopPropagation();
-                        setDragOver(null);
-                      }}
-                      onDrop={e => {
-                        e.stopPropagation();
-                        void handleDrop(e, row.folderName);
-                      }}
-                    >
-                      {renderNote(row.note)}
+                    <div className="pl-4">
+                      {renderNote(row.note, row.folderName)}
                     </div>
                   )}
 
@@ -619,7 +842,7 @@ export function Sidebar({
           {getNoteCounterText(notes.length, language)}
         </span>
         <span className="text-[10px] font-mono opacity-50">
-          v1.0.1
+          v{appVersion}
         </span>
         <button
           type="button"
