@@ -248,11 +248,22 @@ export function excerpt(text: string, query: string, windowChars = 120): string 
   return (start > 0 ? '…' : '') + snip + (end < text.length ? '…' : '');
 }
 
+const TOOL_NAME = {
+  LIST_NOTES: 'list_notes',
+  READ_NOTE: 'read_note',
+  CREATE_NOTE: 'create_note',
+  UPDATE_NOTE: 'update_note',
+  SEARCH_NOTES: 'search_notes',
+  DELETE_NOTE: 'delete_note',
+} as const;
+
+type ToolName = (typeof TOOL_NAME)[keyof typeof TOOL_NAME];
+
 // ─── Tool definitions ─────────────────────────────────────────────────────────
 
 const TOOLS: Tool[] = [
   {
-    name: 'list_notes',
+    name: TOOL_NAME.LIST_NOTES,
     description:
       'List all notes stored in the Noted app, sorted by last-modified date (newest first). ' +
       'Returns note names including any subfolder prefix (e.g. "Lavoro/meeting.md"). ' +
@@ -269,7 +280,7 @@ const TOOLS: Tool[] = [
     },
   },
   {
-    name: 'read_note',
+    name: TOOL_NAME.READ_NOTE,
     description:
       'Read the full content of a note. Returns both the plain-text version (for easy reading) ' +
       'and the raw HTML stored on disk.',
@@ -286,7 +297,7 @@ const TOOLS: Tool[] = [
     },
   },
   {
-    name: 'create_note',
+    name: TOOL_NAME.CREATE_NOTE,
     description:
       'Create a new note in Noted. Content can be Markdown or HTML — Markdown is automatically ' +
       'converted to HTML for correct rendering in the editor. ' +
@@ -308,7 +319,7 @@ const TOOLS: Tool[] = [
     },
   },
   {
-    name: 'update_note',
+    name: TOOL_NAME.UPDATE_NOTE,
     description:
       'Update an existing note. By default replaces the entire content. ' +
       'Set append=true to add new content at the end of the note without touching the existing text. ' +
@@ -334,7 +345,7 @@ const TOOLS: Tool[] = [
     },
   },
   {
-    name: 'search_notes',
+    name: TOOL_NAME.SEARCH_NOTES,
     description:
       'Full-text search across all notes. Case-insensitive. ' +
       'Returns matching note names with a short excerpt showing the match in context.',
@@ -355,7 +366,7 @@ const TOOLS: Tool[] = [
     },
   },
   {
-    name: 'delete_note',
+    name: TOOL_NAME.DELETE_NOTE,
     description:
       'Permanently delete a note. This action cannot be undone — ' +
       'ask the user for confirmation before calling this tool.',
@@ -530,14 +541,18 @@ export async function handleDeleteNote(args: Record<string, unknown>) {
 
 type ToolHandler = (args: Record<string, unknown>) => Promise<{ content: { type: 'text'; text: string }[] }>;
 
-const TOOL_HANDLERS: Record<string, ToolHandler> = {
-  list_notes: handleListNotes,
-  read_note: handleReadNote,
-  create_note: handleCreateNote,
-  update_note: handleUpdateNote,
-  search_notes: handleSearchNotes,
-  delete_note: handleDeleteNote,
+const TOOL_HANDLERS: Record<ToolName, ToolHandler> = {
+  [TOOL_NAME.LIST_NOTES]: handleListNotes,
+  [TOOL_NAME.READ_NOTE]: handleReadNote,
+  [TOOL_NAME.CREATE_NOTE]: handleCreateNote,
+  [TOOL_NAME.UPDATE_NOTE]: handleUpdateNote,
+  [TOOL_NAME.SEARCH_NOTES]: handleSearchNotes,
+  [TOOL_NAME.DELETE_NOTE]: handleDeleteNote,
 };
+
+function isToolName(value: string): value is ToolName {
+  return Object.prototype.hasOwnProperty.call(TOOL_HANDLERS, value);
+}
 
 const server = new Server(
   { name: 'noted', version: pkg.version },
@@ -551,8 +566,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const safeArgs = args as Record<string, unknown>;
 
   try {
+    if (!isToolName(name)) throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
     const handler = TOOL_HANDLERS[name];
-    if (!handler) throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
     return await handler(safeArgs);
   } catch (err) {
     // Re-throw McpErrors as-is; wrap unexpected errors

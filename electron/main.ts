@@ -89,11 +89,11 @@ function checkSafeStorageOnce() {
   if (safeStorageWarned) return;
   safeStorageWarned = true;
   if (!safeStorage.isEncryptionAvailable()) {
-    console.warn(
-      '[safeStorage] OS encryption not available — API keys and Git tokens ' +
-      'will be held in process memory only (not persisted across restarts). ' +
-      'On Linux, install libsecret/gnome-keyring to enable encrypted storage.'
-    );
+    logEvent('warn', 'safe_storage_encryption_unavailable', {
+      platform: process.platform,
+      message:
+        'OS encryption unavailable; tokens remain in-memory only. On Linux install libsecret/gnome-keyring.',
+    });
   }
 }
 
@@ -281,10 +281,12 @@ let mcpSseChild: ChildProcess | null = null;
 let currentMcpPort: number | null = null;
 let currentMcpSyncDir: string | null = null;
 
-/* eslint-disable no-console */
 function stopMcpSseServer() {
   if (mcpSseChild) {
-    console.log('[main] stopping MCP SSE Server child process...');
+    logEvent('info', 'mcp_sse_stopping', {
+      port: currentMcpPort ?? undefined,
+      syncDir: currentMcpSyncDir ?? undefined,
+    });
     mcpSseChild.kill('SIGTERM');
     mcpSseChild = null;
     currentMcpPort = null;
@@ -294,15 +296,16 @@ function stopMcpSseServer() {
 
 function startMcpSseServer(port: number, syncDir?: string) {
   stopMcpSseServer();
+  const reqId = newRequestId('mcp-sse');
 
   const mcpPath = getMcpServerPathInternal();
   if (!fs.existsSync(mcpPath)) {
-    console.error(`[main] MCP server binary not found at ${mcpPath}`);
+    logEvent('error', 'mcp_sse_binary_missing', { reqId, mcpPath });
     return;
   }
 
   const targetDir = getTargetDir(syncDir);
-  console.log(`[main] starting MCP SSE Server on port ${port} with notes-dir ${targetDir}`);
+  logEvent('info', 'mcp_sse_starting', { reqId, port, notesDir: targetDir });
 
   try {
     mcpSseChild = spawn('node', [
@@ -321,29 +324,32 @@ function startMcpSseServer(port: number, syncDir?: string) {
     currentMcpPort = port;
     currentMcpSyncDir = targetDir;
 
-    mcpSseChild.stdout?.on('data', (data) => {
-      console.log(`[noted-mcp-out] ${data.toString().trim()}`);
+    mcpSseChild.stdout?.on('data', data => {
+      const message = data.toString().trim();
+      if (!message) return;
+      logEvent('info', 'mcp_sse_child_stdout', { reqId, message });
     });
 
-    mcpSseChild.stderr?.on('data', (data) => {
-      console.error(`[noted-mcp-err] ${data.toString().trim()}`);
+    mcpSseChild.stderr?.on('data', data => {
+      const message = data.toString().trim();
+      if (!message) return;
+      logEvent('error', 'mcp_sse_child_stderr', { reqId, message });
     });
 
-    mcpSseChild.on('close', (code) => {
-      console.log(`[main] MCP SSE Server exited with code ${code}`);
+    mcpSseChild.on('close', code => {
+      logEvent('info', 'mcp_sse_child_exited', { reqId, code: code ?? null });
       if (mcpSseChild) {
         mcpSseChild = null;
       }
     });
 
-    mcpSseChild.on('error', (err) => {
-      console.error('[main] MCP SSE Server spawn error:', err);
+    mcpSseChild.on('error', err => {
+      logEvent('error', 'mcp_sse_child_spawn_error', { reqId, error: err.message });
     });
   } catch (err) {
-    console.error('[main] failed to spawn MCP SSE Server:', err);
+    logEvent('error', 'mcp_sse_spawn_failed', { reqId, error: (err as Error).message });
   }
 }
-/* eslint-enable no-console */
 
 // MCP server location — resolved relative to dist-electron/main.cjs so it works
 // both in dev (cloned repo) and in packaged builds that ship dist-mcp/.
@@ -354,6 +360,7 @@ ipcMain.handle('get-mcp-server-path', () => {
 });
 
 ipcMain.handle('update-mcp-sse-config', (_, config: { enabled: boolean; port: number; syncDir?: string }) => {
+  const reqId = newRequestId('mcp-sse-config');
   try {
     const { enabled, port, syncDir } = config;
     const targetDir = getTargetDir(syncDir);
@@ -370,7 +377,7 @@ ipcMain.handle('update-mcp-sse-config', (_, config: { enabled: boolean; port: nu
     startMcpSseServer(port, syncDir);
     return { success: true };
   } catch (err) {
-    console.error('[main] update-mcp-sse-config failed:', err);
+    logEvent('error', 'mcp_sse_config_update_failed', { reqId, error: (err as Error).message });
     return { success: false, error: (err as Error).message };
   }
 });
@@ -710,7 +717,7 @@ ipcMain.handle('export-pdf', async (event, htmlContent: string) => {
     }
   } catch (error: unknown) {
     const err = error as Error;
-    console.error('PDF Export Error:', err);
+    logEvent('error', 'export_pdf_failed', { error: err.message });
     return { success: false, error: err.message };
   }
 });
@@ -772,7 +779,7 @@ ipcMain.handle('print-note', async (_event, htmlContent: string, title?: string)
     }
   } catch (error: unknown) {
     const err = error as Error;
-    console.error('Print Error:', err);
+    logEvent('error', 'print_note_failed', { error: err.message });
     return { success: false, error: err.message };
   }
 });
