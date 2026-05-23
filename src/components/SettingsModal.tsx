@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useReducer } from 'react';
 import {
   X, RefreshCw, Cloud, HardDrive, FolderOpen, CheckCircle2,
   Bot, Palette, Type, GitBranch, FolderSync, Info, Copy, Check,
@@ -10,6 +10,8 @@ import { useStore } from '../store/useStore';
 import type { LLMProvider } from '../store/useStore';
 import { fetchAvailableModels } from '../lib/llm';
 import { useI18n, type TranslationKey } from '../lib/i18n';
+import { getElectronApi } from '../lib/electronApi';
+import { importWorkflowReducer, initialImportWorkflowState, isImportWorkflowBusy } from '../lib/importWorkflow';
 
 type SettingsTab = 'ai' | 'appearance' | 'editor' | 'sync' | 'mcp' | 'git' | 'import';
 
@@ -208,7 +210,8 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath, settings, onUpda
     setSetupStatus('loading');
     setSetupError(null);
     try {
-      const res = await window.electronAPI?.setupClaudeMcp();
+      const api = getElectronApi();
+      const res = await api?.setupClaudeMcp();
       if (res?.success) {
         setSetupStatus('success');
       } else {
@@ -257,7 +260,10 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath, settings, onUpda
             {built && (
               <button
                 type="button"
-                onClick={() => { void window.electronAPI?.revealInFinder?.(serverPath); }}
+                onClick={() => {
+                  const api = getElectronApi();
+                  void api?.revealInFinder?.(serverPath);
+                }}
                 className="text-[11px] inline-flex items-center gap-1 text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
                 title={t('mcpRevealInFinder')}
               >
@@ -417,55 +423,55 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
   const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
   const [discovering, setDiscovering] = useState(false);
   const [cloudProviders, setCloudProviders] = useState<CloudProvider[]>([]);
-  const [activating, setActivating] = useState<string | null>(null);
   const [gitTokenInput, setGitTokenInput] = useState('');
   const [savingToken, setSavingToken] = useState(false);
   const [encryptionAvailable, setEncryptionAvailable] = useState(true);
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
   const [mcpServer, setMcpServer] = useState<{ path: string; exists: boolean } | null>(null);
-  const [importingObsidian, setImportingObsidian] = useState(false);
-  const [importingApple, setImportingApple] = useState(false);
-  const [importStatus, setImportStatus] = useState<{ success: boolean; count: number; error?: string } | null>(null);
+  const [importWorkflow, dispatchImportWorkflow] = useReducer(
+    importWorkflowReducer,
+    initialImportWorkflowState,
+  );
 
   const handleImportVault = useCallback(async () => {
-    setImportingObsidian(true);
-    setImportStatus(null);
+    if (isImportWorkflowBusy(importWorkflow.stage)) return;
+    const api = getElectronApi();
+    if (!api) return;
+    dispatchImportWorkflow({ type: 'START_IMPORT_VAULT' });
     try {
-      const res = await window.electronAPI.importVault(settings.syncDirectory ?? undefined);
+      const res = await api.importVault(settings.syncDirectory ?? undefined);
       if (res.success) {
-        setImportStatus({ success: true, count: res.data ?? 0 });
+        dispatchImportWorkflow({ type: 'IMPORT_SUCCESS', count: res.data ?? 0 });
         void fetchNotes();
       } else {
-        setImportStatus({ success: false, count: 0, error: res.error });
+        dispatchImportWorkflow({ type: 'FAILED', message: res.error ?? 'Import failed' });
       }
     } catch (err) {
-      setImportStatus({ success: false, count: 0, error: (err as Error).message });
-    } finally {
-      setImportingObsidian(false);
+      dispatchImportWorkflow({ type: 'FAILED', message: (err as Error).message });
     }
-  }, [settings.syncDirectory, fetchNotes]);
+  }, [settings.syncDirectory, fetchNotes, importWorkflow.stage]);
 
   const handleImportAppleNotes = useCallback(async () => {
-    setImportingApple(true);
-    setImportStatus(null);
+    if (isImportWorkflowBusy(importWorkflow.stage)) return;
+    const api = getElectronApi();
+    if (!api) return;
+    dispatchImportWorkflow({ type: 'START_IMPORT_APPLE' });
     try {
-      const res = await window.electronAPI.importAppleNotes(settings.syncDirectory ?? undefined);
+      const res = await api.importAppleNotes(settings.syncDirectory ?? undefined);
       if (res.success) {
-        setImportStatus({ success: true, count: res.data ?? 0 });
+        dispatchImportWorkflow({ type: 'IMPORT_SUCCESS', count: res.data ?? 0 });
         void fetchNotes();
       } else {
-        setImportStatus({ success: false, count: 0, error: res.error });
+        dispatchImportWorkflow({ type: 'FAILED', message: res.error ?? 'Import failed' });
       }
     } catch (err) {
-      setImportStatus({ success: false, count: 0, error: (err as Error).message });
-    } finally {
-      setImportingApple(false);
+      dispatchImportWorkflow({ type: 'FAILED', message: (err as Error).message });
     }
-  }, [settings.syncDirectory, fetchNotes]);
+  }, [settings.syncDirectory, fetchNotes, importWorkflow.stage]);
 
   useEffect(() => {
-    window.electronAPI?.safeStorageStatus?.()
-       
+    const api = getElectronApi();
+    api?.safeStorageStatus?.()
       .then(r => setEncryptionAvailable(r.encrypted))
       .catch(() => { /* assume available if check fails */ });
   }, []);
@@ -487,8 +493,9 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
   }, [settings.llmProvider, settings.lmStudioUrl, discoverModels]);
 
   useEffect(() => {
-    if (!window.electronAPI?.detectCloudProviders) return;
-    window.electronAPI.detectCloudProviders().then(res => {
+    const api = getElectronApi();
+    if (!api?.detectCloudProviders) return;
+    api.detectCloudProviders().then(res => {
        
       if (res.success && res.data) setCloudProviders(res.data);
     });
@@ -496,16 +503,24 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
   }, []);
 
   const handleActivateProvider = useCallback(async (notedPath: string) => {
-    setActivating(notedPath);
-    const res = await window.electronAPI.activateCloudProvider(notedPath);
-    if (res.success && res.data) onUpdate({ syncDirectory: res.data });
-    setActivating(null);
-  }, [onUpdate]);
+    if (isImportWorkflowBusy(importWorkflow.stage)) return;
+    const api = getElectronApi();
+    if (!api) return;
+    dispatchImportWorkflow({ type: 'START_ACTIVATE_CLOUD', path: notedPath });
+    const res = await api.activateCloudProvider(notedPath);
+    if (res.success && res.data) {
+      onUpdate({ syncDirectory: res.data });
+      dispatchImportWorkflow({ type: 'ACTIVATE_SUCCESS' });
+    } else {
+      dispatchImportWorkflow({ type: 'FAILED', message: res.error ?? 'Cloud activation failed' });
+    }
+  }, [onUpdate, importWorkflow.stage]);
 
   const handleSaveToken = useCallback(async () => {
-    if (!gitTokenInput.trim() || !window.electronAPI?.gitStoreToken) return;
+    const api = getElectronApi();
+    if (!gitTokenInput.trim() || !api?.gitStoreToken) return;
     setSavingToken(true);
-    await window.electronAPI.gitStoreToken(gitTokenInput.trim());
+    await api.gitStoreToken(gitTokenInput.trim());
     setGitTokenInput('');
     setSavingToken(false);
   }, [gitTokenInput]);
@@ -521,7 +536,8 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
   }, []);
 
   useEffect(() => {
-    window.electronAPI?.getMcpServerPath?.()
+    const api = getElectronApi();
+    api?.getMcpServerPath?.()
       .then(setMcpServer)
       .catch(() => { /* leave null — UI shows path-unknown state */ });
   }, []);
@@ -859,7 +875,9 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                 <div className="grid grid-cols-2 gap-2">
                   {cloudProviders.map(p => {
                     const isActive = !!settings.syncDirectory && settings.syncDirectory === p.notedPath;
-                    const isLoading = activating === p.notedPath;
+                    const isLoading =
+                      importWorkflow.stage === 'activatingCloud' &&
+                      importWorkflow.activeProviderPath === p.notedPath;
                     return (
                       <button key={p.id}
                         onClick={() => p.available && !isActive && handleActivateProvider(p.notedPath)}
@@ -1089,10 +1107,10 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                     <div className="flex items-center gap-2">
                       <button
                         onClick={handleImportVault}
-                        disabled={importingObsidian}
+                        disabled={importWorkflow.stage === 'importingVault'}
                         className="btn-primary text-xs py-1.5 px-3 rounded-md transition-all font-medium disabled:opacity-50"
                       >
-                        {importingObsidian ? t('importing') : t('importObsidian')}
+                        {importWorkflow.stage === 'importingVault' ? t('importing') : t('importObsidian')}
                       </button>
                     </div>
                   </div>
@@ -1114,30 +1132,30 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                     <div className="flex items-center gap-2">
                       <button
                         onClick={handleImportAppleNotes}
-                        disabled={importingApple}
+                        disabled={importWorkflow.stage === 'importingAppleNotes'}
                         className="btn-primary text-xs py-1.5 px-3 rounded-md transition-all font-medium disabled:opacity-50"
                       >
-                        {importingApple ? t('importing') : t('importAppleNotes')}
+                        {importWorkflow.stage === 'importingAppleNotes' ? t('importing') : t('importAppleNotes')}
                       </button>
                     </div>
                   </div>
                 </div>
 
-                {importStatus && (
+                {importWorkflow.status && (
                   <div className={`mt-3 p-2.5 rounded-md text-xs font-medium flex items-center gap-2 ${
-                    importStatus.success
+                    importWorkflow.status.success
                       ? 'bg-emerald-50/30 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300 border border-emerald-100/40 dark:border-emerald-900/40'
                       : 'bg-red-50/30 text-red-800 dark:bg-red-950/20 dark:text-red-300 border border-red-100/40 dark:border-red-900/40'
                   }`}>
-                    {importStatus.success ? (
+                    {importWorkflow.status.success ? (
                       <>
                         <CheckCircle2 size={13} className="text-emerald-500" />
-                        <span>{t('importSuccess').replace('{count}', String(importStatus.count))}</span>
+                        <span>{t('importSuccess').replace('{count}', String(importWorkflow.status.count))}</span>
                       </>
                     ) : (
                       <>
                         <span className="text-red-500 font-bold">✗</span>
-                        <span>{importStatus.error}</span>
+                        <span>{importWorkflow.status.error}</span>
                       </>
                     )}
                   </div>

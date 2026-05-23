@@ -528,6 +528,17 @@ export async function handleDeleteNote(args: Record<string, unknown>) {
 
 // ─── Server bootstrap ─────────────────────────────────────────────────────────
 
+type ToolHandler = (args: Record<string, unknown>) => Promise<{ content: { type: 'text'; text: string }[] }>;
+
+const TOOL_HANDLERS: Record<string, ToolHandler> = {
+  list_notes: handleListNotes,
+  read_note: handleReadNote,
+  create_note: handleCreateNote,
+  update_note: handleUpdateNote,
+  search_notes: handleSearchNotes,
+  delete_note: handleDeleteNote,
+};
+
 const server = new Server(
   { name: 'noted', version: pkg.version },
   { capabilities: { tools: {} } },
@@ -540,16 +551,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const safeArgs = args as Record<string, unknown>;
 
   try {
-    switch (name) {
-      case 'list_notes':   return await handleListNotes(safeArgs);
-      case 'read_note':    return await handleReadNote(safeArgs);
-      case 'create_note':  return await handleCreateNote(safeArgs);
-      case 'update_note':  return await handleUpdateNote(safeArgs);
-      case 'search_notes': return await handleSearchNotes(safeArgs);
-      case 'delete_note':  return await handleDeleteNote(safeArgs);
-      default:
-        throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
-    }
+    const handler = TOOL_HANDLERS[name];
+    if (!handler) throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
+    return await handler(safeArgs);
   } catch (err) {
     // Re-throw McpErrors as-is; wrap unexpected errors
     if (err instanceof McpError) throw err;

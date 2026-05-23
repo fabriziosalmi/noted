@@ -8,6 +8,7 @@ import { validateFileName, validateFolderName, stripUnsafeHtml, formatAppleNoteT
 import * as gitOps from './git-ops.js';
 import { sanitizeGitError } from './git-ops.js';
 import { FullTextSearchReadModel } from './fulltext-index.js';
+import { logEvent, newRequestId } from './structured-log.js';
 
 // Disable hardware acceleration only in dev to avoid GPU process crashes in sandboxed environments.
 // In production we need it for vibrancy/blur effects.
@@ -863,6 +864,7 @@ function importVaultRecursive(srcRoot: string, srcDir: string, destRoot: string)
 }
 
 ipcMain.handle('import-vault', async (_, targetDir?: string) => {
+  const reqId = newRequestId('import-vault');
   try {
     const { filePaths, canceled } = await dialog.showOpenDialog({
       title: 'Importa vault (Obsidian / Bear / cartella Markdown)',
@@ -873,8 +875,10 @@ ipcMain.handle('import-vault', async (_, targetDir?: string) => {
     const dest = targetDir && fs.existsSync(targetDir) ? targetDir : DEFAULT_NOTES_DIR;
     const importedCount = importVaultRecursive(srcDir, srcDir, dest);
     fullTextSearchIndex.markDirty(dest);
+    logEvent('info', 'import_vault_completed', { reqId, importedCount, destDir: dest });
     return { success: true, data: importedCount };
   } catch (err) {
+    logEvent('error', 'import_vault_failed', { reqId, error: (err as Error).message });
     return { success: false, error: (err as Error).message };
   }
 });
@@ -927,6 +931,7 @@ ipcMain.handle('setup-claude-mcp', async () => {
 });
 
 ipcMain.handle('import-apple-notes', async (_, targetDir?: string) => {
+  const reqId = newRequestId('import-apple');
   try {
     const dest = targetDir && fs.existsSync(targetDir) ? targetDir : DEFAULT_NOTES_DIR;
     
@@ -957,6 +962,7 @@ ipcMain.handle('import-apple-notes', async (_, targetDir?: string) => {
     return new Promise((resolve) => {
       const child = exec('osascript -l JavaScript', { maxBuffer: 1024 * 1024 * 100 }, (error, stdout, stderr) => {
         if (error) {
+          logEvent('error', 'import_apple_exec_failed', { reqId, error: error.message || stderr });
           resolve({ success: false, error: error.message || stderr });
           return;
         }
@@ -1156,8 +1162,10 @@ ipcMain.handle('import-apple-notes', async (_, targetDir?: string) => {
           /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/prefer-for-of */
 
           fullTextSearchIndex.markDirty(dest);
+          logEvent('info', 'import_apple_completed', { reqId, imported, destDir: dest });
           resolve({ success: true, data: imported });
         } catch (err) {
+          logEvent('error', 'import_apple_parse_failed', { reqId, error: (err as Error).message });
           resolve({ success: false, error: `Parse error: ${(err as Error).message}` });
         }
       });
@@ -1166,6 +1174,7 @@ ipcMain.handle('import-apple-notes', async (_, targetDir?: string) => {
       child.stdin?.end();
     });
   } catch (err) {
+    logEvent('error', 'import_apple_failed', { reqId, error: (err as Error).message });
     return { success: false, error: (err as Error).message };
   }
 });
@@ -1615,9 +1624,16 @@ ipcMain.handle('git-get-token', () => {
 // ─── Full-text search ─────────────────────────────────────────────────────────
 
 ipcMain.handle('search-notes-fulltext', async (_, query: string, syncDir?: string) => {
+  const reqId = newRequestId('search-ft');
   if (!query || query.trim().length < 2) return { success: true, data: [] };
   const dir = getTargetDir(syncDir);
   const { results, truncated } = await fullTextSearchIndex.search(dir, query, (name) => validateFileName(name));
+  logEvent('info', 'search_fulltext_completed', {
+    reqId,
+    queryLen: query.length,
+    resultCount: results.length,
+    truncated,
+  });
   return { success: true, data: results, truncated };
 });
 
@@ -1667,8 +1683,16 @@ ipcMain.handle('git-log', async (_, noteName: string | undefined, syncDir?: stri
 ipcMain.handle('git-create-pr', async (_, params: {
   remoteUrl: string; token: string; branch: string; base: string; title: string; body: string;
 }) => {
+  const reqId = newRequestId('git-pr');
   if (!params || typeof params !== 'object') return { success: false, error: 'Invalid params' };
-  return gitOps.createGitHubPr(params);
+  const res = await gitOps.createGitHubPr(params);
+  logEvent('info', 'git_create_pr_completed', {
+    reqId,
+    success: !!res.success,
+    branch: params.branch,
+    base: params.base,
+  });
+  return res;
 });
 
 ipcMain.handle('git-save-as-gist', async (_, params: {
