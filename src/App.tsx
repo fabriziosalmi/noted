@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useReducer } from 'react';
 import { useI18n } from './lib/i18n';
 import type { Editor } from '@tiptap/react';
 import { useStore } from './store/useStore';
@@ -16,6 +16,7 @@ import { AppModals } from './components/app/AppModals';
 import { createAppComposition } from './components/app/composition';
 import type { Suggestion } from './lib/noteAdvisor';
 import { getElectronApi } from './lib/electronApi';
+import { initialMergeWorkflowState, mergeWorkflowReducer } from './lib/mergeWorkflow';
 
 function App() {
   const { t } = useI18n();
@@ -134,6 +135,10 @@ function App() {
     activeNoteContent,
     notes,
   });
+  const [mergeWorkflow, dispatchMergeWorkflow] = useReducer(
+    mergeWorkflowReducer,
+    initialMergeWorkflowState,
+  );
 
   async function handleAdvisorAction(s: Suggestion) {
     const target = s.noteName;
@@ -161,6 +166,9 @@ function App() {
         break;
       }
       case 'merge': {
+        if (mergeWorkflow.stage !== 'idle' && mergeWorkflow.stage !== 'completed' && mergeWorkflow.stage !== 'failed') {
+          return;
+        }
         const listStr = (s.relatedNotes || []).map(n => n.replace(/\.md$/, '')).join(', ');
         const targetTitle = s.noteName.replace(/\.md$/, '');
         const confirmationMsg = t('confirmMergeNotes')
@@ -169,6 +177,7 @@ function App() {
         
         if (window.confirm(confirmationMsg)) {
           try {
+            dispatchMergeWorkflow({ type: 'START' });
             const syncDir = settings.syncDirectory || undefined;
             let mergedContent = '';
             const api = getElectronApi();
@@ -182,7 +191,9 @@ function App() {
             } else {
               mergedContent = activeNoteName === s.noteName ? activeNoteContent : '';
             }
+            dispatchMergeWorkflow({ type: 'TARGET_READ' });
 
+            let relatedProcessed = 0;
             for (const relatedNote of s.relatedNotes || []) {
               const res = await api.readNote(relatedNote, syncDir);
               if (res.success && res.data !== undefined) {
@@ -190,22 +201,33 @@ function App() {
                 const noteTitle = relatedNote.replace(/\.md$/, '');
                 mergedContent += `\n\n<hr />\n\n<h2>Merged: ${noteTitle}</h2>\n\n${noteContent}`;
               }
+              relatedProcessed += 1;
+              dispatchMergeWorkflow({ type: 'RELATED_READ', processed: relatedProcessed });
             }
 
             const saveRes = await api.saveNote(s.noteName, mergedContent, syncDir);
             if (!saveRes.success) {
               throw new Error(saveRes.error || 'Failed to save merged note');
             }
+            dispatchMergeWorkflow({ type: 'SAVED' });
             
+            dispatchMergeWorkflow({ type: 'DELETING_RELATED' });
             for (const relatedNote of s.relatedNotes || []) {
               await deleteNote(relatedNote);
             }
             
             await openNote(s.noteName);
+            dispatchMergeWorkflow({ type: 'REOPENED' });
             toast(t('notesMergedSuccess'), 'success');
-          } catch (err) {
+          } catch (err: unknown) {
             console.error('Merge failed:', err);
+            dispatchMergeWorkflow({
+              type: 'FAILED',
+              message: (err as Error)?.message ?? 'merge workflow failed',
+            });
             toast(t('mergeNotesError'), 'error');
+          } finally {
+            dispatchMergeWorkflow({ type: 'RESET' });
           }
         }
         break;

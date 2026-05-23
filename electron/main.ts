@@ -7,6 +7,7 @@ import TurndownService from 'turndown';
 import { validateFileName, validateFolderName, stripUnsafeHtml, formatAppleNoteToMarkdown } from './ipc-utils.js';
 import * as gitOps from './git-ops.js';
 import { sanitizeGitError } from './git-ops.js';
+import { FullTextSearchReadModel } from './fulltext-index.js';
 
 // Disable hardware acceleration only in dev to avoid GPU process crashes in sandboxed environments.
 // In production we need it for vibrancy/blur effects.
@@ -94,6 +95,8 @@ function checkSafeStorageOnce() {
     );
   }
 }
+
+const fullTextSearchIndex = new FullTextSearchReadModel();
 
 process.env.DIST = path.join(__dirname, '../dist');
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public');
@@ -482,6 +485,7 @@ ipcMain.handle('save-note', async (_, fileName: string, content: string, syncDir
     const tmpPath = `${filePath}.${process.pid}.tmp`;
     await fs.promises.writeFile(tmpPath, content, 'utf-8');
     await fs.promises.rename(tmpPath, filePath);
+    fullTextSearchIndex.upsertFromRaw(targetDir, fileName, content);
     return { success: true };
   } catch (error: unknown) {
     const err = error as Error;
@@ -532,6 +536,7 @@ ipcMain.handle('rename-note', (_, oldName: string, newName: string, syncDir?: st
     const newPath = safeResolve(targetDir, newName);
     if (fs.existsSync(newPath)) throw new Error(`Una nota con il nome "${newName}" esiste già`);
     fs.renameSync(oldPath, newPath);
+    fullTextSearchIndex.renameDoc(targetDir, oldName, newName);
     return { success: true };
   } catch (error: unknown) {
     const err = error as Error;
@@ -562,6 +567,7 @@ ipcMain.handle('delete-note', (_, fileName: string, syncDir?: string) => {
     const targetDir = getTargetDir(syncDir);
     const filePath = safeResolve(targetDir, fileName);
     fs.unlinkSync(filePath);
+    fullTextSearchIndex.deleteDoc(targetDir, fileName);
     return { success: true };
   } catch (error: unknown) {
     const err = error as Error;
@@ -595,6 +601,7 @@ ipcMain.handle('wipe-all-notes', (_, syncDir?: string) => {
       fs.rmSync(histDir, { recursive: true, force: true });
     }
 
+    fullTextSearchIndex.clearDir(targetDir);
     return { success: true };
   } catch (error: unknown) {
     const err = error as Error;
@@ -865,6 +872,7 @@ ipcMain.handle('import-vault', async (_, targetDir?: string) => {
     const srcDir = filePaths[0];
     const dest = targetDir && fs.existsSync(targetDir) ? targetDir : DEFAULT_NOTES_DIR;
     const importedCount = importVaultRecursive(srcDir, srcDir, dest);
+    fullTextSearchIndex.markDirty(dest);
     return { success: true, data: importedCount };
   } catch (err) {
     return { success: false, error: (err as Error).message };
@@ -1147,6 +1155,7 @@ ipcMain.handle('import-apple-notes', async (_, targetDir?: string) => {
           }
           /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/prefer-for-of */
 
+          fullTextSearchIndex.markDirty(dest);
           resolve({ success: true, data: imported });
         } catch (err) {
           resolve({ success: false, error: `Parse error: ${(err as Error).message}` });
@@ -1289,6 +1298,7 @@ ipcMain.handle('create-folder', (_, folderName: string, syncDir?: string) => {
     const folderPath = safeResolve(targetDir, folderName);
     if (fs.existsSync(folderPath)) throw new Error(`La cartella "${folderName}" esiste già`);
     fs.mkdirSync(folderPath);
+    fullTextSearchIndex.markDirty(targetDir);
     return { success: true };
   } catch (err) {
     return { success: false, error: (err as Error).message };
@@ -1305,6 +1315,7 @@ ipcMain.handle('rename-folder', (_, oldName: string, newName: string, syncDir?: 
     if (!fs.existsSync(oldPath)) throw new Error(`Cartella "${oldName}" non trovata`);
     if (fs.existsSync(newPath)) throw new Error(`Cartella "${newName}" esiste già`);
     fs.renameSync(oldPath, newPath);
+    fullTextSearchIndex.markDirty(targetDir);
     return { success: true };
   } catch (err) {
     return { success: false, error: (err as Error).message };
@@ -1322,6 +1333,7 @@ ipcMain.handle('delete-folder', (_, folderName: string, syncDir?: string) => {
       fs.renameSync(path.join(folderPath, f), safeResolve(targetDir, f));
     }
     fs.rmdirSync(folderPath);
+    fullTextSearchIndex.markDirty(targetDir);
     return { success: true };
   } catch (err) {
     return { success: false, error: (err as Error).message };
@@ -1346,7 +1358,9 @@ ipcMain.handle('move-note', (_, fileName: string, toFolder: string, syncDir?: st
       if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath);
     }
     fs.renameSync(srcPath, destPath);
-    return { success: true, data: toFolder ? `${toFolder}/${baseName}` : baseName };
+    const movedRelPath = toFolder ? `${toFolder}/${baseName}` : baseName;
+    fullTextSearchIndex.renameDoc(targetDir, fileName, movedRelPath);
+    return { success: true, data: movedRelPath };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -1600,134 +1614,11 @@ ipcMain.handle('git-get-token', () => {
 
 // ─── Full-text search ─────────────────────────────────────────────────────────
 
-function stripHtmlToText(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/<\/?(p|h[1-6]|li|div|blockquote)[^>]*>/gi, ' ')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-interface FtSearchResult {
-  relPath: string;
-  title: string;
-  snippet: string;
-  score: number;
-  terms: string[];
-}
-
-// Caps to prevent OOM / freezes on very large vaults. The full-text search
-// path is intentionally simple (no index), so each query re-reads files. We
-// trade exhaustive search for predictability: at most FT_MAX_FILES files and
-// FT_MAX_TOTAL_BYTES of content read per query.
-const FT_MAX_FILES = 1500;
-const FT_MAX_TOTAL_BYTES = 50 * 1024 * 1024; // 50 MB
-const FT_MAX_FILE_BYTES = 2 * 1024 * 1024;   // 2 MB per file
-
 ipcMain.handle('search-notes-fulltext', async (_, query: string, syncDir?: string) => {
   if (!query || query.trim().length < 2) return { success: true, data: [] };
-
   const dir = getTargetDir(syncDir);
-  const rawTerms = query.trim().toLowerCase().split(/\s+/).filter(t => t.length >= 2);
-  if (rawTerms.length === 0) return { success: true, data: [] };
-
-  // Collect all .md files (root + one level of subfolders). Bail out early
-  // once we hit FT_MAX_FILES so a 50k-note vault doesn't blow up the renderer.
-  const mdFiles: { filePath: string; relPath: string; size: number; mtimeMs: number }[] = [];
-  let truncated = false;
-  try {
-    const rootEntries = await fs.promises.readdir(dir, { withFileTypes: true });
-    outer: for (const entry of rootEntries) {
-      if (entry.isDirectory() && !entry.name.startsWith('.')) {
-        const sub = path.join(dir, entry.name);
-        let subEntries: fs.Dirent[];
-        try {
-          subEntries = await fs.promises.readdir(sub, { withFileTypes: true });
-        } catch {
-          continue;
-        }
-        for (const f of subEntries) {
-          if (!f.isDirectory() && f.name.endsWith('.md')) {
-            try {
-              validateFileName(`${entry.name}/${f.name}`);
-              const fp = path.join(sub, f.name);
-              const stat = await fs.promises.stat(fp);
-              mdFiles.push({ filePath: fp, relPath: `${entry.name}/${f.name}`, size: stat.size, mtimeMs: stat.mtimeMs });
-            } catch { /* skip unreadable */ }
-            if (mdFiles.length >= FT_MAX_FILES) { truncated = true; break outer; }
-          }
-        }
-      } else if (!entry.isDirectory() && entry.name.endsWith('.md')) {
-        try {
-          validateFileName(entry.name);
-          const fp = path.join(dir, entry.name);
-          const stat = await fs.promises.stat(fp);
-          mdFiles.push({ filePath: fp, relPath: entry.name, size: stat.size, mtimeMs: stat.mtimeMs });
-        } catch { /* skip unreadable */ }
-        if (mdFiles.length >= FT_MAX_FILES) { truncated = true; break outer; }
-      }
-    }
-  } catch { return { success: true, data: [] }; }
-
-  // Prefer recent and smaller files: searching them first means a query that
-  // hits the soft byte cap still returns useful results from the working set.
-  // In-memory mtimeMs sorting avoids thousands of slow synchronous disk stats.
-  mdFiles.sort((a, b) => b.mtimeMs - a.mtimeMs);
-
-  const results: FtSearchResult[] = [];
-  let bytesRead = 0;
-
-  for (const { filePath, relPath, size } of mdFiles) {
-    if (size > FT_MAX_FILE_BYTES) continue; // skip pathologically large files
-    if (bytesRead + size > FT_MAX_TOTAL_BYTES) { truncated = true; break; }
-    let raw: string;
-    try { raw = await fs.promises.readFile(filePath, 'utf-8'); bytesRead += raw.length; } catch { continue; }
-
-    const plain = stripHtmlToText(raw);
-    const lower = plain.toLowerCase();
-    const title = relPath.split('/').pop()!.replace(/\.md$/, '').replace(/_/g, ' ');
-    const titleLower = title.toLowerCase();
-
-    let score = 0;
-    let firstMatchIdx = -1;
-    const matchedTerms: string[] = [];
-
-    for (const term of rawTerms) {
-      let idx = 0;
-      let termCount = 0;
-      while ((idx = lower.indexOf(term, idx)) !== -1) {
-        if (firstMatchIdx === -1 || idx < firstMatchIdx) firstMatchIdx = idx;
-        termCount++;
-        idx += term.length;
-      }
-      if (termCount > 0) {
-        matchedTerms.push(term);
-        score += termCount;
-        if (titleLower.includes(term)) score += 10;
-      }
-    }
-
-    if (score === 0 || firstMatchIdx === -1) continue;
-    if (matchedTerms.length === rawTerms.length) score += 5;
-
-    const CTX = 90;
-    const start = Math.max(0, firstMatchIdx - CTX);
-    const end = Math.min(plain.length, firstMatchIdx + CTX * 2);
-    let snippet = plain.slice(start, end).replace(/\s+/g, ' ').trim();
-    if (start > 0) snippet = '…' + snippet;
-    if (end < plain.length) snippet += '…';
-
-    results.push({ relPath, title, snippet, score, terms: matchedTerms });
-  }
-
-  results.sort((a, b) => b.score - a.score);
-  return { success: true, data: results.slice(0, 25), truncated };
+  const { results, truncated } = await fullTextSearchIndex.search(dir, query, (name) => validateFileName(name));
+  return { success: true, data: results, truncated };
 });
 
 // ─── Git IPC ──────────────────────────────────────────────────────────────────
