@@ -33,6 +33,11 @@
   --color-mac-bg: #ececec;
   --color-mac-border: #d1d1d1;
   --color-mac-text: #333333;
+  /* Tailwind's default gray scale jumps 800 → 900 with no 850. Several
+     components use `dark:bg-gray-850/xx` for a subtle hover/surface tint;
+     without this token that utility produces no rule at all (silently no bg
+     in dark mode). Define it as a gentle surface above the OLED-black base. */
+  --color-gray-850: #1c1c20;
 }
 
 /* ─── Accent color (set via JS on :root) ─────────────────────────────── */
@@ -666,5 +671,18 @@ body {
 }
 .dark .ProseMirror blockquote {
   color: #a1a1aa;
+}
+
+/* ─── Reduced motion ─────────────────────────────────────────────────────
+   WCAG 2.3.3 — honour the OS "reduce motion" preference globally. Kills the
+   spring scales, modal scale-ins, toast slide, theme cross-fades and the
+   scroll-driven fade animations, while leaving instant state changes intact. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 

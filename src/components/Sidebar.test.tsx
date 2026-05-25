@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '../test/test-utils';
 import { Sidebar } from './Sidebar';
 import type { NoteFile } from '../store/useStore';
 
@@ -68,18 +68,16 @@ describe('Sidebar', () => {
   });
 
   it('calls onDeleteNote with the correct filename when a delete button is clicked', () => {
-    const { container } = render(<Sidebar {...defaults} />);
-    // Buttons with empty accessible name are [pin,delete] for each row.
-    // Sorted by date desc: gamma, beta, alpha -> delete(beta) is index 3.
-    const anonymousButtons = container.querySelectorAll('button:not([aria-label]):not([title])');
-    fireEvent.click(anonymousButtons[3] as HTMLButtonElement);
+    render(<Sidebar {...defaults} />);
+    // One "Delete note" button per row; sorted by date desc: gamma, beta, alpha.
+    const deleteButtons = screen.getAllByRole('button', { name: 'Delete note' });
+    fireEvent.click(deleteButtons[1]);
     expect(defaults.onDeleteNote).toHaveBeenCalledWith('beta.md');
   });
 
   it('calls onOpenSettings when the settings footer is clicked', () => {
-    const { container } = render(<Sidebar {...defaults} />);
-    const settingsTrigger = container.querySelector('div[role="button"][tabindex="0"].p-3');
-    fireEvent.click(settingsTrigger as HTMLDivElement);
+    render(<Sidebar {...defaults} />);
+    fireEvent.click(screen.getByRole('button', { name: /settings/i }));
     expect(defaults.onOpenSettings).toHaveBeenCalled();
   });
 
@@ -99,7 +97,7 @@ describe('Sidebar', () => {
 
   it('cycles sort mode button label', () => {
     render(<Sidebar {...defaults} />);
-    const sortButton = screen.getByTitle(/Sort by:/);
+    const sortButton = screen.getByRole('button', { name: /Sort by:/ });
     expect(sortButton).toHaveTextContent('Date');
     fireEvent.click(sortButton);
     expect(sortButton).toHaveTextContent('Name');
@@ -136,7 +134,7 @@ describe('Sidebar', () => {
         onTagFilter={onTagFilter}
       />
     );
-    fireEvent.click(screen.getByTitle('Tags'));
+    fireEvent.click(screen.getByRole('button', { name: 'Tags' }));
     fireEvent.click(screen.getByRole('button', { name: 'work' }));
     expect(onTagFilter).toHaveBeenCalledWith('work');
   });
@@ -144,7 +142,7 @@ describe('Sidebar', () => {
   it('creates folder from inline input', async () => {
     const onCreateFolder = vi.fn().mockResolvedValue(undefined);
     render(<Sidebar {...defaults} onCreateFolder={onCreateFolder} />);
-    fireEvent.click(screen.getByTitle('New folder'));
+    fireEvent.click(screen.getByRole('button', { name: 'New folder' }));
     const input = screen.getByPlaceholderText('Folder name...');
     fireEvent.change(input, { target: { value: 'docs' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -164,30 +162,29 @@ describe('Sidebar', () => {
     const onCreateNote = vi.fn();
     const foldered = [{ name: 'docs', notes: [makeNote('docs/zeta.md', 1000)] }];
     render(<Sidebar {...defaults} notes={[makeNote('docs/zeta.md', 1000)]} noteFolders={foldered} onCreateNote={onCreateNote} />);
-    fireEvent.click(screen.getByTitle('New note here'));
+    fireEvent.click(screen.getByRole('button', { name: 'New note here' }));
     expect(onCreateNote).toHaveBeenCalledWith('docs');
   });
 
   it('deletes folder when confirmed', async () => {
     const onDeleteFolder = vi.fn().mockResolvedValue(undefined);
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const foldered = [{ name: 'docs', notes: [makeNote('docs/zeta.md', 1000)] }];
     render(<Sidebar {...defaults} notes={[makeNote('docs/zeta.md', 1000)]} noteFolders={foldered} onDeleteFolder={onDeleteFolder} />);
-    fireEvent.click(screen.getByTitle('Delete folder'));
-    await Promise.resolve();
-    expect(onDeleteFolder).toHaveBeenCalledWith('docs');
-    confirmSpy.mockRestore();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete folder' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete folder' }));
+    await waitFor(() => expect(onDeleteFolder).toHaveBeenCalledWith('docs'));
   });
 
   it('does not delete folder when confirm is cancelled', async () => {
     const onDeleteFolder = vi.fn().mockResolvedValue(undefined);
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     const foldered = [{ name: 'docs', notes: [makeNote('docs/zeta.md', 1000)] }];
     render(<Sidebar {...defaults} notes={[makeNote('docs/zeta.md', 1000)]} noteFolders={foldered} onDeleteFolder={onDeleteFolder} />);
-    fireEvent.click(screen.getByTitle('Delete folder'));
-    await Promise.resolve();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete folder' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(onDeleteFolder).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
   });
 
   it('renames a folder on double click + Enter', async () => {
@@ -209,7 +206,7 @@ describe('Sidebar', () => {
     const foldered = [{ name: 'docs', notes: [makeNote('docs/zeta.md', 1000)] }];
     render(<Sidebar {...defaults} notes={[rootNote, makeNote('docs/zeta.md', 1000)]} noteFolders={foldered} onMoveNote={onMoveNote} />);
     const row = screen.getByText('root').closest('[draggable="true"]') as HTMLElement;
-    const folderHeader = screen.getByText('docs').closest('div[role="button"]')?.parentElement as HTMLElement;
+    const folderHeader = screen.getByText('docs').closest('[draggable="true"]')?.parentElement as HTMLElement;
     const dataTransfer = {
       setData: vi.fn(),
       getData: vi.fn().mockReturnValue('root.md'),
@@ -236,8 +233,11 @@ describe('Sidebar', () => {
   it('toggles folder collapse with keyboard Enter', () => {
     const foldered = [{ name: 'docs', notes: [makeNote('docs/zeta.md', 1000)] }];
     render(<Sidebar {...defaults} notes={[makeNote('docs/zeta.md', 1000)]} noteFolders={foldered} />);
-    const header = screen.getByText('docs').closest('div[role="button"]') as HTMLElement;
-    fireEvent.keyDown(header, { key: 'Enter' });
+    // The folder toggle is now a native <button>, which is inherently
+    // keyboard-operable (Enter/Space → click). jsdom does not synthesize the
+    // click from a raw keyDown, so we assert via the accessible control.
+    const header = screen.getByRole('button', { name: 'docs' });
+    fireEvent.click(header);
     expect(screen.queryByText('zeta')).not.toBeInTheDocument();
   });
 
@@ -265,7 +265,7 @@ describe('Sidebar', () => {
     const onMoveNote = vi.fn().mockResolvedValue(undefined);
     const foldered = [{ name: 'docs', notes: [makeNote('docs/zeta.md', 1000)] }];
     render(<Sidebar {...defaults} notes={[makeNote('docs/zeta.md', 1000)]} noteFolders={foldered} onMoveNote={onMoveNote} />);
-    const folderContainer = screen.getByText('docs').closest('div[role="button"]')?.parentElement as HTMLElement;
+    const folderContainer = screen.getByText('docs').closest('[draggable="true"]')?.parentElement as HTMLElement;
 
     fireEvent.drop(folderContainer, {
       dataTransfer: { getData: () => '' },
@@ -284,14 +284,14 @@ describe('Sidebar', () => {
     const foldered = [{ name: 'docs', notes: [makeNote('docs/zeta.md', 1000)] }];
     render(<Sidebar {...defaults} notes={[makeNote('docs/zeta.md', 1000)]} noteFolders={foldered} />);
     expect(screen.getByText('zeta')).toBeInTheDocument();
-    fireEvent.mouseDown(screen.getByTitle('New note here'));
+    fireEvent.mouseDown(screen.getByRole('button', { name: 'New note here' }));
     expect(screen.getByText('zeta')).toBeInTheDocument();
   });
 
   it('clears drag highlight on global dragend', () => {
     const foldered = [{ name: 'docs', notes: [makeNote('docs/zeta.md', 1000)] }];
     render(<Sidebar {...defaults} notes={[makeNote('docs/zeta.md', 1000)]} noteFolders={foldered} />);
-    const folderContainer = screen.getByText('docs').closest('div[role="button"]')?.parentElement as HTMLElement;
+    const folderContainer = screen.getByText('docs').closest('[draggable="true"]')?.parentElement as HTMLElement;
 
     fireEvent.dragOver(folderContainer);
     expect(folderContainer.className).toContain('ring-1');
@@ -300,12 +300,13 @@ describe('Sidebar', () => {
     expect(folderContainer.className).not.toContain('ring-1');
   });
 
-  it('opens settings via keyboard Enter and Space', () => {
+  it('opens settings from the footer control', () => {
     const onOpenSettings = vi.fn();
-    const { container } = render(<Sidebar {...defaults} onOpenSettings={onOpenSettings} />);
-    const settingsTrigger = container.querySelector('div[role="button"][tabindex="0"].p-3') as HTMLElement;
-    fireEvent.keyDown(settingsTrigger, { key: 'Enter' });
-    fireEvent.keyDown(settingsTrigger, { key: ' ' });
-    expect(onOpenSettings).toHaveBeenCalledTimes(2);
+    // The footer is now a single native <button> — inherently keyboard-operable
+    // (Enter/Space → click), which jsdom does not synthesize from raw keyDown,
+    // so we assert activation via the accessible control.
+    render(<Sidebar {...defaults} onOpenSettings={onOpenSettings} />);
+    fireEvent.click(screen.getByRole('button', { name: /settings/i }));
+    expect(onOpenSettings).toHaveBeenCalledTimes(1);
   });
 });

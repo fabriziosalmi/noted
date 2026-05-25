@@ -7,6 +7,8 @@ import {
 import type { NoteFile, FolderInfo } from '../store/useStore';
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
+import { Tooltip } from './Tooltip';
+import { useConfirm } from './ConfirmProvider';
 
 type SortBy = 'date' | 'name' | 'size' | 'custom';
 
@@ -37,13 +39,27 @@ interface SidebarProps {
   onTagFilter?: (tag: string | null) => void;
 }
 
-function relativeTime(ms: number): string {
+// Cache one formatter per language — relativeTime() runs once per visible
+// row on every virtualized re-render, so we must not allocate Intl objects
+// in the hot path.
+const rtfCache = new Map<string, Intl.RelativeTimeFormat>();
+function getRtf(language: string): Intl.RelativeTimeFormat {
+  let rtf = rtfCache.get(language);
+  if (!rtf) {
+    rtf = new Intl.RelativeTimeFormat(language, { numeric: 'auto', style: 'narrow' });
+    rtfCache.set(language, rtf);
+  }
+  return rtf;
+}
+
+function relativeTime(ms: number, language: string): string {
   const diff = Date.now() - ms;
-  if (diff < 60_000) return 'now';
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h`;
-  if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)}d`;
-  return `${Math.floor(diff / 604_800_000)}w`;
+  const rtf = getRtf(language);
+  if (diff < 60_000) return rtf.format(0, 'second'); // → "now" / "ora" / "ahora"…
+  if (diff < 3_600_000) return rtf.format(-Math.floor(diff / 60_000), 'minute');
+  if (diff < 86_400_000) return rtf.format(-Math.floor(diff / 3_600_000), 'hour');
+  if (diff < 604_800_000) return rtf.format(-Math.floor(diff / 86_400_000), 'day');
+  return rtf.format(-Math.floor(diff / 604_800_000), 'week');
 }
 
 function getNoteCounterText(count: number, language: string): string {
@@ -68,7 +84,7 @@ function getNoteCounterText(count: number, language: string): string {
 function NoteRow({
   note, isActive, isPinned, isRenaming, renameValue, renameInputRef,
   onSelect, onDelete, onTogglePin, onStartRename, onRenameChange, onRenameBlur, onRenameKeyDown,
-  onDragStart, renameHint,
+  onDragStart, renameHint, language,
 }: {
   note: NoteFile; isActive: boolean; isPinned: boolean; isRenaming: boolean;
   renameValue: string; renameInputRef: React.RefObject<HTMLInputElement | null>;
@@ -78,32 +94,24 @@ function NoteRow({
   onRenameKeyDown: (e: React.KeyboardEvent) => void;
   onDragStart: (e: React.DragEvent) => void;
   renameHint: string;
+  language: string;
 }) {
+  const { t } = useI18n();
   const baseName = note.name.includes('/') ? note.name.split('/').pop()! : note.name;
   return (
     <div
-      role="button" tabIndex={isRenaming ? -1 : 0}
       draggable={!isRenaming}
       onDragStart={onDragStart}
-      onClick={() => !isRenaming && onSelect()}
-      onKeyDown={e => {
-        if (e.nativeEvent.isComposing || e.repeat) return;
-        if (!isRenaming && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelect(); }
-      }}
-      aria-current={isActive ? 'true' : undefined}
-      className={`relative flex items-center justify-between p-2 rounded text-sm cursor-pointer mb-0.5 group transition-all duration-150 ease-out pl-4 ${
-        isActive
-          ? 'bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] text-[var(--accent)] font-medium sidebar-note-active'
-          : 'hover:bg-gray-200/50 dark:hover:bg-gray-800/40 text-gray-700 dark:text-gray-300'
-      }`}
+      className={`relative mb-0.5 group ${isActive ? 'sidebar-note-active' : ''}`}
     >
       <span className="sidebar-note-indicator" />
-      <div className="flex items-center space-x-2 truncate flex-1 min-w-0">
-        <FileText size={14} className="shrink-0 opacity-70" />
-        {isRenaming ? (
+      {isRenaming ? (
+        <div className="flex items-center space-x-2 p-2 pl-4">
+          <FileText size={14} className="shrink-0 opacity-70 text-gray-500 dark:text-gray-400" />
           <input
             ref={renameInputRef}
             value={renameValue}
+            aria-label={t('advActionRename')}
             onChange={e => onRenameChange(e.target.value)}
             onBlur={onRenameBlur}
             onKeyDown={onRenameKeyDown}
@@ -112,24 +120,44 @@ function NoteRow({
             // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
           />
-        ) : (
+        </div>
+      ) : (
+        <div
+          role="button" tabIndex={0}
+          onClick={onSelect}
+          onDoubleClick={onStartRename}
+          onKeyDown={e => {
+            if (e.nativeEvent.isComposing || e.repeat) return;
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(); }
+          }}
+          aria-current={isActive ? 'true' : undefined}
+          title={renameHint}
+          className={`flex items-center space-x-2 w-full text-left p-2 pl-4 pr-14 rounded text-sm cursor-pointer transition-all duration-150 ease-out ${
+            isActive
+              ? 'bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] text-[var(--accent)] font-medium'
+              : 'hover:bg-gray-200/50 dark:hover:bg-gray-800/40 text-gray-700 dark:text-gray-300'
+          }`}
+        >
+          <FileText size={14} className="shrink-0 opacity-70" />
           <div className="flex items-baseline gap-1.5 min-w-0 flex-1">
-            <span className="truncate" onDoubleClick={onStartRename} title={renameHint}>
+            <span className="truncate">
               {baseName.replace('.md', '')}
             </span>
             <span className="shrink-0 text-[10px] text-gray-400 dark:text-gray-600 leading-none">
-              {relativeTime(note.stats.mtimeMs)}
+              {relativeTime(note.stats.mtimeMs, language)}
             </span>
           </div>
-        )}
-      </div>
+        </div>
+      )}
       {!isRenaming && (
-        <div className="flex items-center shrink-0">
-          <button onClick={e => { e.stopPropagation(); onTogglePin(); }}
+        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
+          <button type="button" onClick={e => { e.stopPropagation(); onTogglePin(); }}
+            aria-label={isPinned ? t('unpin') : t('pin')}
             className={`p-1 transition-colors animate-spring-scale ${isPinned ? 'text-amber-400' : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-amber-400'}`}>
             <Star size={11} fill={isPinned ? 'currentColor' : 'none'} />
           </button>
-          <button onClick={e => { e.stopPropagation(); onDelete(); }}
+          <button type="button" onClick={e => { e.stopPropagation(); onDelete(); }}
+            aria-label={t('deleteNote')}
             className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 p-1 animate-spring-scale">
             <Trash2 size={13} />
           </button>
@@ -146,10 +174,20 @@ export function Sidebar({
   allTags = [], activeTagFilter = null, onTagFilter,
 }: SidebarProps) {
   const { t, language } = useI18n();
+  const confirm = useConfirm();
   const [query, setQuery] = useState('');
+
+  const requestDeleteFolder = useCallback(async (name: string) => {
+    const ok = await confirm({
+      message: t('deleteFolderConfirm').replace('{name}', name),
+      danger: true,
+      confirmLabel: t('deleteFolder'),
+    });
+    if (ok) await onDeleteFolder(name);
+  }, [confirm, t, onDeleteFolder]);
   
   const sortBy = useStore(state => state.sortBy);
-  const [appVersion, setAppVersion] = useState('1.0.12');
+  const [appVersion, setAppVersion] = useState('');
 
   useEffect(() => {
     if (window.electronAPI?.getAppVersion) {
@@ -174,6 +212,7 @@ export function Sidebar({
   };
 
   const [showTags, setShowTags] = useState(false);
+  const [showAllTags, setShowAllTags] = useState(false);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
   const [renamingFolder, setRenamingFolder] = useState<string | null>(null);
   const [folderRenameValue, setFolderRenameValue] = useState('');
@@ -464,6 +503,7 @@ export function Sidebar({
           }}
           onDragStart={e => handleDragStart(e, note.name)}
           renameHint={t('renameHint')}
+          language={language}
         />
       </div>
     );
@@ -571,23 +611,33 @@ export function Sidebar({
       <div className="p-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex justify-between items-center">
         <span>{activeTagFilter ?? t('notes')}</span>
         <div className="flex items-center gap-1">
-          <button onClick={cycleSortBy} className="flex items-center gap-0.5 hover:text-gray-800 dark:hover:text-gray-200 px-1 py-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 animate-spring-scale" title={`${t('sortBy')} ${SORT_LABELS[sortBy]}`}>
-            <ArrowUpDown size={11} /><span className="text-[10px]">{SORT_LABELS[sortBy]}</span>
-          </button>
-          {allTags.length > 0 && (
-            <button onClick={() => setShowTags(v => !v)} className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 animate-spring-scale ${showTags ? 'text-[var(--accent)]' : 'hover:text-gray-800 dark:hover:text-gray-200'}`} title={t('tags')}>
-              <Tag size={13} />
+          <Tooltip label={`${t('sortBy')} ${SORT_LABELS[sortBy]}`}>
+            <button type="button" onClick={cycleSortBy} aria-label={`${t('sortBy')} ${SORT_LABELS[sortBy]}`} className="flex items-center gap-0.5 hover:text-gray-800 dark:hover:text-gray-200 px-1 py-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 animate-spring-scale">
+              <ArrowUpDown size={11} /><span className="text-[10px]">{SORT_LABELS[sortBy]}</span>
             </button>
+          </Tooltip>
+          {allTags.length > 0 && (
+            <Tooltip label={t('tags')}>
+              <button type="button" onClick={() => setShowTags(v => !v)} aria-label={t('tags')} className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 animate-spring-scale ${showTags ? 'text-[var(--accent)]' : 'hover:text-gray-800 dark:hover:text-gray-200'}`}>
+                <Tag size={13} />
+              </button>
+            </Tooltip>
           )}
-          <button onClick={() => setNewFolderMode(true)} className="hover:text-gray-800 dark:hover:text-gray-200 p-1 animate-spring-scale" title={t('newFolder')}>
-            <FolderPlus size={13} />
-          </button>
-          <button onClick={onOpenDaily} className="hover:text-gray-800 dark:hover:text-gray-200 p-1 animate-spring-scale" title={t('dailyNote')}>
-            <CalendarDays size={14} />
-          </button>
-          <button onClick={() => onCreateNote()} className="hover:text-gray-800 dark:hover:text-gray-200 p-1 animate-spring-scale" aria-label={t('newNote')}>
-            <Plus size={14} />
-          </button>
+          <Tooltip label={t('newFolder')}>
+            <button type="button" onClick={() => setNewFolderMode(true)} aria-label={t('newFolder')} className="hover:text-gray-800 dark:hover:text-gray-200 p-1 animate-spring-scale">
+              <FolderPlus size={13} />
+            </button>
+          </Tooltip>
+          <Tooltip label={t('dailyNote')}>
+            <button type="button" onClick={onOpenDaily} aria-label={t('dailyNote')} className="hover:text-gray-800 dark:hover:text-gray-200 p-1 animate-spring-scale">
+              <CalendarDays size={14} />
+            </button>
+          </Tooltip>
+          <Tooltip label={t('newNote')}>
+            <button type="button" onClick={() => onCreateNote()} className="hover:text-gray-800 dark:hover:text-gray-200 p-1 animate-spring-scale" aria-label={t('newNote')}>
+              <Plus size={14} />
+            </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -595,16 +645,29 @@ export function Sidebar({
       {showTags && allTags.length > 0 && (
         <div className="px-2 pb-2 flex flex-wrap gap-1">
           {activeTagFilter && (
-            <button onClick={() => onTagFilter?.(null)} className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] text-[var(--accent)] border border-[color-mix(in_srgb,var(--accent)_30%,transparent)]">
+            <button type="button" onClick={() => onTagFilter?.(null)} className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] text-[var(--accent)] border border-[color-mix(in_srgb,var(--accent)_30%,transparent)]">
               <X size={9} /> {t('all')}
             </button>
           )}
-          {allTags.slice(0, 20).map(tag => (
-            <button key={tag} onClick={() => onTagFilter?.(activeTagFilter === tag ? null : tag)}
+          {(showAllTags ? allTags : allTags.slice(0, 20)).map(tag => (
+            <button type="button" key={tag} onClick={() => onTagFilter?.(activeTagFilter === tag ? null : tag)}
+              aria-pressed={activeTagFilter === tag}
               className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${activeTagFilter === tag ? 'bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] text-[var(--accent)] border-[color-mix(in_srgb,var(--accent)_40%,transparent)]' : 'text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-[var(--accent)] hover:text-[var(--accent)]'}`}>
               {tag}
             </button>
           ))}
+          {!showAllTags && allTags.length > 20 && (
+            <button type="button" onClick={() => setShowAllTags(true)}
+              className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-gray-300 dark:border-gray-600 text-gray-400 hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors">
+              +{allTags.length - 20}
+            </button>
+          )}
+          {showAllTags && allTags.length > 20 && (
+            <button type="button" onClick={() => setShowAllTags(false)}
+              className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-gray-300 dark:border-gray-600 text-gray-400 hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors">
+              {t('showLess')}
+            </button>
+          )}
         </div>
       )}
 
@@ -719,80 +782,87 @@ export function Sidebar({
                         onDragStart={e => {
                           e.dataTransfer?.setData('text/folder-name', row.folder.name);
                         }}
-                        className="flex items-center gap-1 px-1 py-1.5 rounded hover:bg-gray-200/60 dark:hover:bg-gray-700/50 group cursor-pointer select-none"
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => toggleFolder(row.folder.name)}
-                        onKeyDown={(e) => {
-                          if (e.nativeEvent.isComposing || e.repeat) return;
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            toggleFolder(row.folder.name);
-                          }
-                        }}
+                        className="flex items-center gap-1 px-1 py-1.5 rounded hover:bg-gray-200/60 dark:hover:bg-gray-700/50 group select-none"
                       >
-                        <span className="text-gray-400">
-                          {row.isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-                        </span>
-                        {row.isCollapsed ? (
-                          <Folder size={13} className="text-gray-400" />
-                        ) : (
-                          <FolderOpen size={13} className="text-[var(--accent)]" />
-                        )}
-
                         {renamingFolder === row.folder.name ? (
-                          <input
-                            // eslint-disable-next-line jsx-a11y/no-autofocus
-                            autoFocus
-                            value={folderRenameValue}
-                            onChange={e => setFolderRenameValue(e.target.value)}
-                            onBlur={() => void commitFolderRename()}
-                            onKeyDown={e => {
-                              if (e.nativeEvent.isComposing || e.repeat) return;
-                              e.stopPropagation();
-                              if (e.key === 'Enter') void commitFolderRename();
-                              if (e.key === 'Escape') setRenamingFolder(null);
-                            }}
-                            onClick={e => e.stopPropagation()}
-                            className="flex-1 bg-white dark:bg-gray-700 border border-[var(--accent)] rounded px-1 text-xs outline-none"
-                          />
+                          <>
+                            <span className="text-gray-400">
+                              {row.isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                            </span>
+                            {row.isCollapsed ? (
+                              <Folder size={13} className="text-gray-400" />
+                            ) : (
+                              <FolderOpen size={13} className="text-[var(--accent)]" />
+                            )}
+                            <input
+                              // eslint-disable-next-line jsx-a11y/no-autofocus
+                              autoFocus
+                              aria-label={t('advActionRename')}
+                              value={folderRenameValue}
+                              onChange={e => setFolderRenameValue(e.target.value)}
+                              onBlur={() => void commitFolderRename()}
+                              onKeyDown={e => {
+                                if (e.nativeEvent.isComposing || e.repeat) return;
+                                e.stopPropagation();
+                                if (e.key === 'Enter') void commitFolderRename();
+                                if (e.key === 'Escape') setRenamingFolder(null);
+                              }}
+                              onClick={e => e.stopPropagation()}
+                              className="flex-1 bg-white dark:bg-gray-700 border border-[var(--accent)] rounded px-1 text-xs outline-none"
+                            />
+                          </>
                         ) : (
-                          <span
-                            className="flex-1 text-xs font-medium text-gray-600 dark:text-gray-400 truncate"
+                          <button
+                            type="button"
+                            onClick={() => toggleFolder(row.folder.name)}
                             onDoubleClick={e => {
                               e.stopPropagation();
                               setRenamingFolder(row.folder.name);
                               setFolderRenameValue(row.folder.name);
                             }}
+                            aria-expanded={!row.isCollapsed}
+                            className="flex items-center gap-1 flex-1 min-w-0 cursor-pointer text-left"
                           >
-                            {row.folder.name}
-                          </span>
+                            <span className="text-gray-400">
+                              {row.isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                            </span>
+                            {row.isCollapsed ? (
+                              <Folder size={13} className="text-gray-400" />
+                            ) : (
+                              <FolderOpen size={13} className="text-[var(--accent)]" />
+                            )}
+                            <span className="flex-1 text-xs font-medium text-gray-600 dark:text-gray-400 truncate">
+                              {row.folder.name}
+                            </span>
+                          </button>
                         )}
 
                         <span className="text-[10px] text-gray-400">{row.folder.notes.length}</span>
 
                         {/* Folder actions */}
                         <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
-                          <button
-                            onMouseDown={e => e.stopPropagation()}
-                            onClick={() => onCreateNote(row.folder.name)}
-                            className="p-0.5 hover:text-[var(--accent)] text-gray-400"
-                            title={t('newNoteHere')}
-                          >
-                            <Plus size={11} />
-                          </button>
-                          <button
-                            onMouseDown={e => e.stopPropagation()}
-                            onClick={async () => {
-                              if (confirm(t('deleteFolderConfirm').replace('{name}', row.folder.name))) {
-                                await onDeleteFolder(row.folder.name);
-                              }
-                            }}
-                            className="p-0.5 hover:text-red-500 text-gray-400"
-                            title={t('deleteFolder')}
-                          >
-                            <Trash2 size={11} />
-                          </button>
+                          <Tooltip label={t('newNoteHere')}>
+                            <button
+                              type="button"
+                              aria-label={t('newNoteHere')}
+                              onMouseDown={e => e.stopPropagation()}
+                              onClick={() => onCreateNote(row.folder.name)}
+                              className="p-0.5 hover:text-[var(--accent)] text-gray-400"
+                            >
+                              <Plus size={11} />
+                            </button>
+                          </Tooltip>
+                          <Tooltip label={t('deleteFolder')}>
+                            <button
+                              type="button"
+                              aria-label={t('deleteFolder')}
+                              onMouseDown={e => e.stopPropagation()}
+                              onClick={() => { void requestDeleteFolder(row.folder.name); }}
+                              className="p-0.5 hover:text-red-500 text-gray-400"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </Tooltip>
                         </div>
                       </div>
                     </div>
@@ -832,30 +902,22 @@ export function Sidebar({
       </div>
 
       {/* Settings */}
-      <div role="button" tabIndex={0} className="p-3 border-t border-gray-200/60 dark:border-gray-700/60 flex items-center justify-between text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer select-none bg-gray-50/20 dark:bg-gray-800/10"
+      <button
+        type="button"
         onClick={onOpenSettings}
-        onKeyDown={e => {
-          if (e.nativeEvent.isComposing || e.repeat) return;
-          if (e.key === 'Enter' || e.key === ' ') onOpenSettings();
-        }}>
+        aria-label={t('settingsTitle') || 'Settings'}
+        className="group w-full p-3 border-t border-gray-200/60 dark:border-gray-700/60 flex items-center justify-between text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer select-none bg-gray-50/20 dark:bg-gray-800/10"
+      >
         <span className="text-[10px] font-medium tracking-wide">
           {getNoteCounterText(notes.length, language)}
         </span>
-        <span className="text-[10px] font-mono opacity-50">
-          v{appVersion}
-        </span>
-        <button
-          type="button"
-          aria-label={t('settingsTitle') || 'Settings'}
-          className="hover:rotate-45 transition-transform duration-300 ease-out focus:outline-none shrink-0"
-          onClick={e => {
-            e.stopPropagation();
-            onOpenSettings();
-          }}
-        >
-          <Settings size={14} />
-        </button>
-      </div>
+        {appVersion && (
+          <span className="text-[10px] font-mono opacity-50">
+            v{appVersion}
+          </span>
+        )}
+        <Settings size={14} className="group-hover:rotate-45 transition-transform duration-300 ease-out shrink-0" />
+      </button>
     </>
   );
 }

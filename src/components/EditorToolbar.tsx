@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { AiActionsBar } from './AiActionsBar';
+import { Tooltip } from './Tooltip';
 
 interface Match { from: number; to: number }
 
@@ -24,6 +25,28 @@ function findInDoc(doc: ProseMirrorNode, searchText: string): Match[] {
     }
   });
   return results;
+}
+
+const btnBase = 'p-1.5 rounded transition-colors';
+const btnActive = 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white';
+const btnIdle = 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700';
+
+/** Icon-only toolbar control: styled tooltip + correct button semantics. */
+function TbButton({ onClick, active = false, label, children }: {
+  onClick: () => void; active?: boolean; label: string; children: React.ReactNode;
+}) {
+  return (
+    <Tooltip label={label}>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        className={`${btnBase} ${active ? btnActive : btnIdle}`}
+      >
+        {children}
+      </button>
+    </Tooltip>
+  );
 }
 
 interface EditorToolbarProps {
@@ -80,9 +103,6 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
 
   if (!editor) return null;
 
-  const btnBase = 'p-1.5 rounded transition-colors';
-  const btnActive = 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white';
-  const btnIdle = 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700';
   const sep = <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-0.5 shrink-0" />;
   return (
     <div className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shrink-0">
@@ -90,85 +110,58 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
       {showToolbar && (
         <div className="flex items-center justify-between px-4 py-1.5 flex-wrap gap-2">
           <div className="flex items-center gap-0.5 flex-wrap">
-            <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} title={t('heading1')}
-              className={`${btnBase} ${editor.isActive('heading', { level: 1 }) ? btnActive : btnIdle}`}>
+            <TbButton onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={editor.isActive('heading', { level: 1 })} label={t('heading1')}>
               <Heading1 size={15} />
-            </button>
-            <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} title={t('heading2')}
-              className={`${btnBase} ${editor.isActive('heading', { level: 2 }) ? btnActive : btnIdle}`}>
+            </TbButton>
+            <TbButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading', { level: 2 })} label={t('heading2')}>
               <Heading2 size={15} />
-            </button>
-            <button onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} title={t('heading3')}
-              className={`${btnBase} ${editor.isActive('heading', { level: 3 }) ? btnActive : btnIdle}`}>
+            </TbButton>
+            <TbButton onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={editor.isActive('heading', { level: 3 })} label={t('heading3')}>
               <Heading3 size={15} />
-            </button>
+            </TbButton>
             {sep}
-            <button onClick={() => editor.chain().focus().toggleBold().run()} title={t('bold')}
-              className={`${btnBase} ${editor.isActive('bold') ? btnActive : btnIdle}`}>
+            <TbButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} label={t('bold')}>
               <Bold size={15} />
-            </button>
-            <button onClick={() => editor.chain().focus().toggleItalic().run()} title={t('italic')}
-              className={`${btnBase} ${editor.isActive('italic') ? btnActive : btnIdle}`}>
+            </TbButton>
+            <TbButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} label={t('italic')}>
               <Italic size={15} />
-            </button>
-            <button onClick={() => editor.chain().focus().toggleStrike().run()} title={t('strikethrough')}
-              className={`${btnBase} ${editor.isActive('strike') ? btnActive : btnIdle}`}>
+            </TbButton>
+            <TbButton onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')} label={t('strikethrough')}>
               <Strikethrough size={15} />
-            </button>
-            <button onClick={() => editor.chain().focus().toggleCode().run()} title={t('inlineCode')}
-              className={`${btnBase} ${editor.isActive('code') ? btnActive : btnIdle}`}>
+            </TbButton>
+            <TbButton onClick={() => editor.chain().focus().toggleCode().run()} active={editor.isActive('code')} label={t('inlineCode')}>
               <Code size={15} />
-            </button>
+            </TbButton>
             {sep}
-            <button onClick={() => editor.chain().focus().toggleBulletList().run()} title={t('bulletList')}
-              className={`${btnBase} ${editor.isActive('bulletList') ? btnActive : btnIdle}`}>
+            <TbButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} label={t('bulletList')}>
               <List size={15} />
-            </button>
-            <button onClick={() => editor.chain().focus().toggleOrderedList().run()} title={t('numberedList')}
-              className={`${btnBase} ${editor.isActive('orderedList') ? btnActive : btnIdle}`}>
+            </TbButton>
+            <TbButton onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} label={t('numberedList')}>
               <ListOrdered size={15} />
-            </button>
-            <button onClick={() => editor.chain().focus().toggleBlockquote().run()} title={t('blockquote')}
-              className={`${btnBase} ${editor.isActive('blockquote') ? btnActive : btnIdle}`}>
+            </TbButton>
+            <TbButton onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} label={t('blockquote')}>
               <Quote size={15} />
-            </button>
+            </TbButton>
             {sep}
-            <button onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-              title={t('insertTable')}
-              className={`${btnBase} ${btnIdle}`}>
+            <TbButton onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} label={t('insertTable')}>
               <TableIcon size={15} />
-            </button>
+            </TbButton>
             {sep}
-            <button
-              onClick={onOpenFind}
-              title={t('findShortcut')}
-              className={`${btnBase} ${findOpen ? btnActive : btnIdle}`}
-              aria-label={t('findAriaLabel')}
-            >
+            <TbButton onClick={onOpenFind} active={findOpen} label={t('findAriaLabel')}>
               <Search size={15} />
-            </button>
+            </TbButton>
             {onOpenGlobalSearch && (
-              <button
-                onClick={onOpenGlobalSearch}
-                title="Search all notes (⌘⇧F)"
-                className={`${btnBase} ${btnIdle}`}
-                aria-label="Search all notes"
-              >
+              <TbButton onClick={onOpenGlobalSearch} label="Search all notes (⌘⇧F)">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
                   <path d="M11 8v6M8 11h6" strokeWidth="1.8"/>
                 </svg>
-              </button>
+              </TbButton>
             )}
             {sep}
-            <button
-              onClick={onToggleAiBar}
-              title={t('showAiBar')}
-              className={`${btnBase} ${showAiBar ? btnActive : btnIdle}`}
-              aria-label={t('showAiBar')}
-            >
+            <TbButton onClick={() => onToggleAiBar?.()} active={showAiBar} label={t('showAiBar')}>
               <Sparkles size={15} />
-            </button>
+            </TbButton>
           </div>
           {!showAiBar && shareSlot && (
             <div className="flex items-center shrink-0">
@@ -214,15 +207,15 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
               {matches.length > 0 ? `${matchIndex + 1}/${matches.length}` : t('noResults')}
             </span>
           )}
-          <button onClick={() => goToMatch(matchIndex - 1)} disabled={matches.length === 0}
+          <button type="button" onClick={() => goToMatch(matchIndex - 1)} disabled={matches.length === 0}
             className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 disabled:opacity-30" aria-label={t('previous')}>
             <ChevronUp size={14} />
           </button>
-          <button onClick={() => goToMatch(matchIndex + 1)} disabled={matches.length === 0}
+          <button type="button" onClick={() => goToMatch(matchIndex + 1)} disabled={matches.length === 0}
             className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 disabled:opacity-30" aria-label={t('next')}>
             <ChevronDown size={14} />
           </button>
-          <button onClick={handleClose} className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400" aria-label={t('closeFind')}>
+          <button type="button" onClick={handleClose} className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400" aria-label={t('closeFind')}>
             <X size={14} />
           </button>
         </div>

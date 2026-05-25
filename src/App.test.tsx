@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from './test/test-utils';
 import App from './App';
 import type { Suggestion } from './lib/noteAdvisor';
 
@@ -256,17 +256,21 @@ describe('App orchestration', () => {
   });
 
   it('wires advisor rename flow: prompt + rename handler + dismiss + close panel', async () => {
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('renamed-note');
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'advisor-action-rename' }));
 
-    await Promise.resolve();
+    // Native window.prompt is replaced by an in-app prompt dialog.
+    const dialog = await screen.findByRole('dialog');
+    const input = within(dialog).getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'renamed-note' } });
+    // i18n is mocked in this suite, so t() returns the raw key.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'advActionRename' }));
 
-    expect(promptSpy).toHaveBeenCalledTimes(1);
-    expect(handleRenameNoteSpy).toHaveBeenCalledWith('beta.md', 'renamed-note');
+    await waitFor(() => {
+      expect(handleRenameNoteSpy).toHaveBeenCalledWith('beta.md', 'renamed-note');
+    });
     expect(dismissSuggestionSpy).toHaveBeenCalledWith('s-rename');
     expect(panelsCloseAdvisorSpy).toHaveBeenCalledTimes(1);
-    promptSpy.mockRestore();
   });
 
   it('wires advisor addHeadings flow: open note + deferred editor insert + dismiss + close', async () => {

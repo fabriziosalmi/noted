@@ -7,6 +7,7 @@ import { useI18n } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import { maskPii } from '../lib/piiMasker';
 import { sanitizeHtml } from '../lib/sanitizeHtml';
+import { Tooltip } from './Tooltip';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -204,14 +205,16 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
               {t('ragActive').replace('{n}', String(noteChunks.length))}
             </span>
           )}
-          <button
-            onClick={handleClear}
-            aria-label={t('clearChat')}
-            title={t('clearChat')}
-            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-          >
-            <RotateCcw size={11} />
-          </button>
+          <Tooltip label={t('clearChat')}>
+            <button
+              type="button"
+              onClick={handleClear}
+              aria-label={t('clearChat')}
+              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            >
+              <RotateCcw size={11} />
+            </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -249,8 +252,8 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
           <ChatBubble key={idx} role={msg.role} content={msg.content} />
         ))}
         {isLoading && (
-          <div className="p-3 rounded-lg shadow-sm border border-gray-100/40 dark:border-gray-700/40 bg-white/80 dark:bg-gray-800/60 flex items-center space-x-2 text-gray-400 dark:text-gray-500 self-start">
-            <Loader2 size={14} className="animate-spin" />
+          <div role="status" aria-live="polite" className="p-3 rounded-lg shadow-sm border border-gray-100/40 dark:border-gray-700/40 bg-white/80 dark:bg-gray-800/60 flex items-center space-x-2 text-gray-400 dark:text-gray-500 self-start">
+            <Loader2 size={14} className="animate-spin" aria-hidden="true" />
             <span>{t('thinking')}</span>
           </div>
         )}

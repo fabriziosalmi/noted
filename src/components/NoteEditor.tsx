@@ -456,8 +456,8 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       {/* Status bar */}
       <div className="fixed bottom-4 right-4 flex items-center gap-3 z-20">
         {ghostLoading && !ghostActive && (
-          <span className="text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+          <span role="status" aria-live="polite" className="text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-current animate-pulse" aria-hidden="true" />
             {t('ghostThinking')}
           </span>
         )}

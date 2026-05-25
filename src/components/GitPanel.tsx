@@ -3,6 +3,7 @@ import { GitBranch, GitCommit, Upload, GitPullRequest, RefreshCw, X, Check, Aler
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
 import { gitWorkflowReducer, initialGitWorkflowState, isGitWorkflowBusy, type GitWorkflowStage } from '../lib/gitWorkflow';
+import { Tooltip } from './Tooltip';
 
 interface GitPanelProps {
   syncDir?: string | null;
@@ -446,15 +447,18 @@ export function GitBadge({ onClick }: { onClick: () => void }) {
   if (!settings.gitEnabled) return null;
 
   return (
-    <button
-      onClick={onClick}
-      className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors flex items-center gap-1"
-      title="Git"
-    >
-      <GitBranch size={16} />
-      {initialized && (
-        <span className={`w-1.5 h-1.5 rounded-full ${dirty ? 'bg-amber-400' : 'bg-emerald-400'}`} />
-      )}
-    </button>
+    <Tooltip label="Git">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label="Git"
+        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors flex items-center gap-1"
+      >
+        <GitBranch size={16} />
+        {initialized && (
+          <span className={`w-1.5 h-1.5 rounded-full ${dirty ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+        )}
+      </button>
+    </Tooltip>
   );
 }

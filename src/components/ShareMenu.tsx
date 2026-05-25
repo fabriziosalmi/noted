@@ -6,6 +6,7 @@ import {
 import { useI18n } from '../lib/i18n';
 import { getElectronApi } from '../lib/electronApi';
 import { initialShareWorkflowState, isShareWorkflowBusy, shareWorkflowReducer } from '../lib/shareWorkflow';
+import { Tooltip } from './Tooltip';
 
 interface ShareMenuProps {
   getCurrentNoteContent: () => string;
@@ -259,16 +260,18 @@ export function ShareMenu({
 
   return (
     <div ref={ref} className="relative inline-block">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="p-1.5 rounded transition-colors text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[var(--accent)]"
-        aria-label={t('shareExport')}
-        aria-haspopup="true"
-        aria-expanded={open}
-        title={t('shareExport')}
-      >
-        <Share2 size={15} />
-      </button>
+      <Tooltip label={t('shareExport')}>
+        <button
+          type="button"
+          onClick={() => setOpen(v => !v)}
+          className="p-1.5 rounded transition-colors text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[var(--accent)]"
+          aria-label={t('shareExport')}
+          aria-haspopup="true"
+          aria-expanded={open}
+        >
+          <Share2 size={15} />
+        </button>
+      </Tooltip>
 
       {open && (
         <div className="absolute left-0 top-full mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden py-1">

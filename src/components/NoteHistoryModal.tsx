@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { X, RotateCcw, Clock } from 'lucide-react';
-import { useModalStack } from '../hooks/useModalStack';
+import { Modal } from './Modal';
 import { useI18n } from '../lib/i18n';
 import { sanitizeHtml } from '../lib/sanitizeHtml';
 
@@ -14,7 +14,6 @@ interface NoteHistoryModalProps {
 }
 
 export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: NoteHistoryModalProps) {
-  useModalStack('history', true, onClose);
   const { t } = useI18n();
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
@@ -42,24 +41,13 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
   }, [preview, onRestore, onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <button
-        type="button"
-        aria-label={t('close')}
-        className="absolute inset-0 modal-backdrop-animate"
-        onMouseDown={(e) => {
-          if (e.button !== 0) return;
-          if (e.target !== e.currentTarget) return;
-          onClose();
-        }}
-      />
-      <div className="relative z-10 glass-modal rounded-xl shadow-2xl w-[700px] max-h-[80vh] flex flex-col overflow-hidden modal-content-animate">
+    <Modal id="history" onClose={onClose} labelledBy="history-title" className="w-[700px] max-h-[80vh]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100/40 dark:border-gray-700/40">
           <div className="flex items-center gap-2">
             <Clock size={15} className="text-gray-400" />
-            <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('historyTitle')} — {fileName.replace('.md', '')}</h2>
+            <h2 id="history-title" className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('historyTitle')} — {fileName.replace('.md', '')}</h2>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X size={16} /></button>
+          <button type="button" onClick={onClose} aria-label={t('close')} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X size={16} /></button>
         </div>
 
         <div className="flex flex-1 overflow-hidden">
@@ -93,6 +81,7 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
         {selected && preview && (
           <div className="px-5 py-3 border-t border-gray-100/40 dark:border-gray-700/40 flex justify-end">
             <button
+              type="button"
               onClick={handleRestore}
               className="btn-primary flex items-center gap-2 text-sm px-4 py-1.5 rounded-lg"
             >
@@ -101,7 +90,6 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
             </button>
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }

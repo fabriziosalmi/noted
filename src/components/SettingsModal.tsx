@@ -5,7 +5,8 @@ import {
   Plug, ExternalLink, Globe,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useModalStack } from '../hooks/useModalStack';
+import { Modal } from './Modal';
+import { useConfirm } from './ConfirmProvider';
 import { useStore } from '../store/useStore';
 import type { LLMProvider } from '../store/useStore';
 import { fetchAvailableModels } from '../lib/llm';
@@ -404,13 +405,19 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath, settings, onUpda
 }
 
 export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVault, onClose, onToast }: SettingsModalProps) {
-  useModalStack('settings', true, onClose);
   const { t } = useI18n();
+  const confirm = useConfirm();
   const fetchNotes = useStore(state => state.fetchNotes);
   const wipeAllNotes = useStore(state => state.wipeAllNotes);
 
   const handleWipe = useCallback(async () => {
-    if (window.confirm(t('wipeAllNotesConfirm'))) {
+    const ok = await confirm({
+      title: t('dangerZone'),
+      message: t('wipeAllNotesConfirm'),
+      danger: true,
+      confirmLabel: t('wipeAllNotes'),
+    });
+    if (ok) {
       try {
         await wipeAllNotes();
         onToast?.(t('wipeAllNotesSuccess'), 'success');
@@ -418,7 +425,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
         onToast?.(t('wipeAllNotesError') + ': ' + (err as Error).message, 'error');
       }
     }
-  }, [wipeAllNotes, onToast, t]);
+  }, [confirm, wipeAllNotes, onToast, t]);
   const [tab, setTab] = useState<SettingsTab>('ai');
   const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
   const [discovering, setDiscovering] = useState(false);
@@ -543,23 +550,11 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
   }, []);
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50">
-      <button
-        type="button"
-        aria-label={t('closeSettings')}
-        className="absolute inset-0 modal-backdrop-animate"
-        onMouseDown={(e) => {
-          if (e.button !== 0) return;
-          if (e.target !== e.currentTarget) return;
-          onClose();
-        }}
-      />
-      <div className="relative z-10 glass-modal rounded-xl shadow-2xl w-[520px] overflow-hidden flex flex-col modal-content-animate">
-
+    <Modal id="settings" onClose={onClose} labelledBy="settings-title" className="w-[520px]">
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-gray-100/40 dark:border-gray-700/40 flex justify-between items-center">
-          <h2 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{t('settingsTitle')}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors" aria-label={t('closeSettings')}>
+          <h2 id="settings-title" className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{t('settingsTitle')}</h2>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors" aria-label={t('closeSettings')}>
             <X size={16} />
           </button>
         </div>
@@ -1168,13 +1163,13 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
         {/* Footer */}
         <div className="px-5 py-3 bg-gray-50/40 dark:bg-gray-800/30 border-t border-gray-100/40 dark:border-gray-700/40 flex justify-end">
           <button
+            type="button"
             onClick={onClose}
             className="btn-primary px-4 py-1.5 rounded-md text-sm font-medium transition-all"
           >
             {t('save')}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

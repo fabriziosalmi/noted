@@ -58,28 +58,29 @@ describe('EditorToolbar', () => {
     render(<EditorToolbar {...defaultProps} />);
     
     // Check headings, bold, italic, strikethrough, code, table, lists, blockquote
-    expect(screen.getByTitle('Heading 1')).toBeInTheDocument();
-    expect(screen.getByTitle('Heading 2')).toBeInTheDocument();
-    expect(screen.getByTitle('Heading 3')).toBeInTheDocument();
-    expect(screen.getByTitle('Bold (⌘B)')).toBeInTheDocument();
-    expect(screen.getByTitle('Italic (⌘I)')).toBeInTheDocument();
-    expect(screen.getByTitle('Strikethrough')).toBeInTheDocument();
-    expect(screen.getByTitle('Inline code')).toBeInTheDocument();
-    expect(screen.getByTitle('Insert table')).toBeInTheDocument();
-    
+    expect(screen.getByRole('button', { name: 'Heading 1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Heading 2' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Heading 3' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bold (⌘B)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Italic (⌘I)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Strikethrough' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Inline code' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Insert table' })).toBeInTheDocument();
+
     // Check new bullet list, numbered list, blockquote buttons
-    expect(screen.getByTitle('Bullet list')).toBeInTheDocument();
-    expect(screen.getByTitle('Numbered list')).toBeInTheDocument();
-    expect(screen.getByTitle('Blockquote')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bullet list' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Numbered list' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Blockquote' })).toBeInTheDocument();
   });
 
   it('renders AI action buttons when showAiBar is true', () => {
     render(<EditorToolbar {...defaultProps} showToolbar={false} showAiBar={true} />);
     
-    // AiActionsBar contains continue, expand, improve, bullet points etc.
-    expect(screen.getByText('Continue')).toBeInTheDocument();
-    expect(screen.getByText('Expand')).toBeInTheDocument();
-    expect(screen.getByText('Refine')).toBeInTheDocument();
+    // AiActionsBar contains continue, expand, refine etc. Labels live in the
+    // accessible name (aria-label / portal tooltip), not as visible text.
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Expand' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Refine' })).toBeInTheDocument();
   });
 
   it('places shareSlot in Row 1 when showToolbar is true and showAiBar is false', () => {
@@ -213,17 +214,17 @@ describe('EditorToolbar', () => {
 
     render(<EditorToolbar {...defaultProps} showToolbar={true} />);
 
-    fireEvent.click(screen.getByTitle('Heading 1'));
-    fireEvent.click(screen.getByTitle('Heading 2'));
-    fireEvent.click(screen.getByTitle('Heading 3'));
-    fireEvent.click(screen.getByTitle('Bold (⌘B)'));
-    fireEvent.click(screen.getByTitle('Italic (⌘I)'));
-    fireEvent.click(screen.getByTitle('Strikethrough'));
-    fireEvent.click(screen.getByTitle('Inline code'));
-    fireEvent.click(screen.getByTitle('Bullet list'));
-    fireEvent.click(screen.getByTitle('Numbered list'));
-    fireEvent.click(screen.getByTitle('Blockquote'));
-    fireEvent.click(screen.getByTitle('Insert table'));
+    fireEvent.click(screen.getByRole('button', { name: 'Heading 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Heading 2' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Heading 3' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Bold (⌘B)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Italic (⌘I)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Strikethrough' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Inline code' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Bullet list' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Numbered list' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Blockquote' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Insert table' }));
 
     expect(mockEditor.chain).toHaveBeenCalled();
   });
@@ -239,7 +240,7 @@ describe('EditorToolbar', () => {
       />
     );
 
-    const sparklesBtn = screen.getByTitle('Show AI bar (Continue, Expand, Refine…)');
+    const sparklesBtn = screen.getByRole('button', { name: 'Show AI bar (Continue, Expand, Refine…)' });
     expect(sparklesBtn).toBeInTheDocument();
     fireEvent.click(sparklesBtn);
     expect(onToggleAiBar).toHaveBeenCalledTimes(1);

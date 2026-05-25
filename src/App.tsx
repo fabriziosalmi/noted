@@ -17,9 +17,12 @@ import { createAppComposition } from './components/app/composition';
 import type { Suggestion } from './lib/noteAdvisor';
 import { getElectronApi } from './lib/electronApi';
 import { initialMergeWorkflowState, mergeWorkflowReducer } from './lib/mergeWorkflow';
+import { useConfirm, usePrompt } from './components/ConfirmProvider';
 
 function App() {
   const { t } = useI18n();
+  const confirm = useConfirm();
+  const prompt = usePrompt();
   const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
   const editorRef = useRef<Editor | null>(null);
   const { messages: toastMessages, toast, dismiss } = useToast();
@@ -149,7 +152,12 @@ function App() {
         break;
       case 'rename': {
         const current = target.replace(/\.md$/, '');
-        const next = window.prompt(t('advRenamePrompt').replace('{note}', current), current);
+        const next = await prompt({
+          title: t('advActionRename'),
+          message: t('advRenamePrompt').replace('{note}', current),
+          defaultValue: current,
+          confirmLabel: t('advActionRename'),
+        });
         if (next && next.trim() && next.trim() !== current) {
           await handleRenameNote(target, next.trim());
         }
@@ -175,7 +183,7 @@ function App() {
           .replace('{list}', listStr)
           .replace('{target}', targetTitle);
         
-        if (window.confirm(confirmationMsg)) {
+        if (await confirm({ message: confirmationMsg, danger: true })) {
           try {
             dispatchMergeWorkflow({ type: 'START' });
             const syncDir = settings.syncDirectory || undefined;

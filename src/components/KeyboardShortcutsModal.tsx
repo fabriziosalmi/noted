@@ -1,7 +1,7 @@
 import { X } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import type { TranslationKey } from '../lib/i18n';
-import { useModalStack } from '../hooks/useModalStack';
+import { Modal } from './Modal';
 
 interface ShortcutRow {
   keys: string[];
@@ -53,26 +53,11 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
     },
   ];
 
-  useModalStack('shortcuts', true, onClose);
-
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50">
-      <button
-        type="button"
-        aria-label={t('close')}
-        className="absolute inset-0 modal-backdrop-animate"
-        onMouseDown={(e) => {
-          if (e.button !== 0) return;
-          if (e.target !== e.currentTarget) return;
-          onClose();
-        }}
-      />
-      <div
-        className="relative z-10 glass-modal rounded-xl w-full max-w-md mx-4 overflow-hidden modal-content-animate"
-      >
+    <Modal id="shortcuts" onClose={onClose} labelledBy="shortcuts-title" className="w-full max-w-md mx-4">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100/40 dark:border-gray-700/40">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('keyboardShortcuts')}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded" aria-label={t('close')}>
+          <h2 id="shortcuts-title" className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('keyboardShortcuts')}</h2>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded" aria-label={t('close')}>
             <X size={16} />
           </button>
         </div>
@@ -101,7 +86,6 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
             </div>
           ))}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

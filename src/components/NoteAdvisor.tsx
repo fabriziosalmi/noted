@@ -2,6 +2,7 @@ import { X, ShieldAlert, FolderOpen, Lightbulb, ArrowRight, Pencil, Heading, Git
 import { useModalStack } from '../hooks/useModalStack';
 import type { Suggestion, SuggestionSeverity, SuggestionKind, SuggestionActionKind } from '../lib/noteAdvisor';
 import { useI18n } from '../lib/i18n';
+import { Tooltip } from './Tooltip';
 
 interface NoteAdvisorProps {
   suggestions: Suggestion[];
@@ -178,18 +179,20 @@ interface NoteAdvisorBadgeProps {
 export function NoteAdvisorBadge({ count, onClick }: NoteAdvisorBadgeProps) {
   const { t } = useI18n();
   return (
-    <button
-      onClick={onClick}
-      className="relative p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-amber-500 dark:hover:text-amber-400 transition-colors"
-      title={t('noteAdvisor')}
-      aria-label={`${t('noteAdvisor')}${count > 0 ? ` — ${count}` : ''}`}
-    >
-      <Lightbulb size={16} />
-      {count > 0 && (
-        <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-amber-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
-          {count > 9 ? '9+' : count}
-        </span>
-      )}
-    </button>
+    <Tooltip label={t('noteAdvisor')}>
+      <button
+        type="button"
+        onClick={onClick}
+        className="relative p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-amber-500 dark:hover:text-amber-400 transition-colors"
+        aria-label={`${t('noteAdvisor')}${count > 0 ? ` — ${count}` : ''}`}
+      >
+        <Lightbulb size={16} />
+        {count > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-amber-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
+            {count > 9 ? '9+' : count}
+          </span>
+        )}
+      </button>
+    </Tooltip>
   );
 }

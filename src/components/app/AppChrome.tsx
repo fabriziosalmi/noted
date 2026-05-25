@@ -349,9 +349,10 @@ export function AppChrome({
                 <div className="p-2 border-b border-gray-200/40 dark:border-gray-700/40 shrink-0">
                   <div className="flex bg-gray-200/40 dark:bg-gray-900/40 p-0.5 rounded-lg">
                     {(['ai', 'agent', 'analytics', 'graph'] as const).map((tab) => (
-                      <button key={tab}
+                      <button key={tab} type="button"
                         onClick={() => panels.setRightTab(tab)}
-                        className={`flex-1 py-1.5 text-[11px] font-medium rounded-md transition-all duration-150 ${
+                        aria-pressed={panels.rightTab === tab}
+                        className={`flex-1 py-2 text-xs font-medium rounded-md transition-all duration-150 ${
                           panels.rightTab === tab
                             ? 'bg-white/80 dark:bg-gray-700/60 text-gray-800 dark:text-gray-100 shadow-sm font-semibold'
                             : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
