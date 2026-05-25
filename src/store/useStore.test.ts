@@ -67,6 +67,42 @@ describe('useStore', () => {
     expect(useStore.getState().isLoading).toBe(false);
   });
 
+  it('shows a newly created root note immediately even if refresh returns stale data', async () => {
+    window.electronAPI.saveNote = vi.fn().mockResolvedValue({ success: true });
+    window.electronAPI.readNote = vi.fn().mockResolvedValue({ success: true, data: '<h1>New</h1>' });
+    window.electronAPI.getNotesTree = vi.fn().mockResolvedValue({
+      success: true,
+      data: { rootNotes: [], folders: [] },
+    });
+
+    await useStore.getState().createNote('instant.md', '<h1>New</h1>');
+
+    const state = useStore.getState();
+    expect(state.activeNoteName).toBe('instant.md');
+    expect(state.notes.map(note => note.name)).toContain('instant.md');
+    expect(state.customNotesOrder[0]).toBe('instant.md');
+  });
+
+  it('shows a newly created folder note immediately even if refresh returns stale data', async () => {
+    window.electronAPI.saveNote = vi.fn().mockResolvedValue({ success: true });
+    window.electronAPI.readNote = vi.fn().mockResolvedValue({ success: true, data: '<h1>New</h1>' });
+    window.electronAPI.getNotesTree = vi.fn().mockResolvedValue({
+      success: true,
+      data: { rootNotes: [], folders: [] },
+    });
+
+    await useStore.getState().createNote('Project/instant.md', '<h1>New</h1>');
+
+    const state = useStore.getState();
+    expect(state.notes.map(note => note.name)).toContain('Project/instant.md');
+    expect(state.noteFolders).toEqual([
+      expect.objectContaining({
+        name: 'Project',
+        notes: [expect.objectContaining({ name: 'Project/instant.md' })],
+      }),
+    ]);
+  });
+
   it('should save active note', async () => {
     useStore.setState({ activeNoteName: 'test.md' });
     window.electronAPI.saveNote = vi.fn().mockResolvedValue({ success: true });

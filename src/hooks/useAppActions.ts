@@ -19,7 +19,7 @@ export function useAppActions({
 }: AppActionsArgs) {
   const handleCreateNote = useCallback(async (folder?: string) => {
     try {
-      const baseName = `${t('newNoteFilePrefix')}_${Math.floor(Date.now() / 1000)}.md`;
+      const baseName = `${t('newNoteFilePrefix')}_${Date.now()}.md`;
       const initialContent = `<h1>${t('newNoteTitle')}</h1><p>${t('newNoteBody')}</p>`;
       await createNote(folder ? `${folder}/${baseName}` : baseName, initialContent);
     } catch (err: unknown) {

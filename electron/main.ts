@@ -486,6 +486,7 @@ ipcMain.handle('save-note', async (_, fileName: string, content: string, syncDir
     if (typeof content !== 'string') throw new Error('Content must be a string');
     const targetDir = getTargetDir(syncDir);
     const filePath = safeResolve(targetDir, fileName);
+    const isNewNote = !fs.existsSync(filePath);
     await saveSnapshot(targetDir, fileName, content);
     // Atomic write: write to a tmp sibling, then rename. fs.renameSync is atomic
     // on POSIX, so a crash mid-write leaves either the old file intact or the
@@ -494,6 +495,9 @@ ipcMain.handle('save-note', async (_, fileName: string, content: string, syncDir
     await fs.promises.writeFile(tmpPath, content, 'utf-8');
     await fs.promises.rename(tmpPath, filePath);
     fullTextSearchIndex.upsertFromRaw(targetDir, fileName, content);
+    if (isNewNote) {
+      win?.webContents.send('refresh-notes');
+    }
     return { success: true };
   } catch (error: unknown) {
     const err = error as Error;

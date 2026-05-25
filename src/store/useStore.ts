@@ -77,6 +77,57 @@ export interface FolderInfo {
   notes: NoteFile[];
 }
 
+function createOptimisticNote(fileName: string, content = ''): NoteFile {
+  const now = Date.now();
+  return {
+    name: fileName,
+    path: fileName,
+    stats: {
+      mtimeMs: now,
+      ctimeMs: now,
+      size: content.length,
+    },
+  };
+}
+
+function upsertOptimisticNote(
+  notes: NoteFile[],
+  noteFolders: FolderInfo[],
+  note: NoteFile,
+): Pick<NoteState, 'notes' | 'noteFolders'> {
+  const nextNotes = [note, ...notes.filter(n => n.name !== note.name)];
+
+  if (!note.name.includes('/')) {
+    return { notes: nextNotes, noteFolders };
+  }
+
+  const [folderName] = note.name.split('/');
+  let foundFolder = false;
+  const nextFolders = noteFolders.map(folder => {
+    if (folder.name !== folderName) return folder;
+    foundFolder = true;
+    return {
+      ...folder,
+      notes: [note, ...folder.notes.filter(n => n.name !== note.name)],
+    };
+  });
+
+  if (!foundFolder) {
+    nextFolders.push({ name: folderName, notes: [note] });
+  }
+
+  return { notes: nextNotes, noteFolders: nextFolders };
+}
+
+function ensureOptimisticNoteVisible(
+  state: NoteState,
+  fileName: string,
+  content = '',
+): Pick<NoteState, 'notes' | 'noteFolders'> | null {
+  if (state.notes.some(note => note.name === fileName)) return null;
+  return upsertOptimisticNote(state.notes, state.noteFolders, createOptimisticNote(fileName, content));
+}
+
 interface NoteState {
   notes: NoteFile[];           // flat list (root + all subfolders) for search/backlinks
   noteFolders: FolderInfo[];   // subfolders with their notes
@@ -258,13 +309,16 @@ export const useStore = create<NoteState>()(
 
     const currentNotesOrder = get().customNotesOrder || [];
     const newOrder = [fileName, ...currentNotesOrder.filter(n => n !== fileName)];
-    set({
+    const optimisticNote = createOptimisticNote(fileName, content);
+    set(state => ({
+      ...upsertOptimisticNote(state.notes, state.noteFolders, optimisticNote),
       customNotesOrder: newOrder,
       sortBy: 'custom',
-    });
+    }));
 
     await get().openNote(fileName);
     await get().fetchNotes();
+    set(state => ensureOptimisticNoteVisible(state, fileName, content) ?? state);
   },
 
   openNote: async (fileName: string) => {
