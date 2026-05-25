@@ -5,6 +5,11 @@ import type { NoteTemplate } from '../lib/templates';
 import { extractWikilinks } from '../lib/WikilinkExtension';
 import { extractTags } from '../lib/tagUtils';
 import { getElectronApi } from '../lib/electronApi';
+import {
+  extractHtmlFrontmatterComment,
+  extractMarkdownFrontmatter,
+  prependFrontmatterComment,
+} from '../../shared/markdown/frontmatter';
 
 export interface NoteFile {
   name: string;
@@ -77,6 +82,7 @@ interface NoteState {
   noteFolders: FolderInfo[];   // subfolders with their notes
   activeNoteName: string | null;
   activeNoteContent: string;
+  activeNoteFrontmatter: string | null;
   isLoading: boolean;
   pinnedNotes: string[];
   noteLinksIndex: Record<string, string[]>;
@@ -122,6 +128,7 @@ export const useStore = create<NoteState>()(
       notes: [],
       activeNoteName: null,
       activeNoteContent: '',
+      activeNoteFrontmatter: null,
       isLoading: false,
       pinnedNotes: [],
       customTemplates: [],
@@ -246,7 +253,7 @@ export const useStore = create<NoteState>()(
       ? '<h1>Nuova Nota</h1><p>Inizia a scrivere qui…</p>'
       : '<h1>New Note</h1><p>Start writing here…</p>';
     const content = initialContent ?? defaultContent;
-    const res = await api.saveNote(fileName, content, get().settings.syncDirectory || undefined);
+      const res = await api.saveNote(fileName, content, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? 'Impossibile creare la nota');
 
     const currentNotesOrder = get().customNotesOrder || [];
@@ -266,20 +273,22 @@ export const useStore = create<NoteState>()(
       const res = await api.readNote(fileName, get().settings.syncDirectory || undefined);
       if (res.success && res.data !== undefined) {
         let content = res.data as string;
+        let frontmatter: string | null = null;
         const trimmed = content.trimStart();
-        if (!trimmed.startsWith('<')) {
-          // If it has frontmatter, let's strip it before parsing Markdown
-          let markdownBody = content;
-          const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
-          if (match) {
-            markdownBody = content.slice(match[0].length);
-          }
-          content = marked.parse(markdownBody, { breaks: true, gfm: true, async: false }) as string;
+        if (trimmed.startsWith('<')) {
+          const extracted = extractHtmlFrontmatterComment(content);
+          frontmatter = extracted.frontmatter;
+          content = extracted.body;
+        } else {
+          const extracted = extractMarkdownFrontmatter(content);
+          frontmatter = extracted.frontmatter;
+          content = marked.parse(extracted.body, { breaks: true, gfm: true, async: false }) as string;
         }
         const links = extractWikilinks(content);
         set(state => ({
           activeNoteName: fileName,
           activeNoteContent: content,
+          activeNoteFrontmatter: frontmatter,
           noteLinksIndex: { ...state.noteLinksIndex, [fileName]: links },
           lastOpenedNote: fileName,
         }));
@@ -291,7 +300,9 @@ export const useStore = create<NoteState>()(
     const { activeNoteName } = get();
     const api = getElectronApi();
     if (activeNoteName && api) {
-      const res = await api.saveNote(activeNoteName, content, get().settings.syncDirectory || undefined);
+      const frontmatter = get().activeNoteFrontmatter;
+      const contentToSave = prependFrontmatterComment(content, frontmatter);
+      const res = await api.saveNote(activeNoteName, contentToSave, get().settings.syncDirectory || undefined);
       if (res.success) {
         const links = extractWikilinks(content);
         const tags = extractTags(content);
@@ -443,6 +454,7 @@ export const useStore = create<NoteState>()(
     set(state => ({
       activeNoteName: activeNoteName === fileName ? null : state.activeNoteName,
       activeNoteContent: activeNoteName === fileName ? '' : state.activeNoteContent,
+      activeNoteFrontmatter: activeNoteName === fileName ? null : state.activeNoteFrontmatter,
       pinnedNotes: state.pinnedNotes.filter(n => n !== fileName),
       customNotesOrder: currentNotesOrder.filter(n => n !== fileName),
     }));
@@ -552,6 +564,7 @@ export const useStore = create<NoteState>()(
       customFoldersOrder: [],
       activeNoteName: null,
       activeNoteContent: '',
+      activeNoteFrontmatter: null,
     });
     await get().fetchNotes();
   },

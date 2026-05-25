@@ -157,6 +157,9 @@ const {
   handleUpdateNote,
   handleSearchNotes,
   handleDeleteNote,
+  handleCreateAgentWorkflow,
+  handleAppendAgentEvent,
+  buildAgentWorkflowFiles,
   getArgValue,
   excerpt,
   main,
@@ -616,6 +619,88 @@ describe('MCP Tool Handlers', () => {
     });
   });
 
+  describe('agent workflow tools', () => {
+    it('builds deterministic flat workflow files from tasks', () => {
+      const files = buildAgentWorkflowFiles({
+        folder: 'noted',
+        workflow_id: 'WF001',
+        title: 'Agent Runtime',
+        goal: 'Create a file-first workflow',
+        approval_mode: 'review',
+        tasks: [
+          { id: 'T001', title: 'Schema' },
+          { id: 'T001.1', title: 'Events', parent_id: 'T001', depends_on: ['T001'] },
+        ],
+      });
+
+      expect(files.map(f => f.name)).toEqual([
+        'noted/wf-WF001-agent-runtime.md',
+        'noted/task-T001-schema.md',
+        'noted/task-T001.1-events.md',
+        'noted/runs-WF001.md',
+        'noted/reviews-WF001.md',
+        'noted/output-WF001.md',
+      ]);
+      expect(files[0].content).toContain('"approvalMode": "review"');
+      expect(files[0].content).toContain('"parentId": "T001"');
+    });
+
+    it('creates workflow scaffold notes', async () => {
+      const res = await handleCreateAgentWorkflow({
+        folder: 'noted',
+        workflow_id: 'WF001',
+        title: 'Agent Runtime',
+        goal: 'Create a file-first workflow',
+        tasks: [{ id: 'T001', title: 'Schema' }],
+      });
+
+      expect(res.content[0].text).toContain('Agent workflow created with 5 notes');
+      expect(mockFiles.has('/mockdir/noted/wf-WF001-agent-runtime.md')).toBe(true);
+      expect(mockFiles.has('/mockdir/noted/task-T001-schema.md')).toBe(true);
+      expect(mockFiles.get('/mockdir/noted/wf-WF001-agent-runtime.md')?.content).toContain('Agent Metadata');
+      expect(mockFiles.get('/mockdir/noted/wf-WF001-agent-runtime.md')?.content).toContain('"type": "workflow"');
+    });
+
+    it('does not overwrite existing workflow scaffold notes', async () => {
+      mockFiles.set('/mockdir/noted/wf-WF001-agent-runtime.md', {
+        content: '<p>Existing</p>',
+        mtime: new Date(),
+        size: 15,
+      });
+
+      await expect(handleCreateAgentWorkflow({
+        folder: 'noted',
+        workflow_id: 'WF001',
+        title: 'Agent Runtime',
+        goal: 'Create a file-first workflow',
+      })).rejects.toThrow('Agent workflow scaffold already exists');
+    });
+
+    it('appends structured agent events', async () => {
+      mockFiles.set('/mockdir/noted/task-T001-schema.md', {
+        content: '<h1>T001 Schema</h1>',
+        mtime: new Date(),
+        size: 20,
+      });
+
+      const res = await handleAppendAgentEvent({
+        name: 'noted/task-T001-schema.md',
+        event_type: 'TaskStatusChanged',
+        actor: 'codex',
+        node_id: 'T001',
+        status: 'review',
+        summary: 'Implementation ready for review',
+        details: { tests: 'passed' },
+      });
+
+      expect(res.content[0].text).toContain('TaskStatusChanged');
+      const content = mockFiles.get('/mockdir/noted/task-T001-schema.md')?.content ?? '';
+      expect(content).toContain('<h2>Event TaskStatusChanged</h2>');
+      expect(content).toContain('"status": "review"');
+      expect(content).toContain('"tests": "passed"');
+    });
+  });
+
   describe('getArgValue', () => {
     it('parses space-separated and equals-separated flags', () => {
       const originalArgv = [...process.argv];
@@ -848,10 +933,12 @@ describe('MCP server additional coverage', () => {
     readdirSpy.mockRestore();
   });
 
-  it('strips YAML frontmatter from markdown content in toHtml', () => {
+  it('preserves YAML frontmatter from markdown content in an HTML comment', () => {
     const md = '---\ntitle: Test Note\ntags: [test]\n---\n# Actual Content';
     const html = toHtml(md);
-    expect(html.trim()).toBe('<h1>Actual Content</h1>');
+    expect(html).toContain('<!--noted-frontmatter:');
+    expect(decodeURIComponent(html.match(/<!--noted-frontmatter:([\s\S]*?)-->/)?.[1] ?? '')).toContain('title: Test Note');
+    expect(html).toContain('<h1>Actual Content</h1>');
   });
 
   it('returns excerpt start when query is not found', () => {

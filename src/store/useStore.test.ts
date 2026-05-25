@@ -8,6 +8,7 @@ describe('useStore', () => {
       notes: [],
       activeNoteName: null,
       activeNoteContent: '',
+      activeNoteFrontmatter: null,
       isLoading: false,
     });
     vi.clearAllMocks();
@@ -349,7 +350,7 @@ describe('useStore', () => {
     await expect(useStore.getState().wipeAllNotes()).rejects.toThrow('wipe failed');
   });
 
-  it('should parse markdown, strip frontmatter, convert tables to HTML and extract wikilinks when opening a note', async () => {
+  it('should parse markdown, preserve frontmatter metadata, convert tables to HTML and extract wikilinks when opening a note', async () => {
     const mdContent = `---
 title: Note Title
 tags: [tag1, tag2]
@@ -367,8 +368,9 @@ Here is a table:
     const state = useStore.getState();
     expect(window.electronAPI.readNote).toHaveBeenCalledWith('markdown-note.md', undefined);
     
-    // Check that frontmatter is stripped
+    // Frontmatter is kept out of the editor HTML but preserved for save.
     expect(state.activeNoteContent).not.toContain('title: Note Title');
+    expect(state.activeNoteFrontmatter).toContain('title: Note Title');
     
     // Check that Markdown headings are converted to HTML
     expect(state.activeNoteContent).toContain('<h1>Welcome</h1>');
@@ -381,6 +383,15 @@ Here is a table:
     // Check that wikilink is preserved and extracted
     expect(state.activeNoteContent).toContain('[[WikilinkTarget]]');
     expect(state.noteLinksIndex['markdown-note.md']).toEqual(['WikilinkTarget']);
+
+    window.electronAPI.saveNote = vi.fn().mockResolvedValue({ success: true });
+    await useStore.getState().saveActiveNote('<h1>Welcome back</h1>');
+    expect(window.electronAPI.saveNote).toHaveBeenCalledWith(
+      'markdown-note.md',
+      expect.stringContaining('<!--noted-frontmatter:'),
+      undefined,
+    );
+    expect((window.electronAPI.saveNote as ReturnType<typeof vi.fn>).mock.calls[0][1]).toContain('<h1>Welcome back</h1>');
   });
 
   it('should save a template and delete it', () => {

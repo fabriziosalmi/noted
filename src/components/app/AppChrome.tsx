@@ -7,6 +7,7 @@ import { NoteEditor } from '../NoteEditor';
 import { AiChat } from '../AiChat';
 import { TextAnalytics } from '../TextAnalytics';
 import { GraphView } from '../GraphView';
+import { AgentPanel } from '../AgentPanel';
 import { NoteAdvisorBadge } from '../NoteAdvisor';
 import { EditorToolbar } from '../EditorToolbar';
 import { GitBadge } from '../GitPanel';
@@ -242,8 +243,8 @@ export function AppChrome({
               <PanelLeft size={16} />
             </button>
           </Tooltip>
-          <Tooltip label="AI panel" side="bottom">
-            <button onClick={panels.toggleRightOpen} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors" aria-label="Toggle AI panel">
+          <Tooltip label="Right panel" side="bottom">
+            <button onClick={panels.toggleRightOpen} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors" aria-label="Toggle right panel">
               <PanelRight size={16} />
             </button>
           </Tooltip>
@@ -347,7 +348,7 @@ export function AppChrome({
               <Panel id="sidebar-right" order={3} defaultSize={25} minSize={20} maxSize={40} className="vibrancy-sidebar flex flex-col border-l border-gray-200/60 dark:border-gray-700/60">
                 <div className="p-2 border-b border-gray-200/40 dark:border-gray-700/40 shrink-0">
                   <div className="flex bg-gray-200/40 dark:bg-gray-900/40 p-0.5 rounded-lg">
-                    {(['ai', 'analytics', 'graph'] as const).map((tab) => (
+                    {(['ai', 'agent', 'analytics', 'graph'] as const).map((tab) => (
                       <button key={tab}
                         onClick={() => panels.setRightTab(tab)}
                         className={`flex-1 py-1.5 text-[11px] font-medium rounded-md transition-all duration-150 ${
@@ -356,13 +357,21 @@ export function AppChrome({
                             : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
                         }`}
                       >
-                        {tab === 'ai' ? 'AI Chat' : tab === 'analytics' ? 'Analytics' : 'Graph'}
+                        {tab === 'ai' ? 'AI Chat' : tab === 'agent' ? 'Agent' : tab === 'analytics' ? 'Analytics' : 'Graph'}
                       </button>
                     ))}
                   </div>
                 </div>
                 <ErrorBoundary>
                   {panels.rightTab === 'ai' && <AiChat getEditorText={onGetEditorText} noteChunks={noteChunks} />}
+                  {panels.rightTab === 'agent' && (
+                    <AgentPanel
+                      activeNoteName={activeNoteName}
+                      activeNoteContent={activeNoteContent}
+                      notes={notes}
+                      onOpenNote={onOpenNote}
+                    />
+                  )}
                   {panels.rightTab === 'analytics' && <TextAnalytics getText={onGetEditorText} activeNoteName={activeNoteName} />}
                   {panels.rightTab === 'graph' && (
                     <GraphView

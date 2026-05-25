@@ -32,6 +32,7 @@ import * as http from 'node:http';
 import { URL } from 'node:url';
 import { marked } from 'marked';
 import { stripUnsafeHtml } from '../shared/security/htmlPolicy.js';
+import { extractMarkdownFrontmatter, prependFrontmatterComment } from '../shared/markdown/frontmatter.js';
 import pkg from '../package.json';
 
 // ─── Notes-directory resolution ───────────────────────────────────────────────
@@ -152,13 +153,8 @@ export function toHtml(content: string): string {
   if (trimmed.startsWith('<')) {
     return stripUnsafeHtml(content);
   }
-  // Strip YAML frontmatter matching useStore.ts
-  let markdownBody = content;
-  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
-  if (match) {
-    markdownBody = content.slice(match[0].length);
-  }
-  return stripUnsafeHtml(markdownToHtml(markdownBody));
+  const { frontmatter, body } = extractMarkdownFrontmatter(content);
+  return stripUnsafeHtml(prependFrontmatterComment(markdownToHtml(body), frontmatter));
 }
 
 // ─── Plain-text extraction ────────────────────────────────────────────────────
@@ -255,9 +251,309 @@ const TOOL_NAME = {
   UPDATE_NOTE: 'update_note',
   SEARCH_NOTES: 'search_notes',
   DELETE_NOTE: 'delete_note',
+  CREATE_AGENT_WORKFLOW: 'create_agent_workflow',
+  APPEND_AGENT_EVENT: 'append_agent_event',
 } as const;
 
 type ToolName = (typeof TOOL_NAME)[keyof typeof TOOL_NAME];
+
+type AgentApprovalMode = 'autonomous' | 'plan' | 'action' | 'review' | 'release' | 'manual';
+
+interface AgentTaskInput {
+  id: string;
+  title: string;
+  parent_id?: string;
+  depends_on?: string[];
+}
+
+interface AgentWorkflowFile {
+  name: string;
+  content: string;
+}
+
+const AGENT_APPROVAL_MODES = new Set<AgentApprovalMode>([
+  'autonomous',
+  'plan',
+  'action',
+  'review',
+  'release',
+  'manual',
+]);
+
+function validateAgentId(value: unknown, label: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new McpError(ErrorCode.InvalidParams, `${label} must be a non-empty string`);
+  }
+  const id = value.trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(id)) {
+    throw new McpError(
+      ErrorCode.InvalidParams,
+      `${label} must use only letters, numbers, dots, underscores, or dashes, and must start with a letter or number`,
+    );
+  }
+  return id;
+}
+
+function validateNonEmptyString(value: unknown, label: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new McpError(ErrorCode.InvalidParams, `${label} must be a non-empty string`);
+  }
+  return value.trim();
+}
+
+function slugify(value: string, fallback: string): string {
+  const slug = value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+  return slug || fallback;
+}
+
+function codeBlockJson(value: unknown): string {
+  return ['```json', JSON.stringify(value, null, 2), '```'].join('\n');
+}
+
+function agentMetadataBlock(value: unknown): string {
+  return ['## Agent Metadata', codeBlockJson(value)].join('\n\n');
+}
+
+function parseAgentTasks(value: unknown): AgentTaskInput[] {
+  if (value === undefined) {
+    return [{ id: 'T001', title: 'Define plan and acceptance criteria' }];
+  }
+  if (!Array.isArray(value)) {
+    throw new McpError(ErrorCode.InvalidParams, 'tasks must be an array when provided');
+  }
+  if (value.length === 0) {
+    return [{ id: 'T001', title: 'Define plan and acceptance criteria' }];
+  }
+
+  const seen = new Set<string>();
+  return value.map((item, index) => {
+    if (!item || typeof item !== 'object') {
+      throw new McpError(ErrorCode.InvalidParams, `tasks[${index}] must be an object`);
+    }
+    const raw = item as Record<string, unknown>;
+    const id = validateAgentId(raw.id, `tasks[${index}].id`);
+    if (seen.has(id)) {
+      throw new McpError(ErrorCode.InvalidParams, `duplicate task id: ${id}`);
+    }
+    seen.add(id);
+
+    const task: AgentTaskInput = {
+      id,
+      title: validateNonEmptyString(raw.title, `tasks[${index}].title`),
+    };
+    if (raw.parent_id !== undefined) {
+      task.parent_id = validateAgentId(raw.parent_id, `tasks[${index}].parent_id`);
+    }
+    if (raw.depends_on !== undefined) {
+      if (!Array.isArray(raw.depends_on)) {
+        throw new McpError(ErrorCode.InvalidParams, `tasks[${index}].depends_on must be an array`);
+      }
+      task.depends_on = raw.depends_on.map((dep, depIndex) =>
+        validateAgentId(dep, `tasks[${index}].depends_on[${depIndex}]`),
+      );
+    }
+    return task;
+  });
+}
+
+export function buildAgentWorkflowFiles(args: Record<string, unknown>): AgentWorkflowFile[] {
+  const folder = validateNonEmptyString(args.folder, 'folder');
+  validateFolderName(folder);
+  const workflowId = validateAgentId(args.workflow_id, 'workflow_id');
+  const title = validateNonEmptyString(args.title, 'title');
+  const goal = validateNonEmptyString(args.goal, 'goal');
+  const approvalMode = args.approval_mode === undefined
+    ? 'plan'
+    : validateNonEmptyString(args.approval_mode, 'approval_mode');
+  if (!AGENT_APPROVAL_MODES.has(approvalMode as AgentApprovalMode)) {
+    throw new McpError(
+      ErrorCode.InvalidParams,
+      `approval_mode must be one of: ${Array.from(AGENT_APPROVAL_MODES).join(', ')}`,
+    );
+  }
+  const tasks = parseAgentTasks(args.tasks);
+  const now = new Date().toISOString();
+  const workflowSlug = slugify(title, 'workflow');
+  const workflowNote = `${folder}/wf-${workflowId}-${workflowSlug}.md`;
+  const taskFiles = new Map<string, string>();
+
+  for (const task of tasks) {
+    taskFiles.set(task.id, `${folder}/task-${task.id}-${slugify(task.title, 'task')}.md`);
+  }
+
+  const workflowMeta = {
+    notedAgent: true,
+    schemaVersion: 1,
+    type: 'workflow',
+    id: workflowId,
+    title,
+    status: 'draft',
+    approvalMode,
+    createdAt: now,
+    updatedAt: now,
+    files: {
+      runs: `${folder}/runs-${workflowId}.md`,
+      reviews: `${folder}/reviews-${workflowId}.md`,
+      output: `${folder}/output-${workflowId}.md`,
+    },
+    tasks: tasks.map(task => ({
+      id: task.id,
+      title: task.title,
+      parentId: task.parent_id ?? null,
+      dependsOn: task.depends_on ?? [],
+      file: taskFiles.get(task.id),
+      status: 'todo',
+    })),
+  };
+
+  const workflowMd = [
+    `# ${workflowId} ${title}`,
+    '',
+    '## Goal',
+    goal,
+    '',
+    '## Workflow Tree',
+    ...tasks.map(task => {
+      const indent = task.parent_id ? '  -' : '-';
+      const deps = task.depends_on?.length ? ` depends on ${task.depends_on.join(', ')}` : '';
+      return `${indent} [ ] ${task.id} ${task.title}${deps} -> ${taskFiles.get(task.id)}`;
+    }),
+    '',
+    '## State',
+    '- status: draft',
+    `- approval: ${approvalMode}`,
+    '- next: plan approval or task execution',
+    '',
+    '## Event Log',
+    '- No events yet.',
+    '',
+    agentMetadataBlock(workflowMeta),
+  ].join('\n');
+
+  const files: AgentWorkflowFile[] = [
+    { name: workflowNote, content: workflowMd },
+  ];
+
+  for (const task of tasks) {
+    const taskMeta = {
+      notedAgent: true,
+      schemaVersion: 1,
+      type: 'task',
+      id: task.id,
+      workflowId,
+      parentId: task.parent_id ?? null,
+      dependsOn: task.depends_on ?? [],
+      status: 'todo',
+      owner: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    files.push({
+      name: taskFiles.get(task.id)!,
+      content: [
+        `# ${task.id} ${task.title}`,
+        '',
+        '## Goal',
+        '',
+        '## Acceptance Criteria',
+        '- [ ] Define expected output.',
+        '- [ ] Record evidence in runs or reviews.',
+        '',
+        '## Steps',
+        '- [ ] Plan',
+        '- [ ] Execute',
+        '- [ ] Review',
+        '',
+        '## Evidence',
+        '- runs: none',
+        '- reviews: none',
+        '',
+        '## Event Log',
+        '- No events yet.',
+        '',
+        agentMetadataBlock(taskMeta),
+      ].join('\n'),
+    });
+  }
+
+  files.push(
+    {
+      name: `${folder}/runs-${workflowId}.md`,
+      content: [
+        `# Runs ${workflowId}`,
+        '',
+        'Append command executions here with cwd, sandbox, timeout, exit code, and summarized output.',
+        '',
+        '## Event Log',
+        '- No runs yet.',
+        '',
+        agentMetadataBlock({
+          notedAgent: true,
+          schemaVersion: 1,
+          type: 'runs',
+          workflowId,
+          status: 'empty',
+          createdAt: now,
+          updatedAt: now,
+        }),
+      ].join('\n'),
+    },
+    {
+      name: `${folder}/reviews-${workflowId}.md`,
+      content: [
+        `# Reviews ${workflowId}`,
+        '',
+        'Append model or human reviews here. Include scope, findings, severity, and required fixes.',
+        '',
+        '## Event Log',
+        '- No reviews yet.',
+        '',
+        agentMetadataBlock({
+          notedAgent: true,
+          schemaVersion: 1,
+          type: 'reviews',
+          workflowId,
+          status: 'empty',
+          createdAt: now,
+          updatedAt: now,
+        }),
+      ].join('\n'),
+    },
+    {
+      name: `${folder}/output-${workflowId}.md`,
+      content: [
+        `# Output Check ${workflowId}`,
+        '',
+        '## Acceptance Check',
+        '- [ ] Goal satisfied',
+        '- [ ] Tests or evidence recorded',
+        '- [ ] Review gate passed or explicitly waived',
+        '- [ ] Final approval recorded if required',
+        '',
+        '## Event Log',
+        '- No output checks yet.',
+        '',
+        agentMetadataBlock({
+          notedAgent: true,
+          schemaVersion: 1,
+          type: 'output',
+          workflowId,
+          status: 'pending',
+          createdAt: now,
+          updatedAt: now,
+        }),
+      ].join('\n'),
+    },
+  );
+
+  return files;
+}
 
 // ─── Tool definitions ─────────────────────────────────────────────────────────
 
@@ -377,6 +673,102 @@ const TOOLS: Tool[] = [
         name: {
           type: 'string',
           description: 'Note file name to delete, e.g. "old-note.md"',
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: TOOL_NAME.CREATE_AGENT_WORKFLOW,
+    description:
+      'Create a deterministic file-first agent workflow scaffold inside one Noted folder. ' +
+      'This creates flat notes for workflow, tasks, runs, reviews, and output checks, using ' +
+      'stable file names and visible JSON metadata blocks that LLM agents can read.',
+    inputSchema: {
+      type: 'object',
+      required: ['folder', 'workflow_id', 'title', 'goal'],
+      properties: {
+        folder: {
+          type: 'string',
+          description: 'Project folder name, e.g. "noted" or "my-app". One folder level only.',
+        },
+        workflow_id: {
+          type: 'string',
+          description: 'Stable workflow id, e.g. "WF001".',
+        },
+        title: {
+          type: 'string',
+          description: 'Human-readable workflow title.',
+        },
+        goal: {
+          type: 'string',
+          description: 'Goal the workflow should accomplish.',
+        },
+        approval_mode: {
+          type: 'string',
+          enum: ['autonomous', 'plan', 'action', 'review', 'release', 'manual'],
+          description: 'Human-in-the-loop level. Default: plan.',
+        },
+        tasks: {
+          type: 'array',
+          description: 'Optional initial task list. If omitted, a default planning task is created.',
+          items: {
+            type: 'object',
+            required: ['id', 'title'],
+            properties: {
+              id: { type: 'string', description: 'Stable task id, e.g. "T001" or "T001.1".' },
+              title: { type: 'string', description: 'Task title.' },
+              parent_id: { type: 'string', description: 'Parent task id for subtasks.' },
+              depends_on: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Task ids that must complete first.',
+              },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: TOOL_NAME.APPEND_AGENT_EVENT,
+    description:
+      'Append a structured event to an agent workflow note. Use this instead of ad-hoc prose ' +
+      'for state changes, command outcomes, approvals, reviews, and output checks.',
+    inputSchema: {
+      type: 'object',
+      required: ['name', 'event_type', 'actor'],
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Target note file name, e.g. "noted/wf-WF001-agent-runtime.md" or a task note.',
+        },
+        event_type: {
+          type: 'string',
+          description: 'Event type, e.g. "TaskStatusChanged", "RunTimedOut", "ReviewFailed".',
+        },
+        actor: {
+          type: 'string',
+          description: 'Actor writing the event, e.g. "codex", "claude", "gemini", "user".',
+        },
+        node_id: {
+          type: 'string',
+          description: 'Workflow/task/run/review node id associated with this event.',
+        },
+        status: {
+          type: 'string',
+          description: 'Resulting status, e.g. "running", "blocked", "review", "done", "failed".',
+        },
+        summary: {
+          type: 'string',
+          description: 'Short human-readable summary.',
+        },
+        details: {
+          type: 'object',
+          description: 'Additional JSON-serializable event details.',
+          additionalProperties: true,
         },
       },
       additionalProperties: false,
@@ -537,9 +929,87 @@ export async function handleDeleteNote(args: Record<string, unknown>) {
   };
 }
 
+export async function handleCreateAgentWorkflow(args: Record<string, unknown>) {
+  const files = buildAgentWorkflowFiles(args);
+  const paths = files.map(file => {
+    validateNoteName(file.name);
+    return { ...file, filePath: safeNotePath(file.name) };
+  });
+
+  const existing = paths.filter(file => fs.existsSync(file.filePath)).map(file => file.name);
+  if (existing.length > 0) {
+    throw new McpError(
+      ErrorCode.InvalidParams,
+      `Agent workflow scaffold already exists for: ${existing.join(', ')}`,
+    );
+  }
+
+  for (const file of paths) {
+    atomicWrite(file.filePath, toHtml(file.content));
+  }
+
+  return {
+    content: [{
+      type: 'text',
+      text: [
+        `Agent workflow created with ${files.length} notes:`,
+        '',
+        ...files.map(file => `• ${file.name}`),
+      ].join('\n'),
+    }],
+  };
+}
+
+export async function handleAppendAgentEvent(args: Record<string, unknown>) {
+  const name = args.name;
+  validateNoteName(name);
+  const filePath = safeNotePath(name as string);
+  if (!fs.existsSync(filePath)) {
+    throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}`);
+  }
+
+  const eventType = validateAgentId(args.event_type, 'event_type');
+  const actor = validateNonEmptyString(args.actor, 'actor');
+  const event: Record<string, unknown> = {
+    type: eventType,
+    actor,
+    at: new Date().toISOString(),
+  };
+  if (args.node_id !== undefined) {
+    event.nodeId = validateAgentId(args.node_id, 'node_id');
+  }
+  if (args.status !== undefined) {
+    event.status = validateNonEmptyString(args.status, 'status');
+  }
+  if (args.summary !== undefined) {
+    event.summary = validateNonEmptyString(args.summary, 'summary');
+  }
+  if (args.details !== undefined) {
+    if (!args.details || typeof args.details !== 'object' || Array.isArray(args.details)) {
+      throw new McpError(ErrorCode.InvalidParams, 'details must be an object when provided');
+    }
+    event.details = args.details;
+  }
+
+  const eventMd = [
+    `## Event ${eventType}`,
+    '',
+    codeBlockJson(event),
+  ].join('\n');
+  const existing = fs.readFileSync(filePath, 'utf8');
+  atomicWrite(filePath, `${existing}\n<hr>\n${toHtml(eventMd)}`);
+
+  return {
+    content: [{
+      type: 'text',
+      text: `Agent event appended to ${name as string}: ${eventType}`,
+    }],
+  };
+}
+
 // ─── Server bootstrap ─────────────────────────────────────────────────────────
 
-type ToolHandler = (args: Record<string, unknown>) => Promise<{ content: { type: 'text'; text: string }[] }>;
+type ToolHandler = (args: Record<string, unknown>) => Promise<{ content: { type: string; text: string }[] }>;
 
 const TOOL_HANDLERS: Record<ToolName, ToolHandler> = {
   [TOOL_NAME.LIST_NOTES]: handleListNotes,
@@ -548,6 +1018,8 @@ const TOOL_HANDLERS: Record<ToolName, ToolHandler> = {
   [TOOL_NAME.UPDATE_NOTE]: handleUpdateNote,
   [TOOL_NAME.SEARCH_NOTES]: handleSearchNotes,
   [TOOL_NAME.DELETE_NOTE]: handleDeleteNote,
+  [TOOL_NAME.CREATE_AGENT_WORKFLOW]: handleCreateAgentWorkflow,
+  [TOOL_NAME.APPEND_AGENT_EVENT]: handleAppendAgentEvent,
 };
 
 function isToolName(value: string): value is ToolName {

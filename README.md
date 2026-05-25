@@ -18,6 +18,7 @@ Noted è un'app desktop macOS open-source per prendere note in Markdown/HTML con
 - Mascheramento PII opzionale prima delle chiamate AI
 - Integrazione Git (status, commit, push, PR)
 - MCP server locale per leggere/scrivere note da client MCP compatibili
+- Workflow agentici file-first via MCP (`create_agent_workflow`, `append_agent_event`)
 - Export (HTML, Markdown, PDF, DOCX) e quick capture window
 
 ## Stack tecnico
@@ -79,6 +80,10 @@ node dist-mcp/index.cjs --notes-dir /percorso/note
 ```
 
 Se `--notes-dir` non è specificato, il server prova path standard macOS di Noted.
+
+Il server MCP include anche un MVP per usare un folder Noted come workspace
+agentico: crea note flat per workflow, task/subtask, run, review e output check.
+Schema e convenzioni sono in [docs/AGENT_WORKFLOW_MVP.md](./docs/AGENT_WORKFLOW_MVP.md).
 
 ## Struttura repository (principale)
 
