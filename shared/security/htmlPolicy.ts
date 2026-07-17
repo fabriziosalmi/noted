@@ -21,8 +21,12 @@ export interface DOMPurifyLike {
 }
 
 // Single source of truth for the tag allowlist / blocklist.
+// body/html/head let full-document imports (e.g. Apple Notes) survive
+// sanitization structurally. meta/link are intentionally NOT re-added: they
+// bring back a <meta http-equiv="refresh"> redirect vector with no benefit for
+// note bodies, which render through TipTap or a <div>, never a <head>.
 export const SANITIZE_CONFIG = {
-  ADD_TAGS: ['body', 'html', 'head', 'meta', 'link'],
+  ADD_TAGS: ['body', 'html', 'head'],
   FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'applet'],
 } as const;
 

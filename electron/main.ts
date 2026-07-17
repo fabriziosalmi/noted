@@ -114,6 +114,22 @@ protocol.registerSchemesAsPrivileged([
 let win: BrowserWindow | null;
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
 
+// Navigation hardening: keep the renderer locked to app:// (and the Vite dev
+// server in dev), and route external links to the OS browser instead of letting
+// the page navigate away or spawn in-app windows. Backstops any link/redirect
+// that slips past HTML sanitization.
+function applyNavigationGuards(w: BrowserWindow) {
+  w.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  w.webContents.on('will-navigate', (event, url) => {
+    const isApp = url.startsWith('app://');
+    const isDev = !!VITE_DEV_SERVER_URL && url.startsWith(VITE_DEV_SERVER_URL);
+    if (!isApp && !isDev) event.preventDefault();
+  });
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1200,
@@ -139,6 +155,7 @@ function createWindow() {
     // Use custom app:// scheme — bypasses ES-module-from-file:// issues inside asar
     win.loadURL('app://./index.html');
   }
+  applyNavigationGuards(win);
 }
 
 // Forward native theme changes to renderer
@@ -177,6 +194,7 @@ function openCaptureWindow() {
     ? `${VITE_DEV_SERVER_URL}capture.html`
     : 'app://./capture.html';
   captureWin.loadURL(captureUrl);
+  applyNavigationGuards(captureWin);
 }
 
 ipcMain.handle('save-capture', (_, text: string) => {
@@ -552,7 +570,7 @@ ipcMain.handle('read-note-snapshot', async (_, fileName: string, snapshotName: s
     validateFileName(fileName);
     if (!/^[\w\-:.]+\.html$/.test(snapshotName)) throw new Error('Invalid snapshot name');
     const targetDir = getTargetDir(syncDir);
-    const snapshotPath = path.join(targetDir, '.noted_history', fileName, snapshotName);
+    const snapshotPath = safeResolve(targetDir, path.join('.noted_history', fileName, snapshotName));
     const content = await fs.promises.readFile(snapshotPath, 'utf-8');
     return { success: true, data: content };
   } catch (error: unknown) {
@@ -963,11 +981,32 @@ ipcMain.handle('share-note-macos', async (_, args: { content: string; title: str
 const LLM_FETCH_TIMEOUT_MS = 60_000;
 const LLM_FETCH_MAX_BODY_BYTES = 10 * 1024 * 1024; // cap response size at 10 MB
 
+// SSRF guard: enforce http(s) via URL parsing and block the classic exfil
+// targets (cloud metadata + link-local). Public provider APIs and localhost/LAN
+// LLM endpoints (LM Studio / Ollama) stay allowed, so real setups keep working.
+function assertFetchAllowed(rawUrl: string): void {
+  let u: URL;
+  try { u = new URL(rawUrl); } catch { throw new Error('Invalid URL'); }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('Only http(s) URLs are allowed');
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (
+    host === '169.254.169.254' ||          // AWS/GCP/Azure IMDS
+    host === 'metadata.google.internal' ||
+    host === 'metadata' ||
+    host === 'fd00:ec2::254' ||             // AWS IMDSv2 (IPv6)
+    host.startsWith('169.254.') ||          // IPv4 link-local
+    host.startsWith('fe80:')                // IPv6 link-local
+  ) {
+    throw new Error('Blocked host (link-local / cloud metadata)');
+  }
+}
+
 ipcMain.handle('llm-fetch', async (_, url: string, options: { method: string; headers: Record<string, string>; body: string }) => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LLM_FETCH_TIMEOUT_MS);
   try {
-    if (typeof url !== 'string' || !url.startsWith('http')) throw new Error('Invalid URL');
+    if (typeof url !== 'string') throw new Error('Invalid URL');
+    assertFetchAllowed(url);
     const isGet = options.method.toUpperCase() === 'GET';
     const res = await fetch(url, {
       method: options.method,

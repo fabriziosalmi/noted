@@ -754,17 +754,30 @@ describe('MCP Tool Handlers', () => {
       process.argv = ['node', 'index.js', '--notes-dir=/mockdir', '--transport=sse', '--port=8080'];
       await main();
       
-      // 1. OPTIONS request
-      const mockReqOptions = { method: 'OPTIONS', url: '/sse', headers: {} } as any;
+      // 1. OPTIONS request — a local-origin CORS preflight is reflected, never '*'
+      const mockReqOptions = { method: 'OPTIONS', url: '/sse', headers: { origin: 'http://localhost:8080', host: 'localhost:8080' } } as any;
       const mockResOptions = {
         setHeader: vi.fn(),
         writeHead: vi.fn(),
         end: vi.fn(),
       } as any;
       await httpHandler(mockReqOptions, mockResOptions);
-      expect(mockResOptions.setHeader).toHaveBeenCalledWith('Access-Control-Allow-Origin', '*');
+      expect(mockResOptions.setHeader).toHaveBeenCalledWith('Access-Control-Allow-Origin', 'http://localhost:8080');
+      expect(mockResOptions.setHeader).not.toHaveBeenCalledWith('Access-Control-Allow-Origin', '*');
       expect(mockResOptions.writeHead).toHaveBeenCalledWith(200);
       expect(mockResOptions.end).toHaveBeenCalled();
+
+      // 1b. DNS-rebinding defense: a non-local Host is rejected with 403
+      const mockReqRebind = { method: 'GET', url: '/sse', headers: { host: 'evil.example.com' } } as any;
+      const mockResRebind = { setHeader: vi.fn(), writeHead: vi.fn(), end: vi.fn() } as any;
+      await httpHandler(mockReqRebind, mockResRebind);
+      expect(mockResRebind.writeHead).toHaveBeenCalledWith(403);
+
+      // 1c. A cross-origin browser request is rejected with 403 even from a local Host
+      const mockReqXOrigin = { method: 'GET', url: '/sse', headers: { origin: 'https://evil.example.com', host: 'localhost:8080' } } as any;
+      const mockResXOrigin = { setHeader: vi.fn(), writeHead: vi.fn(), end: vi.fn() } as any;
+      await httpHandler(mockReqXOrigin, mockResXOrigin);
+      expect(mockResXOrigin.writeHead).toHaveBeenCalledWith(403);
 
       // 2. GET /sse request
       sseTransportInstances = [];

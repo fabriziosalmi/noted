@@ -1077,9 +1077,38 @@ export async function main() {
 
     const authToken = getArgValue('--auth-token');
 
+    const isLocalHostname = (h: string): boolean => {
+      const name = h.split(':')[0].toLowerCase().replace(/^\[|\]$/g, '');
+      return name === 'localhost' || name === '127.0.0.1' || name === '::1';
+    };
+    const isLocalOrigin = (origin: string): boolean => {
+      try { return isLocalHostname(new URL(origin).hostname); } catch { return false; }
+    };
+
     const serverHttp = http.createServer(async (req, res) => {
-      // CORS headers
-      res.setHeader('Access-Control-Allow-Origin', '*');
+      const origin = typeof req.headers.origin === 'string' ? req.headers.origin : undefined;
+      const host = typeof req.headers.host === 'string' ? req.headers.host : undefined;
+
+      // DNS-rebinding defense: reject a Host or Origin that is present but not
+      // local. Local MCP clients send a local Host and no Origin header; missing
+      // headers (CLI clients) are treated as local. Bound to 127.0.0.1 already,
+      // this closes the browser/DNS-rebinding path to the notes vault.
+      if (host && !isLocalHostname(host)) {
+        res.writeHead(403);
+        res.end('Forbidden: non-local Host');
+        process.stderr.write(`[noted-mcp] Rejected non-local Host: ${host}\n`);
+        return;
+      }
+      if (origin && !isLocalOrigin(origin)) {
+        res.writeHead(403);
+        res.end('Forbidden: cross-origin request');
+        process.stderr.write(`[noted-mcp] Rejected cross-origin request from: ${origin}\n`);
+        return;
+      }
+
+      // CORS: reflect only a trusted local origin — never a wildcard.
+      if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-MCP-Token');
 
