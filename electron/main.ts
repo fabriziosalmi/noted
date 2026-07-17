@@ -1,10 +1,12 @@
-import { app, BrowserWindow, ipcMain, dialog, safeStorage, globalShortcut, nativeTheme, protocol, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, safeStorage, globalShortcut, nativeTheme, protocol, shell, session } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
-import { exec, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import TurndownService from 'turndown';
-import { validateFileName, validateFolderName, stripUnsafeHtml, formatAppleNoteToMarkdown } from './ipc-utils.js';
+import { validateFileName, validateFolderName, stripUnsafeHtml } from './ipc-utils.js';
+import { registerCloudDetectorHandlers } from './src/services/cloud-detector.js';
+import { registerImporterHandlers } from './src/services/importer.js';
+import { registerExporterHandlers } from './src/services/exporter.js';
 import * as gitOps from './git-ops.js';
 import { sanitizeGitError } from './git-ops.js';
 import { FullTextSearchReadModel } from './fulltext-index.js';
@@ -253,6 +255,21 @@ app.whenReady().then(() => {
       return new Response('Not Found', { status: 404 });
     }
   });
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self' app:; " +
+          "script-src 'self' 'unsafe-eval' 'unsafe-inline' app:; " +
+          "style-src 'self' 'unsafe-inline' app:; " +
+          "img-src 'self' data: https: app:; " +
+          "connect-src 'self' http://127.0.0.1:* http://localhost:* https: app: ws: wss:; " +
+          "font-src 'self' data: app:;"
+        ]
+      }
+    });
+  });
   initNotesDir();
   createWelcomeNote();
   createWindow();
@@ -267,6 +284,10 @@ app.on('will-quit', () => {
 // Example IPC handler for the magical stuff
 ipcMain.handle('ping', () => 'pong');
 ipcMain.handle('get-app-version', () => app.getVersion());
+
+registerCloudDetectorHandlers();
+registerImporterHandlers(fullTextSearchIndex, () => DEFAULT_NOTES_DIR);
+registerExporterHandlers();
 
 function getMcpServerPathInternal(): string {
   let candidate = path.join(__dirname, '..', 'dist-mcp', 'index.cjs');
@@ -556,23 +577,6 @@ ipcMain.handle('rename-note', (_, oldName: string, newName: string, syncDir?: st
   }
 });
 
-ipcMain.handle('export-markdown', async (_, markdownContent: string) => {
-  try {
-    if (typeof markdownContent !== 'string') throw new Error('Content must be a string');
-    const { filePath } = await dialog.showSaveDialog({
-      title: 'Esporta come Markdown',
-      defaultPath: 'Nota.md',
-      filters: [{ name: 'Markdown', extensions: ['md'] }],
-    });
-    if (!filePath) return { success: false, error: 'Esportazione annullata' };
-    fs.writeFileSync(filePath, markdownContent, 'utf-8');
-    return { success: true, data: filePath };
-  } catch (error: unknown) {
-    const err = error as Error;
-    return { success: false, error: err.message };
-  }
-});
-
 ipcMain.handle('delete-note', (_, fileName: string, syncDir?: string) => {
   try {
     validateFileName(fileName);
@@ -660,239 +664,12 @@ ipcMain.handle('select-sync-folder', async () => {
   return { success: true, data: result.filePaths[0] };
 });
 
-ipcMain.handle('export-pdf', async (event, htmlContent: string) => {
-  try {
-    if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
-    if (htmlContent.length > 5_000_000) throw new Error('Content too large for PDF export');
-    // Show save dialog
-    const { filePath } = await dialog.showSaveDialog({
-      title: 'Esporta come PDF',
-      defaultPath: 'Nota.pdf',
-      filters: [{ name: 'PDF', extensions: ['pdf'] }]
-    });
-
-    if (!filePath) {
-      return { success: false, error: 'Esportazione annullata' };
-    }
-
-    // Create a hidden browser window to render the HTML
-    const pdfWin = new BrowserWindow({
-      show: false,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true
-      }
-    });
-
-    try {
-      const safeContent = stripUnsafeHtml(htmlContent);
-      const styledHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; line-height: 1.6; color: #333; }
-              h1, h2, h3 { color: #111; }
-              code { background-color: #f4f4f4; padding: 2px 4px; border-radius: 4px; font-family: monospace; }
-              pre { background-color: #f4f4f4; padding: 16px; border-radius: 8px; overflow-x: auto; }
-              blockquote { border-left: 4px solid #ddd; padding-left: 16px; color: #666; }
-              img { max-width: 100%; height: auto; border-radius: 8px; }
-            </style>
-          </head>
-          <body>
-            ${safeContent}
-          </body>
-        </html>
-      `;
-
-      await pdfWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(styledHtml)}`);
-
-      const pdfBuffer = await pdfWin.webContents.printToPDF({
-        printBackground: true,
-        margins: { marginType: 'printableArea' }
-      });
-
-      fs.writeFileSync(filePath, pdfBuffer);
-      return { success: true, data: filePath };
-    } finally {
-      pdfWin.close();
-    }
-  } catch (error: unknown) {
-    const err = error as Error;
-    logEvent('error', 'export_pdf_failed', { error: err.message });
-    return { success: false, error: err.message };
-  }
-});
-
-
-ipcMain.handle('print-note', async (_event, htmlContent: string, title?: string) => {
-  try {
-    if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
-    if (htmlContent.length > 5_000_000) throw new Error('Content too large to print');
-
-    const printWin = new BrowserWindow({
-      show: false,
-      webPreferences: { nodeIntegration: false, contextIsolation: true }
-    });
-
-    try {
-      const safeContent = stripUnsafeHtml(htmlContent);
-      const safeTitle = (title ?? 'Nota').replace(/[<>]/g, '');
-      const styledHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <title>${safeTitle}</title>
-            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 40px; line-height: 1.6; color: #222; }
-              h1, h2, h3 { color: #111; }
-              code { background-color: #f4f4f4; padding: 2px 4px; border-radius: 4px; font-family: monospace; }
-              pre { background-color: #f4f4f4; padding: 16px; border-radius: 8px; overflow-x: auto; }
-              blockquote { border-left: 4px solid #ddd; padding-left: 16px; color: #555; }
-              img { max-width: 100%; height: auto; }
-              table { border-collapse: collapse; }
-              th, td { border: 1px solid #ccc; padding: 4px 8px; }
-            </style>
-          </head>
-          <body>${safeContent}</body>
-        </html>
-      `;
-
-      await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(styledHtml)}`);
-
-      await new Promise<void>((resolve, reject) => {
-        printWin.webContents.print(
-          { silent: false, printBackground: true },
-          (success, failureReason) => {
-            if (!success && failureReason && failureReason !== 'cancelled') {
-              reject(new Error(failureReason));
-            } else {
-              resolve();
-            }
-          }
-        );
-      });
-
-      return { success: true };
-    } finally {
-      printWin.close();
-    }
-  } catch (error: unknown) {
-    const err = error as Error;
-    logEvent('error', 'print_note_failed', { error: err.message });
-    return { success: false, error: err.message };
-  }
-});
-
 ipcMain.handle('get-native-theme', () => ({
   isDark: nativeTheme.shouldUseDarkColors,
 }));
 
-ipcMain.handle('export-html', async (_, htmlContent: string, noteTitle: string) => {
-  try {
-    if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
-    const { filePath } = await dialog.showSaveDialog({
-      title: 'Esporta come HTML',
-      defaultPath: `${noteTitle || 'Nota'}.html`,
-      filters: [{ name: 'HTML', extensions: ['html'] }],
-    });
-    if (!filePath) return { success: false, error: 'Esportazione annullata' };
-    const safe = stripUnsafeHtml(htmlContent);
-    const full = `<!DOCTYPE html>
-<html lang="it">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${noteTitle}</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; max-width: 800px; margin: 60px auto; padding: 0 24px; line-height: 1.7; color: #1a1a1a; }
-    h1,h2,h3 { font-weight: 700; margin-top: 1.5em; }
-    code { background: #f3f4f6; padding: 2px 5px; border-radius: 4px; font-family: monospace; }
-    pre { background: #f3f4f6; padding: 1em; border-radius: 8px; overflow-x: auto; }
-    img { max-width: 100%; border-radius: 8px; }
-    blockquote { border-left: 4px solid #e5e7eb; padding-left: 1em; color: #6b7280; }
-    table { border-collapse: collapse; width: 100%; }
-    td,th { border: 1px solid #e5e7eb; padding: 8px 12px; }
-    th { background: #f9fafb; font-weight: 600; }
-  </style>
-</head>
-<body>${safe}</body>
-</html>`;
-    fs.writeFileSync(filePath, full, 'utf-8');
-    return { success: true, data: filePath };
-  } catch (err) {
-    return { success: false, error: (err as Error).message };
-  }
-});
 
-function importVaultRecursive(srcRoot: string, srcDir: string, destRoot: string): number {
-  let imported = 0;
-  if (!fs.existsSync(srcDir)) return 0;
-  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
-  for (const entry of entries) {
-    const srcPath = path.join(srcDir, entry.name);
-    if (entry.name.startsWith('.')) continue; // ignore hidden folders
 
-    if (entry.isDirectory()) {
-      imported += importVaultRecursive(srcRoot, srcPath, destRoot);
-    } else {
-      const ext = path.extname(entry.name).toLowerCase();
-      const isMarkdown = ext === '.md';
-      const isMedia = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.pdf'].includes(ext);
-      if (!isMarkdown && !isMedia) continue;
-
-      const relPath = path.relative(srcRoot, srcPath);
-      const dirName = path.dirname(relPath);
-      
-      let destPath: string;
-      if (dirName === '.') {
-        destPath = path.join(destRoot, entry.name);
-      } else {
-        // Flatten folder structure to 1-level of folder (e.g. "Folder-Subfolder")
-        const flattenedFolder = dirName
-          .replace(/[/\\]/g, '-')
-          // eslint-disable-next-line no-control-regex
-          .replace(/[\x00-\x1F\x7F\\/:*?"<>|;`$]/g, '')
-          .trim();
-        const folderPath = path.join(destRoot, flattenedFolder);
-        if (!fs.existsSync(folderPath)) {
-          fs.mkdirSync(folderPath, { recursive: true });
-        }
-        destPath = path.join(folderPath, entry.name);
-      }
-
-      if (!fs.existsSync(destPath)) {
-        fs.copyFileSync(srcPath, destPath);
-        imported++;
-      }
-    }
-  }
-  return imported;
-}
-
-ipcMain.handle('import-vault', async (_, targetDir?: string) => {
-  const reqId = newRequestId('import-vault');
-  try {
-    const { filePaths, canceled } = await dialog.showOpenDialog({
-      title: 'Importa vault (Obsidian / Bear / cartella Markdown)',
-      properties: ['openDirectory'],
-    });
-    if (canceled || !filePaths.length) return { success: false, error: 'Annullato' };
-    const srcDir = filePaths[0];
-    const dest = targetDir && fs.existsSync(targetDir) ? targetDir : DEFAULT_NOTES_DIR;
-    const importedCount = importVaultRecursive(srcDir, srcDir, dest);
-    fullTextSearchIndex.markDirty(dest);
-    logEvent('info', 'import_vault_completed', { reqId, importedCount, destDir: dest });
-    return { success: true, data: importedCount };
-  } catch (err) {
-    logEvent('error', 'import_vault_failed', { reqId, error: (err as Error).message });
-    return { success: false, error: (err as Error).message };
-  }
-});
 
 ipcMain.handle('setup-claude-mcp', async () => {
   try {
@@ -936,281 +713,6 @@ ipcMain.handle('setup-claude-mcp', async () => {
 
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
     return { success: true };
-  } catch (err) {
-    return { success: false, error: (err as Error).message };
-  }
-});
-
-ipcMain.handle('import-apple-notes', async (_, targetDir?: string) => {
-  const reqId = newRequestId('import-apple');
-  try {
-    const dest = targetDir && fs.existsSync(targetDir) ? targetDir : DEFAULT_NOTES_DIR;
-    
-    // Execute JXA script to fetch notes
-    const jxaScript = `
-      const notesApp = Application("Notes");
-      const results = [];
-      const folders = notesApp.folders();
-      for (let i = 0; i < folders.length; i++) {
-        const folder = folders[i];
-        const folderName = folder.name();
-        if (folderName === "Recently Deleted") continue;
-        const notes = folder.notes();
-        for (let j = 0; j < notes.length; j++) {
-          const note = notes[j];
-          results.push({
-            folder: folderName,
-            title: note.name() || "Untitled Note",
-            body: note.body() || "",
-            creationDate: note.creationDate() ? note.creationDate().toISOString() : null,
-            modificationDate: note.modificationDate() ? note.modificationDate().toISOString() : null
-          });
-        }
-      }
-      JSON.stringify(results);
-    `;
-
-    return new Promise((resolve) => {
-      const child = exec('osascript -l JavaScript', { maxBuffer: 1024 * 1024 * 100 }, (error, stdout, stderr) => {
-        if (error) {
-          logEvent('error', 'import_apple_exec_failed', { reqId, error: error.message || stderr });
-          resolve({ success: false, error: error.message || stderr });
-          return;
-        }
-
-        try {
-          const rawNotes = JSON.parse(stdout) as {
-            folder: string;
-            title: string;
-            body: string;
-            creationDate: string | null;
-            modificationDate: string | null;
-          }[];
-
-          /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/prefer-for-of */
-          const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
-
-          // Add span rule to format rich text styles (bold, italic, strikethrough, underline)
-          turndown.addRule('span', {
-            filter: 'span',
-            replacement: function (content, node: any) {
-              let result = content;
-              const style = node.getAttribute('style') || '';
-              
-              // Bold
-              if (style.includes('font-weight: bold') || style.includes('font-weight:bold') || style.includes('font-weight: 700') || style.includes('font-weight:700')) {
-                result = '**' + result + '**';
-              }
-              // Italic
-              if (style.includes('font-style: italic') || style.includes('font-style:italic')) {
-                result = '*' + result + '*';
-              }
-              // Strikethrough
-              if (style.includes('text-decoration: line-through') || style.includes('text-decoration:line-through')) {
-                result = '~~' + result + '~~';
-              }
-              // Underline
-              if (style.includes('text-decoration: underline') || style.includes('text-decoration:underline')) {
-                result = '<u>' + result + '</u>';
-              }
-              
-              return result;
-            }
-          });
-
-          // Add div rule to handle single line breaks instead of double newlines
-          turndown.addRule('div', {
-            filter: 'div',
-            replacement: function (content, node: any) {
-              // Avoid adding extra linebreaks inside list items, pre, code, blockquotes
-              let parent = node.parentNode;
-              while (parent) {
-                const tag = parent.nodeName?.toLowerCase();
-                if (tag === 'li' || tag === 'pre' || tag === 'code' || tag === 'blockquote') {
-                  return content;
-                }
-                parent = parent.parentNode;
-              }
-              return '\n' + content + '\n';
-            }
-          });
-
-          // Add table rules to support Markdown table imports
-          turndown.addRule('table', {
-            filter: 'table',
-            replacement: function (content) {
-              const cleanContent = content.split('\n').filter((line: string) => line.trim() !== '').join('\n');
-              return '\n\n' + cleanContent + '\n\n';
-            }
-          });
-
-          turndown.addRule('thead-tbody-tfoot', {
-            filter: ['thead', 'tbody', 'tfoot'],
-            replacement: function (content) {
-              return content;
-            }
-          });
-
-          turndown.addRule('tr', {
-            filter: 'tr',
-            replacement: function (content, node: any) {
-              let tableNode = node;
-              while (tableNode && tableNode.nodeName?.toUpperCase() !== 'TABLE') {
-                tableNode = tableNode.parentNode;
-              }
-              
-              function getTrElements(element: any) {
-                const trs: any[] = [];
-                function traverse(n: any) {
-                  if (n.nodeName?.toUpperCase() === 'TR') {
-                    trs.push(n);
-                  } else if (n.childNodes) {
-                    for (let i = 0; i < n.childNodes.length; i++) {
-                      traverse(n.childNodes[i]);
-                    }
-                  }
-                }
-                traverse(element);
-                return trs;
-              }
-              
-              function hasThDirectChild(trNode: any) {
-                if (!trNode.childNodes) return false;
-                for (let i = 0; i < trNode.childNodes.length; i++) {
-                  if (trNode.childNodes[i].nodeName?.toUpperCase() === 'TH') {
-                    return true;
-                  }
-                }
-                return false;
-              }
-              
-              function getCellCount(trNode: any) {
-                let count = 0;
-                if (!trNode.childNodes) return 0;
-                for (let i = 0; i < trNode.childNodes.length; i++) {
-                  const name = trNode.childNodes[i].nodeName?.toUpperCase();
-                  if (name === 'TH' || name === 'TD') {
-                    count++;
-                  }
-                }
-                return count;
-              }
-
-              const allRows = tableNode ? getTrElements(tableNode) : [];
-              const isFirstRow = allRows[0] === node;
-              const hasTh = hasThDirectChild(node);
-              const isHeader = hasTh || (isFirstRow && !hasTh);
-
-              let separator = '';
-              if (isHeader) {
-                const cellCount = getCellCount(node);
-                separator = '\n|' + Array(cellCount).fill(' --- ').join('|') + '|';
-              }
-              return '\n|' + content + separator;
-            }
-          });
-
-          turndown.addRule('td-or-th', {
-            filter: ['td', 'th'],
-            replacement: function (content) {
-              const cleanContent = content.trim().replace(/\n/g, ' ').replace(/\|/g, '\\|');
-              return ' ' + cleanContent + ' |';
-            }
-          });
-
-          let imported = 0;
-
-          for (const note of rawNotes) {
-            // Clean up the note title for file name (aligning with validateFileName character set)
-            let fileName = note.title
-              .replace(/[\\/:*?"<>|;`$]/g, '-')
-              // eslint-disable-next-line no-control-regex
-              .replace(/[\x00-\x1F\x7F]/g, '')
-              .trim();
-            if (!fileName) fileName = 'Untitled Note';
-            
-            // Keep folder structure (1-level limit in Noted, aligning with validateFolderName character set)
-            const folderName = note.folder
-              .replace(/[\\/:*?"<>|;`$]/g, '-')
-              // eslint-disable-next-line no-control-regex
-              .replace(/[\x00-\x1F\x7F]/g, '')
-              .trim();
-            
-            let destPath = '';
-            if (folderName && folderName !== 'Notes') {
-              const folderPath = path.join(dest, folderName);
-              if (!fs.existsSync(folderPath)) {
-                fs.mkdirSync(folderPath, { recursive: true });
-              }
-              destPath = path.join(folderPath, `${fileName}.md`);
-            } else {
-              destPath = path.join(dest, `${fileName}.md`);
-            }
-
-            // If file already exists, make filename unique (e.g. "Note_1.md")
-            let finalDestPath = destPath;
-            let counter = 1;
-            const ext = '.md';
-            const baseDir = path.dirname(destPath);
-            const baseName = path.basename(destPath, ext);
-            
-            while (fs.existsSync(finalDestPath)) {
-              finalDestPath = path.join(baseDir, `${baseName}_${counter}${ext}`);
-              counter++;
-            }
-
-            const fm = formatAppleNoteToMarkdown(
-              note.title,
-              note.body,
-              note.creationDate,
-              note.modificationDate,
-              turndown
-            );
-
-            fs.writeFileSync(finalDestPath, fm, 'utf-8');
-            imported++;
-          }
-          /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/prefer-for-of */
-
-          fullTextSearchIndex.markDirty(dest);
-          logEvent('info', 'import_apple_completed', { reqId, imported, destDir: dest });
-          resolve({ success: true, data: imported });
-        } catch (err) {
-          logEvent('error', 'import_apple_parse_failed', { reqId, error: (err as Error).message });
-          resolve({ success: false, error: `Parse error: ${(err as Error).message}` });
-        }
-      });
-
-      child.stdin?.write(jxaScript);
-      child.stdin?.end();
-    });
-  } catch (err) {
-    logEvent('error', 'import_apple_failed', { reqId, error: (err as Error).message });
-    return { success: false, error: (err as Error).message };
-  }
-});
-
-// ─── DOCX export ─────────────────────────────────────────────────────────────
-ipcMain.handle('export-docx', async (_, htmlContent: string, noteTitle: string) => {
-  try {
-    if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
-    const { filePath } = await dialog.showSaveDialog({
-      title: 'Esporta come DOCX',
-      defaultPath: `${noteTitle || 'Nota'}.docx`,
-      filters: [{ name: 'Word Document', extensions: ['docx'] }],
-    });
-    if (!filePath) return { success: false, error: 'Esportazione annullata' };
-
-    const safe = stripUnsafeHtml(htmlContent);
-    // Dynamic import — html-to-docx is CJS
-    const { default: HTMLtoDOCX } = await import('html-to-docx') as { default: (html: string, header: null, opts: object) => Promise<Buffer> };
-    const buf = await HTMLtoDOCX(
-      `<!DOCTYPE html><html><body>${safe}</body></html>`,
-      null,
-      { title: noteTitle, font: 'Helvetica Neue', fontSize: 24, table: { row: { cantSplit: true } } }
-    );
-    fs.writeFileSync(filePath, buf);
-    return { success: true, data: filePath };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -1386,102 +888,6 @@ ipcMain.handle('move-note', (_, fileName: string, toFolder: string, syncDir?: st
   }
 });
 
-ipcMain.handle('get-icloud-path', () => {
-  try {
-    const home = app.getPath('home');
-    const icloudPath = path.join(home, 'Library', 'Mobile Documents', 'com~apple~CloudDocs', 'Noted');
-    if (!fs.existsSync(icloudPath)) fs.mkdirSync(icloudPath, { recursive: true });
-    return { success: true, data: icloudPath };
-  } catch (err) {
-    return { success: false, error: (err as Error).message };
-  }
-});
-
-// ─── Cloud provider detection ────────────────────────────────────────────────
-
-ipcMain.handle('detect-cloud-providers', () => {
-  const home = app.getPath('home');
-  const cloudStorageBase = path.join(home, 'Library', 'CloudStorage');
-
-  function firstMatch(candidates: string[]): string | null {
-    for (const p of candidates) {
-      if (fs.existsSync(p)) return p;
-    }
-    // glob-style: check CloudStorage subdirs
-    return null;
-  }
-
-  function findGoogleDrive(): string | null {
-    if (!fs.existsSync(cloudStorageBase)) return null;
-    const entries = fs.readdirSync(cloudStorageBase);
-    const gdEntry = entries.find(e => e.startsWith('GoogleDrive-'));
-    if (!gdEntry) return null;
-    const myDrive = path.join(cloudStorageBase, gdEntry, 'My Drive');
-    return fs.existsSync(myDrive) ? myDrive : path.join(cloudStorageBase, gdEntry);
-  }
-
-  function findOneDrive(): string | null {
-    const candidates = [
-      path.join(home, 'OneDrive'),
-      path.join(home, 'OneDrive - Personal'),
-      path.join(cloudStorageBase, 'OneDrive-Personal'),
-    ];
-    const direct = firstMatch(candidates);
-    if (direct) return direct;
-    if (!fs.existsSync(cloudStorageBase)) return null;
-    const entries = fs.readdirSync(cloudStorageBase);
-    const od = entries.find(e => e.startsWith('OneDrive-'));
-    return od ? path.join(cloudStorageBase, od) : null;
-  }
-
-  const iCloudBase = path.join(home, 'Library', 'Mobile Documents', 'com~apple~CloudDocs');
-  const gdBase = findGoogleDrive();
-  const dbBase = firstMatch([path.join(home, 'Dropbox')]);
-  const odBase = findOneDrive();
-
-  type ProviderId = 'icloud' | 'googledrive' | 'dropbox' | 'onedrive';
-  const providers: { id: ProviderId; name: string; basePath: string; notedPath: string; available: boolean }[] = [
-    {
-      id: 'icloud',
-      name: 'iCloud Drive',
-      basePath: iCloudBase,
-      notedPath: path.join(iCloudBase, 'Noted'),
-      available: fs.existsSync(iCloudBase),
-    },
-    {
-      id: 'googledrive',
-      name: 'Google Drive',
-      basePath: gdBase ?? '',
-      notedPath: gdBase ? path.join(gdBase, 'Noted') : '',
-      available: !!gdBase,
-    },
-    {
-      id: 'dropbox',
-      name: 'Dropbox',
-      basePath: dbBase ?? '',
-      notedPath: dbBase ? path.join(dbBase, 'Noted') : '',
-      available: !!dbBase,
-    },
-    {
-      id: 'onedrive',
-      name: 'OneDrive',
-      basePath: odBase ?? '',
-      notedPath: odBase ? path.join(odBase, 'Noted') : '',
-      available: !!odBase,
-    },
-  ];
-
-  return { success: true, data: providers };
-});
-
-ipcMain.handle('activate-cloud-provider', (_, notedPath: string) => {
-  try {
-    if (!fs.existsSync(notedPath)) fs.mkdirSync(notedPath, { recursive: true });
-    return { success: true, data: notedPath };
-  } catch (err) {
-    return { success: false, error: (err as Error).message };
-  }
-});
 
 // ─── Export vault / Share note ───────────────────────────────────────────────
 

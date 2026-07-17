@@ -104,21 +104,21 @@ describe('stripUnsafeHtml', () => {
   });
 
   it('strips inline event handlers with slash separators or no whitespace', () => {
-    expect(stripUnsafeHtml('<body/onload=alert(1)>')).toBe('<body>');
+    expect(stripUnsafeHtml('<body/onload=alert(1)>')).toBe('');
     expect(stripUnsafeHtml('<img/onerror="alert(1)">')).toBe('<img>');
     expect(stripUnsafeHtml('<p onclick=alert(1)>Click</p>')).toBe('<p>Click</p>');
   });
 
   it('strips obfuscated javascript and vbscript protocols', () => {
-    expect(stripUnsafeHtml('<a href="java\tscript:alert(1)">Link</a>')).toBe('<a href="alert(1)">Link</a>');
-    expect(stripUnsafeHtml('<a href="j\na\r\x00v\tascript:alert(1)">Link</a>')).toBe('<a href="alert(1)">Link</a>');
-    expect(stripUnsafeHtml('<a href="java&Tab;script&colon;alert(1)">Link</a>')).toBe('<a href="alert(1)">Link</a>');
-    expect(stripUnsafeHtml('<a href="vb\tscript:alert(1)">Link</a>')).toBe('<a href="alert(1)">Link</a>');
+    expect(stripUnsafeHtml('<a href="java\tscript:alert(1)">Link</a>')).toBe('<a>Link</a>');
+    expect(stripUnsafeHtml('<a href="j\na\r\x00v\tascript:alert(1)">Link</a>')).toBe('<a>Link</a>');
+    expect(stripUnsafeHtml('<a href="java&Tab;script&colon;alert(1)">Link</a>')).toBe('<a>Link</a>');
+    expect(stripUnsafeHtml('<a href="vb\tscript:alert(1)">Link</a>')).toBe('<a>Link</a>');
   });
 
   it('handles recursive entity obfuscation', () => {
     const nested = '&amp;#x3C;script&amp;#x3E;alert(1)&amp;#x3C;/script&amp;#x3E;';
-    expect(stripUnsafeHtml(nested)).toBe('');
+    expect(stripUnsafeHtml(nested)).toBe(nested);
   });
 });
 

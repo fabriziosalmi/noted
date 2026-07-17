@@ -1,42 +1,56 @@
-// Shared HTML security policy used across renderer, Electron main, and MCP.
-// Keep all sanitization logic here to avoid drift between runtimes.
-export function stripUnsafeHtml(html: string): string {
-  let decoded = html;
-  let lastDecoded: string;
+// Pure, runtime-agnostic HTML sanitization policy shared across the renderer
+// (browser DOMPurify), Electron main, and the MCP server (jsdom DOMPurify).
+//
+// This module imports NOTHING at runtime, so both Vite (browser) and esbuild
+// (node) can bundle it safely. The concrete DOMPurify instance is injected by
+// the thin runtime entries htmlPolicy.browser.ts / htmlPolicy.node.ts, so the
+// policy can never drift between processes — there is one source of truth for
+// the tag allowlist and the attribute hook, right here.
 
-  for (let i = 0; i < 3; i++) {
-    lastDecoded = decoded;
-    decoded = decoded
-      .replace(/&amp;?/gi, '&')
-      .replace(/&quot;?/gi, '"')
-      .replace(/&apos;?/gi, "'")
-      .replace(/&#x([0-9a-f]+);?/gi, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)))
-      .replace(/&#([0-9]+);?/gi, (_, dec: string) => String.fromCharCode(parseInt(dec, 10)))
-      .replace(/&Tab;?/gi, '\t')
-      .replace(/&NewLine;?/gi, '\n')
-      .replace(/&colon;?/gi, ':');
-    if (decoded === lastDecoded) break;
-  }
+export interface SanitizeAttributeHookEvent {
+  attrName: string;
+  attrValue: string;
+}
 
-  let clean = decoded
-    .replace(/<script\b[\s\S]*?(?:<\/script>|$)/gi, '')
-    .replace(/<iframe\b[\s\S]*?(?:<\/iframe>|$)/gi, '')
-    .replace(/<object\b[\s\S]*?(?:<\/object>|$)/gi, '')
-    .replace(/<embed\b[\s\S]*?(?:<\/embed>|$)/gi, '')
-    .replace(/<applet\b[\s\S]*?(?:<\/applet>|$)/gi, '')
-    .replace(/<meta\b[\s\S]*?(?:<\/meta>|$)/gi, '')
-    .replace(/<link\b[\s\S]*?(?:<\/link>|$)/gi, '');
+export interface DOMPurifyLike {
+  addHook(
+    hook: 'uponSanitizeAttribute',
+    cb: (node: { removeAttribute(name: string): void }, data: SanitizeAttributeHookEvent) => void,
+  ): void;
+  sanitize(dirty: string, config: object): string;
+}
 
-  clean = clean
-    .replace(/<\/?(?:script|iframe|object|embed|applet|meta|link)\b[^>]*(?:>|$)/gi, '')
-    .replace(/<\/?(?:script|iframe|object|embed|applet|meta|link)\b/gi, '');
+// Single source of truth for the tag allowlist / blocklist.
+export const SANITIZE_CONFIG = {
+  ADD_TAGS: ['body', 'html', 'head', 'meta', 'link'],
+  FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'applet'],
+} as const;
 
-  clean = clean.replace(/(?:[\s/]+)\bon[a-zA-Z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '');
+// Neutralize obfuscated javascript/vbscript/data:text/html protocols on
+// url-bearing attributes. Registered once per DOMPurify instance.
+export function configureDOMPurify(purify: DOMPurifyLike): void {
+  purify.addHook('uponSanitizeAttribute', (node, data) => {
+    if (data.attrName === 'href' || data.attrName === 'src' || data.attrName === 'action') {
+      // Strip control chars, whitespace, null bytes and unicode replacement chars before matching.
+      // eslint-disable-next-line no-control-regex
+      const normalized = data.attrValue.replace(/[\x00-\x20\x7F\s\uFFFD]/g, '').toLowerCase();
+      if (
+        normalized.includes('javascript:') ||
+        normalized.includes('vbscript:') ||
+        normalized.includes('data:text/html')
+      ) {
+        // Remove the attribute entirely to prevent execution.
+        node.removeAttribute(data.attrName);
+      }
+    }
+  });
+}
 
-  /* eslint-disable no-control-regex */
-  const jsRx = /j[\s\x00-\x20]*a[\s\x00-\x20]*v[\s\x00-\x20]*a[\s\x00-\x20]*s[\s\x00-\x20]*c[\s\x00-\x20]*r[\s\x00-\x20]*i[\s\x00-\x20]*p[\s\x00-\x20]*t[\s\x00-\x20]*:/gi;
-  const vbRx = /v[\s\x00-\x20]*b[\s\x00-\x20]*s[\s\x00-\x20]*c[\s\x00-\x20]*r[\s\x00-\x20]*i[\s\x00-\x20]*p[\s\x00-\x20]*t[\s\x00-\x20]*:/gi;
-  /* eslint-enable no-control-regex */
-
-  return clean.replace(jsRx, '').replace(vbRx, '');
+// Bind a stripUnsafeHtml() to an injected, configured DOMPurify instance.
+export function makeStripUnsafeHtml(purify: DOMPurifyLike): (html: string) => string {
+  configureDOMPurify(purify);
+  return (html: string): string => {
+    if (typeof html !== 'string') return '';
+    return purify.sanitize(html, SANITIZE_CONFIG);
+  };
 }

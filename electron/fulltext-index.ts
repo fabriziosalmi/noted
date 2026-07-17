@@ -206,69 +206,80 @@ export class FullTextSearchReadModel {
     let truncated = false;
     let totalBytes = 0;
 
-    const mdFiles: { relPath: string; filePath: string; mtimeMs: number; size: number }[] = [];
     try {
       const rootEntries = await fs.promises.readdir(dir, { withFileTypes: true });
-      outer: for (const entry of rootEntries) {
+      const dirPromises = rootEntries.map(async (entry) => {
         if (entry.isDirectory() && !entry.name.startsWith('.')) {
           const sub = path.join(dir, entry.name);
-          let subEntries: fs.Dirent[];
           try {
-            subEntries = await fs.promises.readdir(sub, { withFileTypes: true });
+            const subEntries = await fs.promises.readdir(sub, { withFileTypes: true });
+            return subEntries
+              .filter(f => !f.isDirectory() && f.name.endsWith('.md'))
+              .map(f => ({ relPath: `${entry.name}/${f.name}`, filePath: path.join(sub, f.name) }));
           } catch {
-            continue;
-          }
-          for (const f of subEntries) {
-            if (!f.isDirectory() && f.name.endsWith('.md')) {
-              try {
-                const relPath = `${entry.name}/${f.name}`;
-                validateFileName(relPath);
-                const fp = path.join(sub, f.name);
-                const stat = await fs.promises.stat(fp);
-                mdFiles.push({ relPath, filePath: fp, size: stat.size, mtimeMs: stat.mtimeMs });
-              } catch {
-                // skip invalid or unreadable
-              }
-              if (mdFiles.length >= FT_MAX_FILES) {
-                truncated = true;
-                break outer;
-              }
-            }
+            return [];
           }
         } else if (!entry.isDirectory() && entry.name.endsWith('.md')) {
-          try {
-            validateFileName(entry.name);
-            const fp = path.join(dir, entry.name);
-            const stat = await fs.promises.stat(fp);
-            mdFiles.push({ relPath: entry.name, filePath: fp, size: stat.size, mtimeMs: stat.mtimeMs });
-          } catch {
-            // skip invalid or unreadable
-          }
-          if (mdFiles.length >= FT_MAX_FILES) {
-            truncated = true;
-            break;
-          }
+          return [{ relPath: entry.name, filePath: path.join(dir, entry.name) }];
         }
+        return [];
+      });
+
+      const nestedFiles = await Promise.all(dirPromises);
+      const allCandidates = nestedFiles.flat();
+
+      const validCandidates: { relPath: string; filePath: string }[] = [];
+      for (const cand of allCandidates) {
+        try {
+          validateFileName(cand.relPath);
+          validCandidates.push(cand);
+        } catch {
+          // skip
+        }
+        if (validCandidates.length >= FT_MAX_FILES) {
+          truncated = true;
+          break;
+        }
+      }
+
+      const statPromises = validCandidates.map(async (cand) => {
+        try {
+          const stat = await fs.promises.stat(cand.filePath);
+          return { ...cand, size: stat.size, mtimeMs: stat.mtimeMs };
+        } catch {
+          return null;
+        }
+      });
+
+      const stattedFiles = (await Promise.all(statPromises)).filter(
+        (f): f is { relPath: string; filePath: string; size: number; mtimeMs: number } => f !== null
+      );
+
+      stattedFiles.sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+      const readPromises = stattedFiles.map(async (entry) => {
+        if (entry.size > FT_MAX_FILE_BYTES) return null;
+        try {
+          const raw = await fs.promises.readFile(entry.filePath, 'utf-8');
+          return { ...entry, raw };
+        } catch {
+          return null;
+        }
+      });
+
+      const readFiles = await Promise.all(readPromises);
+
+      for (const entry of readFiles) {
+        if (!entry) continue;
+        if (totalBytes + entry.raw.length > FT_MAX_TOTAL_BYTES) {
+          truncated = true;
+          break;
+        }
+        totalBytes += entry.raw.length;
+        docs.set(entry.relPath, makeDoc(entry.relPath, entry.raw, entry.mtimeMs, entry.size));
       }
     } catch {
       return { docs, ordered: [], truncated: false, dirty: false, scannedAt: Date.now() };
-    }
-
-    mdFiles.sort((a, b) => b.mtimeMs - a.mtimeMs);
-
-    for (const entry of mdFiles) {
-      if (entry.size > FT_MAX_FILE_BYTES) continue;
-      if (totalBytes + entry.size > FT_MAX_TOTAL_BYTES) {
-        truncated = true;
-        break;
-      }
-      try {
-        const raw = await fs.promises.readFile(entry.filePath, 'utf-8');
-        totalBytes += raw.length;
-        docs.set(entry.relPath, makeDoc(entry.relPath, raw, entry.mtimeMs, entry.size));
-      } catch {
-        // skip unreadable
-      }
     }
 
     const state: DirState = {

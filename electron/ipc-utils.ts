@@ -1,5 +1,5 @@
 import type TurndownService from 'turndown';
-import { stripUnsafeHtml } from '../shared/security/htmlPolicy.js';
+import { stripUnsafeHtml } from '../shared/security/htmlPolicy.node.js';
 
 function isAbsolutePath(p: string): boolean {
   // Covers Unix (/foo) and Windows (C:\foo or C:/foo) absolute paths

@@ -31,7 +31,7 @@ import * as crypto from 'node:crypto';
 import * as http from 'node:http';
 import { URL } from 'node:url';
 import { marked } from 'marked';
-import { stripUnsafeHtml } from '../shared/security/htmlPolicy.js';
+import { stripUnsafeHtml } from '../shared/security/htmlPolicy.node.js';
 import { extractMarkdownFrontmatter, prependFrontmatterComment } from '../shared/markdown/frontmatter.js';
 import pkg from '../package.json';
 
@@ -154,7 +154,8 @@ export function toHtml(content: string): string {
     return stripUnsafeHtml(content);
   }
   const { frontmatter, body } = extractMarkdownFrontmatter(content);
-  return stripUnsafeHtml(prependFrontmatterComment(markdownToHtml(body), frontmatter));
+  const sanitizedBody = stripUnsafeHtml(markdownToHtml(body));
+  return prependFrontmatterComment(sanitizedBody, frontmatter);
 }
 
 // ─── Plain-text extraction ────────────────────────────────────────────────────
@@ -1074,11 +1075,13 @@ export async function main() {
     const port = portStr ? parseInt(portStr, 10) : 3000;
     const transports = new Map<string, SSEServerTransport>();
 
+    const authToken = getArgValue('--auth-token');
+
     const serverHttp = http.createServer(async (req, res) => {
       // CORS headers
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-MCP-Token');
 
       if (req.method === 'OPTIONS') {
         res.writeHead(200);
@@ -1087,6 +1090,17 @@ export async function main() {
       }
 
       const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+
+      // Token authentication check (only if --auth-token was provided)
+      if (authToken) {
+        const reqToken = parsedUrl.searchParams.get('token') || req.headers['x-mcp-token'];
+        if (reqToken !== authToken) {
+          res.writeHead(401);
+          res.end('Unauthorized: Invalid or missing token');
+          process.stderr.write(`[noted-mcp] Rejected unauthorized request: ${req.method} ${parsedUrl.pathname}\n`);
+          return;
+        }
+      }
 
       if (req.method === 'GET' && parsedUrl.pathname === '/sse') {
         const transport = new SSEServerTransport('/messages', res);
@@ -1130,8 +1144,8 @@ export async function main() {
       res.end('Not Found');
     });
 
-    serverHttp.listen(port, '0.0.0.0', () => {
-      process.stderr.write(`[noted-mcp] SSE server listening on http://0.0.0.0:${port}\n`);
+    serverHttp.listen(port, '127.0.0.1', () => {
+      process.stderr.write(`[noted-mcp] SSE server listening on http://127.0.0.1:${port}\n`);
       process.stderr.write(`[noted-mcp] SSE endpoint: http://localhost:${port}/sse\n`);
     });
   } else {
