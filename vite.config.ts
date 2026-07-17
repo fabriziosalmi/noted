@@ -40,7 +40,10 @@ export default defineConfig({
         'src/test/',
         '**/*.d.ts',
         '**/*.config.*',
-        'electron/'
+        // main.ts and preload.ts are IPC glue exercised by integration/e2e, not unit tests;
+        // everything else under electron/ (git-ops, ipc-utils, fulltext-index, services) is now covered.
+        'electron/main.ts',
+        'electron/preload.ts'
       ]
     }
   },
