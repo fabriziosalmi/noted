@@ -1,7 +1,9 @@
 /** Extract all #tags from HTML or plain text content */
 export function extractTags(content: string): string[] {
   const text = content.replace(/<[^>]+>/g, ' ');
-  const matches = text.match(/#([a-zA-Z0-9_\-àèéìòùÀÈÉÌÒÙ]+)/g) ?? [];
+  // Allow one optional namespace segment (e.g. #project/minerva) so tags can
+  // group notes; a second slash is not part of the tag.
+  const matches = text.match(/#([a-zA-Z0-9_\-àèéìòùÀÈÉÌÒÙ]+(?:\/[a-zA-Z0-9_\-àèéìòùÀÈÉÌÒÙ]+)?)/g) ?? [];
   return [...new Set(matches.map(t => t.toLowerCase()))];
 }
 

@@ -7,6 +7,12 @@ describe('tagUtils', () => {
     expect(extractTags(content)).toEqual(['#work', '#idea', '#àccento']);
   });
 
+  it('extractTags supports one-level namespaces like #project/minerva', () => {
+    expect(extractTags('grouped under #project/Minerva and #urgent')).toEqual(['#project/minerva', '#urgent']);
+    // only one level — a second slash is not part of the tag
+    expect(extractTags('#a/b/c')).toEqual(['#a/b']);
+  });
+
   it('buildTagIndex builds tag to note map', () => {
     const idx = buildTagIndex([
       { name: 'a.md', text: '#one #two' },
