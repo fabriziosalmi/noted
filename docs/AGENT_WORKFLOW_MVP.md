@@ -130,3 +130,27 @@ The MVP adds:
 - `append_agent_event`: appends structured JSON events to an agent note.
 
 Existing note tools still work for normal reading, searching, and editing.
+
+## Runtime engine
+
+The states, approval modes, and dependency rules above are enforced by a pure
+engine in `shared/agent/` (shared by the MCP server and the app), rather than
+left to free-form edits. Three MCP tools drive it, and the interactive **Agent**
+right-panel exposes the same operations in the app:
+
+- `advance_agent_state`: move a workflow/task note to a new status. Rejects
+  illegal transitions, transitions that would skip a checkpoint the approval
+  mode requires (e.g. `plan` mode cannot jump `draft -> ready`), and tasks whose
+  `dependsOn` are unfinished. Records the change as an event and mirrors a task's
+  new status back into the workflow's `tasks[]`.
+- `approve_agent_gate`: resolve a pending checkpoint (a `awaiting_*` /
+  `review` / `needs_approval` state), moving to the gate's approve target.
+- `reject_agent_gate`: move the pending checkpoint to `blocked` (workflows and
+  tasks) or `cancelled` (runs), recording the reason.
+
+Approval-mode → gate mapping: `plan → {plan}`, `action → {action}`,
+`review → {review}`, `release → {release}`, `manual →` all four,
+`autonomous →` none. Gate rejection lands in `blocked`, recoverable by
+restarting through `draft`. Each tool takes an optional `expected_updated_at`
+for optimistic concurrency (the call fails if the note changed since it was
+read).
