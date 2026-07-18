@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useReducer } from 'react';
+import { useState, useRef, useCallback, useReducer, useEffect } from 'react';
 import { useI18n } from './lib/i18n';
 import type { Editor } from '@tiptap/react';
 import { useStore } from './store/useStore';
@@ -35,6 +35,8 @@ function App() {
   // pulled out of getState() so they don't drive renders at all.
   const notes              = useStore(s => s.notes);
   const activeNoteName     = useStore(s => s.activeNoteName);
+  const srAnnouncement     = useStore(s => s.srAnnouncement);
+  const announce           = useStore(s => s.announce);
   const activeNoteContent  = useStore(s => s.activeNoteContent);
   const settings           = useStore(s => s.settings);
   const pinnedNotes        = useStore(s => s.pinnedNotes);
@@ -296,8 +298,16 @@ function App() {
     },
   );
 
+  // Announce note switches to screen readers via the app-root live region.
+  useEffect(() => {
+    if (!activeNoteName) return;
+    const title = activeNoteName.replace(/\.md$/i, '').split('/').pop() || activeNoteName;
+    announce(`${t('noteOpened')} ${title}`);
+  }, [activeNoteName, announce, t]);
+
   return (
     <div className={`h-screen w-screen flex flex-col bg-white/85 dark:bg-gray-900/85 ${fontClass} ${sizeClass}`}>
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{srAnnouncement}</div>
       <AppChrome
         {...composition.chrome}
         editorRef={editorRef}

@@ -156,6 +156,7 @@ const translations = {
     words: 'words',
     saving: 'Saving...',
     saved: 'Saved',
+    noteOpened: 'Opened',
 
     // Settings Modal
     settingsTitle: 'Settings',
@@ -607,6 +608,7 @@ const translations = {
     words: 'parole',
     saving: 'Salvando...',
     saved: 'Salvato',
+    noteOpened: 'Aperta',
 
     // Settings Modal
     settingsTitle: 'Impostazioni',

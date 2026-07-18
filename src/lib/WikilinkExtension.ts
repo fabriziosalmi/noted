@@ -27,10 +27,16 @@ export const WikilinkMark = Mark.create({
   },
 
   renderHTML({ HTMLAttributes }) {
+    const target = HTMLAttributes.target as string;
+    // role/aria-label expose the span as a link to assistive tech; activation
+    // is via click or Mod+Enter on the caret (see NoteEditor). No tabindex —
+    // focusable inline nodes disrupt caret movement inside contentEditable.
     return ['span', mergeAttributes(HTMLAttributes, {
-      'data-wikilink': HTMLAttributes.target,
+      'data-wikilink': target,
       class: 'wikilink',
-      title: `Apri nota: ${HTMLAttributes.target as string}`,
+      role: 'link',
+      title: `Open note: ${target}`,
+      'aria-label': `Open note: ${target}`,
     }), 0];
   },
 

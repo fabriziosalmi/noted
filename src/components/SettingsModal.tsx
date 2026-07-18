@@ -13,6 +13,7 @@ import { fetchAvailableModels } from '../lib/llm';
 import { useI18n, type TranslationKey } from '../lib/i18n';
 import { getElectronApi } from '../lib/electronApi';
 import { importWorkflowReducer, initialImportWorkflowState, isImportWorkflowBusy } from '../lib/importWorkflow';
+import { useTablist } from '../lib/useTablist';
 
 type SettingsTab = 'ai' | 'appearance' | 'editor' | 'sync' | 'mcp' | 'git' | 'import';
 
@@ -73,6 +74,8 @@ const TABS: { id: SettingsTab; labelKey: TranslationKey; icon: LucideIcon }[] = 
   { id: 'git',        labelKey: 'tabIntegrations', icon: GitBranch },
   { id: 'import',     labelKey: 'tabImport',      icon: FolderOpen },
 ];
+
+const SETTINGS_TAB_IDS = TABS.map((tab) => tab.id);
 
 const isLocalProvider = (p: LLMProvider) => p === 'lmstudio' || p === 'ollama';
 
@@ -427,6 +430,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
     }
   }, [confirm, wipeAllNotes, onToast, t]);
   const [tab, setTab] = useState<SettingsTab>('ai');
+  const tabsNav = useTablist(SETTINGS_TAB_IDS, tab, setTab, 'settings');
   const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
   const [discovering, setDiscovering] = useState(false);
   const [cloudProviders, setCloudProviders] = useState<CloudProvider[]>([]);
@@ -560,10 +564,11 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
         </div>
 
         {/* Tab bar */}
-        <div className="flex border-b border-gray-100/40 dark:border-gray-700/40 bg-gray-50/40 dark:bg-gray-800/30">
+        <div {...tabsNav.tablistProps} aria-label={t('settings')} className="flex border-b border-gray-100/40 dark:border-gray-700/40 bg-gray-50/40 dark:bg-gray-800/30">
           {TABS.map(({ id, labelKey, icon: Icon }) => (
             <button
               key={id}
+              {...tabsNav.getTabProps(id)}
               onClick={() => setTab(id)}
               className={`flex-1 flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors border-b-2 ${
                 tab === id
@@ -578,7 +583,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
         </div>
 
         {/* Tab content — fixed height, no scroll */}
-        <div className="p-5 overflow-y-auto" style={{ minHeight: 320, maxHeight: 420 }}>
+        <div {...tabsNav.panelProps} className="p-5 overflow-y-auto" style={{ minHeight: 320, maxHeight: 420 }}>
 
           {/* ── AI Tab ── */}
           {tab === 'ai' && (

@@ -34,7 +34,9 @@ describe('WikilinkExtension structural behavior', () => {
     expect(rendered[1]).toMatchObject({
       'data-wikilink': 'Note-X',
       class: 'wikilink',
-      title: 'Apri nota: Note-X',
+      role: 'link',
+      title: 'Open note: Note-X',
+      'aria-label': 'Open note: Note-X',
     });
   });
 

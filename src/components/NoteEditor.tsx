@@ -493,6 +493,17 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
             if (name) onSelectNote(name.endsWith('.md') ? name : `${name}.md`);
           }
         }}
+        onKeyDown={e => {
+          // Keyboard activation: follow the wikilink under the caret with
+          // Mod+Enter (inline nodes can't take focus inside contentEditable).
+          if (e.key !== 'Enter' || !(e.metaKey || e.ctrlKey)) return;
+          if (!editor || !onSelectNote) return;
+          const name = editor.getAttributes('wikilink').target as string | undefined;
+          if (name) {
+            e.preventDefault();
+            onSelectNote(name.endsWith('.md') ? name : `${name}.md`);
+          }
+        }}
       >
         <EditorContent editor={editor} />
       </div>
@@ -543,12 +554,15 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
           <span className="text-xs text-gray-300 dark:text-gray-600">{wordCount} {t(wordCount === 1 ? 'word' : 'words')}</span>
         )}
         {saveStatus !== 'idle' && (
-          <div className={`text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5 ${
+          <div aria-hidden="true" className={`text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5 ${
             saveStatus === 'saving' ? 'text-gray-400 dark:text-gray-500' : 'text-emerald-600 dark:text-emerald-400'
           }`}>
             {saveStatus === 'saving' ? <span>{t('saving')}</span> : <><CheckCheck size={13} /><span>{t('saved')}</span></>}
           </div>
         )}
+        {/* Persistent SR-only live region: announces only the "Saved" milestone
+            (the transient "Saving…" is kept visual-only above to avoid chatter). */}
+        <span className="sr-only" role="status" aria-live="polite">{saveStatus === 'saved' ? t('saved') : ''}</span>
       </div>
     </>
   );

@@ -14,6 +14,15 @@ import { GitBadge } from '../GitPanel';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { Tooltip } from '../Tooltip';
 import { ShareMenu } from '../ShareMenu';
+import { useTablist } from '../../lib/useTablist';
+
+const RIGHT_TABS = ['ai', 'agent', 'analytics', 'graph'] as const;
+const RIGHT_TAB_LABELS: Record<(typeof RIGHT_TABS)[number], string> = {
+  ai: 'AI Chat',
+  agent: 'Agent',
+  analytics: 'Analytics',
+  graph: 'Connections',
+};
 
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/prefer-for-of */
 function getMarkdownFromHtml(html: string): string {
@@ -189,6 +198,7 @@ export function AppChrome({
   onGetEditorText,
   onEditorReady,
 }: AppChromeProps) {
+  const rightTabs = useTablist(RIGHT_TABS, panels.rightTab, panels.setRightTab, 'rightpanel');
   return (
     <>
       <div
@@ -347,40 +357,42 @@ export function AppChrome({
               <PanelResizeHandle className="w-1 cursor-col-resize" />
               <Panel id="sidebar-right" order={3} defaultSize={25} minSize={20} maxSize={40} role="complementary" aria-label="Tools" className="vibrancy-sidebar flex flex-col border-l border-gray-200/60 dark:border-gray-700/60">
                 <div className="p-2 border-b border-gray-200/40 dark:border-gray-700/40 shrink-0">
-                  <div className="flex bg-gray-200/40 dark:bg-gray-900/40 p-0.5 rounded-lg">
-                    {(['ai', 'agent', 'analytics', 'graph'] as const).map((tab) => (
+                  <div {...rightTabs.tablistProps} aria-label="Right panel tools" className="flex bg-gray-200/40 dark:bg-gray-900/40 p-0.5 rounded-lg">
+                    {RIGHT_TABS.map((tab) => (
                       <button key={tab} type="button"
+                        {...rightTabs.getTabProps(tab)}
                         onClick={() => panels.setRightTab(tab)}
-                        aria-pressed={panels.rightTab === tab}
                         className={`flex-1 py-2 text-xs font-medium rounded-md transition-all duration-150 ${
                           panels.rightTab === tab
                             ? 'bg-white/80 dark:bg-gray-700/60 text-gray-800 dark:text-gray-100 shadow-sm font-semibold'
                             : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
                         }`}
                       >
-                        {tab === 'ai' ? 'AI Chat' : tab === 'agent' ? 'Agent' : tab === 'analytics' ? 'Analytics' : 'Connections'}
+                        {RIGHT_TAB_LABELS[tab]}
                       </button>
                     ))}
                   </div>
                 </div>
-                <ErrorBoundary>
-                  {panels.rightTab === 'ai' && <AiChat getEditorText={onGetEditorText} noteChunks={noteChunks} />}
-                  {panels.rightTab === 'agent' && (
-                    <AgentPanel
-                      activeNoteName={activeNoteName}
-                      activeNoteContent={activeNoteContent}
-                      notes={notes}
-                      onOpenNote={onOpenNote}
-                    />
-                  )}
-                  {panels.rightTab === 'analytics' && <TextAnalytics getText={onGetEditorText} activeNoteName={activeNoteName} />}
-                  {/* 'graph' tab key retained for state/persistence compatibility;
-                      the old global graph is retired in favour of a readable
-                      per-note Connections view (project siblings + backlinks). */}
-                  {panels.rightTab === 'graph' && (
-                    <ConnectionsPanel onOpenNote={onOpenNote} />
-                  )}
-                </ErrorBoundary>
+                <div {...rightTabs.panelProps} className="flex-1 min-h-0 flex flex-col">
+                  <ErrorBoundary>
+                    {panels.rightTab === 'ai' && <AiChat getEditorText={onGetEditorText} noteChunks={noteChunks} />}
+                    {panels.rightTab === 'agent' && (
+                      <AgentPanel
+                        activeNoteName={activeNoteName}
+                        activeNoteContent={activeNoteContent}
+                        notes={notes}
+                        onOpenNote={onOpenNote}
+                      />
+                    )}
+                    {panels.rightTab === 'analytics' && <TextAnalytics getText={onGetEditorText} activeNoteName={activeNoteName} />}
+                    {/* 'graph' tab key retained for state/persistence compatibility;
+                        the old global graph is retired in favour of a readable
+                        per-note Connections view (project siblings + backlinks). */}
+                    {panels.rightTab === 'graph' && (
+                      <ConnectionsPanel onOpenNote={onOpenNote} />
+                    )}
+                  </ErrorBoundary>
+                </div>
               </Panel>
             </>
           )}

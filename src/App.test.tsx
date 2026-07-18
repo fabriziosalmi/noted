@@ -62,6 +62,8 @@ const mockState = {
   notes: [{ name: 'alpha.md', path: '/tmp/alpha.md', stats: { mtimeMs: 1, ctimeMs: 1, size: 1 } }],
   activeNoteName: 'alpha.md',
   activeNoteContent: '<p>alpha</p>',
+  srAnnouncement: '',
+  announce: vi.fn(),
   settings: {
     llmProvider: 'lmstudio',
     llmApiKey: '',

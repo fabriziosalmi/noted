@@ -149,6 +149,10 @@ interface NoteState {
   // reload/refocus (the content is already live in the editor).
   pendingSelfRename: string | null;
 
+  // Screen-reader live-region message (opened/renamed announcements). Rendered
+  // in a visually-hidden aria-live region at the app root.
+  srAnnouncement: string;
+
   // Custom Sort / Drag and Drop Reordering
   customNotesOrder: string[];
   customFoldersOrder: string[];
@@ -169,6 +173,7 @@ interface NoteState {
   renameNote: (oldName: string, newName: string, opts?: { reopen?: boolean }) => Promise<void>;
   syncActiveNoteTitle: (title: string) => Promise<void>;
   clearPendingSelfRename: () => void;
+  announce: (message: string) => void;
   addNotesToProject: (slug: string, noteNames: string[]) => Promise<void>;
   updateSettings: (newSettings: Partial<SettingsState>) => void;
   loadApiKey: () => Promise<void>;
@@ -200,6 +205,7 @@ export const useStore = create<NoteState>()(
       noteFolders: [],
       lastOpenedNote: null,
       pendingSelfRename: null,
+      srAnnouncement: '',
       customNotesOrder: [],
       customFoldersOrder: [],
       sortBy: 'date',
@@ -464,6 +470,7 @@ export const useStore = create<NoteState>()(
   },
 
   clearPendingSelfRename: () => set({ pendingSelfRename: null }),
+  announce: (message: string) => set({ srAnnouncement: message }),
 
   syncActiveNoteTitle: async (title: string) => {
     const { activeNoteName, settings } = get();
@@ -692,6 +699,7 @@ export const useStore = create<NoteState>()(
       noteFolders: [],
       lastOpenedNote: null,
       pendingSelfRename: null,
+      srAnnouncement: '',
       customNotesOrder: [],
       customFoldersOrder: [],
       activeNoteName: null,
