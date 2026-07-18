@@ -132,18 +132,21 @@ function NoteRow({
           }}
           aria-current={isActive ? 'true' : undefined}
           title={renameHint}
-          className={`flex items-center space-x-2 w-full text-left p-2 pl-4 pr-14 rounded text-sm cursor-pointer transition-all duration-150 ease-out ${
+          className={`flex items-start space-x-2 w-full text-left p-2 pl-4 pr-14 rounded text-sm cursor-pointer transition-all duration-150 ease-out ${
             isActive
               ? 'bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] text-[var(--accent)] font-medium'
               : 'hover:bg-gray-200/50 dark:hover:bg-gray-800/40 text-gray-700 dark:text-gray-300'
           }`}
         >
-          <FileText size={14} className="shrink-0 opacity-70" />
-          <div className="flex items-baseline gap-1.5 min-w-0 flex-1">
-            <span className="truncate">
+          <FileText size={14} className="shrink-0 opacity-70 mt-0.5" />
+          {/* Two-line row (Apple Notes-style): the title gets the full width so
+              it stays readable; the timestamp sits muted underneath instead of
+              squeezing the title on the same line. */}
+          <div className="flex flex-col min-w-0 flex-1 gap-0.5">
+            <span className="truncate leading-snug">
               {baseName.replace('.md', '')}
             </span>
-            <span className="shrink-0 text-[10px] text-gray-400 dark:text-gray-600 leading-none">
+            <span className="text-[10px] text-gray-400 dark:text-gray-600 leading-none">
               {relativeTime(note.stats.mtimeMs, language)}
             </span>
           </div>
@@ -600,7 +603,7 @@ export function Sidebar({
       if (!row) return 32;
       if (row.type === 'folder-empty') return 22;
       if (row.type === 'folder-header') return 32;
-      return 34; // root-note and folder-note
+      return 50; // root-note and folder-note (two-line: title + timestamp)
     }, [rows]),
     overscan: 10,
   });
