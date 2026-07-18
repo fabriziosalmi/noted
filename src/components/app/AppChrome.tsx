@@ -192,6 +192,7 @@ export function AppChrome({
   return (
     <>
       <div
+        role="banner"
         className="h-10 w-full flex items-center px-4 drag-region vibrancy-titlebar border-b border-gray-200/60 dark:border-gray-700/60"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
@@ -254,7 +255,7 @@ export function AppChrome({
         <PanelGroup direction="horizontal">
           {panels.leftOpen && (
             <>
-              <Panel id="sidebar-left" order={1} defaultSize={20} minSize={15} maxSize={30} className="vibrancy-sidebar flex flex-col border-r border-gray-200/60 dark:border-gray-700/60">
+              <Panel id="sidebar-left" order={1} defaultSize={20} minSize={15} maxSize={30} role="navigation" aria-label="Notes" className="vibrancy-sidebar flex flex-col border-r border-gray-200/60 dark:border-gray-700/60">
                 <ErrorBoundary>
                   <Sidebar
                     notes={filteredNotes}
@@ -282,7 +283,7 @@ export function AppChrome({
             </>
           )}
 
-          <Panel id="editor-center" order={2} minSize={30} className="editor-canvas bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
+          <Panel id="editor-center" order={2} minSize={30} role="main" className="editor-canvas bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
             {activeNoteName && (
               <EditorToolbar
                 editor={activeEditor}
@@ -344,7 +345,7 @@ export function AppChrome({
           {panels.rightOpen && (
             <>
               <PanelResizeHandle className="w-1 cursor-col-resize" />
-              <Panel id="sidebar-right" order={3} defaultSize={25} minSize={20} maxSize={40} className="vibrancy-sidebar flex flex-col border-l border-gray-200/60 dark:border-gray-700/60">
+              <Panel id="sidebar-right" order={3} defaultSize={25} minSize={20} maxSize={40} role="complementary" aria-label="Tools" className="vibrancy-sidebar flex flex-col border-l border-gray-200/60 dark:border-gray-700/60">
                 <div className="p-2 border-b border-gray-200/40 dark:border-gray-700/40 shrink-0">
                   <div className="flex bg-gray-200/40 dark:bg-gray-900/40 p-0.5 rounded-lg">
                     {(['ai', 'agent', 'analytics', 'graph'] as const).map((tab) => (

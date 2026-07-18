@@ -456,19 +456,19 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       {editor && (
         // @ts-expect-error tippyOptions valid but untyped
         <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }} className="flex space-x-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-lg p-1">
-          <button onClick={() => editor.chain().focus().toggleBold().run()}
+          <button type="button" aria-label="Bold" onClick={() => editor.chain().focus().toggleBold().run()}
             className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('bold') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
             <Bold size={14} />
           </button>
-          <button onClick={() => editor.chain().focus().toggleItalic().run()}
+          <button type="button" aria-label="Italic" onClick={() => editor.chain().focus().toggleItalic().run()}
             className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('italic') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
             <Italic size={14} />
           </button>
-          <button onClick={() => editor.chain().focus().toggleStrike().run()}
+          <button type="button" aria-label="Strikethrough" onClick={() => editor.chain().focus().toggleStrike().run()}
             className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('strike') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
             <Strikethrough size={14} />
           </button>
-          <button onClick={() => editor.chain().focus().toggleCode().run()}
+          <button type="button" aria-label="Inline code" onClick={() => editor.chain().focus().toggleCode().run()}
             className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('code') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
             <Code size={14} />
           </button>
