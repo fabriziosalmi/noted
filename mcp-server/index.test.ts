@@ -854,6 +854,15 @@ describe('MCP Tool Handlers', () => {
       await httpHandler(mockReqGetWithQueryToken, mockResGetWithQueryToken);
       expect(mockResGetWithQueryToken.writeHead).not.toHaveBeenCalledWith(401);
 
+      // /messages is guarded by the unguessable sessionId, not the token: a
+      // missing token yields 404 (unknown session), never 401. This keeps the
+      // client working after it authenticates the /sse handshake.
+      const mockReqMsgNoToken = { method: 'POST', url: '/messages?sessionId=nope', headers: { host: 'localhost:8080' } } as any;
+      const mockResMsgNoToken = { writeHead: vi.fn(), end: vi.fn(), setHeader: vi.fn() } as any;
+      await httpHandler(mockReqMsgNoToken, mockResMsgNoToken);
+      expect(mockResMsgNoToken.writeHead).not.toHaveBeenCalledWith(401);
+      expect(mockResMsgNoToken.writeHead).toHaveBeenCalledWith(404);
+
       // Restore argv for non-token tests
       process.argv = ['node', 'index.js', '--notes-dir=/mockdir', '--transport=sse', '--port=8080'];
       await main();

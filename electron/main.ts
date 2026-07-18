@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, safeStorage, globalShortcut, nativeTheme, protocol, shell, session } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { validateFileName, validateFolderName, stripUnsafeHtml } from './ipc-utils.js';
@@ -279,7 +280,7 @@ app.whenReady().then(() => {
         ...details.responseHeaders,
         'Content-Security-Policy': [
           "default-src 'self' app:; " +
-          "script-src 'self' 'unsafe-eval' 'unsafe-inline' app:; " +
+          "script-src 'self' 'unsafe-inline' app:; " +
           "style-src 'self' 'unsafe-inline' app:; " +
           "img-src 'self' data: https: app:; " +
           "connect-src 'self' http://127.0.0.1:* http://localhost:* https: app: ws: wss:; " +
@@ -333,6 +334,26 @@ function stopMcpSseServer() {
   }
 }
 
+// A stable per-install token that authenticates the local SSE handshake. Kept
+// in userData so a saved client config keeps working across restarts; the SSE
+// server refuses connections that don't present it.
+let mcpSseToken: string | null = null;
+function getMcpSseToken(): string {
+  if (mcpSseToken) return mcpSseToken;
+  const tokenPath = path.join(app.getPath('userData'), 'mcp-sse-token');
+  try {
+    if (fs.existsSync(tokenPath)) {
+      const saved = fs.readFileSync(tokenPath, 'utf8').trim();
+      if (saved) return (mcpSseToken = saved);
+    }
+  } catch { /* regenerate below */ }
+  const token = crypto.randomBytes(24).toString('hex');
+  try {
+    fs.writeFileSync(tokenPath, token, { mode: 0o600 });
+  } catch { /* fall back to an in-memory token for this session */ }
+  return (mcpSseToken = token);
+}
+
 function startMcpSseServer(port: number, syncDir?: string) {
   stopMcpSseServer();
   const reqId = newRequestId('mcp-sse');
@@ -354,7 +375,9 @@ function startMcpSseServer(port: number, syncDir?: string) {
       '--port',
       String(port),
       '--notes-dir',
-      targetDir
+      targetDir,
+      '--auth-token',
+      getMcpSseToken()
     ], {
       env: { ...process.env },
       stdio: ['ignore', 'pipe', 'pipe']
@@ -397,6 +420,9 @@ ipcMain.handle('get-mcp-server-path', () => {
   const candidate = getMcpServerPathInternal();
   return { path: candidate, exists: fs.existsSync(candidate) };
 });
+
+// The SSE auth token, so Settings can render a ready-to-paste authenticated URL.
+ipcMain.handle('get-mcp-sse-token', () => getMcpSseToken());
 
 ipcMain.handle('update-mcp-sse-config', (_, config: { enabled: boolean; port: number; syncDir?: string }) => {
   const reqId = newRequestId('mcp-sse-config');

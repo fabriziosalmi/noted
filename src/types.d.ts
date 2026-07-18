@@ -50,6 +50,7 @@ declare global {
       setNoteTitle: (noteName: string) => Promise<void>;
       safeStorageStatus: () => Promise<{ encrypted: boolean }>;
       getMcpServerPath: () => Promise<{ path: string; exists: boolean }>;
+      getMcpSseToken: () => Promise<string>;
       revealInFinder: (fsPath: string) => Promise<{ success: boolean }>;
       gitStoreToken: (token: string) => Promise<{ success: boolean; error?: string }>;
       gitGetToken: () => Promise<{ success: boolean; data?: string; error?: string }>;

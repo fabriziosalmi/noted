@@ -210,6 +210,14 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath, settings, onUpda
   const [setupStatus, setSetupStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [setupError, setSetupError] = useState<string | null>(null);
 
+  // The SSE server requires this token on the handshake; fetch it so the URL
+  // below is ready to paste with auth already attached.
+  const [sseToken, setSseToken] = useState<string | null>(null);
+  useEffect(() => {
+    if (!settings.mcpSseEnabled) { setSseToken(null); return; }
+    getElectronApi()?.getMcpSseToken?.().then(setSseToken).catch(() => setSseToken(null));
+  }, [settings.mcpSseEnabled]);
+
   const handleSetupClaudeMcp = async () => {
     setSetupStatus('loading');
     setSetupError(null);
@@ -329,7 +337,7 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath, settings, onUpda
             <div className="space-y-1">
               <p className="text-[11px] font-medium text-gray-600 dark:text-gray-300">{t('mcpSseLocalUrl')}</p>
               <CopyBlock
-                value={`http://localhost:${settings.mcpSsePort ?? 3000}/sse`}
+                value={`http://localhost:${settings.mcpSsePort ?? 3000}/sse${sseToken ? `?token=${sseToken}` : ''}`}
                 kind="mcp-sse-url"
                 copiedCmd={copiedCmd}
                 copyText={copyText}

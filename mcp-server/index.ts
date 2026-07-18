@@ -1404,13 +1404,17 @@ export async function main() {
 
       const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
 
-      // Token authentication check (only if --auth-token was provided)
-      if (authToken) {
+      // Token authentication: required to open an SSE session. Only the /sse
+      // handshake is checked — /messages is protected by the unguessable
+      // sessionId, which can only be obtained through an authenticated /sse, so
+      // a client that authenticates the SSE URL keeps working without also
+      // threading the token onto every message POST.
+      if (authToken && req.method === 'GET' && parsedUrl.pathname === '/sse') {
         const reqToken = parsedUrl.searchParams.get('token') || req.headers['x-mcp-token'];
         if (reqToken !== authToken) {
           res.writeHead(401);
           res.end('Unauthorized: Invalid or missing token');
-          process.stderr.write(`[noted-mcp] Rejected unauthorized request: ${req.method} ${parsedUrl.pathname}\n`);
+          process.stderr.write(`[noted-mcp] Rejected unauthorized SSE handshake\n`);
           return;
         }
       }
