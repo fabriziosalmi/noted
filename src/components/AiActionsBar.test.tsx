@@ -82,7 +82,7 @@ describe('AiActionsBar', () => {
     fireEvent.click(continueBtn);
 
     expect(defaultProps.onError).toHaveBeenCalledWith(
-      'Scrivi qualcosa nella nota prima di usare le azioni AI.'
+      'Write something in the note before using the AI actions.'
     );
     expect(askLLM).not.toHaveBeenCalled();
   });

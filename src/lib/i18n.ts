@@ -7,6 +7,9 @@ const translations = {
     // App / Titlebar
     history: 'Version history',
     titlePlaceholder: 'Title',
+    addHeadingsTitle: 'Title',
+    addHeadingsSection: 'Section',
+    gestureDoubleClick: 'Double-click',
     connProject: 'Same project',
     connProjectAlone: 'Only this note so far',
     connBacklinks: 'Linked from',
@@ -464,6 +467,9 @@ const translations = {
   it: {
     // App / Titlebar
     history: 'Cronologia versioni',
+    addHeadingsTitle: 'Titolo',
+    addHeadingsSection: 'Sezione',
+    gestureDoubleClick: 'Doppio clic',
     focusMode: 'Modalità focus (⌘\\)',
     exportMarkdown: 'Esporta come Markdown',
     exportPdf: 'Esporta come PDF',

@@ -192,7 +192,7 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
       : editor.getText();
 
     if (!rawText.trim()) {
-      onError?.('Scrivi qualcosa nella nota prima di usare le azioni AI.');
+      onError?.('Write something in the note before using the AI actions.');
       return;
     }
 

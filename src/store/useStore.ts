@@ -406,7 +406,7 @@ export const useStore = create<NoteState>()(
     const api = getElectronApi();
     if (!api) return;
     const res = await api.renameNote(oldName, newName, get().settings.syncDirectory || undefined);
-    if (!res.success) throw new Error(res.error ?? 'Rinomina fallita');
+    if (!res.success) throw new Error(res.error ?? 'Rename failed');
 
     const currentNotesOrder = get().customNotesOrder || [];
     const newNotesOrder = currentNotesOrder.map(n => n === oldName ? newName : n);

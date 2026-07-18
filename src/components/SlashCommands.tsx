@@ -130,7 +130,7 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
 
     try {
       const result = await askLLM([
-        { role: 'system', content: 'Sei un assistente di scrittura professionale. Segui le istruzioni esattamente.' },
+        { role: 'system', content: 'You are a professional writing assistant. Follow the instructions exactly.' },
         { role: 'user', content: cmd.prompt(context) },
       ], { signal: controller.signal });
       // Insert with a newline if needed

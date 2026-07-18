@@ -169,7 +169,7 @@ function App() {
         setTimeout(() => {
           const ed = editorRef.current;
           if (!ed) return;
-          ed.chain().focus().insertContentAt(0, '<h1>Titolo</h1><h2>Sezione</h2><p></p>').run();
+          ed.chain().focus().insertContentAt(0, `<h1>${t('addHeadingsTitle')}</h1><h2>${t('addHeadingsSection')}</h2><p></p>`).run();
         }, 120);
         break;
       }

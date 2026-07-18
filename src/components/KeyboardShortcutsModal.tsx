@@ -48,7 +48,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
     {
       titleKey: 'sectionNotes',
       rows: [
-        { keys: ['Doppio clic'], descriptionKey: 'shortcutRename' },
+        { keys: [t('gestureDoubleClick')], descriptionKey: 'shortcutRename' },
       ],
     },
   ];

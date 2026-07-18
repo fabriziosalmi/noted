@@ -285,7 +285,7 @@ describe('App orchestration', () => {
     expect(openNoteSpy).toHaveBeenCalledWith('gamma.md');
     expect(editorChainSpy).toHaveBeenCalledTimes(1);
     expect(editorFocusSpy).toHaveBeenCalledTimes(1);
-    expect(editorInsertContentAtSpy).toHaveBeenCalledWith(0, '<h1>Titolo</h1><h2>Sezione</h2><p></p>');
+    expect(editorInsertContentAtSpy).toHaveBeenCalledWith(0, '<h1>addHeadingsTitle</h1><h2>addHeadingsSection</h2><p></p>');
     expect(editorRunSpy).toHaveBeenCalledTimes(1);
     expect(dismissSuggestionSpy).toHaveBeenCalledWith('s-headings');
     expect(panelsCloseAdvisorSpy).toHaveBeenCalledTimes(1);
