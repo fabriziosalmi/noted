@@ -6,7 +6,7 @@ import { Sidebar } from '../Sidebar';
 import { NoteEditor } from '../NoteEditor';
 import { AiChat } from '../AiChat';
 import { TextAnalytics } from '../TextAnalytics';
-import { GraphView } from '../GraphView';
+import { ConnectionsPanel } from '../ConnectionsPanel';
 import { AgentPanel } from '../AgentPanel';
 import { NoteAdvisorBadge } from '../NoteAdvisor';
 import { EditorToolbar } from '../EditorToolbar';
@@ -165,7 +165,6 @@ export function AppChrome({
   activeTagFilter,
   suggestions,
   noteChunks,
-  noteLinksIndex,
   allNoteNames,
   backlinks,
   focusClass,
@@ -358,7 +357,7 @@ export function AppChrome({
                             : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
                         }`}
                       >
-                        {tab === 'ai' ? 'AI Chat' : tab === 'agent' ? 'Agent' : tab === 'analytics' ? 'Analytics' : 'Graph'}
+                        {tab === 'ai' ? 'AI Chat' : tab === 'agent' ? 'Agent' : tab === 'analytics' ? 'Analytics' : 'Connections'}
                       </button>
                     ))}
                   </div>
@@ -374,14 +373,11 @@ export function AppChrome({
                     />
                   )}
                   {panels.rightTab === 'analytics' && <TextAnalytics getText={onGetEditorText} activeNoteName={activeNoteName} />}
+                  {/* 'graph' tab key retained for state/persistence compatibility;
+                      the old global graph is retired in favour of a readable
+                      per-note Connections view (project siblings + backlinks). */}
                   {panels.rightTab === 'graph' && (
-                    <GraphView
-                      notes={notes}
-                      noteLinksIndex={noteLinksIndex}
-                      activeNoteName={activeNoteName}
-                      onOpenNote={onOpenNote}
-                      accentColor={settings.accentColor}
-                    />
+                    <ConnectionsPanel onOpenNote={onOpenNote} />
                   )}
                 </ErrorBoundary>
               </Panel>

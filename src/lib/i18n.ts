@@ -7,6 +7,12 @@ const translations = {
     // App / Titlebar
     history: 'Version history',
     titlePlaceholder: 'Title',
+    connProject: 'Same project',
+    connProjectAlone: 'Only this note so far',
+    connBacklinks: 'Linked from',
+    connOutgoing: 'Links to',
+    connEmpty: 'No connections yet — add a [[wikilink]] or a #project/name tag to weave this note together with others.',
+    connNoActive: 'Open a note to see its connections.',
     focusMode: 'Focus mode (⌘\\)',
     exportMarkdown: 'Export as Markdown',
     exportPdf: 'Export as PDF',
