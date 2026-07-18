@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { InvertedIndex } from '../shared/search/invertedIndex.js';
+import { htmlToPlainText, deriveTitleFromRelPath } from '../shared/search/textExtract.js';
 
 export interface FullTextResult {
   relPath: string;
@@ -9,19 +11,8 @@ export interface FullTextResult {
   terms: string[];
 }
 
-interface IndexedDoc {
-  relPath: string;
-  plain: string;
-  lower: string;
-  title: string;
-  titleLower: string;
-  mtimeMs: number;
-  size: number;
-}
-
 interface DirState {
-  docs: Map<string, IndexedDoc>;
-  ordered: IndexedDoc[];
+  index: InvertedIndex;
   truncated: boolean;
   dirty: boolean;
   scannedAt: number;
@@ -42,39 +33,29 @@ function normalizeDir(dir: string): string {
   return path.resolve(dir);
 }
 
-function stripHtmlToText(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/<\/?(p|h[1-6]|li|div|blockquote)[^>]*>/gi, ' ')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/\s+/g, ' ')
-    .trim();
+// Build a context window around the first matched term (falls back to the head
+// of the note when a match is title-only).
+function buildSnippet(text: string, matchedTerms: string[]): string {
+  const lower = text.toLowerCase();
+  let firstIdx = -1;
+  for (const term of matchedTerms) {
+    const i = lower.indexOf(term);
+    if (i !== -1 && (firstIdx === -1 || i < firstIdx)) firstIdx = i;
+  }
+  if (firstIdx === -1) firstIdx = 0;
+  const start = Math.max(0, firstIdx - CTX_CHARS);
+  const end = Math.min(text.length, firstIdx + CTX_CHARS * 2);
+  let snippet = text.slice(start, end).replace(/\s+/g, ' ').trim();
+  if (start > 0) snippet = '…' + snippet;
+  if (end < text.length) snippet += '…';
+  return snippet;
 }
 
-function makeDoc(relPath: string, raw: string, mtimeMs: number, size: number): IndexedDoc {
-  const plain = stripHtmlToText(raw);
-  const lower = plain.toLowerCase();
-  const title = relPath.split('/').pop()!.replace(/\.md$/, '').replace(/_/g, ' ');
-  return {
-    relPath,
-    plain,
-    lower,
-    title,
-    titleLower: title.toLowerCase(),
-    mtimeMs,
-    size,
-  };
-}
-
-function sortDocs(state: DirState): void {
-  state.ordered = Array.from(state.docs.values()).sort((a, b) => b.mtimeMs - a.mtimeMs);
-}
-
+/**
+ * In-memory full-text read model wrapping the shared BM25 InvertedIndex. Owns
+ * the fs scan, caps, staleness rescan, and incremental updates; ranking is
+ * delegated to the shared index so it matches the MCP server exactly.
+ */
 export class FullTextSearchReadModel {
   private readonly byDir = new Map<string, DirState>();
 
@@ -86,41 +67,37 @@ export class FullTextSearchReadModel {
   upsertFromRaw(dir: string, relPath: string, raw: string): void {
     const state = this.byDir.get(normalizeDir(dir));
     if (!state) return;
-    const now = Date.now();
-    state.docs.set(relPath, makeDoc(relPath, raw, now, raw.length));
-    sortDocs(state);
+    state.index.add({
+      id: relPath,
+      title: deriveTitleFromRelPath(relPath),
+      text: htmlToPlainText(raw),
+      mtimeMs: Date.now(),
+    });
   }
 
   renameDoc(dir: string, oldRelPath: string, newRelPath: string): void {
     const state = this.byDir.get(normalizeDir(dir));
     if (!state) return;
-    const existing = state.docs.get(oldRelPath);
-    if (!existing) {
+    if (!state.index.has(oldRelPath)) {
       state.dirty = true;
       return;
     }
-    state.docs.delete(oldRelPath);
-    state.docs.set(
-      newRelPath,
-      makeDoc(newRelPath, existing.plain, Date.now(), existing.size),
-    );
-    sortDocs(state);
+    state.index.rename(oldRelPath, newRelPath, deriveTitleFromRelPath(newRelPath));
   }
 
   deleteDoc(dir: string, relPath: string): void {
     const state = this.byDir.get(normalizeDir(dir));
     if (!state) return;
-    if (!state.docs.delete(relPath)) {
+    if (!state.index.has(relPath)) {
       state.dirty = true;
       return;
     }
-    sortDocs(state);
+    state.index.remove(relPath);
   }
 
   clearDir(dir: string): void {
     this.byDir.set(normalizeDir(dir), {
-      docs: new Map(),
-      ordered: [],
+      index: new InvertedIndex(),
       truncated: false,
       dirty: false,
       scannedAt: Date.now(),
@@ -134,51 +111,18 @@ export class FullTextSearchReadModel {
   ): Promise<SearchOutput> {
     const normalizedDir = normalizeDir(dir);
     const state = await this.ensureFresh(normalizedDir, validateFileName);
-
-    const rawTerms = query.trim().toLowerCase().split(/\s+/).filter(t => t.length >= 2);
-    if (rawTerms.length === 0) return { results: [], truncated: state.truncated };
-
-    const results: FullTextResult[] = [];
-    for (const doc of state.ordered) {
-      let score = 0;
-      let firstMatchIdx = -1;
-      const matchedTerms: string[] = [];
-
-      for (const term of rawTerms) {
-        let idx = 0;
-        let termCount = 0;
-        while ((idx = doc.lower.indexOf(term, idx)) !== -1) {
-          if (firstMatchIdx === -1 || idx < firstMatchIdx) firstMatchIdx = idx;
-          termCount++;
-          idx += term.length;
-        }
-        if (termCount > 0) {
-          matchedTerms.push(term);
-          score += termCount;
-          if (doc.titleLower.includes(term)) score += 10;
-        }
-      }
-
-      if (score === 0 || firstMatchIdx === -1) continue;
-      if (matchedTerms.length === rawTerms.length) score += 5;
-
-      const start = Math.max(0, firstMatchIdx - CTX_CHARS);
-      const end = Math.min(doc.plain.length, firstMatchIdx + CTX_CHARS * 2);
-      let snippet = doc.plain.slice(start, end).replace(/\s+/g, ' ').trim();
-      if (start > 0) snippet = '…' + snippet;
-      if (end < doc.plain.length) snippet += '…';
-
-      results.push({
-        relPath: doc.relPath,
-        title: doc.title,
-        snippet,
-        score,
-        terms: matchedTerms,
-      });
-    }
-
-    results.sort((a, b) => b.score - a.score);
-    return { results: results.slice(0, 25), truncated: state.truncated };
+    const hits = state.index.search(query, { limit: 25 });
+    const results: FullTextResult[] = hits.map((hit) => {
+      const doc = state.index.getDoc(hit.id);
+      return {
+        relPath: hit.id,
+        title: doc?.title ?? deriveTitleFromRelPath(hit.id),
+        snippet: buildSnippet(doc?.text ?? '', hit.matchedTerms),
+        score: hit.score,
+        terms: hit.matchedTerms,
+      };
+    });
+    return { results, truncated: state.truncated };
   }
 
   private async ensureFresh(
@@ -202,7 +146,7 @@ export class FullTextSearchReadModel {
     dir: string,
     validateFileName: (name: string) => void,
   ): Promise<DirState> {
-    const docs = new Map<string, IndexedDoc>();
+    const index = new InvertedIndex();
     let truncated = false;
     let totalBytes = 0;
 
@@ -276,20 +220,17 @@ export class FullTextSearchReadModel {
           break;
         }
         totalBytes += entry.raw.length;
-        docs.set(entry.relPath, makeDoc(entry.relPath, entry.raw, entry.mtimeMs, entry.size));
+        index.add({
+          id: entry.relPath,
+          title: deriveTitleFromRelPath(entry.relPath),
+          text: htmlToPlainText(entry.raw),
+          mtimeMs: entry.mtimeMs,
+        });
       }
     } catch {
-      return { docs, ordered: [], truncated: false, dirty: false, scannedAt: Date.now() };
+      return { index, truncated: false, dirty: false, scannedAt: Date.now() };
     }
 
-    const state: DirState = {
-      docs,
-      ordered: [],
-      truncated,
-      dirty: false,
-      scannedAt: Date.now(),
-    };
-    sortDocs(state);
-    return state;
+    return { index, truncated, dirty: false, scannedAt: Date.now() };
   }
 }
