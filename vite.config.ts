@@ -1,0 +1,55 @@
+import { defineConfig } from 'vitest/config'
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+
+// https://vitejs.dev/config/
+// Note: main.ts and preload.ts are compiled via esbuild (see package.json scripts)
+// to avoid Vite 8/rolldown incompatibilities with Node.js built-in modules.
+export default defineConfig({
+  server: {
+    port: 8066,
+    strictPort: true,
+  },
+  build: {
+    // KaTeX + TipTap make the bundle large by design; suppress size warning
+    chunkSizeWarningLimit: 2000,
+  },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+    globals: true,
+    include: [
+      'src/**/*.test.{ts,tsx}',
+      'electron/**/*.test.ts',
+      'mcp-server/**/*.test.ts',
+      'shared/**/*.test.ts',
+    ],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/dist-electron/**',
+      '**/dist-mcp/**',
+      '**/coverage/**',
+      '**/release/**',
+      '**/.claude/**',
+    ],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      exclude: [
+        'node_modules/',
+        'src/test/',
+        '**/*.d.ts',
+        '**/*.config.*',
+        // main.ts and preload.ts are IPC glue exercised by integration/e2e, not unit tests;
+        // everything else under electron/ (git-ops, ipc-utils, fulltext-index, services) is now covered.
+        'electron/main.ts',
+        'electron/preload.ts'
+      ]
+    }
+  },
+  plugins: [
+    tailwindcss(),
+    react(),
+  ],
+});
