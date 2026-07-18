@@ -32,7 +32,11 @@ if (!app.isPackaged) {
 let DEFAULT_NOTES_DIR: string;
 
 function initNotesDir() {
-  DEFAULT_NOTES_DIR = app.isPackaged
+  // NOTED_NOTES_DIR overrides the vault location — used by the demo harness and
+  // integration runs to point at a throwaway directory instead of real notes.
+  DEFAULT_NOTES_DIR = process.env.NOTED_NOTES_DIR
+    ? process.env.NOTED_NOTES_DIR
+    : app.isPackaged
     ? path.join(app.getPath('userData'), 'notes')
     : path.join(__dirname, '../notes_dev');
   if (!fs.existsSync(DEFAULT_NOTES_DIR)) {

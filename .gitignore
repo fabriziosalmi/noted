@@ -33,3 +33,6 @@ notes_dev/
 *.njsproj
 *.sln
 *.sw?
+
+# Demo recordings
+scripts/demo/out/

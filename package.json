@@ -21,7 +21,10 @@
     "test": "vitest run",
     "test:ci": "vitest run --reporter=verbose",
     "test:coverage": "vitest run --coverage",
-    "test:e2e:keyboard-intl": "node scripts/playwright-keyboard-intl.mjs"
+    "test:e2e:keyboard-intl": "node scripts/playwright-keyboard-intl.mjs",
+    "demo:record": "node scripts/demo/record.mjs",
+    "demo:render": "node scripts/demo/render.mjs",
+    "demo": "npm run build:main && npm run build:preload && vite build && npm run demo:record && npm run demo:render"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.24",
