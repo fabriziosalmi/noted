@@ -22,7 +22,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
         { keys: ['⌘', 'P'], descriptionKey: 'shortcutQuickOpen' },
         { keys: ['⌘', 'S'], descriptionKey: 'shortcutSave' },
         { keys: ['⌘', 'F'], descriptionKey: 'shortcutFind' },
-        { keys: ['⌘', '⇧', 'F'], descriptionKey: 'shortcutFocusMode' },
+        { keys: ['⌘', '\\'], descriptionKey: 'shortcutFocusMode' },
         { keys: ['?'], descriptionKey: 'shortcutShowShortcuts' },
       ],
     },

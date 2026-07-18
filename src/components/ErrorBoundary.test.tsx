@@ -28,7 +28,7 @@ describe('ErrorBoundary', () => {
         <Bomb shouldThrow={true} />
       </ErrorBoundary>
     );
-    expect(screen.getByText('Qualcosa è andato storto')).toBeInTheDocument();
+    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
     expect(screen.getByText('Test explosion')).toBeInTheDocument();
   });
 
@@ -41,15 +41,15 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('Custom error UI')).toBeInTheDocument();
   });
 
-  it('resets internal error state when Riprova is clicked', () => {
+  it('resets internal error state when Try again is clicked', () => {
     const { rerender } = render(
       <ErrorBoundary>
         <Bomb shouldThrow={true} />
       </ErrorBoundary>
     );
-    expect(screen.getByText('Qualcosa è andato storto')).toBeInTheDocument();
+    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
 
-    // Update the child props BEFORE clicking Riprova. When the boundary calls
+    // Update the child props BEFORE clicking Try again. When the boundary calls
     // setState({ hasError: false }) and re-renders its children synchronously,
     // the children will already have shouldThrow=false and won't throw again.
     rerender(
@@ -57,7 +57,7 @@ describe('ErrorBoundary', () => {
         <Bomb shouldThrow={false} />
       </ErrorBoundary>
     );
-    fireEvent.click(screen.getByText('Riprova'));
+    fireEvent.click(screen.getByText('Try again'));
     expect(screen.getByText('All good')).toBeInTheDocument();
   });
 });
