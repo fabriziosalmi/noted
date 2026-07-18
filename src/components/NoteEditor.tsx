@@ -23,6 +23,7 @@ import { CodeBlockView } from './CodeBlockView';
 import { SlashCommands } from './SlashCommands';
 import { SmartTagSuggestion } from './SmartTagSuggestion';
 import { GhostTextExtension, ghostTextKey } from '../lib/ghostTextExtension';
+import { deriveTitle } from '../lib/noteTitle';
 
 const lowlight = createLowlight(common);
 
@@ -69,6 +70,8 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [wordCount, setWordCount] = useState(0);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const titleSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTitleRef = useRef<string>('');
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const prevNoteNameRef = useRef<string | null>(null);
@@ -108,6 +111,21 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       }
     }, 600);
   }, [saveActiveNote]);
+
+  // Apple Notes-style: after a pause, the first line (title) renames the .md
+  // file. Longer debounce than autosave; the store does a collision-safe rename
+  // WITHOUT reloading the editor, so the caret is preserved while typing.
+  const scheduleTitleSync = useCallback((html: string) => {
+    if (titleSyncTimerRef.current) clearTimeout(titleSyncTimerRef.current);
+    titleSyncTimerRef.current = setTimeout(() => {
+      const title = deriveTitle(html);
+      // Only rename when the TITLE actually changed since the note was opened
+      // or last synced — a body edit must never rename an existing note.
+      if (title === lastTitleRef.current) return;
+      lastTitleRef.current = title;
+      void useStore.getState().syncActiveNoteTitle(title);
+    }, 900);
+  }, []);
 
   const updateWordCount = useCallback((text: string) => {
     const count = text.trim() ? text.trim().split(/\s+/).length : 0;
@@ -165,7 +183,15 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     extensions: [
       StarterKit.configure({ codeBlock: false }),
       Typography,
-      Placeholder.configure({ placeholder: t('editorPlaceholder') }),
+      Placeholder.configure({
+        placeholder: ({ editor, node }) => {
+          // The first block is treated as the note title (Apple Notes-style).
+          if (editor.state.doc.firstChild === node && node.type.name === 'heading') {
+            return t('titlePlaceholder');
+          }
+          return t('editorPlaceholder');
+        },
+      }),
       Table.configure({ resizable: true }),
       TableRow,
       TableCell,
@@ -181,7 +207,9 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     ],
     content: activeNoteContent,
     onUpdate: ({ editor }) => {
-      debouncedSave(editor.getHTML());
+      const html = editor.getHTML();
+      debouncedSave(html);
+      scheduleTitleSync(html);
       updateWordCount(editor.getText());
 
       // Always clear any visible ghost on edit — the user is typing.
@@ -284,8 +312,18 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   useEffect(() => {
     if (editor && activeNoteName !== prevNoteNameRef.current) {
       prevNoteNameRef.current = activeNoteName;
+      // A title->filename self-rename only changed the note's NAME; its content
+      // is already live in the editor, so skip the reload/refocus (otherwise the
+      // caret jumps to the start while the user is typing the title).
+      if (activeNoteName && useStore.getState().pendingSelfRename === activeNoteName) {
+        useStore.getState().clearPendingSelfRename();
+        return;
+      }
       editor.commands.setContent(activeNoteContent);
       updateWordCount(editor.getText());
+      // Baseline the title tracker to the loaded note so body edits don't
+      // trigger a rename; only an actual title change will.
+      lastTitleRef.current = deriveTitle(activeNoteContent);
       // Auto-focus editor at start of content when switching notes
       setTimeout(() => editor.commands.focus('start'), 0);
     }

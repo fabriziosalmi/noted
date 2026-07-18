@@ -20,7 +20,10 @@ export function useAppActions({
   const handleCreateNote = useCallback(async (folder?: string) => {
     try {
       const baseName = `${t('newNoteFilePrefix')}_${Date.now()}.md`;
-      const initialContent = `<h1>${t('newNoteTitle')}</h1><p>${t('newNoteBody')}</p>`;
+      // Empty title + body: the caret lands in the empty <h1> (NoteEditor focuses
+      // 'start'), the placeholder shows "Title", and the filename then follows
+      // whatever title you type — Apple Notes muscle memory.
+      const initialContent = '<h1></h1><p></p>';
       await createNote(folder ? `${folder}/${baseName}` : baseName, initialContent);
     } catch (err: unknown) {
       toast((err as Error).message, 'error');

@@ -4,6 +4,7 @@ import { marked } from 'marked';
 import type { NoteTemplate } from '../lib/templates';
 import { extractWikilinks } from '../lib/WikilinkExtension';
 import { extractTags } from '../lib/tagUtils';
+import { slugifyTitle } from '../lib/noteTitle';
 import { getElectronApi } from '../lib/electronApi';
 import {
   extractHtmlFrontmatterComment,
@@ -70,6 +71,8 @@ export interface SettingsState {
   mcpSseEnabled?: boolean;
   mcpSsePort?: number;
   smartTagsEnabled?: boolean;
+  // Apple Notes-style: the first line (title) drives the .md filename.
+  titleFollowsFilename?: boolean;
 }
 
 export interface FolderInfo {
@@ -139,6 +142,9 @@ interface NoteState {
   noteLinksIndex: Record<string, string[]>;
   tagIndex: Record<string, string[]>;
   lastOpenedNote: string | null;
+  // Set during a title->filename self-rename so the editor can skip its
+  // reload/refocus (the content is already live in the editor).
+  pendingSelfRename: string | null;
 
   // Custom Sort / Drag and Drop Reordering
   customNotesOrder: string[];
@@ -157,7 +163,9 @@ interface NoteState {
   openNote: (fileName: string) => Promise<void>;
   saveActiveNote: (content: string) => Promise<void>;
   deleteNote: (fileName: string) => Promise<void>;
-  renameNote: (oldName: string, newName: string) => Promise<void>;
+  renameNote: (oldName: string, newName: string, opts?: { reopen?: boolean }) => Promise<void>;
+  syncActiveNoteTitle: (title: string) => Promise<void>;
+  clearPendingSelfRename: () => void;
   updateSettings: (newSettings: Partial<SettingsState>) => void;
   loadApiKey: () => Promise<void>;
   togglePin: (fileName: string) => void;
@@ -187,6 +195,7 @@ export const useStore = create<NoteState>()(
       tagIndex: {},
       noteFolders: [],
       lastOpenedNote: null,
+      pendingSelfRename: null,
       customNotesOrder: [],
       customFoldersOrder: [],
       sortBy: 'date',
@@ -233,6 +242,7 @@ export const useStore = create<NoteState>()(
         mcpSseEnabled: false,
         mcpSsePort: 3000,
         smartTagsEnabled: false,
+        titleFollowsFilename: true,
       },
 
       updateSettings: (newSettings) => {
@@ -345,6 +355,7 @@ export const useStore = create<NoteState>()(
           activeNoteFrontmatter: frontmatter,
           noteLinksIndex: { ...state.noteLinksIndex, [fileName]: links },
           lastOpenedNote: fileName,
+          pendingSelfRename: null,
         }));
       }
     }
@@ -387,7 +398,7 @@ export const useStore = create<NoteState>()(
     }
   },
 
-  renameNote: async (oldName: string, newName: string) => {
+  renameNote: async (oldName: string, newName: string, opts?: { reopen?: boolean }) => {
     if (!newName.endsWith('.md')) newName += '.md';
     const api = getElectronApi();
     if (!api) return;
@@ -436,8 +447,41 @@ export const useStore = create<NoteState>()(
 
     await get().fetchNotes();
     if (get().activeNoteName === oldName) {
-      // Re-open by name so activeNoteContent is in sync with the renamed file
-      await get().openNote(newName);
+      if (opts?.reopen === false) {
+        // Self-rename (title->filename): the content is already live in the
+        // editor, so swap the name in place and let the editor skip its reload.
+        set({ activeNoteName: newName, lastOpenedNote: newName, pendingSelfRename: newName });
+      } else {
+        // Re-open by name so activeNoteContent is in sync with the renamed file
+        await get().openNote(newName);
+      }
+    }
+  },
+
+  clearPendingSelfRename: () => set({ pendingSelfRename: null }),
+
+  syncActiveNoteTitle: async (title: string) => {
+    const { activeNoteName, settings } = get();
+    if (!activeNoteName || settings.titleFollowsFilename === false) return;
+    const slash = activeNoteName.lastIndexOf('/');
+    const folder = slash >= 0 ? activeNoteName.slice(0, slash + 1) : '';
+    const currentStem = activeNoteName.slice(slash + 1).replace(/\.md$/, '');
+    const stem = slugifyTitle(title);
+    if (!stem || stem === currentStem) return;
+    // Collision-safe candidate name within the same folder.
+    const taken = new Set(get().notes.map(n => n.name));
+    let candidate = `${folder}${stem}.md`;
+    let n = 2;
+    while (taken.has(candidate) && candidate !== activeNoteName) {
+      candidate = `${folder}${stem} ${n}.md`;
+      n++;
+    }
+    if (candidate === activeNoteName) return;
+    try {
+      await get().renameNote(activeNoteName, candidate, { reopen: false });
+    } catch {
+      // Best-effort: a failed rename just leaves the filename as-is; we retry
+      // on the next title edit.
     }
   },
 
@@ -614,6 +658,7 @@ export const useStore = create<NoteState>()(
       tagIndex: {},
       noteFolders: [],
       lastOpenedNote: null,
+      pendingSelfRename: null,
       customNotesOrder: [],
       customFoldersOrder: [],
       activeNoteName: null,

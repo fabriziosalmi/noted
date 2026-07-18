@@ -6,6 +6,7 @@ const translations = {
   en: {
     // App / Titlebar
     history: 'Version history',
+    titlePlaceholder: 'Title',
     focusMode: 'Focus mode (⌘\\)',
     exportMarkdown: 'Export as Markdown',
     exportPdf: 'Export as PDF',
