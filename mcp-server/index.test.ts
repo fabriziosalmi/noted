@@ -157,6 +157,7 @@ const {
   handleUpdateNote,
   handleSearchNotes,
   handleDeleteNote,
+  __resetSearchIndex,
   handleCreateAgentWorkflow,
   handleAppendAgentEvent,
   buildAgentWorkflowFiles,
@@ -416,6 +417,7 @@ describe('MCP safeNotePath Symlink Traversal', () => {
 describe('MCP Tool Handlers', () => {
   beforeEach(() => {
     mockFiles.clear();
+    __resetSearchIndex();
   });
 
   describe('handleListNotes', () => {
@@ -858,6 +860,7 @@ describe('MCP Tool Handlers', () => {
 describe('MCP server additional coverage', () => {
   beforeEach(() => {
     mockFiles.clear();
+    __resetSearchIndex();
   });
 
   it('wraps unexpected errors in CallToolRequestSchema handler', async () => {
@@ -1084,6 +1087,7 @@ describe('MCP server additional coverage', () => {
 
     // mock create_note
     mockFiles.clear();
+    __resetSearchIndex();
     const createRes = await handler({
       method: 'tools/call',
       params: { name: 'create_note', arguments: { name: 'new.md', content: 'hello' } }

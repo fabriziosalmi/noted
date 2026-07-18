@@ -33,6 +33,7 @@ import { URL } from 'node:url';
 import { marked } from 'marked';
 import { stripUnsafeHtml } from '../shared/security/htmlPolicy.node.js';
 import { extractMarkdownFrontmatter, prependFrontmatterComment } from '../shared/markdown/frontmatter.js';
+import { InvertedIndex } from '../shared/search/invertedIndex.js';
 import pkg from '../package.json';
 
 // ─── Notes-directory resolution ───────────────────────────────────────────────
@@ -231,6 +232,52 @@ function listAllNotes(folder?: string): NoteEntry[] {
     return all.filter(n => n.name.startsWith(`${normalized}/`));
   }
   return all.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
+}
+
+// ─── Full-text search index (shared BM25) ─────────────────────────────────────
+
+const FT_MAX_FILES = 1500;
+const FT_MAX_TOTAL_BYTES = 50 * 1024 * 1024;
+const FT_MAX_FILE_BYTES = 2 * 1024 * 1024;
+const INDEX_STALE_MS = 30_000;
+
+let searchIndex: InvertedIndex | null = null;
+let indexScannedAt = 0;
+
+// Lazily (re)build the index once per staleness window instead of re-reading
+// every note on every query. Incremental hooks on create/update/delete keep a
+// warm (SSE-session) index fresh; the staleness window catches external edits.
+function ensureSearchIndex(): InvertedIndex {
+  const now = Date.now();
+  if (searchIndex && now - indexScannedAt < INDEX_STALE_MS) return searchIndex;
+  const idx = new InvertedIndex();
+  let totalBytes = 0;
+  for (const note of listAllNotes()) {
+    if (idx.size >= FT_MAX_FILES) break;
+    try {
+      const html = fs.readFileSync(safeNotePath(note.name), 'utf8');
+      if (html.length > FT_MAX_FILE_BYTES) continue;
+      if ((totalBytes += html.length) > FT_MAX_TOTAL_BYTES) break;
+      idx.add({ id: note.name, title: note.name, text: htmlToText(html), mtimeMs: note.mtime.getTime() });
+    } catch { /* skip unreadable */ }
+  }
+  searchIndex = idx;
+  indexScannedAt = now;
+  return idx;
+}
+
+// Keep a live index in sync after a mutation (no-op until the index is built).
+function indexUpsert(name: string, html: string): void {
+  searchIndex?.add({ id: name, title: name, text: htmlToText(html), mtimeMs: Date.now() });
+}
+function indexRemove(name: string): void {
+  searchIndex?.remove(name);
+}
+
+/** Test seam: force a rebuild on the next search (tests mutate mockFiles directly). */
+export function __resetSearchIndex(): void {
+  searchIndex = null;
+  indexScannedAt = 0;
 }
 
 // ─── Excerpt helper ───────────────────────────────────────────────────────────
@@ -841,6 +888,7 @@ export async function handleCreateNote(args: Record<string, unknown>) {
   }
   const html = toHtml(rawContent);
   atomicWrite(filePath, html);
+  indexUpsert(name as string, html);
   return {
     content: [{
       type: 'text',
@@ -871,6 +919,7 @@ export async function handleUpdateNote(args: Record<string, unknown>) {
     finalHtml = newHtml;
   }
   atomicWrite(filePath, finalHtml);
+  indexUpsert(name as string, finalHtml);
   const action = append ? 'appended to' : 'updated';
   return {
     content: [{
@@ -889,30 +938,18 @@ export async function handleSearchNotes(args: Record<string, unknown>) {
     ? Math.min(50, Math.max(1, Math.floor(args.max_results)))
     : 10;
 
-  const notes = listAllNotes();
-  const results: { name: string; snip: string }[] = [];
+  const idx = ensureSearchIndex();
+  const hits = idx.search(query, { limit: maxResults });
 
-  for (const note of notes) {
-    if (results.length >= maxResults) break;
-    try {
-      const filePath = safeNotePath(note.name);
-      const html = fs.readFileSync(filePath, 'utf8');
-      const text = htmlToText(html);
-      if (text.toLowerCase().includes(query.toLowerCase())) {
-        results.push({ name: note.name, snip: excerpt(text, query) });
-      }
-    } catch { /* skip unreadable */ }
-  }
-
-  if (results.length === 0) {
+  if (hits.length === 0) {
     return { content: [{ type: 'text', text: `No notes found matching "${query}".` }] };
   }
 
-  const lines = results.map(r => `• **${r.name}**\n  ${r.snip}`);
+  const lines = hits.map(hit => `• **${hit.id}**\n  ${excerpt(idx.getDoc(hit.id)?.text ?? '', query)}`);
   return {
     content: [{
       type: 'text',
-      text: `${results.length} result${results.length !== 1 ? 's' : ''} for "${query}":\n\n${lines.join('\n\n')}`,
+      text: `${hits.length} result${hits.length !== 1 ? 's' : ''} for "${query}":\n\n${lines.join('\n\n')}`,
     }],
   };
 }
@@ -925,6 +962,7 @@ export async function handleDeleteNote(args: Record<string, unknown>) {
     throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}`);
   }
   fs.unlinkSync(filePath);
+  indexRemove(name as string);
   return {
     content: [{ type: 'text', text: `Note deleted: ${name as string}` }],
   };
