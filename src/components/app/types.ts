@@ -4,7 +4,7 @@ import type { TranslationKey } from '../../lib/i18n';
 import type { Suggestion } from '../../lib/noteAdvisor';
 import type { NoteChunk } from '../../lib/noteSearch';
 import type { NoteTemplate } from '../../lib/templates';
-import type { NoteFile, SettingsState } from '../../store/useStore';
+import type { NoteFile, SettingsState, AgentUiAction } from '../../store/useStore';
 import type { RefObject } from 'react';
 
 export type ToastVariant = 'success' | 'error';
@@ -64,6 +64,7 @@ export interface AppChromeProps extends AppSharedProps {
   onTogglePin: TogglePinFn;
   onGetEditorText: () => string;
   onEditorReady: (editor: Editor | null) => void;
+  onAgentAction: (action: AgentUiAction) => Promise<void> | void;
 }
 
 export interface AppModalsProps extends AppSharedProps {

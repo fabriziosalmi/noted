@@ -11,6 +11,26 @@ import {
   extractMarkdownFrontmatter,
   prependFrontmatterComment,
 } from '../../shared/markdown/frontmatter';
+import {
+  readAgentMetadata,
+  writeAgentMetadata,
+  applyEngineResultToHtml,
+  advance,
+  approveGate,
+  rejectGate,
+  applyTaskStatusToWorkflow,
+  AgentEngineError,
+  type AgentMetadata,
+  type EngineContext,
+  type EngineResult,
+  type TaskStatus,
+} from '../../shared/agent';
+
+/** A human-initiated agent transition from the interactive panel. */
+export type AgentUiAction =
+  | { kind: 'advance'; to: string }
+  | { kind: 'approve' }
+  | { kind: 'reject'; reason?: string };
 
 export interface NoteFile {
   name: string;
@@ -174,6 +194,10 @@ interface NoteState {
   syncActiveNoteTitle: (title: string) => Promise<void>;
   clearPendingSelfRename: () => void;
   announce: (message: string) => void;
+  applyAgentAction: (
+    action: AgentUiAction,
+    editorHtml: string,
+  ) => Promise<{ newHtml: string } | { error: string }>;
   addNotesToProject: (slug: string, noteNames: string[]) => Promise<void>;
   updateSettings: (newSettings: Partial<SettingsState>) => void;
   loadApiKey: () => Promise<void>;
@@ -407,6 +431,62 @@ export const useStore = create<NoteState>()(
         }
       }
     }
+  },
+
+  applyAgentAction: async (action, editorHtml) => {
+    const { activeNoteName, notes, settings } = get();
+    const api = getElectronApi();
+    const meta = readAgentMetadata(editorHtml);
+    if (!meta) return { error: 'This note has no Agent Metadata block.' };
+
+    const ctx: EngineContext = { actor: 'user', now: new Date().toISOString() };
+
+    // For a task, source the approval mode + sibling statuses from the
+    // governing workflow note (same folder, wf-<workflowId>-…).
+    let workflow: { name: string; html: string; meta: AgentMetadata } | null = null;
+    if (meta.type === 'task' && meta.workflowId && api && activeNoteName) {
+      const slash = activeNoteName.lastIndexOf('/');
+      const wfPrefix = `${slash === -1 ? '' : activeNoteName.slice(0, slash + 1)}wf-${meta.workflowId}-`;
+      const wfNote = notes.find(n => n.name.startsWith(wfPrefix));
+      if (wfNote) {
+        try {
+          const res = await api.readNote(wfNote.name, settings.syncDirectory || undefined);
+          const wfMeta = res.success && typeof res.data === 'string' ? readAgentMetadata(res.data) : null;
+          if (wfMeta && typeof res.data === 'string') {
+            workflow = { name: wfNote.name, html: res.data, meta: wfMeta };
+            ctx.mode = wfMeta.approvalMode;
+            ctx.tasks = wfMeta.tasks;
+          }
+        } catch { /* best-effort: fall back to permissive defaults */ }
+      }
+    }
+
+    let result: EngineResult;
+    try {
+      result =
+        action.kind === 'advance' ? advance(meta, action.to, ctx)
+        : action.kind === 'approve' ? approveGate(meta, ctx)
+        : rejectGate(meta, { ...ctx, reason: action.reason });
+    } catch (e) {
+      if (e instanceof AgentEngineError) return { error: e.message };
+      throw e;
+    }
+
+    const newHtml = applyEngineResultToHtml(editorHtml, result);
+    if (!newHtml) return { error: 'Failed to update Agent Metadata.' };
+
+    // Mirror the task status back into the workflow note (best-effort).
+    if (meta.type === 'task' && workflow && meta.id && api) {
+      const mirrored = applyTaskStatusToWorkflow(workflow.meta, meta.id, result.metadata.status as TaskStatus, ctx.now);
+      if (mirrored !== workflow.meta) {
+        const wfNew = writeAgentMetadata(workflow.html, mirrored);
+        if (wfNew) {
+          try { await api.saveNote(workflow.name, wfNew, settings.syncDirectory || undefined); } catch { /* best-effort */ }
+        }
+      }
+    }
+
+    return { newHtml };
   },
 
   renameNote: async (oldName: string, newName: string, opts?: { reopen?: boolean }) => {

@@ -76,6 +76,54 @@ describe('AgentPanel', () => {
     expect(onOpenNote).toHaveBeenCalledWith('noted/task-T001-schema.md');
   });
 
+  it('renders advance actions and dispatches them', () => {
+    const onAgentAction = vi.fn();
+    render(
+      <AgentPanel
+        activeNoteName="noted/wf-WF001-agent-runtime.md"
+        activeNoteContent={workflowHtml()}
+        notes={notes}
+        onOpenNote={vi.fn(async () => undefined)}
+        onAgentAction={onAgentAction}
+      />,
+    );
+
+    // draft workflow -> a "ready" advance button among the valid next states.
+    fireEvent.click(screen.getByRole('button', { name: 'ready' }));
+    expect(onAgentAction).toHaveBeenCalledWith({ kind: 'advance', to: 'ready' });
+  });
+
+  const gateHtml =
+    '<h2>Agent Metadata</h2><pre><code class="language-json">' +
+    '{"notedAgent":true,"schemaVersion":1,"type":"workflow","id":"WF001","status":"awaiting_plan_approval","approvalMode":"plan"}' +
+    '</code></pre>';
+
+  function renderGate(onAgentAction = vi.fn()) {
+    render(
+      <AgentPanel
+        activeNoteName="noted/wf-WF001-agent-runtime.md"
+        activeNoteContent={gateHtml}
+        notes={notes}
+        onOpenNote={vi.fn(async () => undefined)}
+        onAgentAction={onAgentAction}
+      />,
+    );
+    return onAgentAction;
+  }
+
+  it('shows approve/reject (not advance) at a gate state and dispatches approve', () => {
+    const onAgentAction = renderGate();
+    expect(screen.queryByRole('button', { name: 'ready' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /approve/i }));
+    expect(onAgentAction).toHaveBeenCalledWith({ kind: 'approve' });
+  });
+
+  it('dispatches reject at a gate state', () => {
+    const onAgentAction = renderGate();
+    fireEvent.click(screen.getByRole('button', { name: /reject/i }));
+    expect(onAgentAction).toHaveBeenCalledWith({ kind: 'reject' });
+  });
+
   it('shows empty state for normal notes', () => {
     render(
       <AgentPanel

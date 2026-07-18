@@ -197,6 +197,7 @@ export function AppChrome({
   onTogglePin,
   onGetEditorText,
   onEditorReady,
+  onAgentAction,
 }: AppChromeProps) {
   const rightTabs = useTablist(RIGHT_TABS, panels.rightTab, panels.setRightTab, 'rightpanel');
   return (
@@ -382,6 +383,7 @@ export function AppChrome({
                         activeNoteContent={activeNoteContent}
                         notes={notes}
                         onOpenNote={onOpenNote}
+                        onAgentAction={onAgentAction}
                       />
                     )}
                     {panels.rightTab === 'analytics' && <TextAnalytics getText={onGetEditorText} activeNoteName={activeNoteName} />}

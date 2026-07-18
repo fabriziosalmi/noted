@@ -1,13 +1,15 @@
-import { AlertTriangle, Bot, CheckCircle2, Circle, Clock3, FileText, GitBranch, PlayCircle, ShieldCheck } from 'lucide-react';
-import { useMemo } from 'react';
+import { AlertTriangle, Bot, CheckCircle2, Check, Circle, Clock3, FileText, GitBranch, PlayCircle, ShieldCheck, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { buildAgentTaskTree, parseAgentNote, type AgentTaskNode, type AgentNodeStatus } from '../lib/agentWorkflow';
-import type { NoteFile } from '../store/useStore';
+import { governedTypeOf, isGateStatus, nextStatuses } from '../../shared/agent';
+import type { NoteFile, AgentUiAction } from '../store/useStore';
 
 interface AgentPanelProps {
   activeNoteName: string | null;
   activeNoteContent: string;
   notes: NoteFile[];
   onOpenNote: (name: string) => Promise<void>;
+  onAgentAction?: (action: AgentUiAction) => Promise<void> | void;
 }
 
 function statusTone(status?: AgentNodeStatus) {
@@ -118,13 +120,24 @@ function TaskTree({
   );
 }
 
-export function AgentPanel({ activeNoteName, activeNoteContent, notes, onOpenNote }: AgentPanelProps) {
+export function AgentPanel({ activeNoteName, activeNoteContent, notes, onOpenNote, onAgentAction }: AgentPanelProps) {
   const parsed = useMemo(() => parseAgentNote(activeNoteContent), [activeNoteContent]);
   const existingNotes = useMemo(() => new Set(notes.map(note => note.name)), [notes]);
   const taskTree = useMemo(
     () => buildAgentTaskTree(parsed.metadata?.tasks ?? []),
     [parsed.metadata?.tasks],
   );
+  const [pending, setPending] = useState(false);
+
+  const runAction = async (action: AgentUiAction) => {
+    if (!onAgentAction || pending) return;
+    setPending(true);
+    try {
+      await onAgentAction(action);
+    } finally {
+      setPending(false);
+    }
+  };
 
   if (!activeNoteName || !parsed.metadata) {
     return (
@@ -143,6 +156,11 @@ export function AgentPanel({ activeNoteName, activeNoteContent, notes, onOpenNot
     meta.files?.reviews,
     meta.files?.output,
   ].filter((file): file is string => !!file);
+
+  const governed = governedTypeOf(meta.type);
+  const status = meta.status ?? '';
+  const atGate = governed ? isGateStatus(governed, status) : false;
+  const nextStates = governed ? nextStatuses(governed, status) : [];
 
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-5">
@@ -166,6 +184,48 @@ export function AgentPanel({ activeNoteName, activeNoteContent, notes, onOpenNot
           </div>
         )}
       </section>
+
+      {onAgentAction && governed && (
+        <section>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Actions</p>
+          {atGate ? (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => void runAction({ kind: 'approve' })}
+                className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
+              >
+                <Check size={13} /> Approve
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => void runAction({ kind: 'reject' })}
+                className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
+              >
+                <X size={13} /> Reject
+              </button>
+            </div>
+          ) : nextStates.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {nextStates.map(next => (
+                <button
+                  key={next}
+                  type="button"
+                  disabled={pending}
+                  onClick={() => void runAction({ kind: 'advance', to: next })}
+                  className="px-2 py-1 rounded-md text-[11px] font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50 transition-colors"
+                >
+                  {next.replace(/_/g, ' ')}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 dark:text-gray-500">Terminal state — no actions.</p>
+          )}
+        </section>
+      )}
 
       {meta.type === 'workflow' && (
         <section>

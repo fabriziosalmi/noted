@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { readAgentMetadata, writeAgentMetadata } from './metadataBlock';
-import type { AgentMetadata } from './types';
+import { readAgentMetadata, writeAgentMetadata, renderEventBlockHtml, applyEngineResultToHtml } from './metadataBlock';
+import type { AgentMetadata, AgentEvent } from './types';
 
 // Marked HTML-escapes code-block content; the metadata block ships as escaped
 // JSON inside <pre><code>. Build one the same way to exercise the round-trip.
@@ -59,5 +59,16 @@ describe('metadataBlock', () => {
 
   it('returns null when asked to write into a non-agent note', () => {
     expect(writeAgentMetadata('<p>no block here</p>', meta)).toBeNull();
+  });
+
+  it('renders an event block and applies an engine result end to end', () => {
+    const event: AgentEvent = { type: 'GateApproved', actor: 'user', at: '2026-07-19T12:00:00.000Z', status: 'ready' };
+    expect(renderEventBlockHtml(event)).toContain('<h2>Event GateApproved</h2>');
+
+    const result = { metadata: { ...meta, status: 'ready' as const }, event };
+    const out = applyEngineResultToHtml(note(meta), result)!;
+    expect(out).toContain('<h2>Event GateApproved</h2>');
+    expect(readAgentMetadata(out)).toMatchObject({ status: 'ready' });
+    expect(applyEngineResultToHtml('<p>plain</p>', result)).toBeNull();
   });
 });

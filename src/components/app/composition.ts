@@ -58,7 +58,7 @@ interface AppCompositionActions {
 }
 
 export interface AppCompositionContract {
-  chrome: Omit<AppChromeProps, 'editorRef' | 'onGetEditorText' | 'onEditorReady'>;
+  chrome: Omit<AppChromeProps, 'editorRef' | 'onGetEditorText' | 'onEditorReady' | 'onAgentAction'>;
   modals: Omit<AppModalsProps, 'onHandleAdvisorAction'>;
 }
 
@@ -66,7 +66,7 @@ export function createAppComposition(
   state: AppCompositionState,
   actions: AppCompositionActions,
 ): AppCompositionContract {
-  const chrome: Omit<AppChromeProps, 'editorRef' | 'onGetEditorText' | 'onEditorReady'> = {
+  const chrome: Omit<AppChromeProps, 'editorRef' | 'onGetEditorText' | 'onEditorReady' | 'onAgentAction'> = {
     t: state.t,
     panels: state.panels,
     settings: state.settings,

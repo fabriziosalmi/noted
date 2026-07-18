@@ -102,7 +102,7 @@ export interface AgentEvent {
 }
 
 /** Map a note type to its governed lifecycle, or null for evidence notes. */
-export function governedTypeOf(type: AgentNoteType): GovernedNodeType | null {
+export function governedTypeOf(type: string): GovernedNodeType | null {
   if (type === 'workflow') return 'workflow';
   if (type === 'task') return 'task';
   return null;

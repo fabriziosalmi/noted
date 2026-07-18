@@ -4,7 +4,7 @@
 // Reading decodes those entities; writing re-encodes them so the file round-
 // trips byte-compatibly with the MCP scaffold. Pure string work — no I/O.
 
-import type { AgentMetadata } from './types';
+import type { AgentMetadata, AgentEvent } from './types';
 
 const CODE_BLOCK_RE = /(<pre>\s*<code[^>]*>)([\s\S]*?)(<\/code>\s*<\/pre>)/gi;
 
@@ -73,4 +73,25 @@ export function writeAgentMetadata(html: string, meta: AgentMetadata): string | 
     return open + encodeEntities(JSON.stringify(meta, null, 2)) + close;
   });
   return replaced ? out : null;
+}
+
+/** Append-only event block, matching the MCP `## Event` format as HTML. */
+export function renderEventBlockHtml(event: AgentEvent): string {
+  const json = encodeEntities(JSON.stringify(event, null, 2));
+  return `<hr><h2>Event ${encodeEntities(event.type)}</h2><pre><code class="language-json">${json}</code></pre>`;
+}
+
+/**
+ * Apply an engine result to a note's HTML: rewrite the metadata block and
+ * append the event. Returns the new HTML, or null when the note has no agent
+ * block. Pure — the renderer uses this to persist an in-app agent action, so it
+ * stays byte-consistent with the MCP tools.
+ */
+export function applyEngineResultToHtml(
+  html: string,
+  result: { metadata: AgentMetadata; event: AgentEvent },
+): string | null {
+  const rewritten = writeAgentMetadata(html, result.metadata);
+  if (rewritten === null) return null;
+  return rewritten + renderEventBlockHtml(result.event);
 }

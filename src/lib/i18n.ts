@@ -157,6 +157,7 @@ const translations = {
     saving: 'Saving...',
     saved: 'Saved',
     noteOpened: 'Opened',
+    agentStateUpdated: 'Agent state updated',
 
     // Settings Modal
     settingsTitle: 'Settings',
@@ -609,6 +610,7 @@ const translations = {
     saving: 'Salvando...',
     saved: 'Salvato',
     noteOpened: 'Aperta',
+    agentStateUpdated: 'Stato agent aggiornato',
 
     // Settings Modal
     settingsTitle: 'Impostazioni',

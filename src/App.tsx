@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useReducer, useEffect } from 'react';
 import { useI18n } from './lib/i18n';
 import type { Editor } from '@tiptap/react';
 import { useStore } from './store/useStore';
+import type { AgentUiAction } from './store/useStore';
 import { useToast } from './hooks/useToast';
 import { useTheme } from './hooks/useTheme';
 import { useNoteAdvisor } from './hooks/useNoteAdvisor';
@@ -37,6 +38,7 @@ function App() {
   const activeNoteName     = useStore(s => s.activeNoteName);
   const srAnnouncement     = useStore(s => s.srAnnouncement);
   const announce           = useStore(s => s.announce);
+  const applyAgentAction   = useStore(s => s.applyAgentAction);
   const activeNoteContent  = useStore(s => s.activeNoteContent);
   const settings           = useStore(s => s.settings);
   const pinnedNotes        = useStore(s => s.pinnedNotes);
@@ -134,6 +136,22 @@ function App() {
   // / handlePrint / handleExportDocx / handleExportHtml from this file.
 
   const getEditorText = useCallback(() => editorRef.current?.getText() ?? '', []);
+
+  // Drive an agent-workflow transition from the interactive panel: run the
+  // engine over the live editor HTML, then write the result straight back into
+  // the editor (autosave persists it; the workflow-mirror file is written by
+  // the store action).
+  const handleAgentAction = useCallback(async (action: AgentUiAction) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const res = await applyAgentAction(action, editor.getHTML());
+    if ('error' in res) {
+      toast(res.error, 'error');
+      return;
+    }
+    editor.commands.setContent(res.newHtml);
+    toast(t('agentStateUpdated'), 'success');
+  }, [applyAgentAction, toast, t]);
 
   const { suggestions, dismiss: dismissSuggestion, dismissAll } = useNoteAdvisor({
     activeNoteName,
@@ -313,6 +331,7 @@ function App() {
         editorRef={editorRef}
         onGetEditorText={getEditorText}
         onEditorReady={handleEditorReady}
+        onAgentAction={handleAgentAction}
       />
       <AppModals
         {...composition.modals}

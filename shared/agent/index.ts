@@ -17,7 +17,7 @@ export {
   isDependencyGatedTarget,
   indexTasks,
 } from './dependencies';
-export { readAgentMetadata, writeAgentMetadata } from './metadataBlock';
+export { readAgentMetadata, writeAgentMetadata, renderEventBlockHtml, applyEngineResultToHtml } from './metadataBlock';
 export {
   advance,
   approveGate,
