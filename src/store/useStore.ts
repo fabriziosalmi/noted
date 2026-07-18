@@ -20,6 +20,8 @@ export interface NoteFile {
     ctimeMs: number;
     size: number;
   };
+  // Short body preview (Apple Notes-style) filled in by the notes-tree scan.
+  preview?: string;
 }
 
 export type LLMProvider = 'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'lmstudio' | 'ollama';

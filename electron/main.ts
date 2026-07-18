@@ -738,11 +738,40 @@ ipcMain.handle('setup-claude-mcp', async () => {
 
 // ─── Multi-folder / notebooks ─────────────────────────────────────────────────
 
+// Read a short body preview (Apple Notes-style) from the first few KB of a
+// note, skipping the frontmatter comment and the title heading.
+async function readNotePreview(filePath: string): Promise<string> {
+  try {
+    const fh = await fs.promises.open(filePath, 'r');
+    try {
+      const buf = Buffer.alloc(4096);
+      const { bytesRead } = await fh.read(buf, 0, 4096, 0);
+      const stripped = buf.toString('utf8', 0, bytesRead)
+        .replace(/^\s*<!--noted-frontmatter:[\s\S]*?-->/i, '')  // frontmatter comment
+        .replace(/^\s*#{1,6}\s+[^\n]*\n?/, '')                   // leading markdown heading
+        .replace(/<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/i, '');        // leading HTML heading (the title)
+      return stripped
+        .replace(/<\/(p|div|li|h[1-6])>|<br\s*\/?>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 120);
+    } finally {
+      await fh.close();
+    }
+  } catch {
+    return '';
+  }
+}
+
 async function scanNotesTree(targetDir: string) {
   interface TreeNoteEntry {
     name: string;
     path: string;
     stats: fs.Stats;
+    preview: string;
   }
   interface TreeFolderResult {
     type: 'folder';
@@ -754,6 +783,7 @@ async function scanNotesTree(targetDir: string) {
     name: string;
     path: string;
     stats: fs.Stats;
+    preview: string;
   }
 
   const rootNotes: TreeNoteEntry[] = [];
@@ -779,7 +809,8 @@ async function scanNotesTree(targetDir: string) {
           try {
             const p = path.join(folderPath, f);
             const stat = await fs.promises.stat(p);
-            folderNotes.push({ name: relName, path: p, stats: stat });
+            const preview = await readNotePreview(p);
+            folderNotes.push({ name: relName, path: p, stats: stat, preview });
           } catch {
             // Skip unreadable entries and continue
           }
@@ -799,7 +830,8 @@ async function scanNotesTree(targetDir: string) {
       const p = path.join(targetDir, entry.name);
       try {
         const stat = await fs.promises.stat(p);
-        return { type: 'rootNote', name: entry.name, path: p, stats: stat };
+        const preview = await readNotePreview(p);
+        return { type: 'rootNote', name: entry.name, path: p, stats: stat, preview };
       } catch {
         return null;
       }
@@ -812,7 +844,7 @@ async function scanNotesTree(targetDir: string) {
     if (res.type === 'folder') {
       folders.push({ name: res.name, notes: res.notes });
     } else if (res.type === 'rootNote') {
-      rootNotes.push({ name: res.name, path: res.path, stats: res.stats });
+      rootNotes.push({ name: res.name, path: res.path, stats: res.stats, preview: res.preview });
     }
   }
 

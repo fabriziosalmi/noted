@@ -146,9 +146,10 @@ function NoteRow({
             <span className="truncate leading-snug">
               {baseName.replace('.md', '')}
             </span>
-            <span className="text-[10px] text-gray-400 dark:text-gray-600 leading-none">
-              {relativeTime(note.stats.mtimeMs, language)}
-            </span>
+            <div className="flex items-center gap-1.5 min-w-0 text-[10px] text-gray-400 dark:text-gray-600 leading-none">
+              <span className="shrink-0">{relativeTime(note.stats.mtimeMs, language)}</span>
+              {note.preview ? <span className="truncate opacity-90">{note.preview}</span> : null}
+            </div>
           </div>
         </div>
       )}
