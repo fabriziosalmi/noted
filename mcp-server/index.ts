@@ -34,6 +34,18 @@ import { marked } from 'marked';
 import { stripUnsafeHtml } from '../shared/security/htmlPolicy.node.js';
 import { extractMarkdownFrontmatter, prependFrontmatterComment } from '../shared/markdown/frontmatter.js';
 import { InvertedIndex } from '../shared/search/invertedIndex.js';
+import {
+  readAgentMetadata,
+  writeAgentMetadata,
+  advance,
+  approveGate,
+  rejectGate,
+  applyTaskStatusToWorkflow,
+  AgentEngineError,
+  type AgentMetadata,
+  type EngineContext,
+  type EngineResult,
+} from '../shared/agent/index.js';
 import pkg from '../package.json';
 
 // ─── Notes-directory resolution ───────────────────────────────────────────────
@@ -301,6 +313,9 @@ const TOOL_NAME = {
   DELETE_NOTE: 'delete_note',
   CREATE_AGENT_WORKFLOW: 'create_agent_workflow',
   APPEND_AGENT_EVENT: 'append_agent_event',
+  ADVANCE_AGENT_STATE: 'advance_agent_state',
+  APPROVE_AGENT_GATE: 'approve_agent_gate',
+  REJECT_AGENT_GATE: 'reject_agent_gate',
 } as const;
 
 type ToolName = (typeof TOOL_NAME)[keyof typeof TOOL_NAME];
@@ -822,6 +837,81 @@ const TOOLS: Tool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: TOOL_NAME.ADVANCE_AGENT_STATE,
+    description:
+      'Advance an agent workflow or task note to a new status, enforcing the state machine, the ' +
+      'approval-gate policy (a direct transition may not skip a checkpoint the approval mode requires), ' +
+      'and task dependencies. Records the change as an event. For gate states use approve/reject instead.',
+    inputSchema: {
+      type: 'object',
+      required: ['name', 'to'],
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Target agent note file name, e.g. "noted/wf-WF001-agent-runtime.md" or a task note.',
+        },
+        to: {
+          type: 'string',
+          description: 'Target status, e.g. "ready", "running", "review", "blocked", "done".',
+        },
+        actor: {
+          type: 'string',
+          description: 'Actor performing the transition, e.g. "codex", "claude", "user". Defaults to "agent".',
+        },
+        summary: {
+          type: 'string',
+          description: 'Short human-readable summary of why the transition happened.',
+        },
+        expected_updated_at: {
+          type: 'string',
+          description: 'Optimistic concurrency guard: the updatedAt the note had when you read it. The call fails if the note changed since.',
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: TOOL_NAME.APPROVE_AGENT_GATE,
+    description:
+      'Approve the pending approval gate on an agent note that is awaiting a decision (plan, review, ' +
+      'release, or action), moving it to the gate\'s approve target. Records a GateApproved event.',
+    inputSchema: {
+      type: 'object',
+      required: ['name'],
+      properties: {
+        name: { type: 'string', description: 'Agent note awaiting approval.' },
+        actor: { type: 'string', description: 'Approver, e.g. "user". Defaults to "agent".' },
+        summary: { type: 'string', description: 'Short human-readable note on the approval.' },
+        expected_updated_at: {
+          type: 'string',
+          description: 'Optimistic concurrency guard: the updatedAt the note had when you read it.',
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: TOOL_NAME.REJECT_AGENT_GATE,
+    description:
+      'Reject the pending approval gate on an agent note, moving it to blocked (workflows/tasks) or ' +
+      'cancelled (runs). Records a GateRejected event with the reason.',
+    inputSchema: {
+      type: 'object',
+      required: ['name'],
+      properties: {
+        name: { type: 'string', description: 'Agent note awaiting approval.' },
+        actor: { type: 'string', description: 'Reviewer, e.g. "user". Defaults to "agent".' },
+        reason: { type: 'string', description: 'Why the gate was rejected.' },
+        summary: { type: 'string', description: 'Short human-readable summary.' },
+        expected_updated_at: {
+          type: 'string',
+          description: 'Optimistic concurrency guard: the updatedAt the note had when you read it.',
+        },
+      },
+      additionalProperties: false,
+    },
+  },
 ];
 
 // ─── Tool handlers ────────────────────────────────────────────────────────────
@@ -1046,6 +1136,159 @@ export async function handleAppendAgentEvent(args: Record<string, unknown>) {
   };
 }
 
+// ─── Agent state-machine tools ────────────────────────────────────────────────
+
+const AGENT_ACTOR_DEFAULT = 'agent';
+
+interface LoadedAgentNote {
+  name: string;
+  filePath: string;
+  html: string;
+  meta: AgentMetadata;
+}
+
+function loadAgentNote(name: unknown): LoadedAgentNote {
+  validateNoteName(name);
+  const filePath = safeNotePath(name as string);
+  if (!fs.existsSync(filePath)) {
+    throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}`);
+  }
+  const html = fs.readFileSync(filePath, 'utf8');
+  const meta = readAgentMetadata(html);
+  if (!meta) {
+    throw new McpError(ErrorCode.InvalidParams, `Not an agent note (no Agent Metadata block): ${name as string}`);
+  }
+  return { name: name as string, filePath, html, meta };
+}
+
+function folderOf(noteName: string): string | undefined {
+  const slash = noteName.lastIndexOf('/');
+  return slash === -1 ? undefined : noteName.slice(0, slash);
+}
+
+// Locate the workflow note governing a task: same folder, type=workflow, id match.
+function locateWorkflow(taskMeta: AgentMetadata, taskNoteName: string): LoadedAgentNote | null {
+  const workflowId = taskMeta.workflowId;
+  if (!workflowId) return null;
+  for (const entry of listAllNotes(folderOf(taskNoteName))) {
+    if (entry.name === taskNoteName) continue;
+    try {
+      const filePath = safeNotePath(entry.name);
+      const html = fs.readFileSync(filePath, 'utf8');
+      const meta = readAgentMetadata(html);
+      if (meta && meta.type === 'workflow' && meta.id === workflowId) {
+        return { name: entry.name, filePath, html, meta };
+      }
+    } catch { /* skip unreadable */ }
+  }
+  return null;
+}
+
+function runEngine(fn: () => EngineResult): EngineResult {
+  try {
+    return fn();
+  } catch (err) {
+    if (err instanceof AgentEngineError) {
+      throw new McpError(ErrorCode.InvalidParams, err.message);
+    }
+    throw err;
+  }
+}
+
+function persistAgentNote(note: LoadedAgentNote, meta: AgentMetadata, event: unknown): void {
+  const rewritten = writeAgentMetadata(note.html, meta);
+  if (!rewritten) {
+    throw new McpError(ErrorCode.InternalError, `Failed to update Agent Metadata in ${note.name}`);
+  }
+  const eventMd = [`## Event ${(event as { type: string }).type}`, '', codeBlockJson(event)].join('\n');
+  const finalHtml = `${rewritten}\n<hr>\n${toHtml(eventMd)}`;
+  atomicWrite(note.filePath, finalHtml);
+  indexUpsert(note.name, finalHtml);
+}
+
+// Keep the workflow note's tasks[] mirror consistent after a task transition.
+function syncWorkflowMirror(
+  workflow: LoadedAgentNote | null,
+  note: LoadedAgentNote,
+  newStatus: string,
+  now: string,
+): void {
+  if (!workflow || note.meta.type !== 'task' || !note.meta.id) return;
+  const mirrored = applyTaskStatusToWorkflow(workflow.meta, note.meta.id, newStatus as never, now);
+  if (mirrored === workflow.meta) return;
+  const rewritten = writeAgentMetadata(workflow.html, mirrored);
+  if (rewritten) {
+    atomicWrite(workflow.filePath, rewritten);
+    indexUpsert(workflow.name, rewritten);
+  }
+}
+
+function buildAgentContext(
+  note: LoadedAgentNote,
+  args: Record<string, unknown>,
+): { ctx: EngineContext; workflow: LoadedAgentNote | null } {
+  const actor = args.actor === undefined ? AGENT_ACTOR_DEFAULT : validateNonEmptyString(args.actor, 'actor');
+  const ctx: EngineContext = { actor, now: new Date().toISOString() };
+  if (args.summary !== undefined) ctx.summary = validateNonEmptyString(args.summary, 'summary');
+  if (args.expected_updated_at !== undefined) {
+    ctx.expectedUpdatedAt = validateNonEmptyString(args.expected_updated_at, 'expected_updated_at');
+  }
+
+  let workflow: LoadedAgentNote | null = null;
+  if (note.meta.type === 'task') {
+    workflow = locateWorkflow(note.meta, note.name);
+    if (workflow) {
+      ctx.mode = workflow.meta.approvalMode;
+      ctx.tasks = workflow.meta.tasks;
+    }
+  }
+  return { ctx, workflow };
+}
+
+export async function handleAdvanceAgentState(args: Record<string, unknown>) {
+  const note = loadAgentNote(args.name);
+  const to = validateNonEmptyString(args.to, 'to');
+  const { ctx, workflow } = buildAgentContext(note, args);
+  const result = runEngine(() => advance(note.meta, to, ctx));
+  persistAgentNote(note, result.metadata, result.event);
+  syncWorkflowMirror(workflow, note, result.metadata.status as string, ctx.now);
+  return {
+    content: [{
+      type: 'text',
+      text: `${note.meta.type} ${note.meta.id ?? note.name}: ${note.meta.status ?? '?'} -> ${result.metadata.status as string}`,
+    }],
+  };
+}
+
+export async function handleApproveAgentGate(args: Record<string, unknown>) {
+  const note = loadAgentNote(args.name);
+  const { ctx, workflow } = buildAgentContext(note, args);
+  const result = runEngine(() => approveGate(note.meta, ctx));
+  persistAgentNote(note, result.metadata, result.event);
+  syncWorkflowMirror(workflow, note, result.metadata.status as string, ctx.now);
+  return {
+    content: [{
+      type: 'text',
+      text: `Approved: ${note.meta.id ?? note.name} -> ${result.metadata.status as string}`,
+    }],
+  };
+}
+
+export async function handleRejectAgentGate(args: Record<string, unknown>) {
+  const note = loadAgentNote(args.name);
+  const { ctx, workflow } = buildAgentContext(note, args);
+  const reason = args.reason === undefined ? undefined : validateNonEmptyString(args.reason, 'reason');
+  const result = runEngine(() => rejectGate(note.meta, { ...ctx, reason }));
+  persistAgentNote(note, result.metadata, result.event);
+  syncWorkflowMirror(workflow, note, result.metadata.status as string, ctx.now);
+  return {
+    content: [{
+      type: 'text',
+      text: `Rejected: ${note.meta.id ?? note.name} -> ${result.metadata.status as string}`,
+    }],
+  };
+}
+
 // ─── Server bootstrap ─────────────────────────────────────────────────────────
 
 type ToolHandler = (args: Record<string, unknown>) => Promise<{ content: { type: string; text: string }[] }>;
@@ -1059,6 +1302,9 @@ const TOOL_HANDLERS: Record<ToolName, ToolHandler> = {
   [TOOL_NAME.DELETE_NOTE]: handleDeleteNote,
   [TOOL_NAME.CREATE_AGENT_WORKFLOW]: handleCreateAgentWorkflow,
   [TOOL_NAME.APPEND_AGENT_EVENT]: handleAppendAgentEvent,
+  [TOOL_NAME.ADVANCE_AGENT_STATE]: handleAdvanceAgentState,
+  [TOOL_NAME.APPROVE_AGENT_GATE]: handleApproveAgentGate,
+  [TOOL_NAME.REJECT_AGENT_GATE]: handleRejectAgentGate,
 };
 
 function isToolName(value: string): value is ToolName {

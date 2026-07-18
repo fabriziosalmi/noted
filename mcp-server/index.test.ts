@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { readAgentMetadata } from '../shared/agent/index';
 
 const mockFiles = new Map<string, { content: string; mtime: Date; size: number }>();
 
@@ -160,6 +161,9 @@ const {
   __resetSearchIndex,
   handleCreateAgentWorkflow,
   handleAppendAgentEvent,
+  handleAdvanceAgentState,
+  handleApproveAgentGate,
+  handleRejectAgentGate,
   buildAgentWorkflowFiles,
   getArgValue,
   excerpt,
@@ -698,6 +702,104 @@ describe('MCP Tool Handlers', () => {
       expect(content).toContain('<h2>Event TaskStatusChanged</h2>');
       expect(content).toContain('"status": "review"');
       expect(content).toContain('"tests": "passed"');
+    });
+  });
+
+  describe('agent state-machine tools', () => {
+    const WF_PATH = '/mockdir/noted/wf-WF001-agent-runtime.md';
+    const T1_PATH = '/mockdir/noted/task-T001-schema.md';
+
+    async function scaffold(approvalMode = 'autonomous', tasks: unknown[] = [{ id: 'T001', title: 'Schema' }]) {
+      await handleCreateAgentWorkflow({
+        folder: 'noted',
+        workflow_id: 'WF001',
+        title: 'Agent Runtime',
+        goal: 'Create a file-first workflow',
+        approval_mode: approvalMode,
+        tasks,
+      });
+    }
+
+    const wfMeta = () => readAgentMetadata(mockFiles.get(WF_PATH)!.content);
+
+    it('advances a workflow through the state machine and persists each step', async () => {
+      await scaffold('autonomous');
+      const r1 = await handleAdvanceAgentState({ name: 'noted/wf-WF001-agent-runtime.md', to: 'ready' });
+      expect(r1.content[0].text).toContain('-> ready');
+      // Persistence proven transitively: an unpersisted 'ready' would make the
+      // next transition illegal.
+      const r2 = await handleAdvanceAgentState({ name: 'noted/wf-WF001-agent-runtime.md', to: 'running' });
+      expect(r2.content[0].text).toContain('-> running');
+      expect(wfMeta()?.status).toBe('running');
+    });
+
+    it('enforces the plan gate: plan mode cannot jump draft -> ready', async () => {
+      await scaffold('plan');
+      await expect(
+        handleAdvanceAgentState({ name: 'noted/wf-WF001-agent-runtime.md', to: 'ready' }),
+      ).rejects.toThrow(/plan approval/);
+    });
+
+    it('routes plan mode through request -> approve', async () => {
+      await scaffold('plan');
+      await handleAdvanceAgentState({ name: 'noted/wf-WF001-agent-runtime.md', to: 'awaiting_plan_approval' });
+      const res = await handleApproveAgentGate({ name: 'noted/wf-WF001-agent-runtime.md', actor: 'user' });
+      expect(res.content[0].text).toContain('-> ready');
+      expect(wfMeta()?.status).toBe('ready');
+    });
+
+    it('rejects a gate to blocked with a GateRejected event', async () => {
+      await scaffold('plan');
+      await handleAdvanceAgentState({ name: 'noted/wf-WF001-agent-runtime.md', to: 'awaiting_plan_approval' });
+      const res = await handleRejectAgentGate({
+        name: 'noted/wf-WF001-agent-runtime.md',
+        actor: 'user',
+        reason: 'plan too broad',
+      });
+      expect(res.content[0].text).toContain('-> blocked');
+      expect(wfMeta()?.status).toBe('blocked');
+      expect(mockFiles.get(WF_PATH)?.content).toContain('GateRejected');
+    });
+
+    it('mirrors a task status change back into the workflow tasks[]', async () => {
+      await scaffold('autonomous');
+      await handleAdvanceAgentState({ name: 'noted/task-T001-schema.md', to: 'ready' });
+      expect(readAgentMetadata(mockFiles.get(T1_PATH)!.content)?.status).toBe('ready');
+      expect(wfMeta()?.tasks?.find(t => t.id === 'T001')?.status).toBe('ready');
+    });
+
+    it('blocks a task whose dependencies are unfinished', async () => {
+      await scaffold('autonomous', [
+        { id: 'T001', title: 'Schema' },
+        { id: 'T002', title: 'Events', depends_on: ['T001'] },
+      ]);
+      await expect(
+        handleAdvanceAgentState({ name: 'noted/task-T002-events.md', to: 'ready' }),
+      ).rejects.toThrow(/unfinished tasks/);
+    });
+
+    it('honours the optimistic concurrency guard', async () => {
+      await scaffold('autonomous');
+      const staleAt = wfMeta()?.updatedAt;
+      await expect(
+        handleAdvanceAgentState({ name: 'noted/wf-WF001-agent-runtime.md', to: 'ready', expected_updated_at: 'STALE' }),
+      ).rejects.toThrow(/changed since it was read/);
+      // The correct token is accepted.
+      const ok = await handleAdvanceAgentState({
+        name: 'noted/wf-WF001-agent-runtime.md',
+        to: 'ready',
+        expected_updated_at: staleAt,
+      });
+      expect(ok.content[0].text).toContain('-> ready');
+    });
+
+    it('refuses non-agent notes and illegal transitions', async () => {
+      mockFiles.set('/mockdir/plain.md', { content: '<p>hi</p>', mtime: new Date(), size: 9 });
+      await expect(handleAdvanceAgentState({ name: 'plain.md', to: 'ready' })).rejects.toThrow(/Not an agent note/);
+      await scaffold('autonomous');
+      await expect(
+        handleAdvanceAgentState({ name: 'noted/wf-WF001-agent-runtime.md', to: 'done' }),
+      ).rejects.toThrow(/cannot move/);
     });
   });
 
