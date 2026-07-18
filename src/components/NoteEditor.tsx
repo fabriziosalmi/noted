@@ -65,6 +65,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   const llmProvider = useStore(s => s.settings.llmProvider);
   const llmApiKey = useStore(s => s.settings.llmApiKey);
   const onboardingDismissed = useStore(s => s.settings.onboardingDismissed ?? false);
+  const shortcutsSeen = useStore(s => s.settings.shortcutsSeen ?? false);
   const aiGhostMode = useStore(s => s.settings.aiGhostMode ?? 'manual');
   const smartTagsEnabled = useStore(s => s.settings.smartTagsEnabled ?? false);
   const updateSettings = useStore(s => s.updateSettings);
@@ -360,7 +361,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     const onboardingSteps = [
       { key: 'note', done: notesCount > 0, label: t('onboardingStepNote') },
       { key: 'ai', done: llmReady, label: t('onboardingStepAi') },
-      { key: 'shortcuts', done: false, label: t('onboardingStepShortcuts') },
+      { key: 'shortcuts', done: shortcutsSeen, label: t('onboardingStepShortcuts') },
     ];
     const doneCount = onboardingSteps.filter(s => s.done).length;
     return (

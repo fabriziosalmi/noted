@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import type { TranslationKey } from '../lib/i18n';
 import { Modal } from './Modal';
+import { useStore } from '../store/useStore';
 
 interface ShortcutRow {
   keys: string[];
@@ -14,6 +16,9 @@ interface KeyboardShortcutsModalProps {
 
 export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps) {
   const { t } = useI18n();
+  const updateSettings = useStore(s => s.updateSettings);
+  // Opening the shortcuts reference completes the onboarding "shortcuts" step.
+  useEffect(() => { updateSettings({ shortcutsSeen: true }); }, [updateSettings]);
 
   const SECTIONS: { titleKey: TranslationKey; rows: ShortcutRow[] }[] = [
     {

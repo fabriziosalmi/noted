@@ -67,6 +67,7 @@ export interface SettingsState {
   embeddingProvider?: 'openai' | 'lmstudio' | 'ollama' | 'none';
   embeddingModel?: string;
   onboardingDismissed?: boolean;
+  shortcutsSeen?: boolean;
   detectedLocalModels?: string[];
   autoCommitInterval?: number;
   enableAutoCommit?: boolean;
@@ -235,6 +236,7 @@ export const useStore = create<NoteState>()(
         embeddingProvider: 'none',
         embeddingModel: '',
         onboardingDismissed: false,
+        shortcutsSeen: false,
         showHints: true,
         aiGhostMode: 'manual' as const,
         editorWidth: 'normal' as const,
