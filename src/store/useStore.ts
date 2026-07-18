@@ -168,6 +168,7 @@ interface NoteState {
   renameNote: (oldName: string, newName: string, opts?: { reopen?: boolean }) => Promise<void>;
   syncActiveNoteTitle: (title: string) => Promise<void>;
   clearPendingSelfRename: () => void;
+  addNotesToProject: (slug: string, noteNames: string[]) => Promise<void>;
   updateSettings: (newSettings: Partial<SettingsState>) => void;
   loadApiKey: () => Promise<void>;
   togglePin: (fileName: string) => void;
@@ -485,6 +486,34 @@ export const useStore = create<NoteState>()(
       // Best-effort: a failed rename just leaves the filename as-is; we retry
       // on the next title edit.
     }
+  },
+
+  addNotesToProject: async (slug: string, noteNames: string[]) => {
+    const api = getElectronApi();
+    if (!api || !noteNames.length) return;
+    const tag = `#project/${slug}`;
+    const syncDir = get().settings.syncDirectory || undefined;
+    // Append the project tag to each note file (these are notes other than the
+    // one open in the editor, so writing their files directly is safe).
+    for (const name of noteNames) {
+      try {
+        const res = await api.readNote(name, syncDir);
+        if (!res.success || res.data === undefined) continue;
+        const content = res.data as string;
+        if (content.includes(tag)) continue;
+        await api.saveNote(name, `${content.trimEnd()}\n<p>${tag}</p>`, syncDir);
+      } catch {
+        // skip unreadable/unwritable notes
+      }
+    }
+    set(state => {
+      const idx = { ...state.tagIndex };
+      const members = new Set(idx[tag] ?? []);
+      noteNames.forEach(n => members.add(n));
+      idx[tag] = [...members];
+      return { tagIndex: idx };
+    });
+    await get().fetchNotes();
   },
 
   saveAsTemplate: (name: string, content: string) => {

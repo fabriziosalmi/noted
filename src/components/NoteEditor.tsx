@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { useI18n } from '../lib/i18n';
 import { useEditor, EditorContent, ReactNodeViewRenderer, type Editor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
@@ -24,6 +24,8 @@ import { SlashCommands } from './SlashCommands';
 import { SmartTagSuggestion } from './SmartTagSuggestion';
 import { GhostTextExtension, ghostTextKey } from '../lib/ghostTextExtension';
 import { deriveTitle } from '../lib/noteTitle';
+import { suggestProject, type ProjectSuggestion } from '../lib/projectSuggestion';
+import { ProjectSuggestionHint } from './ProjectSuggestionHint';
 
 const lowlight = createLowlight(common);
 
@@ -66,9 +68,14 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   const aiGhostMode = useStore(s => s.settings.aiGhostMode ?? 'manual');
   const smartTagsEnabled = useStore(s => s.settings.smartTagsEnabled ?? false);
   const updateSettings = useStore(s => s.updateSettings);
+  const tagIndex = useStore(s => s.tagIndex);
+  const allNotes = useStore(s => s.notes);
+  const addNotesToProject = useStore(s => s.addNotesToProject);
   const llmReady = llmProvider === 'lmstudio' || llmProvider === 'ollama' || !!llmApiKey;
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [wordCount, setWordCount] = useState(0);
+  const [hintTitle, setHintTitle] = useState('');
+  const [dismissedProjects, setDismissedProjects] = useState<Set<string>>(() => new Set());
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titleSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTitleRef = useRef<string>('');
@@ -119,6 +126,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     if (titleSyncTimerRef.current) clearTimeout(titleSyncTimerRef.current);
     titleSyncTimerRef.current = setTimeout(() => {
       const title = deriveTitle(html);
+      setHintTitle(title);
       // Only rename when the TITLE actually changed since the note was opened
       // or last synced — a body edit must never rename an existing note.
       if (title === lastTitleRef.current) return;
@@ -324,10 +332,27 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       // Baseline the title tracker to the loaded note so body edits don't
       // trigger a rename; only an actual title change will.
       lastTitleRef.current = deriveTitle(activeNoteContent);
+      setHintTitle(lastTitleRef.current);
+      setDismissedProjects(new Set());
       // Auto-focus editor at start of content when switching notes
       setTimeout(() => editor.commands.focus('start'), 0);
     }
   }, [activeNoteName, activeNoteContent, editor, updateWordCount]);
+
+  // Capture-time project cohesion: when the title you're typing recurs across
+  // notes, surface a nudge to group them under a #project/ tag.
+  const projectSuggestion = useMemo<ProjectSuggestion | null>(() => {
+    if (!activeNoteName || !hintTitle) return null;
+    const s = suggestProject(hintTitle, { activeNoteName, tagIndex, noteNames: allNotes.map(n => n.name) });
+    return s && !dismissedProjects.has(s.slug) ? s : null;
+  }, [activeNoteName, hintTitle, tagIndex, allNotes, dismissedProjects]);
+
+  const handleAcceptProject = useCallback((s: ProjectSuggestion) => {
+    const ed = editorRef.current;
+    if (ed) ed.chain().focus().insertContentAt(ed.state.doc.content.size, `<p>${s.tag}</p>`).run();
+    void addNotesToProject(s.slug, s.matches);
+    setDismissedProjects(prev => new Set(prev).add(s.slug));
+  }, [addNotesToProject]);
 
   if (!activeNoteName) {
     const isEmpty = notesCount === 0;
@@ -447,6 +472,14 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
             <Code size={14} />
           </button>
         </BubbleMenu>
+      )}
+
+      {projectSuggestion && (
+        <ProjectSuggestionHint
+          suggestion={projectSuggestion}
+          onAccept={() => handleAcceptProject(projectSuggestion)}
+          onDismiss={() => setDismissedProjects(prev => new Set(prev).add(projectSuggestion.slug))}
+        />
       )}
 
       <div
