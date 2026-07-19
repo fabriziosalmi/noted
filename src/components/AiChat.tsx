@@ -52,10 +52,21 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
   const embeddingModel = useStore(s => s.settings.embeddingModel ?? '');
   const lmStudioUrl = useStore(s => s.settings.lmStudioUrl ?? '');
   const llmApiKey = useStore(s => s.settings.llmApiKey ?? '');
+  const llmProvider = useStore(s => s.settings.llmProvider ?? 'lmstudio');
+  const llmModel = useStore(s => s.settings.llmModel ?? '');
+  // Cloud providers are configured once a key exists; local providers once a
+  // model is chosen. When AI isn't set up, the greeting becomes the (previously
+  // unused) llmBanner nudge so "the chat does nothing" is self-explanatory.
+  const aiConfigured = ['openai', 'anthropic', 'gemini', 'openrouter'].includes(llmProvider)
+    ? !!llmApiKey
+    : !!llmModel;
+  const greeting = aiConfigured
+    ? t('aiGreeting')
+    : `${t('llmBanner')} ${t('llmBannerLink')} ${t('llmBannerSuffix')}`;
   const [piiNotice, setPiiNotice] = useState<number>(0);
   // displayHistory includes the greeting bubble shown in the UI
   const [displayHistory, setDisplayHistory] = useState<ChatMessage[]>([
-    { role: 'assistant', content: t('aiGreeting') },
+    { role: 'assistant', content: greeting },
   ]);
   // llmHistory contains only real user/assistant turns sent to the LLM — no greeting
   const [llmHistory, setLlmHistory] = useState<ChatMessage[]>([]);
@@ -72,7 +83,7 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
 
   const handleClear = () => {
     abortRef.current?.abort();
-    setDisplayHistory([{ role: 'assistant', content: t('aiGreeting') }]);
+    setDisplayHistory([{ role: 'assistant', content: greeting }]);
     setLlmHistory([]);
   };
 

@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useReducer } from 'react';
 import {
   X, RefreshCw, Cloud, HardDrive, FolderOpen, CheckCircle2,
   Bot, Palette, Type, GitBranch, FolderSync, Info, Copy, Check,
-  Plug, ExternalLink, Globe,
+  Plug, ExternalLink, Globe, Eye, EyeOff,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Modal } from './Modal';
@@ -456,6 +456,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
   const [tab, setTab] = useState<SettingsTab>('ai');
   const tabsNav = useTablist(SETTINGS_TAB_IDS, tab, setTab, 'settings');
   const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
+  const [showApiKey, setShowApiKey] = useState(false);
   const [discovering, setDiscovering] = useState(false);
   const [cloudProviders, setCloudProviders] = useState<CloudProvider[]>([]);
   const [gitTokenInput, setGitTokenInput] = useState('');
@@ -695,7 +696,18 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                       {t('safeStorageUnavailable')}
                     </div>
                   )}
-                  <Input type="password" value={settings.llmApiKey} onChange={(e) => onUpdate({ llmApiKey: e.target.value })} placeholder="sk-..." />
+                  <div className="relative">
+                    <Input type={showApiKey ? 'text' : 'password'} value={settings.llmApiKey} onChange={(e) => onUpdate({ llmApiKey: e.target.value })} placeholder="sk-..." className="pr-8" />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(v => !v)}
+                      aria-label={t('revealKey')}
+                      title={t('revealKey')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
                   <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">{t('apiKeyHelp')}</p>
                 </div>
               )}

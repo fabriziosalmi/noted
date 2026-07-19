@@ -65,6 +65,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   const { t } = useI18n();
   const llmProvider = useStore(s => s.settings.llmProvider);
   const llmApiKey = useStore(s => s.settings.llmApiKey);
+  const llmModel = useStore(s => s.settings.llmModel);
   const onboardingDismissed = useStore(s => s.settings.onboardingDismissed ?? false);
   const shortcutsSeen = useStore(s => s.settings.shortcutsSeen ?? false);
   const aiGhostMode = useStore(s => s.settings.aiGhostMode ?? 'manual');
@@ -73,7 +74,13 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   const tagIndex = useStore(s => s.tagIndex);
   const allNotes = useStore(s => s.notes);
   const addNotesToProject = useStore(s => s.addNotesToProject);
+  // "Ready" (optimistic) gates runtime ghost-text: local providers auto-resolve a
+  // model, so we let a completion attempt fire. "Configured" is stricter and drives
+  // onboarding/nudges — a fresh local-provider default is not set up until a model
+  // is actually chosen, so we don't pretend AI works out of the box.
   const llmReady = llmProvider === 'lmstudio' || llmProvider === 'ollama' || !!llmApiKey;
+  const isCloudProvider = llmProvider === 'openai' || llmProvider === 'anthropic' || llmProvider === 'gemini' || llmProvider === 'openrouter';
+  const aiConfigured = isCloudProvider ? !!llmApiKey : !!llmModel;
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [wordCount, setWordCount] = useState(0);
   const [hintTitle, setHintTitle] = useState('');
@@ -426,7 +433,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     const onboardingVisible = !onboardingDismissed;
     const onboardingSteps = [
       { key: 'note', done: notesCount > 0, label: t('onboardingStepNote') },
-      { key: 'ai', done: llmReady, label: t('onboardingStepAi') },
+      { key: 'ai', done: aiConfigured, label: t('onboardingStepAi') },
       { key: 'shortcuts', done: shortcutsSeen, label: t('onboardingStepShortcuts') },
     ];
     const doneCount = onboardingSteps.filter(s => s.done).length;
