@@ -1,0 +1,43 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Electron runtime artifacts
+.electron_session/
+dist-electron/
+dist-mcp/
+coverage/
+release/
+notes_dev/
+.claude/
+.electron_data/
+.eslintcache
+
+# Local secrets (Apple notarization credentials, etc.) — never commit
+.env.local
+.env.*.local
+.env
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Demo recordings
+scripts/demo/out/

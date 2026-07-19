@@ -1,0 +1,711 @@
+@import "tailwindcss";
+
+/* ─── AI chat markdown rendering ──────────────────────────────────────── */
+.ai-chat-md { line-height: 1.5; }
+.ai-chat-md > *:first-child { margin-top: 0; }
+.ai-chat-md > *:last-child { margin-bottom: 0; }
+.ai-chat-md p { margin: 0.5em 0; }
+.ai-chat-md h1, .ai-chat-md h2, .ai-chat-md h3, .ai-chat-md h4 { font-weight: 600; margin: 0.6em 0 0.3em; line-height: 1.3; }
+.ai-chat-md h1 { font-size: 1.15em; }
+.ai-chat-md h2 { font-size: 1.08em; }
+.ai-chat-md h3 { font-size: 1em; }
+.ai-chat-md strong { font-weight: 600; }
+.ai-chat-md em { font-style: italic; }
+.ai-chat-md ul, .ai-chat-md ol { margin: 0.4em 0; padding-left: 1.4em; }
+.ai-chat-md ul { list-style: disc; }
+.ai-chat-md ol { list-style: decimal; }
+.ai-chat-md li { margin: 0.15em 0; }
+.ai-chat-md code { background: rgba(127,127,127,0.15); padding: 0.1em 0.35em; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+.ai-chat-md pre { background: rgba(127,127,127,0.12); padding: 0.6em 0.8em; border-radius: 6px; overflow-x: auto; margin: 0.5em 0; font-size: 0.9em; }
+.ai-chat-md pre code { background: transparent; padding: 0; }
+.ai-chat-md blockquote { border-left: 3px solid rgba(127,127,127,0.4); padding-left: 0.8em; margin: 0.5em 0; color: rgba(107,114,128,0.9); }
+.ai-chat-md a { color: var(--accent); text-decoration: underline; }
+.ai-chat-md hr { border: none; border-top: 1px solid rgba(127,127,127,0.25); margin: 0.7em 0; }
+.ai-chat-md table { border-collapse: collapse; margin: 0.5em 0; font-size: 0.95em; }
+.ai-chat-md th, .ai-chat-md td { border: 1px solid rgba(127,127,127,0.3); padding: 0.3em 0.6em; }
+
+
+/* Class-based dark mode — applied by useTheme hook on <html> */
+@variant dark (&:where(.dark, .dark *));
+@variant sepia (&:where(.sepia, .sepia *));
+
+@theme {
+  --color-mac-bg: #ececec;
+  --color-mac-border: #d1d1d1;
+  --color-mac-text: #333333;
+  /* Tailwind's default gray scale jumps 800 → 900 with no 850. Several
+     components use `dark:bg-gray-850/xx` for a subtle hover/surface tint;
+     without this token that utility produces no rule at all (silently no bg
+     in dark mode). Define it as a gentle surface above the OLED-black base. */
+  --color-gray-850: #1c1c20;
+}
+
+/* ─── Accent color (set via JS on :root) ─────────────────────────────── */
+:root {
+  --accent: #6366f1;
+  --accent-light: color-mix(in srgb, var(--accent) 12%, transparent);
+  --accent-mid:   color-mix(in srgb, var(--accent) 25%, transparent);
+  --btn-primary-disabled-bg: color-mix(in srgb, var(--accent) 24%, #6b7280 76%);
+  --btn-primary-disabled-fg: rgba(255, 255, 255, 0.9);
+}
+
+/* ─── Custom editor canvas bg ─────────────────────────────────────────
+   When the user picks a custom background in Settings → Appearance, we set
+   `--editor-bg` on :root and the writing pane below honours it, overriding
+   both light and dark theme defaults. Unset → theme default applies. */
+[data-editor-bg] .editor-canvas { background-color: var(--editor-bg) !important; }
+
+/* ─── Dark theme — near-black OLED-friendly palette ───────────────────── */
+/* The default Tailwind gray-* dark variants are too lifted (gray-900 = #111827,
+   gray-800 = #1F2937). Override the most-used shades to a properly dark scale
+   that doesn't glow on OLED screens. */
+.dark { color-scheme: dark; }
+/* Editor canvas & primary page bg are pure black for OLED-true look.
+   Higher surfaces step up in tiny increments so panels still read as layered
+   without losing the "everything is black" feel. */
+.dark .bg-gray-900 { background-color: #07080a !important; }
+.dark .bg-gray-800 { background-color: #101115 !important; }
+.dark .bg-gray-700 { background-color: #1b1c21 !important; }
+.dark .bg-gray-600 { background-color: #27282f !important; }
+
+.dark .border-gray-800 { border-color: #131519 !important; }
+.dark .border-gray-700 { border-color: #21232b !important; }
+.dark .border-gray-600 { border-color: #31343f !important; }
+
+/* Translucent surface utilities used as page-wide backdrop in App.tsx */
+.dark .bg-white\/85 { background-color: rgba(7, 8, 10, 0.95) !important; }
+.dark .bg-gray-900\/85 { background-color: rgba(7, 8, 10, 0.95) !important; }
+
+/* Hover surfaces */
+.dark .hover\:bg-gray-800:hover { background-color: #101115 !important; }
+.dark .hover\:bg-gray-700:hover { background-color: #1b1c21 !important; }
+.dark .hover\:bg-gray-600:hover { background-color: #27282f !important; }
+
+/* Vibrancy panels — pure black with a sliver of translucency so the macOS
+   vibrancy blur still shows the desktop motion behind the window. */
+.dark .vibrancy-sidebar  { background: rgba(16, 17, 21, 0.76) !important; }
+.dark .vibrancy-titlebar { background: rgba(10, 11, 14, 0.76) !important; }
+
+/* Body fallback for any surface that doesn't hit a Tailwind class */
+.dark body { color: #ebebf5; }
+
+/* Editor + code surfaces — match the new ground */
+.dark .ProseMirror table th { background: #101013; color: #ebebf5; }
+.dark .ProseMirror table td,
+.dark .ProseMirror table th { border-color: #1e1e23; }
+.dark .ProseMirror pre     { background: #101013; border-color: #1e1e23; }
+
+/* ─── Sepia theme — warm, cohesive, complete ──────────────────────────── */
+.sepia { color-scheme: light; }
+.sepia body { color: #3d2b1f; background: #fbf3e0; }
+
+/* Vibrancy + base surfaces */
+.sepia .vibrancy-titlebar { background: rgba(244, 234, 213, 0.78) !important; }
+.sepia .vibrancy-sidebar  { background: rgba(238, 225, 198, 0.78) !important; }
+.sepia .bg-white\/85      { background: rgba(252, 246, 232, 0.94) !important; }
+
+/* Map the Tailwind grayscale surfaces to warm sepia tones so every Modal,
+   Sidebar item and toolbar comes along for the ride without per-component
+   edits. */
+.sepia .bg-white        { background-color: #fcf6e8 !important; }
+.sepia .bg-gray-50      { background-color: #f5ebd0 !important; }
+.sepia .bg-gray-100     { background-color: #efe2c0 !important; }
+.sepia .bg-gray-200     { background-color: #e6d3a8 !important; }
+
+.sepia .border-gray-100 { border-color: #ecdfb8 !important; }
+.sepia .border-gray-200 { border-color: #d8c595 !important; }
+.sepia .border-gray-300 { border-color: #c5b07d !important; }
+
+.sepia .text-gray-400   { color: #8b7a5a !important; }
+.sepia .text-gray-500   { color: #6e5e42 !important; }
+.sepia .text-gray-600   { color: #5a4a30 !important; }
+.sepia .text-gray-700   { color: #4a3a22 !important; }
+.sepia .text-gray-800   { color: #3d2b1f !important; }
+
+.sepia .hover\:bg-gray-50:hover  { background-color: #efe2c0 !important; }
+.sepia .hover\:bg-gray-100:hover { background-color: #e6d3a8 !important; }
+.sepia .hover\:bg-gray-200:hover { background-color: #d8c595 !important; }
+
+/* Editor content */
+.sepia .ProseMirror { color: #3d2b1f; caret-color: #8b5e3c; }
+.sepia .ProseMirror h1, .sepia .ProseMirror h2, .sepia .ProseMirror h3 { color: #2c1d14; }
+.sepia .ProseMirror pre { background: #ede3cc; border-color: #d4c5a5; color: #3d2b1f; }
+.sepia .ProseMirror table th { background: #ede3cc; color: #2c1d14; }
+.sepia .ProseMirror table td, .sepia .ProseMirror table th { border-color: #d4c5a5; }
+.sepia .ProseMirror blockquote { border-left-color: #8b5e3c; color: #5a4a30; }
+
+/* Wikilinks — sepia-appropriate accent */
+.sepia .ProseMirror .wikilink { color: #8b5e3c; background: rgba(139, 94, 60, 0.10); }
+.sepia .ProseMirror .wikilink:hover { background: rgba(139, 94, 60, 0.20); }
+
+/* Code-highlight tokens — re-tuned for warm bg */
+.sepia .hljs-comment, .sepia .hljs-quote { color: #8b7a5a; font-style: italic; }
+.sepia .hljs-keyword, .sepia .hljs-selector-tag, .sepia .hljs-built_in { color: #8b3a3a; font-weight: 600; }
+.sepia .hljs-string, .sepia .hljs-attr { color: #5a6e2a; }
+.sepia .hljs-number, .sepia .hljs-literal { color: #b8741a; }
+.sepia .hljs-title, .sepia .hljs-section, .sepia .hljs-name { color: #1a5a8b; }
+.sepia .hljs-type, .sepia .hljs-class { color: #2a6a8a; }
+
+/* Scrollbar + ghost text + selection */
+.sepia ::-webkit-scrollbar-thumb { background: rgba(139, 94, 60, 0.25); }
+.sepia ::-webkit-scrollbar-thumb:hover { background: rgba(139, 94, 60, 0.4); }
+.sepia .ghost-text { color: rgba(90, 74, 48, 0.5); }
+.sepia ::selection { background: rgba(139, 94, 60, 0.25); }
+
+/* ─── Global ─────────────────────────────────────────────────────────── */
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  background: transparent;
+  color: var(--color-mac-text);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Smooth theme transitions — only on color/bg, not layout */
+*, *::before, *::after {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+/* But never animate transforms/opacity in animations (feels sluggish) */
+.no-transition, .no-transition * { transition: none !important; }
+
+/* Primary CTA: keep consistent contrast across themes and disabled states. */
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-contrast, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--accent) 68%, #000 32%);
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+.btn-primary:disabled {
+  background: var(--btn-primary-disabled-bg);
+  border-color: color-mix(in srgb, var(--btn-primary-disabled-bg) 70%, #000 30%);
+  color: var(--btn-primary-disabled-fg);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.dark .btn-primary {
+  background: color-mix(in srgb, var(--accent) 18%, #161619);
+  color: #ffffff;
+  border-color: color-mix(in srgb, var(--accent) 35%, #2c2c2e);
+}
+.dark .btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 26%, #161619);
+  filter: none;
+}
+.dark .btn-primary:disabled {
+  background: color-mix(in srgb, var(--accent) 10%, #161619);
+  border-color: #2c2c2e;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* ─── Scrollbars (macOS style) ───────────────────────────────────────── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.28);
+  background-clip: padding-box;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.2s ease;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+  background-clip: padding-box;
+}
+
+/* ─── Vibrancy sidebar ───────────────────────────────────────────────── */
+/* Let Electron's vibrancy show through for the sidebar and titlebar */
+.vibrancy-sidebar {
+  background: rgba(246, 246, 246, 0.72) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+.dark .vibrancy-sidebar {
+  background: rgba(30, 30, 34, 0.72) !important;
+}
+.vibrancy-titlebar {
+  background: rgba(246, 246, 246, 0.65) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+.dark .vibrancy-titlebar {
+  background: rgba(26, 26, 30, 0.65) !important;
+}
+
+/* ─── Editor font variants ───────────────────────────────────────────── */
+.editor-font-system .ProseMirror {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+}
+.editor-font-serif .ProseMirror {
+  font-family: 'Merriweather', "New York", "Georgia", "Times New Roman", serif;
+}
+.editor-font-serif .ProseMirror h1,
+.editor-font-serif .ProseMirror h2,
+.editor-font-serif .ProseMirror h3 {
+  font-family: 'Playfair Display', "New York", "Georgia", "Times New Roman", serif;
+}
+.editor-font-mono .ProseMirror {
+  font-family: ui-monospace, "SF Mono", Menlo, "Cascadia Code", monospace;
+}
+
+/* ─── Editor font sizes ──────────────────────────────────────────────── */
+.editor-size-sm .ProseMirror { font-size: 14px; line-height: 1.6; }
+.editor-size-md .ProseMirror { font-size: 16px; line-height: 1.7; }
+.editor-size-lg .ProseMirror { font-size: 18px; line-height: 1.75; }
+.editor-size-xl .ProseMirror { font-size: 21px; line-height: 1.8; }
+
+/* ─── Tiptap / ProseMirror ───────────────────────────────────────────── */
+.ProseMirror {
+  outline: none;
+  min-height: 100vh;
+  padding-bottom: 50vh;
+  color: #1a1a1a;
+  caret-color: var(--accent);
+}
+.dark .ProseMirror { color: #e8e8ed; }
+
+.ProseMirror > * + * { margin-top: 0.75em; }
+
+.ProseMirror h1 {
+  font-size: 2em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: #111;
+}
+.ProseMirror h2 {
+  font-size: 1.45em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: #1a1a1a;
+}
+.ProseMirror h3 {
+  font-size: 1.17em;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+.dark .ProseMirror h1 { color: #f2f2f7; }
+.dark .ProseMirror h2,
+.dark .ProseMirror h3 { color: #e8e8ed; }
+
+.ProseMirror p { margin: 0; }
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #b0b0b8;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.dark .ProseMirror p.is-editor-empty:first-child::before { color: #48484a; }
+
+/* ─── Focus / Typewriter mode ───────────────────────────────────────── */
+.focus-mode .ProseMirror > * {
+  opacity: 0.25;
+  transition: opacity 0.2s ease;
+}
+.focus-mode .ProseMirror > *.has-focus,
+.focus-mode .ProseMirror > *:focus-within {
+  opacity: 1;
+}
+/* Typewriter: keep cursor vertically centred */
+.typewriter-mode {
+  scroll-padding-top: 40vh;
+}
+
+/* ─── Tables ─────────────────────────────────────────────────────────── */
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  font-size: 0.9em;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid #e5e7eb;
+  padding: 6px 12px;
+  vertical-align: top;
+  min-width: 80px;
+  position: relative;
+}
+.ProseMirror table th {
+  background: #f9fafb;
+  font-weight: 600;
+  text-align: left;
+  color: #374151;
+}
+.ProseMirror table .selectedCell::after {
+  background: rgba(99, 102, 241, 0.1);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+.ProseMirror table .column-resize-handle {
+  background: #6366f1;
+  bottom: -2px;
+  pointer-events: none;
+  position: absolute;
+  right: -1px;
+  top: 0;
+  width: 2px;
+}
+.tableWrapper { overflow-x: auto; }
+
+.dark .ProseMirror table td,
+.dark .ProseMirror table th { border-color: #2c2c2e; }
+.dark .ProseMirror table th { background: #1c1c1e; color: #ebebf5; }
+
+/* ─── Code blocks ────────────────────────────────────────────────────── */
+.ProseMirror pre {
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 1em 1.2em;
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875em;
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+}
+.ProseMirror pre code { background: none; padding: 0; }
+.dark .ProseMirror pre { background: #1c1c1e; border-color: #2c2c2e; }
+
+/* Token colours — light */
+.hljs-comment, .hljs-quote { color: #6b7280; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in { color: #7c3aed; font-weight: 600; }
+.hljs-string, .hljs-attr, .hljs-template-variable { color: #059669; }
+.hljs-number, .hljs-literal { color: #d97706; }
+.hljs-title, .hljs-section, .hljs-name { color: #2563eb; }
+.hljs-type, .hljs-class { color: #0891b2; }
+.hljs-variable, .hljs-params { color: #1d4ed8; }
+.hljs-symbol, .hljs-bullet { color: #db2777; }
+.hljs-meta { color: #9ca3af; }
+.hljs-deletion { color: #dc2626; }
+.hljs-addition { color: #16a34a; }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: bold; }
+
+/* Token colours — dark */
+.dark .hljs-comment, .dark .hljs-quote { color: #636366; }
+.dark .hljs-keyword, .dark .hljs-selector-tag, .dark .hljs-built_in { color: #bf5af2; }
+.dark .hljs-string, .dark .hljs-attr { color: #30d158; }
+.dark .hljs-number, .dark .hljs-literal { color: #ff9f0a; }
+.dark .hljs-title, .dark .hljs-section, .dark .hljs-name { color: #0a84ff; }
+.dark .hljs-type, .dark .hljs-class { color: #5ac8fa; }
+.dark .hljs-variable, .dark .hljs-params { color: #64d2ff; }
+.dark .hljs-symbol, .dark .hljs-bullet { color: #ff375f; }
+.dark .hljs-meta { color: #636366; }
+
+/* ─── Wikilinks ──────────────────────────────────────────────────────── */
+.ProseMirror .wikilink {
+  color: #5856d6;
+  background: rgba(88, 86, 214, 0.08);
+  border-radius: 4px;
+  padding: 0 3px;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 500;
+}
+.ProseMirror .wikilink:hover { background: rgba(88, 86, 214, 0.16); }
+.ProseMirror .wikilink-raw { color: #5856d6; opacity: 0.6; }
+.dark .ProseMirror .wikilink { color: #bf5af2; background: rgba(191, 90, 242, 0.12); }
+.dark .ProseMirror .wikilink:hover { background: rgba(191, 90, 242, 0.22); }
+
+/* ─── Images ─────────────────────────────────────────────────────────── */
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+  margin: 1em 0;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+.ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.ProseMirror img:hover { box-shadow: 0 2px 16px rgba(0,0,0,0.12); }
+
+/* ─── KaTeX math ─────────────────────────────────────────────────────── */
+.ProseMirror .Tiptap-mathematics-editor { font-family: ui-monospace, monospace; background: var(--accent-light); border-radius: 4px; padding: 0 4px; }
+.ProseMirror .Tiptap-mathematics-render { cursor: pointer; }
+.ProseMirror .Tiptap-mathematics-render:hover { background: var(--accent-light); border-radius: 4px; }
+
+/* ─── Ghost text (AI Tab completion) ────────────────────────────────── */
+.ghost-text {
+  color: rgba(100, 100, 120, 0.45);
+  font-style: italic;
+  pointer-events: none;
+  user-select: none;
+}
+.dark .ghost-text {
+  color: rgba(200, 200, 220, 0.3);
+}
+
+/* ─── Panel resize handle ────────────────────────────────────────────── */
+[data-panel-resize-handle-id] {
+  position: relative;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  z-index: 10;
+}
+[data-panel-resize-handle-id]::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background-color: rgba(127, 127, 127, 0.15);
+  transition: background-color 0.2s ease;
+}
+.dark [data-panel-resize-handle-id]::after {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+.sepia [data-panel-resize-handle-id]::after {
+  background-color: rgba(139, 94, 60, 0.12);
+}
+[data-panel-resize-handle-id]:hover::after,
+[data-panel-resize-handle-id][data-panel-resize-handle-state="hover"]::after,
+[data-panel-resize-handle-id][data-panel-resize-handle-state="drag"]::after {
+  background-color: var(--accent);
+}
+[data-panel-resize-handle-id]:hover {
+  background-color: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+[data-panel-resize-handle-id][data-panel-resize-handle-state="drag"] {
+  background-color: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+/* ─── Sidebar Item Left Indicator ────────────────────────────────────── */
+.sidebar-note-indicator {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 4px;
+  border-radius: 0 6px 6px 0;
+  background-color: var(--accent);
+  transform: scaleY(0);
+  transition: transform 0.35s cubic-bezier(0.34, 1.8, 0.64, 1);
+}
+.sidebar-note-active .sidebar-note-indicator {
+  transform: scaleY(1);
+}
+
+/* ─── Spring Animations ──────────────────────────────────────────────── */
+@keyframes spring-scale {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.15); }
+  60% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+.animate-spring-scale {
+  transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.animate-spring-scale:hover {
+  transform: scale(1.1);
+}
+.animate-spring-scale:active {
+  transform: scale(0.92);
+}
+
+/* ─── Keyboard focus ring ────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent) !important;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+/* Editor keeps no visible outline (ProseMirror has its own focus handling) */
+.ProseMirror:focus-visible { outline: none !important; }
+
+/* ─── Toast slide-in ─────────────────────────────────────────────────── */
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.toast-item {
+  animation: slideInRight 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ─── Modal Animations ───────────────────────────────────────────────── */
+@keyframes modalBackdropFadeIn {
+  from {
+    background-color: rgba(0, 0, 0, 0);
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+  to {
+    background-color: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+}
+
+@keyframes modalContentScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-backdrop-animate {
+  animation: modalBackdropFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.modal-content-animate {
+  animation: modalContentScaleIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Glassmorphism modals for unified, premium macOS style */
+.glass-modal {
+  background-color: rgba(255, 255, 255, 0.93) !important;
+  backdrop-filter: blur(20px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(190%) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12) !important;
+}
+
+.dark .glass-modal {
+  background-color: rgba(10, 10, 12, 0.90) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45) !important;
+}
+
+.sepia .glass-modal {
+  background-color: rgba(252, 246, 232, 0.96) !important;
+  border-color: rgba(139, 94, 60, 0.15) !important;
+  box-shadow: 0 20px 50px rgba(90, 74, 48, 0.15) !important;
+}
+
+/* ─── Scroll Fade Masks ──────────────────────────────────────────────── */
+.scroll-fade-y {
+  mask-image: linear-gradient(to bottom, transparent 0%, black 15px, black calc(100% - 15px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15px, black calc(100% - 15px), transparent 100%);
+}
+
+@property --scroll-fade-size {
+  syntax: '<length-percentage>';
+  inherits: false;
+  initial-value: 28px;
+}
+
+.scroll-fade-bottom {
+  mask-image: linear-gradient(to bottom, black calc(100% - var(--scroll-fade-size)), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black calc(100% - var(--scroll-fade-size)), transparent 100%);
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  
+  scroll-timeline: scroll(self) y;
+  animation: adjust-scroll-fade-bottom linear both;
+  animation-timeline: scroll(self);
+}
+
+@keyframes adjust-scroll-fade-bottom {
+  0% {
+    --scroll-fade-size: 28px;
+  }
+  100% {
+    --scroll-fade-size: 0px;
+  }
+}
+
+/* ─── ProseMirror Typography Refinements ─────────────────────────────── */
+.ProseMirror h1 {
+  border-bottom: 1px solid rgba(127, 127, 127, 0.15);
+  padding-bottom: 0.3em;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+.dark .ProseMirror h1 {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+.ProseMirror h2 {
+  margin-top: 1.4em;
+  margin-bottom: 0.4em;
+}
+.ProseMirror h3 {
+  margin-top: 1.3em;
+  margin-bottom: 0.3em;
+}
+
+.ProseMirror table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid #e5e7eb;
+}
+.dark .ProseMirror table {
+  border-color: #2c2c2e;
+}
+.ProseMirror table td,
+.ProseMirror table th {
+  border-bottom: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+}
+.ProseMirror table tr:last-child td {
+  border-bottom: none;
+}
+.ProseMirror table td:last-child,
+.ProseMirror table th:last-child {
+  border-right: none;
+}
+.ProseMirror table th {
+  border-bottom: 2px solid #e5e7eb;
+}
+.dark .ProseMirror table td,
+.dark .ProseMirror table th {
+  border-color: #2c2c2e;
+}
+.dark .ProseMirror table th {
+  border-bottom-color: #2c2c2e;
+}
+
+.ProseMirror blockquote {
+  border-left: 4px solid var(--accent);
+  padding: 0.6em 1.2em;
+  margin: 1.6em 0;
+  color: #4b5563;
+  font-style: italic;
+  background-color: var(--accent-light);
+  border-radius: 0 6px 6px 0;
+}
+.dark .ProseMirror blockquote {
+  color: #c7c7cc;
+  background-color: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+/* ─── Reduced motion ─────────────────────────────────────────────────────
+   WCAG 2.3.3 — honour the OS "reduce motion" preference globally. Kills the
+   spring scales, modal scale-ins, toast slide, theme cross-fades and the
+   scroll-driven fade animations, while leaving instant state changes intact. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

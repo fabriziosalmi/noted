@@ -1,0 +1,151 @@
+{
+  "name": "noted",
+  "description": "Free, open-source macOS note-taking app with AI, Git integration and MCP server",
+  "author": {
+    "name": "Fabrizio Salmi",
+    "email": "fabrizio.salmi@gmail.com"
+  },
+  "private": true,
+  "version": "1.2.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fabriziosalmi/noted.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fabriziosalmi/noted/issues"
+  },
+  "homepage": "https://github.com/fabriziosalmi/noted#readme",
+  "type": "module",
+  "scripts": {
+    "build:main": "esbuild electron/main.ts --bundle --platform=node --format=cjs --outfile=dist-electron/main.cjs --external:electron --external:fsevents --packages=external",
+    "build:preload": "esbuild electron/preload.ts --bundle --platform=node --format=cjs --outfile=dist-electron/preload.js --external:electron",
+    "build:mcp": "esbuild mcp-server/index.ts --bundle --platform=node --format=cjs --outfile=dist-mcp/index.cjs --external:fsevents",
+    "dev": "npm run build:main && npm run build:preload && vite",
+    "build": "tsc -b && vite build && npm run build:main && npm run build:preload && npm run build:mcp && electron-builder",
+    "build:dmg": "tsc -b && vite build && npm run build:main && npm run build:preload && npm run build:mcp && electron-builder --mac dmg --arm64",
+    "lint": "eslint . --cache",
+    "lint:ci": "eslint .",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:ci": "vitest run --reporter=verbose",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e:keyboard-intl": "node scripts/playwright-keyboard-intl.mjs",
+    "demo:record": "node scripts/demo/record.mjs",
+    "demo:render": "node scripts/demo/render.mjs",
+    "demo": "npm run build:main && npm run build:preload && vite build && npm run demo:record && npm run demo:render"
+  },
+  "dependencies": {
+    "@tanstack/react-virtual": "^3.13.24",
+    "@tiptap/extension-bubble-menu": "^3.23.4",
+    "@tiptap/extension-code-block-lowlight": "^3.23.4",
+    "@tiptap/extension-image": "^3.23.4",
+    "@tiptap/extension-mathematics": "^3.23.4",
+    "@tiptap/extension-placeholder": "^3.23.4",
+    "@tiptap/extension-table": "^3.23.4",
+    "@tiptap/extension-typography": "^3.23.4",
+    "@tiptap/pm": "^3.23.4",
+    "@tiptap/react": "^3.23.4",
+    "@tiptap/starter-kit": "^3.23.4",
+    "@tiptap/suggestion": "^3.23.4",
+    "dompurify": "^3.4.5",
+    "fuse.js": "^7.3.0",
+    "html-to-docx": "^1.8.0",
+    "jsdom": "^29.1.1",
+    "katex": "^0.16.47",
+    "lowlight": "^3.3.0",
+    "lucide-react": "^1.16.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-resizable-panels": "^2.1.9",
+    "simple-git": "^3.36.0",
+    "turndown": "^7.2.4",
+    "zustand": "^5.0.13"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/merriweather": "^5.2.11",
+    "@fontsource/playfair-display": "^5.2.8",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@tailwindcss/vite": "^4.3.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/jsdom": "^28.0.3",
+    "@types/marked": "^5.0.2",
+    "@types/node": "^24.12.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/turndown": "^5.0.6",
+    "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "^4.1.6",
+    "electron": "^42.1.0",
+    "electron-builder": "^26.8.1",
+    "esbuild": "^0.28.0",
+    "eslint": "^10.3.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "marked": "^18.0.3",
+    "playwright": "^1.60.0",
+    "tailwindcss": "^4.3.0",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.59.2",
+    "vite": "^8.0.12",
+    "vite-plugin-electron": "^0.29.1",
+    "vite-plugin-electron-renderer": "^0.14.7",
+    "vitest": "^4.1.6"
+  },
+  "main": "dist-electron/main.cjs",
+  "build": {
+    "appId": "com.noted.app",
+    "productName": "Noted",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "dist-mcp/**/*"
+    ],
+    "asarUnpack": [
+      "dist-mcp/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "identity": "Fabrizio Salmi (7FC7ZTYMYU)",
+      "notarize": true
+    },
+    "dmg": {
+      "title": "Noted",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  }
+}
