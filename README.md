@@ -2,10 +2,13 @@
 
 [![CI](https://github.com/fabriziosalmi/noted/actions/workflows/ci.yml/badge.svg)](https://github.com/fabriziosalmi/noted/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/fabriziosalmi/noted)](https://github.com/fabriziosalmi/noted/releases/latest)
+[![Docs](https://img.shields.io/badge/docs-fabriziosalmi.github.io%2Fnoted-6366f1)](https://fabriziosalmi.github.io/noted/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 ![Platform: macOS](https://img.shields.io/badge/platform-macOS-lightgrey)
 
 Noted is an open-source macOS desktop app for taking notes in Markdown/HTML, with built-in AI, note links (wikilinks), global search, local history, and Git integration. Local-first: your notes stay on your machine, there is no account and no telemetry.
+
+**Documentation: [fabriziosalmi.github.io/noted](https://fabriziosalmi.github.io/noted/)** — installation, features, settings, keyboard shortcuts, the MCP server, and architecture.
 
 <!-- Add a hero screenshot here once available, e.g.:
 ![Noted](docs/screenshot.png) -->
@@ -115,7 +118,8 @@ scaffolds flat notes for workflows, tasks/subtasks, runs, reviews, and output
 checks, and a shared runtime engine enforces the state machine, approval gates,
 and task dependencies as agents drive a workflow with `advance_agent_state` /
 `approve_agent_gate` / `reject_agent_gate`. The schema, states, and gate model
-live in [docs/AGENT_WORKFLOW_MVP.md](./docs/AGENT_WORKFLOW_MVP.md).
+are documented at
+[Agent workflows](https://fabriziosalmi.github.io/noted/reference/agent-workflows).
 
 ## Repository structure (main)
 
@@ -123,6 +127,7 @@ live in [docs/AGENT_WORKFLOW_MVP.md](./docs/AGENT_WORKFLOW_MVP.md).
 - `electron/` — main process + preload + git ops + ipc utils + services
 - `mcp-server/` — standalone MCP server
 - `shared/` — cross-process code (HTML sanitizer, frontmatter, search index, agent engine)
+- `docs/` — VitePress documentation site (deployed to GitHub Pages)
 - `public/` — static assets
 - `dist*` — intermediate build output
 - `release/` — packaging artifacts

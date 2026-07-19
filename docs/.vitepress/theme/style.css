@@ -1,0 +1,263 @@
+/* ─────────────────────────────────────────────────────────────────────
+   Noted · macOS-native design tokens
+   Overrides VitePress default-theme CSS variables only. Do not redefine
+   layout classes — variable overrides upgrade cleanly with VitePress.
+   Brand: indigo #6366F1 → violet #7C3AED (the app icon gradient).
+   ───────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Typography ──────────────────────────────────────────────────── */
+  --vp-font-family-base: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "SF Pro Text", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --vp-font-family-mono: "SF Mono", ui-monospace, "JetBrains Mono", Menlo,
+    Monaco, Consolas, "Liberation Mono", monospace;
+
+  --tracking-tight: -0.022em;
+  --tracking-normal: -0.011em;
+
+  /* ── Brand / accent (matches src/index.css --accent) ─────────────── */
+  --noted-indigo: #6366f1;        /* indigo-500, the app accent  */
+  --noted-indigo-dark: #818cf8;   /* indigo-400, brighter for dark */
+  --noted-violet: #7c3aed;        /* violet-600, icon gradient end */
+
+  --hero-grad-light: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%);
+  --hero-grad-dark: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+
+  --glass-blur: saturate(180%) blur(20px);
+
+  /* Radii on the 4pt scale */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+
+  /* ── VitePress variable overrides (light) ────────────────────────── */
+  --vp-c-brand-1: #4f46e5;        /* indigo-600, AA on white   */
+  --vp-c-brand-2: #4338ca;        /* indigo-700 */
+  --vp-c-brand-3: #3730a3;        /* indigo-800 */
+  --vp-c-brand-soft: rgba(99, 102, 241, 0.14);
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: var(--hero-grad-light);
+  --vp-home-hero-tagline-color: rgba(0, 0, 0, 0.56);
+  --vp-home-hero-image-background-image: radial-gradient(
+    circle at 50% 50%, rgba(99, 102, 241, 0.25) 0%, transparent 70%);
+  --vp-home-hero-image-filter: blur(56px);
+}
+
+/* ── Dark theme ─────────────────────────────────────────────────────── */
+.dark {
+  --vp-c-brand-1: var(--noted-indigo-dark);
+  --vp-c-brand-2: #a5b4fc;
+  --vp-c-brand-3: #c7d2fe;
+  --vp-c-brand-soft: rgba(129, 140, 248, 0.16);
+
+  --vp-home-hero-name-background: var(--hero-grad-dark);
+  --vp-home-hero-tagline-color: rgba(255, 255, 255, 0.64);
+  --vp-home-hero-image-background-image: radial-gradient(
+    circle at 50% 50%, rgba(129, 140, 248, 0.35) 0%, transparent 70%);
+
+  /* Warmer, Mac-like blacks */
+  --vp-c-bg: #0a0a0c;
+  --vp-c-bg-alt: #0e0e11;
+  --vp-c-bg-soft: #131317;
+  --vp-c-bg-elv: #1c1c1e;
+  --vp-c-divider: rgba(255, 255, 255, 0.08);
+  --vp-c-text-1: rgba(255, 255, 255, 0.96);
+  --vp-c-text-2: rgba(255, 255, 255, 0.72);
+  --vp-c-text-3: rgba(255, 255, 255, 0.48);
+}
+
+/* ── Typography tuning ─────────────────────────────────────────────── */
+html {
+  font-feature-settings: "ss01", "cv01", "cv02", "cv03";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  letter-spacing: var(--tracking-normal);
+}
+
+.VPHero .name,
+.VPHero .text {
+  font-weight: 700 !important;
+  letter-spacing: var(--tracking-tight) !important;
+  line-height: 1.05 !important;
+}
+
+.VPHero .name {
+  font-size: clamp(48px, 8vw, 84px) !important;
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+}
+
+.VPHero .text {
+  font-size: clamp(30px, 5vw, 52px) !important;
+  color: var(--vp-c-text-1) !important;
+}
+
+.VPHero .tagline {
+  font-size: clamp(18px, 2vw, 21px) !important;
+  line-height: 1.45 !important;
+  max-width: 640px;
+  margin-top: 24px !important;
+  font-weight: 400 !important;
+}
+
+/* ── Feature cards (glass + hover lift) ────────────────────────────── */
+.VPFeature {
+  border: 1px solid var(--vp-c-divider) !important;
+  border-radius: var(--r-xl) !important;
+  background: var(--vp-c-bg-soft) !important;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  padding: 28px !important;
+  transition: transform 220ms cubic-bezier(0.2, 0.9, 0.3, 1),
+    border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.VPFeature:hover {
+  transform: translateY(-4px);
+  border-color: var(--vp-c-brand-1) !important;
+  box-shadow: 0 20px 48px -20px rgba(99, 102, 241, 0.32);
+}
+
+.VPFeature .icon {
+  background: var(--vp-c-brand-soft) !important;
+  border-radius: var(--r-md) !important;
+  width: 52px !important;
+  height: 52px !important;
+  display: grid !important;
+  place-items: center !important;
+  margin-bottom: 20px !important;
+  overflow: hidden;
+}
+
+.VPFeature .icon img {
+  width: 26px;
+  height: 26px;
+  display: block;
+}
+
+.VPFeature .title {
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  letter-spacing: var(--tracking-tight) !important;
+}
+
+.VPFeature .details {
+  color: var(--vp-c-text-2) !important;
+  line-height: 1.55 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .VPFeature,
+  .VPFeature:hover {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* ── Buttons (Apple-ish pill) ──────────────────────────────────────── */
+.VPButton {
+  border-radius: 980px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.003em !important;
+  padding: 0 24px !important;
+  height: 46px !important;
+  line-height: 46px !important;
+  transition: transform 120ms ease, background-color 120ms ease !important;
+}
+
+.VPButton.brand {
+  background: var(--hero-grad-light) !important;
+  border: none !important;
+}
+
+.dark .VPButton.brand {
+  background: var(--hero-grad-dark) !important;
+  color: #0a0a0c !important;
+}
+
+.VPButton:active {
+  transform: scale(0.98);
+}
+
+/* ── Nav bar: translucent glass ────────────────────────────────────── */
+.VPNav,
+.VPNavBar {
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+}
+
+.VPNavBar {
+  background: color-mix(in srgb, var(--vp-c-bg) 72%, transparent) !important;
+  border-bottom: 1px solid var(--vp-c-divider) !important;
+}
+
+/* ── Prose headings ────────────────────────────────────────────────── */
+.vp-doc h1 {
+  font-size: clamp(34px, 4vw, 46px) !important;
+  letter-spacing: var(--tracking-tight) !important;
+  line-height: 1.1 !important;
+  font-weight: 700 !important;
+}
+
+.vp-doc h2 {
+  font-size: clamp(26px, 3vw, 32px) !important;
+  letter-spacing: var(--tracking-tight) !important;
+  border-top: 1px solid var(--vp-c-divider) !important;
+  padding-top: 40px !important;
+  margin-top: 48px !important;
+}
+
+.vp-doc h3 {
+  font-size: 20px !important;
+  font-weight: 600 !important;
+}
+
+/* ── Code blocks + inline code ─────────────────────────────────────── */
+.vp-doc div[class*="language-"] {
+  border-radius: var(--r-lg) !important;
+}
+
+.vp-doc code {
+  font-feature-settings: "calt", "liga" 0;
+  font-variant-ligatures: none;
+}
+
+/* ── Callouts ──────────────────────────────────────────────────────── */
+.vp-doc .custom-block {
+  border-radius: var(--r-lg) !important;
+  border-left-width: 4px !important;
+}
+
+/* ── Tables ────────────────────────────────────────────────────────── */
+.vp-doc table {
+  border-radius: var(--r-md);
+  overflow: hidden;
+  border: 1px solid var(--vp-c-divider);
+  display: table;
+  width: 100%;
+}
+
+.vp-doc th,
+.vp-doc td {
+  border: none !important;
+  border-bottom: 1px solid var(--vp-c-divider) !important;
+}
+
+.vp-doc tr:last-child td {
+  border-bottom: none !important;
+}
+
+/* ── Hero visual glow ──────────────────────────────────────────────── */
+.VPImage {
+  filter: drop-shadow(0 24px 64px rgba(0, 0, 0, 0.28));
+}
+
+/* ── Selection highlight ───────────────────────────────────────────── */
+::selection {
+  background: var(--vp-c-brand-soft);
+}
