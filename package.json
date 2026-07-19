@@ -130,7 +130,7 @@
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
       "identity": "Fabrizio Salmi (7FC7ZTYMYU)",
-      "notarize": true
+      "notarize": false
     },
     "dmg": {
       "title": "Noted",

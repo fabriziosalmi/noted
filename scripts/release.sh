@@ -27,15 +27,26 @@ for v in APPLE_ID APPLE_TEAM_ID APPLE_APP_SPECIFIC_PASSWORD; do
 done
 echo "✓ Apple credentials present (APPLE_ID=$APPLE_ID, TEAM=$APPLE_TEAM_ID)"
 
-# ── Build + sign + notarize (electron-builder staples on success) ─────────
+# ── Build + sign (electron-builder signs with the Developer ID + hardened runtime) ──
 npm run build
 
-# ── Verify the notarization ticket is stapled to each artifact ────────────
+# ── Notarize + staple each DMG ────────────────────────────────────────────
+# electron-builder signs the .app but does not notarize the DMG file itself, so
+# submit each DMG to Apple and staple the ticket — otherwise the downloaded DMG
+# fails offline Gatekeeper validation. Scoped to this build's version so old
+# artifacts in release/ aren't re-submitted.
+VERSION="$(node -p "require('./package.json').version")"
 echo
-echo "── Verifying notarization ──"
+echo "── Notarizing + stapling DMGs (v$VERSION) ──"
 shopt -s nullglob
-for dmg in release/*.dmg; do
+found=0
+for dmg in "release/Noted-$VERSION"*.dmg; do
+  found=1
   echo "== $dmg =="
-  xcrun stapler validate "$dmg" && echo "  ✓ stapled" || echo "  ✗ staple missing"
+  xcrun notarytool submit "$dmg" \
+    --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+    --wait
+  xcrun stapler staple "$dmg" && echo "  ✓ stapled" || { echo "  ✗ staple failed" >&2; exit 1; }
 done
-echo "Done."
+[[ "$found" == 1 ]] || { echo "✗ no release/Noted-$VERSION*.dmg found" >&2; exit 1; }
+echo "Done — v$VERSION DMGs signed, notarized, stapled."
