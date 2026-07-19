@@ -66,6 +66,16 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   const llmProvider = useStore(s => s.settings.llmProvider);
   const llmApiKey = useStore(s => s.settings.llmApiKey);
   const llmModel = useStore(s => s.settings.llmModel);
+  const createTitledNote = useStore(s => s.createTitledNote);
+
+  // Follow a [[wikilink]]: open the note if it exists, otherwise create it (and
+  // open it) — clicking a dead link used to be a silent no-op.
+  const followWikilink = useCallback((rawName: string) => {
+    const stem = rawName.replace(/\.md$/i, '');
+    if (!stem) return;
+    if (allNoteNames.includes(stem)) onSelectNote?.(`${stem}.md`);
+    else void createTitledNote(stem);
+  }, [allNoteNames, onSelectNote, createTitledNote]);
   const onboardingDismissed = useStore(s => s.settings.onboardingDismissed ?? false);
   const shortcutsSeen = useStore(s => s.settings.shortcutsSeen ?? false);
   const aiGhostMode = useStore(s => s.settings.aiGhostMode ?? 'manual');
@@ -561,20 +571,20 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
         onClick={e => {
           const target = e.target as HTMLElement;
           const wl = target.closest('[data-wikilink]');
-          if (wl && onSelectNote) {
+          if (wl) {
             const name = wl.getAttribute('data-wikilink');
-            if (name) onSelectNote(name.endsWith('.md') ? name : `${name}.md`);
+            if (name) followWikilink(name);
           }
         }}
         onKeyDown={e => {
           // Keyboard activation: follow the wikilink under the caret with
           // Mod+Enter (inline nodes can't take focus inside contentEditable).
           if (e.key !== 'Enter' || !(e.metaKey || e.ctrlKey)) return;
-          if (!editor || !onSelectNote) return;
+          if (!editor) return;
           const name = editor.getAttributes('wikilink').target as string | undefined;
           if (name) {
             e.preventDefault();
-            onSelectNote(name.endsWith('.md') ? name : `${name}.md`);
+            followWikilink(name);
           }
         }}
       >
