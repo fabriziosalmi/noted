@@ -139,20 +139,22 @@ function NoteRow({
           }`}
         >
           <FileText size={14} className="shrink-0 opacity-70 mt-0.5" />
-          {/* Two-line row (Apple Notes-style): the title gets the full width so
-              it stays readable; the timestamp sits muted underneath instead of
-              squeezing the title on the same line. */}
+          {/* Two-line row (Apple Notes-style): title + muted timestamp share the
+              first line; the body preview gets its own full-width line below so
+              it isn't squeezed down to a few characters. */}
           <div className="flex flex-col min-w-0 flex-1 gap-0.5">
-            <span className="truncate leading-snug">
-              {(() => {
-                const raw = baseName.replace(/\.md$/, '');
-                return !raw.trim() || /^(untitled|new[_ ]?note)[_ ]?[\d:.T-]*$/i.test(raw) ? t('untitled') : raw;
-              })()}
-            </span>
-            <div className="flex items-center gap-1.5 min-w-0 text-[10px] text-gray-400 dark:text-gray-500 leading-none">
-              <span className="shrink-0">{relativeTime(note.stats.mtimeMs, language)}</span>
-              {note.preview ? <span className="truncate opacity-90">{note.preview}</span> : null}
+            <div className="flex items-baseline gap-2 min-w-0">
+              <span className="truncate leading-snug flex-1">
+                {(() => {
+                  const raw = baseName.replace(/\.md$/, '');
+                  return !raw.trim() || /^(untitled|new[_ ]?note)[_ ]?[\d:.T-]*$/i.test(raw) ? t('untitled') : raw;
+                })()}
+              </span>
+              <span className="shrink-0 text-[10px] text-gray-400 dark:text-gray-500">{relativeTime(note.stats.mtimeMs, language)}</span>
             </div>
+            {note.preview ? (
+              <span className="truncate text-[11px] text-gray-400 dark:text-gray-500 leading-snug">{note.preview}</span>
+            ) : null}
           </div>
         </div>
       )}

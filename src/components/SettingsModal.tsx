@@ -1208,7 +1208,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
             onClick={onClose}
             className="btn-primary px-4 py-1.5 rounded-md text-sm font-medium transition-all"
           >
-            {t('save')}
+            {t('done')}
           </button>
         </div>
     </Modal>
