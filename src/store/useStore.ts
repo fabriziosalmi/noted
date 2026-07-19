@@ -703,14 +703,16 @@ export const useStore = create<NoteState>()(
       await get().openNote(fileName);
       return;
     }
-    const locale = (get().settings.language ?? 'en') === 'it' ? 'it-IT' : 'en-US';
-    const title = new Intl.DateTimeFormat(locale, {
+    const lang = get().settings.language ?? 'en';
+    const dateLocale: Record<string, string> = { en: 'en-US', it: 'it-IT', es: 'es-ES', pt: 'pt-PT', fr: 'fr-FR', de: 'de-DE' };
+    const title = new Intl.DateTimeFormat(dateLocale[lang] ?? 'en-US', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     }).format(today);
-    const lang = (get().settings.language ?? 'en') === 'it' ? 'it' : 'en';
-    const sec = lang === 'it'
-      ? { notes: 'Note', todo: 'Da fare', ideas: 'Idee' }
-      : { notes: 'Notes', todo: 'To do', ideas: 'Ideas' };
+    const sec = {
+      notes: translate('dailySectionNotes', lang),
+      todo: translate('dailySectionTodo', lang),
+      ideas: translate('dailySectionIdeas', lang),
+    };
     const initialContent = `<h1>${title}</h1><h2>${sec.notes}</h2><p></p><h2>${sec.todo}</h2><ul><li><p></p></li></ul><h2>${sec.ideas}</h2><p></p>`;
     const api = getElectronApi();
     if (!api) return;

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
@@ -71,10 +71,10 @@
     <span>⚡ Quick Capture</span>
     <button onclick="close()">×</button>
   </div>
-  <textarea id="note" placeholder="Scrivi qui... (⌘↩ per salvare, Esc per chiudere)" autofocus></textarea>
+  <textarea id="note" placeholder="Write here… (⌘↩ to save, Esc to close)" autofocus></textarea>
   <div class="footer">
-    <span>⌘↩ salva · Esc chiudi</span>
-    <button class="save-btn" onclick="save()">Salva nota</button>
+    <span>⌘↩ save · Esc close</span>
+    <button class="save-btn" onclick="save()">Save note</button>
   </div>
   <script>
     const ta = document.getElementById('note');
@@ -84,7 +84,10 @@
       const text = ta.value.trim();
       if (!text) return;
       if (window.electronAPI?.saveCapture) {
-        await window.electronAPI.saveCapture(text);
+        const res = await window.electronAPI.saveCapture(text);
+        // Close on success (or when the handler reports no explicit failure) so a
+        // saved capture doesn't leave the window sitting open like a hang.
+        if (!res || res.success !== false) close();
       }
     }
 

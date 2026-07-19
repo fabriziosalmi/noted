@@ -330,29 +330,6 @@ app.on('activate', () => {
   }
 });
 
-function createWelcomeNote() {
-  const flagPath = path.join(app.getPath('userData'), '.noted_welcomed');
-  if (fs.existsSync(flagPath)) return;
-  const welcomePath = path.join(DEFAULT_NOTES_DIR, 'Benvenuto in Noted.md');
-  if (!fs.existsSync(welcomePath)) {
-    fs.writeFileSync(welcomePath, [
-      '<h1>Benvenuto in Noted 👋</h1>',
-      '<p>Noted è il tuo spazio di scrittura personale — veloce, pulito, e potente.</p>',
-      '<h2>Per iniziare</h2>',
-      '<ul>',
-      '<li>Premi <strong>⌘P</strong> per aprire una nota o cercarne una</li>',
-      '<li>Digita <strong>/</strong> per i comandi AI (espandi, riassumi, traduci…)</li>',
-      '<li>Il <strong>Tab</strong> accetta i suggerimenti AI inline mentre scrivi</li>',
-      '<li>Premi <strong>?</strong> per vedere tutte le scorciatoie</li>',
-      '</ul>',
-      '<h2>AI — configurazione</h2>',
-      '<p>Apri <strong>Impostazioni → AI</strong> e inserisci la tua API key (OpenAI, Anthropic, Gemini, OpenRouter) oppure punta a LM Studio / Ollama per un modello locale gratuito.</p>',
-      '<h2>Buona scrittura ✨</h2>',
-    ].join('\n'), 'utf8');
-  }
-  fs.writeFileSync(flagPath, '1', 'utf8');
-}
-
 app.whenReady().then(() => {
   // Serve renderer assets via app:// — bypasses ES-module-from-file:// issues inside asar
   protocol.handle('app', async (request) => {
@@ -405,7 +382,6 @@ app.whenReady().then(() => {
     });
   });
   initNotesDir();
-  createWelcomeNote();
   createWindow();
   startVaultWatch();
   globalShortcut.register('CommandOrControl+Shift+Space', openCaptureWindow);
