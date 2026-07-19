@@ -34,6 +34,7 @@ declare global {
       onRefreshNotes: (cb: () => void) => void;
       getNativeTheme: () => Promise<{ isDark: boolean }>;
       onNativeThemeUpdated?: (cb: (theme: 'dark' | 'light') => void) => () => void;
+      onMenuCommand?: (cb: (cmd: string) => void) => () => void;
       onFlushBeforeQuit?: (cb: () => void) => () => void;
       notifyFlushed?: () => void;
       setActiveVaultDir?: (dir: string | null) => void;

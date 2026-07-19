@@ -28,6 +28,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('native-theme-updated', listener);
     };
   },
+  onMenuCommand: (cb: (cmd: string) => void) => {
+    const listener = (_e: unknown, cmd: string) => cb(cmd);
+    ipcRenderer.on('menu-command', listener);
+    return () => {
+      ipcRenderer.removeListener('menu-command', listener);
+    };
+  },
   // Quit handshake: main asks the renderer to flush pending saves and waits for
   // notifyFlushed() before actually quitting, so ⌘Q never drops in-flight edits.
   onFlushBeforeQuit: (cb: () => void) => {

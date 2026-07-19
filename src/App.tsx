@@ -127,6 +127,23 @@ function App() {
     onCreateNote: () => { void handleCreateNote(); },
   });
 
+  // Native menu commands from the main process → the same renderer actions.
+  useEffect(() => {
+    const api = getElectronApi();
+    if (!api?.onMenuCommand) return;
+    return api.onMenuCommand((cmd) => {
+      switch (cmd) {
+        case 'settings': panels.openSettings(); break;
+        case 'new-note': void handleCreateNote(); break;
+        case 'daily': void handleOpenDaily(); break;
+        case 'quick-open': panels.toggleQuickOpen(); break;
+        case 'search': panels.toggleGlobalSearch(); break;
+        case 'focus-mode': updateSettings({ focusMode: !settings.focusMode }); break;
+        case 'shortcuts': panels.toggleShortcuts(); break;
+      }
+    });
+  }, [panels, handleCreateNote, handleOpenDaily, updateSettings, settings.focusMode]);
+
   const handleEditorReady = useCallback((editor: Editor | null) => {
     editorRef.current = editor;
     setActiveEditor(editor);
