@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 import { askLLM, AbortedError, describeLlmError } from '../lib/llm';
-import { Wand2, AlignLeft, List, Languages, Minimize2, Pencil, Loader2 } from 'lucide-react';
+import { Wand2, AlignLeft, List, Languages, Minimize2, Pencil, Loader2, Square } from 'lucide-react';
 import { useI18n, type TranslationKey } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import { maskPii } from '../lib/piiMasker';
@@ -169,6 +169,15 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
         <span className="text-sm text-gray-600 dark:text-gray-300">
           {t(COMMANDS.find(c => c.id === running)?.labelKey ?? 'cmdContinueLabel')}...
         </span>
+        <button
+          type="button"
+          onClick={() => abortRef.current?.abort()}
+          aria-label={t('stop')}
+          title={t('stop')}
+          className="shrink-0 flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors"
+        >
+          <Square size={11} className="fill-current" /> {t('stop')}
+        </button>
       </div>
     );
   }

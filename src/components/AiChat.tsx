@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Bot, Loader2, Database, RotateCcw, ShieldAlert } from 'lucide-react';
+import { Bot, Loader2, Database, RotateCcw, ShieldAlert, Square } from 'lucide-react';
 import { marked } from 'marked';
 import { askLLM, AbortedError, describeLlmError } from '../lib/llm';
 import { findRelevantNotesHybrid, type NoteChunk, type RetrievalScoredNote } from '../lib/noteSearch';
@@ -261,15 +261,28 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
       </div>
 
       <div className="p-3 border-t border-gray-200/40 dark:border-gray-700/40 bg-transparent">
-        <input
-          type="text"
-          value={aiInput}
-          onChange={e => setAiInput(e.target.value)}
-          onKeyDown={handleSubmit}
-          disabled={isLoading}
-          placeholder={isLoading ? t('waitingResponse') : t('askSomething')}
-          className="w-full p-2 border border-gray-300/40 dark:border-gray-600/40 rounded text-sm focus:outline-none focus:border-[var(--accent)] bg-white dark:bg-gray-900 dark:text-gray-200 dark:placeholder-gray-500 disabled:opacity-50"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={aiInput}
+            onChange={e => setAiInput(e.target.value)}
+            onKeyDown={handleSubmit}
+            disabled={isLoading}
+            placeholder={isLoading ? t('waitingResponse') : t('askSomething')}
+            className="flex-1 min-w-0 p-2 border border-gray-300/40 dark:border-gray-600/40 rounded text-sm focus:outline-none focus:border-[var(--accent)] bg-white dark:bg-gray-900 dark:text-gray-200 dark:placeholder-gray-500 disabled:opacity-50"
+          />
+          {isLoading && (
+            <button
+              type="button"
+              onClick={() => abortRef.current?.abort()}
+              aria-label={t('stop')}
+              title={t('stop')}
+              className="shrink-0 flex items-center gap-1 px-2.5 py-2 rounded text-xs font-medium bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors"
+            >
+              <Square size={11} className="fill-current" /> {t('stop')}
+            </button>
+          )}
+        </div>
       </div>
     </>
   );

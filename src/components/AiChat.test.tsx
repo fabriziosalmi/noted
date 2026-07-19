@@ -94,6 +94,22 @@ describe('AiChat retrieval mode wiring', () => {
     expect(screen.queryByText('my question')).not.toBeInTheDocument();
   });
 
+  it('shows a Stop button while a query is in flight and aborts it when clicked', async () => {
+    const abortSpy = vi.spyOn(AbortController.prototype, 'abort');
+    // Never resolves, so the request stays in flight and the Stop button renders.
+    askLLMMock.mockImplementationOnce(() => new Promise(() => {}));
+    render(<AiChat getEditorText={() => 'ctx'} noteChunks={[]} />);
+
+    const input = screen.getByPlaceholderText(/ask something/i);
+    fireEvent.change(input, { target: { value: 'slow query' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    const stopBtn = await screen.findByRole('button', { name: /stop/i });
+    fireEvent.click(stopBtn);
+    expect(abortSpy).toHaveBeenCalled();
+    abortSpy.mockRestore();
+  });
+
   it('handles AbortedError gracefully without adding error messages to chat', async () => {
     askLLMMock.mockRejectedValueOnce(new AbortedError('Aborted'));
     render(<AiChat getEditorText={() => 'hello'} noteChunks={[]} />);

@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Editor } from '@tiptap/react';
 import {
   ChevronRight, Maximize2, Minimize2, Wand2,
-  FileText, Eye, Zap, HelpCircle, Loader2,
+  FileText, Eye, Zap, HelpCircle, Loader2, Square,
 } from 'lucide-react';
 import { askLLM, AbortedError, describeLlmError } from '../lib/llm';
 import { Tooltip } from './Tooltip';
@@ -240,21 +240,26 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
     const isDisabled = !!activeId;
     const Icon = action.icon;
     return (
-      <Tooltip key={action.id} label={t(action.labelKey)} side="bottom">
+      <Tooltip key={action.id} label={isActive ? t('stop') : t(action.labelKey)} side="bottom">
         <button
-          onClick={() => void runAction(action)}
-          disabled={isDisabled}
-          aria-label={t(action.labelKey)}
-          className={`flex items-center py-1 px-1.5 rounded transition-colors duration-150
+          // While this action runs, the button becomes a Stop control (the abort
+          // plumbing already exists) instead of dead-locking behind the spinner.
+          onClick={() => (isActive ? abortRef.current?.abort() : void runAction(action))}
+          disabled={isDisabled && !isActive}
+          aria-label={isActive ? t('stop') : t(action.labelKey)}
+          className={`group flex items-center py-1 px-1.5 rounded transition-colors duration-150
             ${isActive
-              ? 'bg-[var(--accent-light)] text-[var(--accent)]'
+              ? 'bg-[var(--accent-light)] text-[var(--accent)] hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400'
               : isDisabled
                 ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[var(--accent)]'
             }`}
         >
           {isActive
-            ? <Loader2 size={13} className="animate-spin" />
+            ? <>
+                <Loader2 size={13} className="animate-spin group-hover:hidden" />
+                <Square size={13} className="hidden group-hover:block fill-current" />
+              </>
             : <Icon size={13} />
           }
         </button>
