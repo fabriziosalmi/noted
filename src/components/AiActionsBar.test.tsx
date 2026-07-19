@@ -176,19 +176,18 @@ describe('AiActionsBar', () => {
     });
   });
 
-  it('supports replacing complete content if mode is replace and no selection', async () => {
-    vi.mocked(askLLM).mockResolvedValueOnce('Complete new content.');
-    render(<AiActionsBar {...defaultProps} />);
+  it('refuses to rewrite the whole note when nothing is selected (data-loss guard)', async () => {
+    const onError = vi.fn();
+    // No askLLM mock: the guard must short-circuit before any model call.
+    render(<AiActionsBar {...defaultProps} onError={onError} />);
 
-    // 'Expand' has mode 'replace'
-    const expandBtn = screen.getByLabelText('Expand');
-    fireEvent.click(expandBtn);
+    // 'Expand' is a replace-mode action; with no selection it must not touch the
+    // document — it prompts the user to select text instead of overwriting everything.
+    fireEvent.click(screen.getByLabelText('Expand'));
 
-    await waitFor(() => {
-      expect(mockEditor.commands.setContent).toHaveBeenCalledWith(
-        '<p>Complete new content.</p>'
-      );
-    });
+    await waitFor(() => expect(onError).toHaveBeenCalled());
+    expect(askLLM).not.toHaveBeenCalled();
+    expect(mockEditor.commands.setContent).not.toHaveBeenCalled();
   });
 
   it('appends with custom heading for analysis actions', async () => {
@@ -218,21 +217,23 @@ describe('AiActionsBar', () => {
     const firstCallSignal = vi.mocked(askLLM).mock.calls[0][1].signal;
     expect(firstCallSignal.aborted).toBe(false);
 
-    const expandBtn = screen.getByLabelText('Expand');
-    
+    // Use a second append-mode action (Summarize) — replace-mode now requires a
+    // selection, so it would short-circuit before starting a second request.
+    const secondBtn = screen.getByLabelText('Summarize');
+
     // Trigger onClick directly via React internal props key to bypass disabled state
-    const propKey = Object.keys(expandBtn).find(
+    const propKey = Object.keys(secondBtn).find(
       (k) => k.startsWith('__reactProps') || k.startsWith('__reactEventHandlers')
     );
     if (propKey) {
       act(() => {
-        (expandBtn as any)[propKey].onClick({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
+        (secondBtn as any)[propKey].onClick({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
       });
     } else {
-      expandBtn.removeAttribute('disabled');
+      secondBtn.removeAttribute('disabled');
       act(() => {
-        (expandBtn as any).disabled = false;
-        fireEvent.click(expandBtn);
+        (secondBtn as any).disabled = false;
+        fireEvent.click(secondBtn);
       });
     }
 

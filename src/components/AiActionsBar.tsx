@@ -198,6 +198,14 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
       return;
     }
 
+    // Guard the data-loss footgun: replace-mode actions rewrite their input, so
+    // require an explicit selection. Without one they used to silently overwrite
+    // the entire note. Users who want to transform the whole note select all first.
+    if (action.mode === 'replace' && !hasSelection) {
+      onError?.(t('aiSelectToRewrite'));
+      return;
+    }
+
     const selectedText = piiMasking ? maskPii(rawText).maskedText : rawText;
 
     setActiveId(action.id);
@@ -210,11 +218,9 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
       const html = mdToHtml(result);
 
       if (action.mode === 'replace') {
-        if (hasSelection) {
-          editor.chain().focus().deleteSelection().insertContent(html).run();
-        } else {
-          editor.commands.setContent(html);
-        }
+        // Guaranteed to have a selection here (guarded above); replacing via a
+        // chain transaction keeps it in the undo history, unlike setContent().
+        editor.chain().focus().deleteSelection().insertContent(html).run();
       } else {
         const headingHtml = action.headingKey ? `<hr><h2>${t(action.headingKey)}</h2>` : '<hr>';
         editor.commands.focus('end');
