@@ -100,7 +100,7 @@ export function AppModals({
         <QuickOpen
           notes={notes}
           onSelect={onOpenNote}
-          onCreateNote={(name) => { void onHandleCreateNote(name); }}
+          onCreateNote={(name) => { void onHandleCreateNote({ title: name }); }}
           onOpenDaily={() => { void onHandleOpenDaily(); }}
           onOpenSettings={panels.openSettings}
           onOpenShortcuts={panels.openShortcuts}

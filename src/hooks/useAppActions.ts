@@ -8,6 +8,7 @@ export function useAppActions({
   toast,
   fetchNotes,
   createNote,
+  createTitledNote,
   openOrCreateDaily,
   deleteNote,
   renameNote,
@@ -17,18 +18,25 @@ export function useAppActions({
   deleteFolder,
   moveNote,
 }: AppActionsArgs) {
-  const handleCreateNote = useCallback(async (folder?: string) => {
+  const handleCreateNote = useCallback(async (opts?: { folder?: string; title?: string }) => {
     try {
+      const title = opts?.title?.trim();
+      if (title) {
+        // Named capture (⌘P → type a name → Enter): the file is named after the
+        // title and the title is seeded as the <h1>.
+        await createTitledNote(title, opts?.folder);
+        return;
+      }
       const baseName = `${t('newNoteFilePrefix')}_${Date.now()}.md`;
       // Empty title + body: the caret lands in the empty <h1> (NoteEditor focuses
       // 'start'), the placeholder shows "Title", and the filename then follows
       // whatever title you type — Apple Notes muscle memory.
       const initialContent = '<h1></h1><p></p>';
-      await createNote(folder ? `${folder}/${baseName}` : baseName, initialContent);
+      await createNote(opts?.folder ? `${opts.folder}/${baseName}` : baseName, initialContent);
     } catch (err: unknown) {
       toast((err as Error).message, 'error');
     }
-  }, [createNote, toast, t]);
+  }, [createNote, createTitledNote, toast, t]);
 
   const handleOpenDaily = useCallback(async () => {
     try {

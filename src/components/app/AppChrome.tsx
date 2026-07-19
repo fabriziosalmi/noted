@@ -278,7 +278,7 @@ export function AppChrome({
                     activeNoteName={activeNoteName}
                     pinnedNotes={pinnedNotes}
                     onSelectNote={onOpenNote}
-                    onCreateNote={(folder) => { void onHandleCreateNote(folder); }}
+                    onCreateNote={(folder) => { void onHandleCreateNote({ folder }); }}
                     onDeleteNote={(name) => { void onHandleDeleteNote(name); }}
                     onRenameNote={onHandleRenameNote}
                     onTogglePin={onTogglePin}

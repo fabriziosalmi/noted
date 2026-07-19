@@ -103,6 +103,23 @@ describe('useStore', () => {
     ]);
   });
 
+  it('createTitledNote names files after the title (collision-safe) and seeds the H1', async () => {
+    window.electronAPI.saveNote = vi.fn().mockResolvedValue({ success: true });
+    window.electronAPI.readNote = vi.fn().mockResolvedValue({ success: true, data: '<h1>Ideas</h1><p></p>' });
+    window.electronAPI.getNotesTree = vi.fn().mockResolvedValue({
+      success: true,
+      data: { rootNotes: [], folders: [] },
+    });
+
+    // First: filename follows the title, in the given folder, with the title as <h1>.
+    await useStore.getState().createTitledNote('Ideas', 'Work');
+    expect(window.electronAPI.saveNote).toHaveBeenCalledWith('Work/Ideas.md', '<h1>Ideas</h1><p></p>', undefined);
+
+    // Second with the same title: collision-safe, appends " 2" — no lost title, no stray folder.
+    await useStore.getState().createTitledNote('Ideas', 'Work');
+    expect(window.electronAPI.saveNote).toHaveBeenLastCalledWith('Work/Ideas 2.md', '<h1>Ideas</h1><p></p>', undefined);
+  });
+
   it('should save active note', async () => {
     useStore.setState({ activeNoteName: 'test.md' });
     window.electronAPI.saveNote = vi.fn().mockResolvedValue({ success: true });

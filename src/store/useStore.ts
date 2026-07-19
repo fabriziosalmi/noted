@@ -188,6 +188,7 @@ interface NoteState {
   // Actions
   fetchNotes: () => Promise<void>;
   createNote: (fileName: string, initialContent?: string) => Promise<void>;
+  createTitledNote: (title: string, folder?: string) => Promise<void>;
   openNote: (fileName: string) => Promise<void>;
   saveActiveNote: (content: string) => Promise<void>;
   flushNoteToDisk: (name: string, content: string, frontmatter: string | null) => Promise<void>;
@@ -367,6 +368,25 @@ export const useStore = create<NoteState>()(
     await get().openNote(fileName);
     await get().fetchNotes();
     set(state => ensureOptimisticNoteVisible(state, fileName, content) ?? state);
+  },
+
+  // Create a note whose filename follows a given title (Apple Notes-style
+  // capture: ⌘P → type a name → Enter). Collision-safe within the folder; the
+  // title is seeded as the <h1> so the caret lands right after it.
+  createTitledNote: async (title: string, folder?: string) => {
+    const trimmed = title.trim();
+    const lang = get().settings.language ?? 'en';
+    const stem = slugifyTitle(trimmed) || `${translate('newNoteFilePrefix', lang)}_${Date.now()}`;
+    const prefix = folder ? `${folder}/` : '';
+    const taken = new Set(get().notes.map(n => n.name));
+    let candidate = `${prefix}${stem}.md`;
+    let n = 2;
+    while (taken.has(candidate)) {
+      candidate = `${prefix}${stem} ${n}.md`;
+      n++;
+    }
+    const safeTitle = trimmed.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    await get().createNote(candidate, `<h1>${safeTitle}</h1><p></p>`);
   },
 
   openNote: async (fileName: string) => {

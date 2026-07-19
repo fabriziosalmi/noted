@@ -11,7 +11,7 @@ export type ToastVariant = 'success' | 'error';
 export type UpdateSettingsFn = (patch: Partial<SettingsState>) => void;
 export type OpenNoteFn = (name: string) => Promise<void>;
 export type SaveActiveNoteFn = (content: string) => Promise<void>;
-export type CreateNoteFn = (folder?: string) => Promise<void>;
+export type CreateNoteFn = (opts?: { folder?: string; title?: string }) => Promise<void>;
 export type DeleteNoteFn = (name: string) => Promise<void>;
 export type RenameNoteFn = (oldName: string, newName: string) => Promise<void>;
 export type OpenDailyFn = () => Promise<void>;

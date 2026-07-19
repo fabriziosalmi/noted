@@ -49,7 +49,7 @@ function App() {
   // Action functions are stable across renders — pull them once from the
   // bare store object, no subscription.
   const {
-    fetchNotes, createNote, openNote, saveActiveNote, deleteNote, renameNote,
+    fetchNotes, createNote, createTitledNote, openNote, saveActiveNote, deleteNote, renameNote,
     updateSettings, loadApiKey,
     togglePin, openOrCreateDaily,
     saveAsTemplate, deleteTemplate, createFromTemplate,
@@ -107,6 +107,7 @@ function App() {
     toast,
     fetchNotes,
     createNote,
+    createTitledNote,
     openOrCreateDaily,
     deleteNote,
     renameNote,

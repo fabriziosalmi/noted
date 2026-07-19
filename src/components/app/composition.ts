@@ -38,7 +38,7 @@ interface AppCompositionActions {
   onSetActiveTagFilter: (tag: string | null) => void;
   onOpenNote: (name: string) => Promise<void>;
   onSaveActiveNote: (content: string) => Promise<void>;
-  onHandleCreateNote: (folder?: string) => Promise<void>;
+  onHandleCreateNote: (opts?: { folder?: string; title?: string }) => Promise<void>;
   onHandleDeleteNote: (name: string) => Promise<void>;
   onHandleRenameNote: (oldName: string, newName: string) => Promise<void>;
   onHandleOpenDaily: () => Promise<void>;

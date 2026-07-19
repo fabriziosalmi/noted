@@ -11,6 +11,7 @@ export interface AppActionsArgs {
   toast: ToastFn;
   fetchNotes: () => Promise<void>;
   createNote: (fileName: string, initialContent?: string) => Promise<void>;
+  createTitledNote: (title: string, folder?: string) => Promise<void>;
   openOrCreateDaily: () => Promise<void>;
   deleteNote: (fileName: string) => Promise<void>;
   renameNote: (oldName: string, newName: string) => Promise<void>;
