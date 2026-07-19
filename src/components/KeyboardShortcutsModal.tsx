@@ -25,9 +25,12 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
       titleKey: 'sectionGeneral',
       rows: [
         { keys: ['⌘', 'P'], descriptionKey: 'shortcutQuickOpen' },
+        { keys: ['⌘', '⇧', 'F'], descriptionKey: 'shortcutSearchAll' },
         { keys: ['⌘', 'S'], descriptionKey: 'shortcutSave' },
         { keys: ['⌘', 'F'], descriptionKey: 'shortcutFind' },
         { keys: ['⌘', '\\'], descriptionKey: 'shortcutFocusMode' },
+        { keys: ['⌘', 'Z'], descriptionKey: 'shortcutUndo' },
+        { keys: ['⌘', '⇧', 'Z'], descriptionKey: 'shortcutRedo' },
         { keys: ['?'], descriptionKey: 'shortcutShowShortcuts' },
       ],
     },
@@ -35,6 +38,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
       titleKey: 'sectionAi',
       rows: [
         { keys: ['/'], descriptionKey: 'shortcutSlash' },
+        { keys: ['⌘', 'L'], descriptionKey: 'shortcutGhostManual' },
         { keys: ['Tab'], descriptionKey: 'shortcutTab' },
         { keys: ['Esc'], descriptionKey: 'shortcutEsc' },
       ],
@@ -53,6 +57,8 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
     {
       titleKey: 'sectionNotes',
       rows: [
+        { keys: ['⌘', 'N'], descriptionKey: 'shortcutNewNote' },
+        { keys: ['⌘', '⇧', 'Space'], descriptionKey: 'shortcutQuickCapture' },
         { keys: [t('gestureDoubleClick')], descriptionKey: 'shortcutRename' },
       ],
     },
