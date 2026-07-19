@@ -39,6 +39,7 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
   const syncDirectory = useStore(s => s.settings.syncDirectory);
   const [query, setQuery]       = useState('');
   const [results, setResults]   = useState<SearchResult[]>([]);
+  const [truncated, setTruncated] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
   const inputRef   = useRef<HTMLInputElement>(null);
@@ -57,6 +58,7 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!query.trim() || query.trim().length < 2) {
       setResults([]);
+      setTruncated(false);
       setLoading(false);
       return;
     }
@@ -67,6 +69,7 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
       // Drop the result if a newer query has been fired in the meantime.
       if (myId !== queryIdRef.current) return;
       setResults((res?.data ?? []) as SearchResult[]);
+      setTruncated(!!res?.truncated);
       setLoading(false);
     }, 260);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
@@ -179,6 +182,12 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
             </button>
           ))}
         </div>
+
+        {truncated && (
+          <div className="px-4 py-1.5 text-[11px] text-amber-600 dark:text-amber-400 border-t border-gray-100/40 dark:border-gray-800/40 bg-amber-50/20 dark:bg-amber-900/10">
+            {t('searchTruncated')}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="px-4 py-2 border-t border-gray-100/40 dark:border-gray-800/40 flex items-center gap-4 text-[11px] text-gray-400">

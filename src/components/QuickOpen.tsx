@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react';
 import Fuse from 'fuse.js';
 import { CalendarDays, FileText, Keyboard, LayoutTemplate, Search, Settings } from 'lucide-react';
-import type { NoteFile } from '../store/useStore';
+import { useStore, type NoteFile } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
 import { useModalStack } from '../hooks/useModalStack';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -27,7 +27,10 @@ interface QuickAction {
 
 export function QuickOpen({ notes, onSelect, onCreateNote, onOpenDaily, onOpenSettings, onOpenShortcuts, onOpenTemplates, onClose }: QuickOpenProps) {
   const { t } = useI18n();
+  const syncDirectory = useStore(s => s.settings.syncDirectory);
   const [query, setQuery] = useState('');
+  const [contentMatches, setContentMatches] = useState<NoteFile[]>([]);
+  const searchTokenRef = useRef(0);
   const [activeIdx, setActiveIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -46,7 +49,7 @@ export function QuickOpen({ notes, onSelect, onCreateNote, onOpenDaily, onOpenSe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [notesKey]);
 
-  const results = useMemo(() => {
+  const nameResults = useMemo(() => {
     if (query.startsWith('/')) return [];
     if (!query.trim()) {
       return [...notes]
@@ -59,6 +62,34 @@ export function QuickOpen({ notes, onSelect, onCreateNote, onOpenDaily, onOpenSe
       .map((r) => notesMap.get(r.item.path))
       .filter((n): n is NoteFile => !!n);
   }, [fuse, query, notes]);
+
+  // Full-text pass: so ⌘P finds notes by *content*, not just filename. Name
+  // matches rank first; content-only hits follow. Debounced, with an
+  // out-of-order guard mirroring GlobalSearch.
+  useEffect(() => {
+    const q = query.trim();
+    if (query.startsWith('/') || q.length < 2) { setContentMatches([]); return; }
+    const api = window.electronAPI;
+    if (!api?.searchNotesFulltext) return;
+    const token = ++searchTokenRef.current;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.searchNotesFulltext(q, syncDirectory ?? undefined);
+        if (token !== searchTokenRef.current) return;
+        const byName = new Map(notes.map(n => [n.name, n]));
+        setContentMatches((res?.data ?? [])
+          .map(d => byName.get(d.relPath))
+          .filter((n): n is NoteFile => !!n));
+      } catch { /* full-text is best-effort; name matches still work */ }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [query, notes, syncDirectory]);
+
+  const results = useMemo(() => {
+    if (query.startsWith('/') || !query.trim()) return nameResults;
+    const seen = new Set(nameResults.map(n => n.path));
+    return [...nameResults, ...contentMatches.filter(n => !seen.has(n.path))];
+  }, [nameResults, contentMatches, query]);
   const normalizedQuery = query.trim().replace(/\.md$/i, '');
   const actions = useMemo<QuickAction[]>(() => ([
     {

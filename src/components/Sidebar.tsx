@@ -692,9 +692,6 @@ export function Sidebar({
           <Search size={12} className="text-gray-400 group-focus-within:text-[var(--accent)] shrink-0 transition-colors duration-200" />
           <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder={t('search')}
             className="bg-transparent text-xs text-gray-700 dark:text-gray-200 placeholder-gray-400 outline-none w-full" />
-          <kbd className="text-[9px] font-sans font-medium text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-900 group-focus-within:bg-white dark:group-focus-within:bg-gray-800 px-1 py-0.5 rounded shadow-sm border border-gray-200 dark:border-gray-700 shrink-0 select-none pointer-events-none transition-colors duration-200">
-            ⌘P
-          </kbd>
         </div>
       </div>
 

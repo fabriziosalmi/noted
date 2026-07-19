@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QuickOpen } from './QuickOpen';
 import type { NoteFile } from '../store/useStore';
 
@@ -15,6 +15,26 @@ describe('QuickOpen', () => {
     Object.defineProperty(window.HTMLElement.prototype, 'scrollIntoView', {
       configurable: true,
       value: vi.fn(),
+    });
+  });
+
+  afterEach(() => { delete (window as { electronAPI?: unknown }).electronAPI; });
+
+  it('finds notes by content via full-text, not just by filename', async () => {
+    const searchNotesFulltext = vi.fn().mockResolvedValue({
+      success: true,
+      data: [{ relPath: 'journal.md', title: 'journal', snippet: '…quantum…', score: 1, terms: ['quantum'] }],
+    });
+    (window as unknown as { electronAPI: unknown }).electronAPI = { searchNotesFulltext };
+
+    // Query matches no filename, only the content the full-text index returns.
+    render(<QuickOpen notes={[mk('journal.md', now)]} onSelect={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText(/open note/i), { target: { value: 'quantum' } });
+
+    await waitFor(() => expect(searchNotesFulltext).toHaveBeenCalled());
+    await waitFor(() => {
+      const rows = screen.getAllByRole('button').filter((el) => el.getAttribute('data-idx') !== null);
+      expect(rows.some((r) => r.textContent?.includes('journal'))).toBe(true);
     });
   });
 
