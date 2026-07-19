@@ -753,8 +753,12 @@ ipcMain.handle('save-note', async (_, fileName: string, content: string, syncDir
     const tmpPath = `${filePath}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
     await writeFileDurable(tmpPath, content);
     await fs.promises.rename(tmpPath, filePath);
-    await fsyncDir(path.dirname(filePath));
+    // Record our own write's mtime *before* the next await. fs.watch may deliver
+    // the rename event during a later await (e.g. fsyncDir), and if markAppWrite
+    // hasn't run yet the watcher can't recognise the write as ours and misfires
+    // the "changed on disk" warning for the app's own save.
     markAppWrite(targetDir, fileName);
+    await fsyncDir(path.dirname(filePath));
     fullTextSearchIndex.upsertFromRaw(targetDir, fileName, content);
     if (isNewNote) {
       win?.webContents.send('refresh-notes');
