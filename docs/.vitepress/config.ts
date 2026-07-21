@@ -11,6 +11,18 @@ export default defineConfig({
   lastUpdated: true,
 
   head: [
+    // Tutto first-party. 'unsafe-inline' serve perche' VitePress emette
+    // uno script inline per il tema e stili inline.
+    [
+      'meta',
+      {
+        'http-equiv': 'Content-Security-Policy',
+        content:
+          "default-src 'self'; script-src 'self' 'unsafe-inline'; " +
+          "style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
+          "font-src 'self'; connect-src 'self'; base-uri 'self'; form-action 'self'",
+      },
+    ],
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/noted/logo.svg' }],
     ['meta', { name: 'theme-color', content: '#6366F1' }],
     ['meta', { name: 'color-scheme', content: 'light dark' }],
@@ -86,7 +98,7 @@ export default defineConfig({
     socialLinks: [{ icon: 'github', link: 'https://github.com/fabriziosalmi/noted' }],
 
     footer: {
-      message: 'Local-first. No account. No telemetry.',
+      message: 'Local-first. No account. No telemetry.' + ' · <a href="https://fabriziosalmi.github.io/privacy">Privacy &amp; legal</a>',
       copyright: 'MIT Licensed · Copyright © Fabrizio Salmi',
     },
 
