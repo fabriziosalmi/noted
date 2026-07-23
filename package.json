@@ -20,7 +20,7 @@
   "scripts": {
     "build:main": "esbuild electron/main.ts --bundle --platform=node --format=cjs --outfile=dist-electron/main.cjs --external:electron --external:fsevents --packages=external",
     "build:preload": "esbuild electron/preload.ts --bundle --platform=node --format=cjs --outfile=dist-electron/preload.js --external:electron",
-    "build:mcp": "esbuild mcp-server/index.ts --bundle --platform=node --format=cjs --outfile=dist-mcp/index.cjs --external:fsevents",
+    "build:mcp": "esbuild mcp-server/index.ts --bundle --platform=node --format=cjs --outfile=dist-mcp/index.cjs --external:fsevents --external:jsdom && npm install jsdom@^29.1.1 --prefix dist-mcp --no-save --no-package-lock --omit=dev",
     "dev": "npm run build:main && npm run build:preload && vite",
     "build": "tsc -b && vite build && npm run build:main && npm run build:preload && npm run build:mcp && electron-builder",
     "build:dmg": "tsc -b && vite build && npm run build:main && npm run build:preload && npm run build:mcp && electron-builder --mac dmg --arm64",
