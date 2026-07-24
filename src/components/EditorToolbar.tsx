@@ -4,11 +4,12 @@ import type { Editor } from '@tiptap/react';
 import {
   Bold, Italic, Strikethrough, Heading1, Heading2, Heading3,
   Table as TableIcon, Code, Search, X, ChevronUp, ChevronDown,
-  List, ListOrdered, Quote, Sparkles,
+  List, ListOrdered, ListChecks, Quote, Sparkles, Highlighter, Link2, Undo2, Redo2,
 } from 'lucide-react';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { AiActionsBar } from './AiActionsBar';
 import { Tooltip } from './Tooltip';
+import { usePrompt } from './ConfirmProvider';
 
 interface Match { from: number; to: number }
 
@@ -65,10 +66,24 @@ interface EditorToolbarProps {
 
 export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findOpen, onCloseFind, onOpenFind, onOpenGlobalSearch, shareSlot, onToggleAiBar }: EditorToolbarProps) {
   const { t } = useI18n();
+  const prompt = usePrompt();
   const [findQuery, setFindQuery] = useState('');
   const [matches, setMatches] = useState<Match[]>([]);
   const [matchIndex, setMatchIndex] = useState(0);
   const findInputRef = useRef<HTMLInputElement>(null);
+
+  // Insert/edit/remove a link on the current selection via the in-app prompt.
+  // Empty input clears the link; the mark range is extended so editing works
+  // even when the caret merely sits inside an existing link.
+  const handleLink = useCallback(async () => {
+    if (!editor) return;
+    const prev = (editor.getAttributes('link').href as string | undefined) ?? '';
+    const url = await prompt({ title: t('linkPromptTitle'), placeholder: 'https://example.com', defaultValue: prev, confirmLabel: t('linkApply') });
+    if (url === null) return; // cancelled
+    const href = url.trim();
+    if (!href) { editor.chain().focus().extendMarkRange('link').unsetLink().run(); return; }
+    editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
+  }, [editor, prompt, t]);
 
   const runFind = useCallback((q: string) => {
     if (!editor) return;
@@ -110,6 +125,13 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
       {showToolbar && (
         <div className="flex items-center justify-between px-4 py-1.5 flex-wrap gap-2">
           <div className="flex items-center gap-0.5 flex-wrap">
+            <TbButton onClick={() => editor.chain().focus().undo().run()} label={t('undo')}>
+              <Undo2 size={15} />
+            </TbButton>
+            <TbButton onClick={() => editor.chain().focus().redo().run()} label={t('redo')}>
+              <Redo2 size={15} />
+            </TbButton>
+            {sep}
             <TbButton onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={editor.isActive('heading', { level: 1 })} label={t('heading1')}>
               <Heading1 size={15} />
             </TbButton>
@@ -132,6 +154,12 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
             <TbButton onClick={() => editor.chain().focus().toggleCode().run()} active={editor.isActive('code')} label={t('inlineCode')}>
               <Code size={15} />
             </TbButton>
+            <TbButton onClick={() => editor.chain().focus().toggleHighlight().run()} active={editor.isActive('highlight')} label={t('highlight')}>
+              <Highlighter size={15} />
+            </TbButton>
+            <TbButton onClick={handleLink} active={editor.isActive('link')} label={t('link')}>
+              <Link2 size={15} />
+            </TbButton>
             {sep}
             <TbButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} label={t('bulletList')}>
               <List size={15} />
@@ -141,6 +169,9 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
             </TbButton>
             <TbButton onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} label={t('blockquote')}>
               <Quote size={15} />
+            </TbButton>
+            <TbButton onClick={() => editor.chain().focus().toggleTaskList().run()} active={editor.isActive('taskList')} label={t('taskList')}>
+              <ListChecks size={15} />
             </TbButton>
             {sep}
             <TbButton onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} label={t('insertTable')}>

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { validateFileName, validateFolderName, stripUnsafeHtml, formatAppleNoteToMarkdown } from './ipc-utils';
+import { validateFileName, validateFolderName, stripUnsafeHtml, formatAppleNoteToMarkdown, isAppOwnVaultEvent } from './ipc-utils';
 import type TurndownService from 'turndown';
 
 describe('validateFileName', () => {
@@ -220,3 +220,44 @@ describe('formatAppleNoteToMarkdown', () => {
   });
 });
 
+
+describe('isAppOwnVaultEvent', () => {
+  const base = { nowMs: 10_000, deleteWindowMs: 3_000 };
+
+  it('claims a write whose mtime matches the one the app just wrote', () => {
+    expect(isAppOwnVaultEvent({ ...base, mtimeMs: 500, lastAppWriteMtimeMs: 500 })).toBe(true);
+  });
+
+  it('reports a write the app did not make', () => {
+    expect(isAppOwnVaultEvent({ ...base, mtimeMs: 700, lastAppWriteMtimeMs: 500 })).toBe(false);
+    expect(isAppOwnVaultEvent({ ...base, mtimeMs: 700 })).toBe(false);
+  });
+
+  it('reports a note created by someone else — the case that left new notes invisible', () => {
+    // No prior app write for this name at all: an MCP client creating a note.
+    expect(isAppOwnVaultEvent({ ...base, mtimeMs: 1_234 })).toBe(false);
+  });
+
+  it('claims a deletion the app made inside the window', () => {
+    expect(isAppOwnVaultEvent({ ...base, mtimeMs: null, appDeletedAtMs: 9_000 })).toBe(true);
+  });
+
+  it('claims a deletion reported twice — fs.watch may repeat one removal', () => {
+    const args = { ...base, mtimeMs: null, appDeletedAtMs: 9_000 };
+    expect(isAppOwnVaultEvent(args)).toBe(true);
+    expect(isAppOwnVaultEvent(args)).toBe(true);
+  });
+
+  it('reports a deletion by someone else', () => {
+    expect(isAppOwnVaultEvent({ ...base, mtimeMs: null })).toBe(false);
+  });
+
+  it('reports a deletion once the app claim has gone stale', () => {
+    expect(isAppOwnVaultEvent({ ...base, mtimeMs: null, appDeletedAtMs: 6_000 })).toBe(false);
+  });
+
+  it('does not let a stale write claim suppress a later deletion of the same name', () => {
+    // The app wrote the note earlier; an external writer then removed it.
+    expect(isAppOwnVaultEvent({ ...base, mtimeMs: null, lastAppWriteMtimeMs: 500 })).toBe(false);
+  });
+});

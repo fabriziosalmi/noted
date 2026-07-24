@@ -131,6 +131,22 @@ async function transportFetch(url: string, init: { method: string; headers: Reco
   return { ok: res.ok, status: res.status, text: await res.text() };
 }
 
+/**
+ * LM Studio and Ollama JIT-load an embedding model on the first request,
+ * answering 5xx until it is resident in memory. Without a retry the very first
+ * query of a session throws, `findRelevantNotesHybrid` catches it, and the turn
+ * silently degrades to lexical — the feature looks broken on first use. One
+ * retry after a short pause lets the model finish loading. Cloud providers
+ * (OpenAI) don't cold-start, so they don't use this.
+ */
+async function localEmbeddingFetch(url: string, body: string): Promise<{ ok: boolean; status: number; text: string }> {
+  const req = () => transportFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+  const res = await req();
+  if (res.ok || res.status < 500) return res;
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  return req();
+}
+
 async function fetchEmbedding(provider: HybridRetrievalConfig['provider'], model: string, input: string, apiKey?: string, lmStudioUrl?: string): Promise<number[]> {
   if (provider === 'none' || !model.trim()) throw new Error('Embeddings not configured');
 
@@ -153,11 +169,7 @@ async function fetchEmbedding(provider: HybridRetrievalConfig['provider'], model
 
   if (provider === 'lmstudio') {
     const base = normalizeBaseUrl(lmStudioUrl ?? '');
-    const res = await transportFetch(`${base}/embeddings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, input }),
-    });
+    const res = await localEmbeddingFetch(`${base}/embeddings`, JSON.stringify({ model, input }));
     if (!res.ok) throw new Error(`LM Studio embeddings HTTP ${res.status}`);
     const data = JSON.parse(res.text) as { data?: { embedding?: number[] }[] };
     const emb = data.data?.[0]?.embedding;
@@ -165,11 +177,7 @@ async function fetchEmbedding(provider: HybridRetrievalConfig['provider'], model
     return emb;
   }
 
-  const res = await transportFetch('http://localhost:11434/api/embeddings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, prompt: input }),
-  });
+  const res = await localEmbeddingFetch('http://localhost:11434/api/embeddings', JSON.stringify({ model, prompt: input }));
   if (!res.ok) throw new Error(`Ollama embeddings HTTP ${res.status}`);
   const data = JSON.parse(res.text) as { embedding?: number[] };
   if (!data.embedding || data.embedding.length === 0) throw new Error('Empty Ollama embedding');

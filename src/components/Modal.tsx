@@ -16,6 +16,12 @@ interface ModalProps {
   className?: string;
   /** Allow closing by clicking the backdrop. Default true. */
   dismissOnBackdrop?: boolean;
+  /**
+   * Render an opaque panel instead of the translucent glass one. Use for
+   * dialogs whose readability suffers when the note behind them shows through
+   * (e.g. Settings, with its dense forms).
+   */
+  solid?: boolean;
   children: ReactNode;
 }
 
@@ -37,6 +43,7 @@ export function Modal({
   ariaLabel,
   className = '',
   dismissOnBackdrop = true,
+  solid = false,
   children,
 }: ModalProps) {
   const { t } = useI18n();
@@ -65,7 +72,7 @@ export function Modal({
         aria-labelledby={labelledBy}
         aria-label={labelledBy ? undefined : ariaLabel}
         tabIndex={-1}
-        className={`relative z-10 glass-modal rounded-xl shadow-2xl flex flex-col overflow-hidden modal-content-animate outline-none ${className}`}
+        className={`relative z-10 ${solid ? 'solid-modal' : 'glass-modal'} rounded-xl shadow-2xl flex flex-col overflow-hidden modal-content-animate outline-none ${className}`}
       >
         {children}
       </div>

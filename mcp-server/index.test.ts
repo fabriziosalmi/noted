@@ -169,7 +169,59 @@ const {
   excerpt,
   main,
   resolveNotesDir,
+  formatLocal,
+  taskListsToTiptap,
 } = await import('./index');
+
+describe('MCP taskListsToTiptap', () => {
+  it('rewrites a tight GFM task list into TipTap taskList markup', () => {
+    const html = markdownToHtml('- [x] done\n- [ ] todo');
+    expect(html).toContain('<ul data-type="taskList">');
+    expect(html).toContain('data-type="taskItem" data-checked="true"');
+    expect(html).toContain('data-type="taskItem" data-checked="false"');
+    expect(html).toContain('<input type="checkbox" checked>');
+    // The inert, disabled checkbox that marked emits must be gone.
+    expect(html).not.toContain('disabled');
+  });
+
+  it('handles loose task lists (items wrapped in <p>)', () => {
+    const html = markdownToHtml('- [x] a\n\n- [ ] b');
+    expect(html).toContain('<ul data-type="taskList">');
+    expect((html.match(/data-type="taskItem"/g) ?? []).length).toBe(2);
+  });
+
+  it('leaves a plain bullet list untouched', () => {
+    const html = markdownToHtml('- one\n- two');
+    expect(html).not.toContain('taskList');
+    expect(html).not.toContain('taskItem');
+  });
+
+  it('preserves item text', () => {
+    expect(taskListsToTiptap('<ul>\n<li><input disabled="" type="checkbox"> Buy milk</li>\n</ul>'))
+      .toContain('<p>Buy milk</p>');
+  });
+});
+
+describe('MCP formatLocal', () => {
+  it('renders the local calendar date, not the UTC one', () => {
+    // 2026-07-23T22:36:10Z is already the 24th in any timezone east of UTC.
+    const d = new Date('2026-07-23T22:36:10Z');
+    const expected = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    expect(formatLocal(d)).toBe(expected);
+  });
+
+  it('renders local wall-clock time when asked for it', () => {
+    const d = new Date('2026-07-23T22:36:10Z');
+    expect(formatLocal(d, true)).toBe(
+      `${formatLocal(d)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:10`
+    );
+  });
+
+  it('pads single-digit months, days and times', () => {
+    const d = new Date(2026, 0, 5, 7, 8, 9); // local by construction
+    expect(formatLocal(d, true)).toBe('2026-01-05 07:08:09');
+  });
+});
 
 describe('MCP validateNoteName', () => {
   it('accepts valid markdown filenames and single subfolder notes', () => {

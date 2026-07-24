@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { validateFileName, validateFolderName, stripUnsafeHtml } from './ipc-utils.js';
+import { validateFileName, validateFolderName, stripUnsafeHtml, isAppOwnVaultEvent } from './ipc-utils.js';
 import { registerCloudDetectorHandlers } from './src/services/cloud-detector.js';
 import { registerImporterHandlers } from './src/services/importer.js';
 import { registerExporterHandlers } from './src/services/exporter.js';
@@ -110,16 +110,44 @@ ipcMain.on('set-active-vault-dir', (_e, dir: unknown) => {
   startVaultWatch();
 });
 
-// Watch the vault so an external writer (e.g. an MCP client editing a note the
-// user has open) doesn't get silently clobbered by the editor's autosave: we
-// tell the renderer, which warns the user. The app's own writes are suppressed
-// by recording the mtime we just wrote.
+// Watch the vault so writes by anyone other than the app itself (an MCP client,
+// a sync client) reach the renderer: it refreshes the note list, and warns the
+// user when the note they have open changed underneath them so the editor's
+// autosave doesn't silently clobber it. The app's own writes are suppressed by
+// recording the mtime we just wrote.
 let vaultWatcher: fs.FSWatcher | null = null;
 let watchedDir: string | null = null;
 const appWriteMtimes = new Map<string, number>();
+// Deletions the app made itself, by name. A trashed file can't be stat'd, so
+// the mtime above can't identify it as ours — we remember it briefly instead.
+const appDeletes = new Map<string, number>();
+const APP_DELETE_WINDOW_MS = 3000;
+
+// Cap the app-write mtime map so a long session writing many notes can't grow
+// it without bound. An entry only needs to outlive the watcher echo of its own
+// write (sub-second), so evicting the least-recently-written once over the cap
+// is safe — those echoes fired long ago.
+const MAX_APP_WRITE_MTIMES = 512;
 
 function markAppWrite(dir: string, fileName: string): void {
-  try { appWriteMtimes.set(fileName, fs.statSync(safeResolve(dir, fileName)).mtimeMs); } catch { /* ignore */ }
+  try {
+    const mtime = fs.statSync(safeResolve(dir, fileName)).mtimeMs;
+    appWriteMtimes.delete(fileName); // re-insert so this note moves to newest
+    appWriteMtimes.set(fileName, mtime);
+    while (appWriteMtimes.size > MAX_APP_WRITE_MTIMES) {
+      const oldest = appWriteMtimes.keys().next().value;
+      if (oldest === undefined) break;
+      appWriteMtimes.delete(oldest);
+    }
+  } catch { /* ignore */ }
+}
+
+function markAppDelete(fileName: string): void {
+  const now = Date.now();
+  for (const [name, at] of appDeletes) {
+    if (now - at > APP_DELETE_WINDOW_MS) appDeletes.delete(name);
+  }
+  appDeletes.set(fileName, now);
 }
 
 function startVaultWatch(): void {
@@ -133,9 +161,18 @@ function startVaultWatch(): void {
       if (!filename) return;
       const name = String(filename).split(path.sep).join('/');
       if (!name.endsWith('.md') || name.includes('.noted_history/')) return;
-      let mtime: number;
-      try { mtime = fs.statSync(path.join(dir, name)).mtimeMs; } catch { return; }
-      if (appWriteMtimes.get(name) === mtime) return; // our own recent write
+      // A file we can't stat is gone — deleted, or renamed away. Report those
+      // too: dropping them left notes removed by an external writer sitting in
+      // the sidebar until the next launch.
+      let mtimeMs: number | null = null;
+      try { mtimeMs = fs.statSync(path.join(dir, name)).mtimeMs; } catch { /* gone */ }
+      if (isAppOwnVaultEvent({
+        mtimeMs,
+        lastAppWriteMtimeMs: appWriteMtimes.get(name),
+        appDeletedAtMs: appDeletes.get(name),
+        nowMs: Date.now(),
+        deleteWindowMs: APP_DELETE_WINDOW_MS,
+      })) return;
       win?.webContents.send('note-changed-externally', name);
     });
   } catch { /* fs.watch may be unsupported on some filesystems — best-effort */ }
@@ -812,6 +849,9 @@ ipcMain.handle('rename-note', (_, oldName: string, newName: string, syncDir?: st
     const oldPath = safeResolve(targetDir, oldName);
     const newPath = safeResolve(targetDir, newName);
     if (fs.existsSync(newPath)) throw new Error(`Una nota con il nome "${newName}" esiste già`);
+    // The old name vanishes from the vault — claim it like a delete, or the
+    // watcher reports the rename as an external removal.
+    markAppDelete(oldName);
     fs.renameSync(oldPath, newPath);
     // Move the note's version history with it — a title-driven rename fires on
     // every title edit, and this keeps ".noted_history/<name>" from orphaning.
@@ -837,6 +877,9 @@ ipcMain.handle('delete-note', async (_, fileName: string, syncDir?: string) => {
     validateFileName(fileName);
     const targetDir = getTargetDir(syncDir);
     const filePath = safeResolve(targetDir, fileName);
+    // Claim the delete before it happens: the watcher fires as soon as the file
+    // leaves the vault, and an unclaimed removal reads as an external one.
+    markAppDelete(fileName);
     // Move to the OS Trash (recoverable) rather than an unrecoverable unlink.
     await shell.trashItem(filePath);
     fullTextSearchIndex.deleteDoc(targetDir, fileName);
@@ -1275,7 +1318,16 @@ const LLM_HOST_ALLOWLIST = new Set<string>([
   'api.deepseek.com',
   'api.cohere.ai', 'api.cohere.com',
   'api.perplexity.ai',
-  'api.together.xyz',
+  'api.together.xyz', 'api.together.ai',
+  // OpenAI-compatible inference providers (base URL host only; verified against
+  // each provider's docs). Any other endpoint is still reachable by configuring
+  // it as the OpenAI-compatible provider, which allowlists its host at runtime.
+  'api.regolo.ai',
+  'api.x.ai',
+  'api.fireworks.ai',
+  'api.deepinfra.com',
+  'api.cerebras.ai',
+  'api.sambanova.ai',
 ]);
 // Hosts of the user's configured local/custom LLM endpoints (reported by the
 // renderer from settings, e.g. a LAN Ollama).

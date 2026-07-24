@@ -45,13 +45,15 @@ export interface NoteFile {
   preview?: string;
 }
 
-export type LLMProvider = 'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'lmstudio' | 'ollama';
+export type LLMProvider = 'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'openai-compatible' | 'lmstudio' | 'ollama';
 
 export interface SettingsState {
   llmProvider: LLMProvider;
   llmApiKey: string;
   llmModel: string;
   lmStudioUrl: string;
+  /** Base URL for the generic 'openai-compatible' provider (e.g. Regolo). */
+  openaiCompatibleUrl: string;
   syncDirectory: string | null;
   showToolbar: boolean;
   showAiBar: boolean;
@@ -246,6 +248,7 @@ export const useStore = create<NoteState>()(
         llmApiKey: '',
         llmModel: '',
         lmStudioUrl: 'http://localhost:1234/v1',
+        openaiCompatibleUrl: '',
         syncDirectory: null,
         showToolbar: true,
         showAiBar: false,

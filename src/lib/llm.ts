@@ -174,11 +174,16 @@ function normalizeBaseUrl(url: string): string {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
 }
 
-export async function fetchAvailableModels(provider: string, lmStudioUrl: string): Promise<string[]> {
+export async function fetchAvailableModels(provider: string, baseUrl: string, apiKey?: string): Promise<string[]> {
   try {
-    if (provider === 'lmstudio') {
-      const base = normalizeBaseUrl(lmStudioUrl);
-      const res = await apiFetch(`${base}/models`, { method: 'GET', headers: { 'Content-Type': 'application/json' }, body: '' });
+    // LM Studio and any OpenAI-compatible endpoint both expose GET {base}/models
+    // in the OpenAI schema; the latter needs the bearer key.
+    if (provider === 'lmstudio' || provider === 'openai-compatible') {
+      const base = normalizeBaseUrl(baseUrl);
+      if (!base) return [];
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+      const res = await apiFetch(`${base}/models`, { method: 'GET', headers, body: '' });
       if (!res.ok) return [];
       const data = JSON.parse(await res.text()) as { data: { id: string }[] };
       return data.data.map(m => m.id);
@@ -210,10 +215,12 @@ interface ChatMessage {
 
 export async function askLLM(messages: ChatMessage[], opts: { signal?: AbortSignal } = {}): Promise<string> {
   const settings = useStore.getState().settings;
-  const { llmProvider, llmApiKey, llmModel, lmStudioUrl, piiMasking } = settings;
+  const { llmProvider, llmApiKey, llmModel, lmStudioUrl, openaiCompatibleUrl, piiMasking } = settings;
   const { signal } = opts;
 
-  const isCloud = ['openai', 'anthropic', 'gemini', 'openrouter'].includes(llmProvider);
+  // 'openai-compatible' is a remote endpoint (Regolo et al.) — treat it as cloud
+  // so PII masking applies and a missing key is caught early.
+  const isCloud = ['openai', 'anthropic', 'gemini', 'openrouter', 'openai-compatible'].includes(llmProvider);
   if (isCloud && !llmApiKey) {
     throw new Error(tr('errApiKeyMissing'));
   }
@@ -237,6 +244,8 @@ export async function askLLM(messages: ChatMessage[], opts: { signal?: AbortSign
         return await fetchGemini(outMessages, llmApiKey, resolvedModel || 'gemini-1.5-pro', signal);
       case 'openrouter':
         return await fetchOpenRouter(outMessages, llmApiKey, resolvedModel || 'anthropic/claude-3.5-sonnet', signal);
+      case 'openai-compatible':
+        return await fetchOpenAICompatible(outMessages, llmApiKey, llmModel?.trim() ?? '', openaiCompatibleUrl, signal);
       case 'lmstudio':
         return await fetchLMStudio(outMessages, lmStudioUrl, resolvedModel, signal);
       case 'ollama':
@@ -324,6 +333,32 @@ async function fetchLMStudio(messages: ChatMessage[], baseUrl: string, model: st
   const data = JSON.parse(await res.text()) as { choices: { message: { content: string } }[] };
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error(tr('errEmptyRespLmStudio'));
+  return content;
+}
+
+/**
+ * Generic OpenAI-spec chat endpoint: any provider that speaks
+ * POST {base}/chat/completions with the OpenAI schema (Regolo, Groq, Together,
+ * a self-hosted gateway, …). The base URL and key come from settings; the host
+ * must be allowlisted for fetch (registered from settings.openaiCompatibleUrl).
+ */
+async function fetchOpenAICompatible(messages: ChatMessage[], apiKey: string, model: string, baseUrl: string, signal?: AbortSignal) {
+  const url = normalizeBaseUrl(baseUrl);
+  if (!url) throw new Error(tr('errOpenAICompatUrlMissing'));
+  if (!model) throw new Error(tr('errModelRequired'));
+  // Arbitrary providers may serve models without a system role (gemma/mistral).
+  const payload = supportsSystemRole(model) ? messages : normalizeForNoSystemRole(messages);
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  const res = await apiFetch(`${url}/chat/completions`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ model, messages: payload, temperature: 0.7 }),
+  }, signal);
+  if (!res.ok) throw new Error(await res.text());
+  const data = JSON.parse(await res.text()) as { choices: { message: { content: string } }[] };
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error(tr('errEmptyRespOpenai'));
   return content;
 }
 

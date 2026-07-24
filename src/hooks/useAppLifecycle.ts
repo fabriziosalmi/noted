@@ -60,11 +60,17 @@ export function useAppLifecycle({
   // Register the configured local-LLM endpoint host so main's SSRF allowlist
   // accepts it (a LAN Ollama/LM Studio, beyond loopback + the cloud providers).
   const lmStudioUrl = useStore((state) => state.settings.lmStudioUrl);
+  const openaiCompatibleUrl = useStore((state) => state.settings.openaiCompatibleUrl);
   useEffect(() => {
-    let host: string;
-    try { host = lmStudioUrl ? new URL(lmStudioUrl).hostname : ''; } catch { host = ''; }
-    getElectronApi()?.setLlmHosts?.(host ? [host] : []);
-  }, [lmStudioUrl]);
+    // Allowlist the hosts of every user-configured custom endpoint (LAN Ollama/
+    // LM Studio + a generic OpenAI-compatible provider like Regolo), so main's
+    // SSRF guard lets them through while still blocking everything else.
+    const hosts: string[] = [];
+    for (const u of [lmStudioUrl, openaiCompatibleUrl]) {
+      try { if (u) hosts.push(new URL(u).hostname); } catch { /* skip malformed */ }
+    }
+    getElectronApi()?.setLlmHosts?.(hosts);
+  }, [lmStudioUrl, openaiCompatibleUrl]);
 
   useEffect(() => {
     const api = getElectronApi();

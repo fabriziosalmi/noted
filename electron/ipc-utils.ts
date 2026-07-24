@@ -37,6 +37,33 @@ export function validateFolderName(name: unknown): asserts name is string {
 
 export { stripUnsafeHtml };
 
+/**
+ * Decide whether a vault change seen by the watcher was caused by the app
+ * itself, so it doesn't report its own writes back to the renderer.
+ *
+ * Writes are recognised by mtime: main records the mtime of every file it
+ * writes, and an event carrying that same mtime is ours. Deletions can't use
+ * that trick — a trashed file has no mtime left to compare — so main remembers
+ * the name for a short window instead. The window is matched by time rather
+ * than consumed on first hit because fs.watch may report one removal twice.
+ */
+export function isAppOwnVaultEvent(args: {
+  /** mtime of the changed file, or null when it no longer exists on disk. */
+  mtimeMs: number | null;
+  /** mtime of the app's own last write to this file, if it wrote one. */
+  lastAppWriteMtimeMs?: number;
+  /** When the app last deleted this file, if it did. */
+  appDeletedAtMs?: number;
+  nowMs: number;
+  deleteWindowMs: number;
+}): boolean {
+  const { mtimeMs, lastAppWriteMtimeMs, appDeletedAtMs, nowMs, deleteWindowMs } = args;
+  if (mtimeMs === null) {
+    return appDeletedAtMs !== undefined && nowMs - appDeletedAtMs < deleteWindowMs;
+  }
+  return lastAppWriteMtimeMs === mtimeMs;
+}
+
 export function formatAppleNoteToMarkdown(
   title: string,
   body: string,

@@ -24,6 +24,7 @@ interface Settings {
   llmApiKey: string;
   llmModel: string;
   lmStudioUrl: string;
+  openaiCompatibleUrl: string;
   syncDirectory: string | null;
   showToolbar: boolean;
   showAiBar: boolean;
@@ -66,10 +67,12 @@ interface SettingsModalProps {
 }
 
 const TABS: { id: SettingsTab; labelKey: TranslationKey; icon: LucideIcon }[] = [
-  { id: 'ai',         labelKey: 'tabAi',         icon: Bot },
+  // AI and MCP sit adjacent (positions 4-5): they're the two "external brain"
+  // tabs and were previously split across the row.
   { id: 'appearance', labelKey: 'tabAppearance',  icon: Palette },
   { id: 'editor',     labelKey: 'tabEditor',      icon: Type },
   { id: 'sync',       labelKey: 'tabSync',        icon: FolderSync },
+  { id: 'ai',         labelKey: 'tabAi',         icon: Bot },
   { id: 'mcp',        labelKey: 'tabMcp',         icon: Plug },
   { id: 'git',        labelKey: 'tabIntegrations', icon: GitBranch },
   { id: 'import',     labelKey: 'tabImport',      icon: FolderOpen },
@@ -78,6 +81,8 @@ const TABS: { id: SettingsTab; labelKey: TranslationKey; icon: LucideIcon }[] = 
 const SETTINGS_TAB_IDS = TABS.map((tab) => tab.id);
 
 const isLocalProvider = (p: LLMProvider) => p === 'lmstudio' || p === 'ollama';
+// Providers that expose an OpenAI-style GET /models list we can auto-detect.
+const canDetectModels = (p: LLMProvider) => isLocalProvider(p) || p === 'openai-compatible';
 
 function Toggle({ value, onChange, label }: { value: boolean; onChange: () => void; label?: string }) {
   return (
@@ -514,11 +519,12 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
 
   const discoverModels = useCallback(async () => {
     setDiscovering(true);
-    const models = await fetchAvailableModels(settings.llmProvider, settings.lmStudioUrl);
+    const baseUrl = settings.llmProvider === 'openai-compatible' ? settings.openaiCompatibleUrl : settings.lmStudioUrl;
+    const models = await fetchAvailableModels(settings.llmProvider, baseUrl, settings.llmApiKey);
     setDiscoveredModels(models);
     if (models.length === 1) onUpdate({ llmModel: models[0] });
     setDiscovering(false);
-  }, [settings.llmProvider, settings.lmStudioUrl, onUpdate]);
+  }, [settings.llmProvider, settings.lmStudioUrl, settings.openaiCompatibleUrl, settings.llmApiKey, onUpdate]);
 
   useEffect(() => {
     if (isLocalProvider(settings.llmProvider)) {
@@ -579,7 +585,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
   }, []);
 
   return (
-    <Modal id="settings" onClose={onClose} labelledBy="settings-title" className="w-[520px]">
+    <Modal id="settings" onClose={onClose} labelledBy="settings-title" className="w-[520px]" solid>
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-gray-100/40 dark:border-gray-700/40 flex justify-between items-center">
           <h2 id="settings-title" className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{t('settingsTitle')}</h2>
@@ -642,6 +648,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   <option value="anthropic">Anthropic (Claude 3)</option>
                   <option value="gemini">Google Gemini</option>
                   <option value="openrouter">OpenRouter</option>
+                  <option value="openai-compatible">OpenAI-compatible (Regolo, …)</option>
                   <option value="lmstudio">LM Studio (Local)</option>
                   <option value="ollama">Ollama (Local)</option>
                 </Select>
@@ -650,7 +657,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <FieldLabel>{t('model')}</FieldLabel>
-                  {isLocalProvider(settings.llmProvider) && (
+                  {canDetectModels(settings.llmProvider) && (
                     <button onClick={discoverModels} disabled={discovering}
                       className="flex items-center gap-1 text-[11px] text-[var(--accent)] hover:opacity-80 disabled:opacity-50 mb-1">
                       <RefreshCw size={10} className={discovering ? 'animate-spin' : ''} />
@@ -658,7 +665,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                     </button>
                   )}
                 </div>
-                {isLocalProvider(settings.llmProvider) && discoveredModels.length > 0 ? (
+                {canDetectModels(settings.llmProvider) && discoveredModels.length > 0 ? (
                   <Select value={settings.llmModel} onChange={e => onUpdate({ llmModel: e.target.value })}>
                     {discoveredModels.map(m => <option key={m} value={m}>{m}</option>)}
                   </Select>
@@ -669,13 +676,16 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                       settings.llmProvider === 'anthropic' ? 'claude-3-5-sonnet-20241022' :
                       settings.llmProvider === 'gemini' ? 'gemini-1.5-pro' :
                       settings.llmProvider === 'openrouter' ? 'anthropic/claude-3.5-sonnet' :
+                      settings.llmProvider === 'openai-compatible' ? 'e.g. llama-3.3-70b' :
                       settings.llmProvider === 'ollama' ? 'llama3' : 'auto-detect'
                     }
                   />
                 )}
                 <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
-                  {isLocalProvider(settings.llmProvider)
-                    ? discoveredModels.length === 0 ? t('noModelsHelp') : `${discoveredModels.length} ${t(discoveredModels.length === 1 ? 'modelsFound_one' : 'modelsFound_other')}`
+                  {canDetectModels(settings.llmProvider)
+                    ? discoveredModels.length > 0
+                      ? `${discoveredModels.length} ${t(discoveredModels.length === 1 ? 'modelsFound_one' : 'modelsFound_other')}`
+                      : settings.llmProvider === 'openai-compatible' ? t('openaiCompatModelHelp') : t('noModelsHelp')
                     : settings.llmProvider === 'openrouter' ? t('openrouterExample') : t('defaultModelHelp')}
                 </p>
               </div>
@@ -685,6 +695,14 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   <FieldLabel>{t('lmStudioUrl')}</FieldLabel>
                   <Input type="text" value={settings.lmStudioUrl} onChange={(e) => onUpdate({ lmStudioUrl: e.target.value })} placeholder="http://localhost:1234/v1" />
                   <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">{t('lmStudioHelp')}</p>
+                </div>
+              )}
+
+              {settings.llmProvider === 'openai-compatible' && (
+                <div>
+                  <FieldLabel>{t('openaiCompatUrlLabel')}</FieldLabel>
+                  <Input type="text" value={settings.openaiCompatibleUrl} onChange={(e) => onUpdate({ openaiCompatibleUrl: e.target.value })} placeholder="https://api.regolo.ai/v1" />
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">{t('openaiCompatUrlHelp')}</p>
                 </div>
               )}
 

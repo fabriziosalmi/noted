@@ -293,4 +293,52 @@ describe('App orchestration', () => {
     expect(panelsCloseAdvisorSpy).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
   });
+
+  it('refreshes the note list when the vault changes outside the app', () => {
+    vi.useFakeTimers();
+    const api = window.electronAPI as unknown as Record<string, unknown>;
+    const original = api.onNoteChangedExternally;
+    let emit: ((fileName: string) => void) | undefined;
+    const off = vi.fn();
+    api.onNoteChangedExternally = (cb: (fileName: string) => void) => { emit = cb; return off; };
+
+    const { unmount } = render(<App />);
+    fetchNotesSpy.mockClear();
+
+    // Two files from one external batch — e.g. an MCP client writing both.
+    emit?.('AAA.md');
+    emit?.('BBB.md');
+    expect(fetchNotesSpy).not.toHaveBeenCalled(); // debounced, nothing yet
+
+    vi.advanceTimersByTime(300);
+    expect(fetchNotesSpy).toHaveBeenCalledTimes(1); // coalesced into one refresh
+
+    unmount();
+    expect(off).toHaveBeenCalledTimes(1);
+    api.onNoteChangedExternally = original;
+    vi.useRealTimers();
+  });
+
+  it('still refreshes when the app re-renders before the debounce fires', () => {
+    // App re-renders on every keystroke. If the subscription were tied to
+    // per-render callbacks it would tear down mid-debounce and the pending
+    // refresh would be cancelled — leaving external notes invisible whenever
+    // the user happened to be typing.
+    vi.useFakeTimers();
+    const api = window.electronAPI as unknown as Record<string, unknown>;
+    const original = api.onNoteChangedExternally;
+    let emit: ((fileName: string) => void) | undefined;
+    api.onNoteChangedExternally = (cb: (fileName: string) => void) => { emit = cb; return vi.fn(); };
+
+    const { rerender } = render(<App />);
+    fetchNotesSpy.mockClear();
+
+    emit?.('AAA.md');
+    rerender(<App />);
+    vi.advanceTimersByTime(300);
+
+    expect(fetchNotesSpy).toHaveBeenCalledTimes(1);
+    api.onNoteChangedExternally = original;
+    vi.useRealTimers();
+  });
 });

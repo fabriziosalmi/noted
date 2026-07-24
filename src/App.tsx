@@ -350,16 +350,33 @@ function App() {
     announce(`${t('noteOpened')} ${title}`);
   }, [activeNoteName, announce, t]);
 
-  // Warn when the open note is changed on disk by another writer (e.g. an MCP
-  // client editing the same note), so the editor's autosave doesn't silently
-  // clobber it.
+  // Latest toast/t for the vault-change subscription below. Both are rebuilt on
+  // every render, so listing them as effect deps would resubscribe on every
+  // keystroke — and each resubscribe would cancel the pending refresh, which is
+  // exactly the debounce this needs to survive.
+  const externalChangeDeps = useRef({ toast, t });
+  useEffect(() => { externalChangeDeps.current = { toast, t }; });
+
+  // React to vault writes by anyone other than the app itself (an MCP client, a
+  // sync client): refresh the list, since a note they created or deleted would
+  // otherwise stay invisible until the next launch, and warn when the note the
+  // user has open is the one that changed, so autosave doesn't clobber it.
+  // The active note is read at event time rather than closed over, for the same
+  // reason: the subscription is set up once and must outlive note switching.
   useEffect(() => {
     const api = getElectronApi();
     if (!api?.onNoteChangedExternally) return;
-    return api.onNoteChangedExternally((fileName) => {
-      if (fileName === activeNoteName) toast(t('noteChangedExternally'), 'error');
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const off = api.onNoteChangedExternally((fileName) => {
+      const { toast: showToast, t: translate } = externalChangeDeps.current;
+      if (fileName === useStore.getState().activeNoteName) showToast(translate('noteChangedExternally'), 'error');
+      // Coalesce: one external batch fires an event per file, and every refresh
+      // re-reads the whole vault.
+      clearTimeout(timer);
+      timer = setTimeout(() => { void fetchNotes(); }, 300);
     });
-  }, [activeNoteName, toast, t]);
+    return () => { clearTimeout(timer); off(); };
+  }, [fetchNotes]);
 
   return (
     <div className={`h-screen w-screen flex flex-col bg-white/85 dark:bg-gray-900/85 ${fontClass} ${sizeClass}`}>

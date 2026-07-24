@@ -9,9 +9,14 @@ import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import Image from '@tiptap/extension-image';
 import Mathematics from '@tiptap/extension-mathematics';
+import { TaskList } from '@tiptap/extension-task-list';
+import { TaskItem } from '@tiptap/extension-task-item';
+import { Highlight } from '@tiptap/extension-highlight';
+import { Link } from '@tiptap/extension-link';
+import { Focus } from '@tiptap/extension-focus';
 import { createLowlight, common } from 'lowlight';
 import 'katex/dist/katex.min.css';
-import { Bold, Italic, Strikethrough, Code, FileText, CheckCheck, AlertTriangle } from 'lucide-react';
+import { Bold, Italic, Strikethrough, Code, FileText, CheckCheck, AlertTriangle, Highlighter, Link2 } from 'lucide-react';
 import { askLLM } from '../lib/llm';
 import { useStore } from '../store/useStore';
 import { WikilinkMark, createWikilinkHighlightPlugin } from '../lib/WikilinkExtension';
@@ -26,6 +31,7 @@ import { GhostTextExtension, ghostTextKey } from '../lib/ghostTextExtension';
 import { deriveTitle } from '../lib/noteTitle';
 import { getElectronApi } from '../lib/electronApi';
 import { suggestProject, type ProjectSuggestion } from '../lib/projectSuggestion';
+import { usePrompt } from './ConfirmProvider';
 import { ProjectSuggestionHint } from './ProjectSuggestionHint';
 
 const lowlight = createLowlight(common);
@@ -63,6 +69,7 @@ function hasShortcutModifier(event: KeyboardEvent | globalThis.KeyboardEvent): b
 
 export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError, allNoteNames = [], allTags = [], backlinks = [], onSelectNote, notesCount = 0, onCreateNote, onOpenDaily, onOpenSettings, onOpenShortcuts }: NoteEditorProps) {
   const { t } = useI18n();
+  const prompt = usePrompt();
   const llmProvider = useStore(s => s.settings.llmProvider);
   const llmApiKey = useStore(s => s.settings.llmApiKey);
   const llmModel = useStore(s => s.settings.llmModel);
@@ -256,6 +263,16 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       }).configure({ lowlight }),
       Image.configure({ inline: false, allowBase64: true }),
       Mathematics,
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Highlight,
+      // External links open in the system browser: a click hits main's
+      // setWindowOpenHandler, which routes https to shell.openExternal (the
+      // renderer itself can't navigate). rel hardening blocks window.opener.
+      Link.configure({ openOnClick: true, autolink: true, HTMLAttributes: { rel: 'noopener noreferrer nofollow', target: '_blank' } }),
+      // Tags the top-level block under the cursor with `.has-focus`; inert until
+      // Focus mode adds `.focus-mode`, which dims every other block (see CSS).
+      Focus.configure({ className: 'has-focus', mode: 'shallowest' }),
       WikilinkMark,
       WikilinkPlugin,
       GhostTextExtension,
@@ -554,6 +571,22 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
           <button type="button" aria-label={t('inlineCode')} onClick={() => editor.chain().focus().toggleCode().run()}
             className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('code') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
             <Code size={14} />
+          </button>
+          <button type="button" aria-label={t('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()}
+            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('highlight') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
+            <Highlighter size={14} />
+          </button>
+          <button type="button" aria-label={t('link')}
+            onClick={async () => {
+              const prev = (editor.getAttributes('link').href as string | undefined) ?? '';
+              const url = await prompt({ title: t('linkPromptTitle'), placeholder: 'https://example.com', defaultValue: prev, confirmLabel: t('linkApply') });
+              if (url === null) return; // cancelled
+              const href = url.trim();
+              if (!href) { editor.chain().focus().extendMarkRange('link').unsetLink().run(); return; }
+              editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
+            }}
+            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('link') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
+            <Link2 size={14} />
           </button>
         </BubbleMenu>
       )}

@@ -50,6 +50,22 @@ import pkg from '../package.json';
 
 // ─── Notes-directory resolution ───────────────────────────────────────────────
 
+// ─── Timestamp formatting ─────────────────────────────────────────────────────
+
+/**
+ * Render a timestamp in the machine's local timezone.
+ *
+ * `toISOString()` renders UTC while looking local, which shows a note written
+ * at 00:36 CEST as 22:36 the day before — wrong twice over when the question
+ * being answered is "which note did I touch today".
+ */
+export function formatLocal(d: Date, withTime = false): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  if (!withTime) return date;
+  return `${date} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 export function resolveNotesDir(): string {
   // Accept --notes-dir <path> or --notes-dir=<path>
   const argv = process.argv.slice(2);
@@ -150,8 +166,32 @@ export function safeNotePath(name: string): string {
 
 // ─── Markdown → HTML (marked-powered) ───────────────────────────────────────
 
+/**
+ * marked renders a GFM task list as `<li><p><input type="checkbox"> text</p></li>`
+ * inside a plain `<ul>`. The editor's TaskList extension only recognises its own
+ * shape (`<ul data-type="taskList"><li data-type="taskItem" data-checked>…`), so
+ * without this a checklist written through MCP opens as inert, disabled boxes.
+ * Rewrite marked's output into that shape so the checkboxes are interactive.
+ */
+export function taskListsToTiptap(html: string): string {
+  // marked wraps items in <p> for "loose" lists and omits it for "tight" ones,
+  // so both the <p> and its close are optional here.
+  const withItems = html.replace(
+    /<li>\s*(?:<p>\s*)?<input([^>]*?)type="checkbox"([^>]*?)>\s*([\s\S]*?)(?:<\/p>)?\s*<\/li>/g,
+    (_m, pre: string, post: string, text: string) => {
+      const checked = /\bchecked\b/.test(pre) || /\bchecked\b/.test(post);
+      return `<li data-type="taskItem" data-checked="${checked}"><label><input type="checkbox"${checked ? ' checked' : ''}><span></span></label><div><p>${text.trim()}</p></div></li>`;
+    },
+  );
+  // Flag every <ul> that now holds a taskItem as a taskList.
+  return withItems.replace(
+    /<ul>((?:(?!<\/ul>)[\s\S])*?data-type="taskItem"(?:(?!<\/ul>)[\s\S])*?)<\/ul>/g,
+    '<ul data-type="taskList">$1</ul>',
+  );
+}
+
 export function markdownToHtml(md: string): string {
-  return marked.parse(md, { breaks: true, gfm: true, async: false }) as string;
+  return taskListsToTiptap(marked.parse(md, { breaks: true, gfm: true, async: false }) as string);
 }
 
 // ─── HTML sanitisation (mirrors electron/ipc-utils.ts) ───────────────────────
@@ -927,7 +967,7 @@ export async function handleListNotes(args: Record<string, unknown>) {
   }
   const lines = notes.map(n => {
     const kb = (n.size / 1024).toFixed(1);
-    const date = n.mtime.toISOString().slice(0, 10);
+    const date = formatLocal(n.mtime);
     return `• ${n.name}  [${kb} KB, ${date}]`;
   });
   return {
@@ -953,7 +993,7 @@ export async function handleReadNote(args: Record<string, unknown>) {
       type: 'text',
       text: [
         `# ${(name as string).replace('.md', '')}`,
-        `Modified: ${stat.mtime.toISOString().slice(0, 19).replace('T', ' ')} — ${(stat.size / 1024).toFixed(1)} KB`,
+        `Modified: ${formatLocal(stat.mtime, true)} — ${(stat.size / 1024).toFixed(1)} KB`,
         '',
         '## Content (plain text)',
         plain,

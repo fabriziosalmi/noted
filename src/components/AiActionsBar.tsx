@@ -3,6 +3,7 @@ import type { Editor } from '@tiptap/react';
 import {
   ChevronRight, Maximize2, Minimize2, Wand2,
   FileText, Eye, Zap, HelpCircle, Loader2, Square,
+  Languages, SlidersHorizontal, List, MessageSquarePlus, X,
 } from 'lucide-react';
 import { askLLM, AbortedError, describeLlmError } from '../lib/llm';
 import { Tooltip } from './Tooltip';
@@ -47,6 +48,27 @@ const ACTIONS: Action[] = [
     icon: Wand2,
     mode: 'replace',
     system: 'Improve this text: fix grammar, improve flow, enhance clarity and style. Return ONLY the improved text in the same language. Markdown format.',
+  },
+  {
+    id: 'translate',
+    labelKey: 'aiActionTranslate',
+    icon: Languages,
+    mode: 'replace',
+    system: 'Translate this text: if it is in English translate it to Italian, otherwise translate it to English. Return ONLY the translation, preserving Markdown formatting.',
+  },
+  {
+    id: 'tone',
+    labelKey: 'aiActionTone',
+    icon: SlidersHorizontal,
+    mode: 'replace',
+    system: 'Rewrite this text flipping its tone: if it reads formal, make it casual and friendly; if it reads casual, make it more formal and professional. Keep the meaning and the original language. Return ONLY the rewritten text. Markdown format.',
+  },
+  {
+    id: 'bullets',
+    labelKey: 'aiActionBullets',
+    icon: List,
+    mode: 'replace',
+    system: 'Convert this text into a clear, well-structured bullet-point list in the same language, preserving all key information. Return ONLY the list. Markdown format.',
   },
 ];
 
@@ -172,6 +194,9 @@ interface AiActionsBarProps {
 export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
   const { t } = useI18n();
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customText, setCustomText] = useState('');
+  const customInputRef = useRef<HTMLInputElement>(null);
   const piiMasking = useStore(s => s.settings.piiMasking ?? false);
   const abortRef = useRef<AbortController | null>(null);
   const { from, to } = editor.state.selection;
@@ -179,6 +204,9 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
 
   // Abort any in-flight request on unmount.
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  // Focus the custom-prompt input when it opens (avoids the autoFocus a11y trap).
+  useEffect(() => { if (customOpen) customInputRef.current?.focus(); }, [customOpen]);
 
   const runAction = useCallback(async (action: Action) => {
     // Cancel any in-flight call before starting a new one. Combined with the
@@ -235,6 +263,48 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
     }
   }, [editor, onError, piiMasking, t]);
 
+  // Free-form instruction on the selection (or the whole note if nothing is
+  // selected). A selection is rewritten in place; without one the result is
+  // appended, so a custom prompt never silently overwrites the note.
+  const runCustom = useCallback(async (instruction: string) => {
+    if (!instruction.trim()) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const { from, to } = editor.state.selection;
+    const hasSelection = from !== to;
+    const rawText = hasSelection ? editor.state.doc.textBetween(from, to, '\n') : editor.getText();
+    if (!rawText.trim()) {
+      onError?.(t('errWriteSomethingFirst'));
+      return;
+    }
+    const selectedText = piiMasking ? maskPii(rawText).maskedText : rawText;
+
+    setActiveId('custom');
+    try {
+      const result = await askLLM([
+        { role: 'system', content: `Apply the following instruction to the text. Return ONLY the result, in the same language as the text, Markdown format.\n\nInstruction: ${instruction.trim()}` },
+        { role: 'user', content: selectedText },
+      ], { signal: controller.signal });
+      const html = mdToHtml(result);
+      if (hasSelection) {
+        editor.chain().focus().deleteSelection().insertContent(html).run();
+      } else {
+        editor.commands.focus('end');
+        editor.commands.insertContent('<hr>' + html);
+      }
+      setCustomText('');
+      setCustomOpen(false);
+    } catch (err) {
+      if (err instanceof AbortedError) return;
+      onError?.(describeLlmError(err));
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
+      setActiveId(null);
+    }
+  }, [editor, onError, piiMasking, t]);
+
   const renderBtn = (action: Action) => {
     const isActive = activeId === action.id;
     const isDisabled = !!activeId;
@@ -267,13 +337,55 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
     );
   };
 
+  const customBusy = activeId === 'custom';
+  const customDisabled = !!activeId && !customBusy;
   return (
     <>
-      <span className="text-[10px] font-semibold uppercase tracking-wider mr-1 shrink-0" style={{ color: 'var(--accent)', opacity: 0.5 }}>AI</span>
       {ACTIONS.map(renderBtn)}
       <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
       {ANALYSIS_ACTIONS.map(renderBtn)}
-      {hasSelection && (
+      <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
+      <Tooltip label={t('aiActionCustom')} side="bottom">
+        <button
+          onClick={() => setCustomOpen(o => !o)}
+          disabled={customDisabled}
+          aria-label={t('aiActionCustom')}
+          aria-expanded={customOpen}
+          className={`group flex items-center py-1 px-1.5 rounded transition-colors duration-150 ${
+            customOpen
+              ? 'bg-[var(--accent-light)] text-[var(--accent)]'
+              : customDisabled
+                ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[var(--accent)]'
+          }`}
+        >
+          <MessageSquarePlus size={13} />
+        </button>
+      </Tooltip>
+      {customOpen && (
+        <div className="flex items-center gap-1 ml-1 shrink-0">
+          <input
+            ref={customInputRef}
+            type="text"
+            aria-label={t('aiActionCustom')}
+            value={customText}
+            onChange={e => setCustomText(e.target.value)}
+            onKeyDown={e => {
+              if (e.nativeEvent.isComposing) return;
+              if (e.key === 'Enter') { e.preventDefault(); void runCustom(customText); }
+              if (e.key === 'Escape') { setCustomOpen(false); setCustomText(''); }
+            }}
+            placeholder={t('aiCustomPlaceholder')}
+            disabled={customBusy}
+            className="text-xs bg-gray-100 dark:bg-gray-700 rounded px-2 py-1 outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 w-56 focus:ring-1 focus:ring-[var(--accent)]"
+          />
+          {customBusy
+            ? <button type="button" onClick={() => abortRef.current?.abort()} aria-label={t('stop')} className="p-1 rounded text-[var(--accent)] hover:text-red-600 dark:hover:text-red-400"><Square size={13} className="fill-current" /></button>
+            : <button type="button" onClick={() => { setCustomOpen(false); setCustomText(''); }} aria-label={t('closeFind')} className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X size={13} /></button>
+          }
+        </div>
+      )}
+      {hasSelection && !customOpen && (
         <span className="ml-2 text-[10px] italic shrink-0" style={{ color: 'var(--accent)', opacity: 0.7 }}>
           {t('aiSelectionBadge')}
         </span>

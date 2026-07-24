@@ -324,6 +324,55 @@ body {
 .focus-mode .ProseMirror > *:focus-within {
   opacity: 1;
 }
+
+/* ─── Task lists (checkboxes) ────────────────────────────────────────── */
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0.25rem;
+}
+.ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.ProseMirror ul[data-type="taskList"] li > label {
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+  user-select: none;
+}
+.ProseMirror ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+/* Dim finished items so a checklist reads at a glance. */
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+/* ─── Highlight mark ─────────────────────────────────────────────────── */
+.ProseMirror mark {
+  background-color: #fde68a;
+  color: inherit;
+  padding: 0.05em 0.15em;
+  border-radius: 0.2em;
+}
+.dark .ProseMirror mark {
+  background-color: #a16207;
+  color: #fff;
+}
+
+/* ─── Links ──────────────────────────────────────────────────────────── */
+.ProseMirror a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
 /* Typewriter: keep cursor vertically centred */
 .typewriter-mode {
   scroll-padding-top: 40vh;
@@ -596,6 +645,25 @@ body {
 
 .sepia .glass-modal {
   background-color: rgba(252, 246, 232, 0.96) !important;
+  border-color: rgba(139, 94, 60, 0.15) !important;
+  box-shadow: 0 20px 50px rgba(90, 74, 48, 0.15) !important;
+}
+
+/* Opaque variant for dense dialogs (Settings): no see-through, so the content
+   behind never bleeds into the form and hurts readability. Keeps the border and
+   shadow of the glass style, drops the translucency and blur. */
+.solid-modal {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12) !important;
+}
+.dark .solid-modal {
+  background-color: #0e0e10 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45) !important;
+}
+.sepia .solid-modal {
+  background-color: #fcf6e8 !important;
   border-color: rgba(139, 94, 60, 0.15) !important;
   box-shadow: 0 20px 50px rgba(90, 74, 48, 0.15) !important;
 }
