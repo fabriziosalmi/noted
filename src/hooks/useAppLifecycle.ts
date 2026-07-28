@@ -43,9 +43,10 @@ export function useAppLifecycle({
   useEffect(() => {
     void loadApiKey();
     const api = getElectronApi();
-    api?.onRefreshNotes(() => {
+    const unsubscribe = api?.onRefreshNotes(() => {
       void fetchNotes();
     });
+    return unsubscribe;
   }, [fetchNotes, loadApiKey]);
 
   useEffect(() => {

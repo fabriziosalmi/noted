@@ -43,7 +43,7 @@ window.electronAPI = {
   readNoteSnapshot: vi.fn().mockResolvedValue({ success: true, data: '' }),
   saveCapture: vi.fn().mockResolvedValue({ success: true }),
   closeCapture: vi.fn().mockResolvedValue(undefined),
-  onRefreshNotes: vi.fn(),
+  onRefreshNotes: vi.fn().mockImplementation(() => () => undefined),
   getNativeTheme: vi.fn().mockResolvedValue({ isDark: false }),
   onNativeThemeUpdated: vi.fn().mockImplementation(() => () => undefined),
   onNoteChangedExternally: vi.fn().mockImplementation(() => () => undefined),
