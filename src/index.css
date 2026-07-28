@@ -316,12 +316,19 @@ body {
 .dark .ProseMirror p.is-editor-empty:first-child::before { color: #48484a; }
 
 /* ─── Focus / Typewriter mode ───────────────────────────────────────── */
+/* Everything but the block holding the caret recedes. The dimming is gated on
+   the editor actually being focused: TipTap's Focus extension drops `.has-focus`
+   on blur, so an ungated rule greys out the whole note the moment you click the
+   sidebar, the toolbar or another window — which reads as "the note is
+   disabled", not "you are focused". 0.4 keeps the surrounding text legible as
+   context; below that it disappears entirely on a dark canvas. */
 .focus-mode .ProseMirror > * {
-  opacity: 0.25;
   transition: opacity 0.2s ease;
 }
-.focus-mode .ProseMirror > *.has-focus,
-.focus-mode .ProseMirror > *:focus-within {
+.focus-mode .ProseMirror:focus-within > * {
+  opacity: 0.4;
+}
+.focus-mode .ProseMirror > *.has-focus {
   opacity: 1;
 }
 
