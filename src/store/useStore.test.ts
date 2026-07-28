@@ -577,7 +577,7 @@ Here is a table:
     await expect(useStore.getState().deleteNote('x.md')).resolves.toBeUndefined();
     await expect(useStore.getState().createFolder('x')).resolves.toBeUndefined();
     await expect(useStore.getState().renameFolder('a', 'b')).resolves.toBeUndefined();
-    await expect(useStore.getState().deleteFolder('x')).resolves.toBeUndefined();
+    await expect(useStore.getState().deleteFolder('x')).resolves.toEqual([]);
     await expect(useStore.getState().moveNote('a.md', 'x')).resolves.toBeUndefined();
     await expect(useStore.getState().wipeAllNotes()).resolves.toBeUndefined();
     await expect(useStore.getState().createFromTemplate({ id: 'tpl', name: 'Tpl', icon: 'custom', content: 'tpl' })).resolves.toBeUndefined();

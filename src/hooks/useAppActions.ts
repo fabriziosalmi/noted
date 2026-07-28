@@ -102,11 +102,16 @@ export function useAppActions({
 
   const handleDeleteFolder = useCallback(async (name: string) => {
     try {
-      await deleteFolder(name);
+      const renamed = await deleteFolder(name);
+      // A note moved to the root can collide with one already there. It gets a
+      // new name instead of overwriting — say so, or the note looks lost.
+      if (renamed.length) {
+        toast(t('folderDeletedRenamed').replace('{names}', renamed.join(', ')), 'success');
+      }
     } catch (err: unknown) {
       toast((err as Error).message, 'error');
     }
-  }, [deleteFolder, toast]);
+  }, [deleteFolder, toast, t]);
 
   const handleMoveNote = useCallback(async (fileName: string, destination: string) => {
     try {

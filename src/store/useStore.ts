@@ -214,7 +214,7 @@ interface NoteState {
   createFromTemplate: (template: NoteTemplate) => Promise<void>;
   createFolder: (name: string) => Promise<void>;
   renameFolder: (oldName: string, newName: string) => Promise<void>;
-  deleteFolder: (name: string) => Promise<void>;
+  deleteFolder: (name: string) => Promise<string[]>;
   moveNote: (fileName: string, toFolder: string) => Promise<void>;
   wipeAllNotes: () => Promise<void>;
 }
@@ -800,10 +800,10 @@ export const useStore = create<NoteState>()(
 
   deleteFolder: async (name: string) => {
     const api = getElectronApi();
-    if (!api) return;
+    if (!api) return [];
     const res = await api.deleteFolder(name, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? translate('errDeleteFolder', get().settings.language));
-    
+
     const currentFoldersOrder = get().customFoldersOrder || [];
     const currentNotesOrder = get().customNotesOrder || [];
     set({
@@ -812,6 +812,9 @@ export const useStore = create<NoteState>()(
     });
 
     await get().fetchNotes();
+    // Notes moved out of the folder are renamed rather than overwritten when a
+    // root note already holds the name; the caller tells the user which.
+    return res.data?.renamed ?? [];
   },
 
   moveNote: async (fileName: string, toFolder: string) => {
