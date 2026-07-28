@@ -195,6 +195,12 @@ export function AppChrome({
   onEditorReady,
   onAgentAction,
 }: AppChromeProps) {
+  // Focus mode is supposed to remove distractions, not merely dim the prose:
+  // while it's on the side panels step aside, and turning it off brings back
+  // exactly what was open before (derived, so there's no state to resync).
+  const showLeftPanel = panels.leftOpen && !settings.focusMode;
+  const showRightPanel = panels.rightOpen && !settings.focusMode;
+
   // The Agent tab is dev-facing scaffolding; show it only when the open note is
   // actually an agent-workflow note, so a first-run stranger never sees it.
   const isAgentNote = useMemo(() => !!parseAgentNote(activeNoteContent).metadata, [activeNoteContent]);
@@ -254,12 +260,24 @@ export function AppChrome({
             </button>
           </Tooltip>
           <Tooltip label={t('sidebarTooltip')} side="bottom">
-            <button onClick={panels.toggleLeftOpen} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors" aria-label={t('toggleSidebar')}>
+            <button
+              onClick={() => {
+                // Asking for the sidebar while focus mode hides it means
+                // leaving focus mode, not toggling a panel nobody can see.
+                if (settings.focusMode) { onUpdateSettings({ focusMode: false }); return; }
+                panels.toggleLeftOpen();
+              }}
+              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors" aria-label={t('toggleSidebar')}>
               <PanelLeft size={16} />
             </button>
           </Tooltip>
           <Tooltip label={t('rightPanelTooltip')} side="bottom">
-            <button onClick={panels.toggleRightOpen} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors" aria-label={t('toggleRightPanel')}>
+            <button
+              onClick={() => {
+                if (settings.focusMode) { onUpdateSettings({ focusMode: false }); return; }
+                panels.toggleRightOpen();
+              }}
+              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors" aria-label={t('toggleRightPanel')}>
               <PanelRight size={16} />
             </button>
           </Tooltip>
@@ -268,7 +286,7 @@ export function AppChrome({
 
       <div className="flex-1 flex overflow-hidden">
         <PanelGroup direction="horizontal">
-          {panels.leftOpen && (
+          {showLeftPanel && (
             <>
               <Panel id="sidebar-left" order={1} defaultSize={20} minSize={15} maxSize={30} role="navigation" aria-label={t('notes')} className="vibrancy-sidebar flex flex-col border-r border-gray-200/60 dark:border-gray-700/60">
                 <ErrorBoundary>
@@ -357,7 +375,7 @@ export function AppChrome({
             </div>
           </Panel>
 
-          {panels.rightOpen && (
+          {showRightPanel && (
             <>
               <PanelResizeHandle className="w-1 cursor-col-resize" />
               <Panel id="sidebar-right" order={3} defaultSize={25} minSize={20} maxSize={40} role="complementary" aria-label={t('toolsPanel')} className="vibrancy-sidebar flex flex-col border-l border-gray-200/60 dark:border-gray-700/60">
