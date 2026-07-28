@@ -54,18 +54,24 @@ export function importVaultRecursive(srcRoot: string, srcDir: string, destRoot: 
 
 export function registerImporterHandlers(
   fullTextSearchIndex: FullTextSearchReadModel,
-  getDefaultNotesDir: () => string
+  /**
+   * main's getTargetDir: resolves a renderer-supplied vault path only when it
+   * is an allowlisted root, and falls back to the default vault otherwise.
+   * Imports write files, so they must honour the same allowlist as every other
+   * write path — never a bare "does this directory exist" check.
+   */
+  resolveTargetDir: (customDir?: string) => string
 ) {
   ipcMain.handle('import-vault', async (_, targetDir?: string) => {
     const reqId = newRequestId('import-vault');
     try {
       const { filePaths, canceled } = await dialog.showOpenDialog({
-        title: 'Importa vault (Obsidian / Bear / cartella Markdown)',
+        title: 'Import vault (Obsidian / Bear / Markdown folder)',
         properties: ['openDirectory'],
       });
-      if (canceled || !filePaths.length) return { success: false, error: 'Annullato' };
+      if (canceled || !filePaths.length) return { success: false, error: 'Cancelled' };
       const srcDir = filePaths[0];
-      const dest = targetDir && fs.existsSync(targetDir) ? targetDir : getDefaultNotesDir();
+      const dest = resolveTargetDir(typeof targetDir === 'string' ? targetDir : undefined);
       const importedCount = importVaultRecursive(srcDir, srcDir, dest);
       fullTextSearchIndex.markDirty(dest);
       logEvent('info', 'import_vault_completed', { reqId, importedCount, destDir: dest });
@@ -79,7 +85,7 @@ export function registerImporterHandlers(
   ipcMain.handle('import-apple-notes', async (_, targetDir?: string) => {
     const reqId = newRequestId('import-apple');
     try {
-      const dest = targetDir && fs.existsSync(targetDir) ? targetDir : getDefaultNotesDir();
+      const dest = resolveTargetDir(typeof targetDir === 'string' ? targetDir : undefined);
       
       // Execute JXA script to fetch notes
       const jxaScript = `
