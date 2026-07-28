@@ -8,11 +8,11 @@ export function registerExporterHandlers() {
     try {
       if (typeof markdownContent !== 'string') throw new Error('Content must be a string');
       const { filePath } = await dialog.showSaveDialog({
-        title: 'Esporta come Markdown',
-        defaultPath: 'Nota.md',
+        title: 'Export as Markdown',
+        defaultPath: 'Note.md',
         filters: [{ name: 'Markdown', extensions: ['md'] }],
       });
-      if (!filePath) return { success: false, error: 'Esportazione annullata' };
+      if (!filePath) return { success: false, error: 'Export cancelled' };
       fs.writeFileSync(filePath, markdownContent, 'utf-8');
       return { success: true, data: filePath };
     } catch (error: unknown) {
@@ -27,13 +27,13 @@ export function registerExporterHandlers() {
       if (htmlContent.length > 5_000_000) throw new Error('Content too large for PDF export');
       // Show save dialog
       const { filePath } = await dialog.showSaveDialog({
-        title: 'Esporta come PDF',
-        defaultPath: 'Nota.pdf',
+        title: 'Export as PDF',
+        defaultPath: 'Note.pdf',
         filters: [{ name: 'PDF', extensions: ['pdf'] }]
       });
 
       if (!filePath) {
-        return { success: false, error: 'Esportazione annullata' };
+        return { success: false, error: 'Export cancelled' };
       }
 
       // Create a hidden browser window to render the HTML
@@ -152,11 +152,11 @@ export function registerExporterHandlers() {
     try {
       if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
       const { filePath } = await dialog.showSaveDialog({
-        title: 'Esporta come HTML',
-        defaultPath: `${noteTitle || 'Nota'}.html`,
+        title: 'Export as HTML',
+        defaultPath: `${noteTitle || 'Note'}.html`,
         filters: [{ name: 'HTML', extensions: ['html'] }],
       });
-      if (!filePath) return { success: false, error: 'Esportazione annullata' };
+      if (!filePath) return { success: false, error: 'Export cancelled' };
       const safe = stripUnsafeHtml(htmlContent);
       const full = `<!DOCTYPE html>
 <html lang="it">
@@ -189,11 +189,11 @@ export function registerExporterHandlers() {
     try {
       if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
       const { filePath } = await dialog.showSaveDialog({
-        title: 'Esporta come DOCX',
-        defaultPath: `${noteTitle || 'Nota'}.docx`,
+        title: 'Export as DOCX',
+        defaultPath: `${noteTitle || 'Note'}.docx`,
         filters: [{ name: 'Word Document', extensions: ['docx'] }],
       });
-      if (!filePath) return { success: false, error: 'Esportazione annullata' };
+      if (!filePath) return { success: false, error: 'Export cancelled' };
 
       const safe = stripUnsafeHtml(htmlContent);
       // Dynamic import — html-to-docx is CJS
