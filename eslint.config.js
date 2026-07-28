@@ -13,6 +13,11 @@ export default defineConfig([
     'dist-mcp',
     'coverage',
     'release',
+    // VitePress build artefacts: vendored dependency bundles, not our source.
+    // ESLint doesn't read .gitignore, so these need naming explicitly or
+    // `npm run lint` fails on third-party code.
+    'docs/.vitepress/cache',
+    'docs/.vitepress/dist',
     '.claude',
     '.electron_data',
     '.electron_session',
