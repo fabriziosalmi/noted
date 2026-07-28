@@ -132,7 +132,7 @@ function NoteRow({
           }}
           aria-current={isActive ? 'true' : undefined}
           title={renameHint}
-          className={`flex items-start space-x-2 w-full text-left p-2 pl-4 pr-14 rounded text-sm cursor-pointer transition-all duration-150 ease-out ${
+          className={`flex items-start space-x-2 w-full text-left p-2 pl-4 rounded text-sm cursor-pointer transition-all duration-150 ease-out ${
             isActive
               ? 'bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] text-[var(--accent)] font-medium'
               : 'hover:bg-gray-200/50 dark:hover:bg-gray-800/40 text-gray-700 dark:text-gray-300'
@@ -141,7 +141,12 @@ function NoteRow({
           <FileText size={14} className="shrink-0 opacity-70 mt-0.5" />
           {/* Two-line row (Apple Notes-style): title + muted timestamp share the
               first line; the body preview gets its own full-width line below so
-              it isn't squeezed down to a few characters. */}
+              it isn't squeezed down to a few characters.
+
+              Nothing is reserved on the right for the quick actions: they only
+              exist on hover, so instead of padding the row around invisible
+              buttons, the metadata below fades out and the actions take its
+              place. The title keeps the full width the rest of the time. */}
           <div className="flex flex-col min-w-0 flex-1 gap-0.5">
             <div className="flex items-baseline gap-2 min-w-0">
               <span className="truncate leading-snug flex-1">
@@ -150,7 +155,12 @@ function NoteRow({
                   return !raw.trim() || /^(untitled|new[_ ]?note)[_ ]?[\d:.T-]*$/i.test(raw) ? t('untitled') : raw;
                 })()}
               </span>
-              <span className="shrink-0 text-[10px] text-gray-400 dark:text-gray-500">{relativeTime(note.stats.mtimeMs, language)}</span>
+              <span className="shrink-0 flex items-center gap-1 opacity-100 group-hover:opacity-0 group-focus-within:opacity-0 transition-opacity duration-150">
+                {isPinned && (
+                  <Star size={10} fill="currentColor" className="text-amber-400 self-center" aria-hidden="true" />
+                )}
+                <span className="text-[10px] text-gray-400 dark:text-gray-500">{relativeTime(note.stats.mtimeMs, language)}</span>
+              </span>
             </div>
             {note.preview ? (
               <span className="truncate text-[11px] text-gray-400 dark:text-gray-500 leading-snug">{note.preview}</span>
@@ -158,16 +168,18 @@ function NoteRow({
           </div>
         </div>
       )}
+      {/* Sits on the first line, where the timestamp is at rest — the two
+          cross-fade, so revealing the actions never reflows the title. */}
       {!isRenaming && (
-        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
+        <div className="absolute right-2 top-1.5 flex items-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150">
           <button type="button" onClick={e => { e.stopPropagation(); onTogglePin(); }}
             aria-label={isPinned ? t('unpin') : t('pin')}
-            className={`p-1 transition-colors animate-spring-scale ${isPinned ? 'text-amber-400' : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-amber-400'}`}>
+            className={`p-1 transition-colors animate-spring-scale ${isPinned ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
             <Star size={11} fill={isPinned ? 'currentColor' : 'none'} />
           </button>
           <button type="button" onClick={e => { e.stopPropagation(); onDelete(); }}
             aria-label={t('deleteNote')}
-            className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 p-1 animate-spring-scale">
+            className="text-red-400 hover:text-red-600 p-1 animate-spring-scale">
             <Trash2 size={13} />
           </button>
         </div>
