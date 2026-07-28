@@ -19,7 +19,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readNoteSnapshot: (fileName: string, snapshotName: string, syncDir?: string) => ipcRenderer.invoke('read-note-snapshot', fileName, snapshotName, syncDir),
   saveCapture: (text: string) => ipcRenderer.invoke('save-capture', text),
   closeCapture: () => ipcRenderer.invoke('close-capture'),
-  onRefreshNotes: (cb: () => void) => ipcRenderer.on('refresh-notes', cb),
+  onRefreshNotes: (cb: () => void) => {
+    const listener = () => cb();
+    ipcRenderer.on('refresh-notes', listener);
+    return () => ipcRenderer.removeListener('refresh-notes', listener);
+  },
   getNativeTheme: () => ipcRenderer.invoke('get-native-theme') as Promise<{ isDark: boolean }>,
   onNativeThemeUpdated: (cb: (theme: 'dark' | 'light') => void) => {
     const listener = (_e: unknown, theme: 'dark' | 'light') => cb(theme);

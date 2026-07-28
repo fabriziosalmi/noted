@@ -243,7 +243,10 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ codeBlock: false }),
+      // StarterKit bundles its own Link; disable it so the configured one
+      // below (rel="noopener noreferrer nofollow", target="_blank") is the one
+      // that registers, instead of racing a duplicate 'link' extension.
+      StarterKit.configure({ codeBlock: false, link: false }),
       Typography,
       Placeholder.configure({
         placeholder: ({ editor, node }) => {
