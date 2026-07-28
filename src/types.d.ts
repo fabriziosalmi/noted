@@ -31,7 +31,7 @@ declare global {
       readNoteSnapshot: (fileName: string, snapshotName: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       saveCapture: (text: string) => Promise<{ success: boolean; fileName?: string; error?: string }>;
       closeCapture: () => Promise<void>;
-      onRefreshNotes: (cb: () => void) => void;
+      onRefreshNotes: (cb: () => void) => () => void;
       getNativeTheme: () => Promise<{ isDark: boolean }>;
       onNativeThemeUpdated?: (cb: (theme: 'dark' | 'light') => void) => () => void;
       onMenuCommand?: (cb: (cmd: string) => void) => () => void;
@@ -51,7 +51,7 @@ declare global {
       getNotesTree: (syncDir?: string) => Promise<{ success: boolean; data?: NotesTree; error?: string }>;
       createFolder: (name: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       renameFolder: (oldName: string, newName: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
-      deleteFolder: (name: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
+      deleteFolder: (name: string, syncDir?: string) => Promise<{ success: boolean; data?: { moved: number; renamed: string[] }; error?: string }>;
       moveNote: (fileName: string, toFolder: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       setNoteTitle: (noteName: string) => Promise<void>;
       safeStorageStatus: () => Promise<{ encrypted: boolean }>;

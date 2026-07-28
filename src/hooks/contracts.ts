@@ -18,7 +18,7 @@ export interface AppActionsArgs {
   updateSettings: (newSettings: { syncDirectory?: string }) => void;
   createFolder: (name: string) => Promise<void>;
   renameFolder: (oldName: string, newName: string) => Promise<void>;
-  deleteFolder: (name: string) => Promise<void>;
+  deleteFolder: (name: string) => Promise<string[]>;
   moveNote: (fileName: string, toFolder: string) => Promise<void>;
 }
 

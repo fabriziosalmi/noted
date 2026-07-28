@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { validateFileName, validateFolderName, stripUnsafeHtml, isAppOwnVaultEvent } from './ipc-utils.js';
+import { deleteFolderMovingContentToRoot } from './vault-ops.js';
 import { registerCloudDetectorHandlers } from './src/services/cloud-detector.js';
 import { registerImporterHandlers } from './src/services/importer.js';
 import { registerExporterHandlers } from './src/services/exporter.js';
@@ -273,7 +274,8 @@ function createWindow() {
     vibrancy: 'under-window',
     visualEffectState: 'active',
     backgroundColor: '#00000000',
-    icon: path.join(process.env.VITE_PUBLIC, 'icon.svg'),
+    // No `icon`: nativeImage can't decode SVG (it logged a load failure on every
+    // launch) and macOS takes the window icon from the app bundle regardless.
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -510,7 +512,7 @@ ipcMain.handle('ping', () => 'pong');
 ipcMain.handle('get-app-version', () => app.getVersion());
 
 registerCloudDetectorHandlers(blessVaultRoot);
-registerImporterHandlers(fullTextSearchIndex, () => DEFAULT_NOTES_DIR);
+registerImporterHandlers(fullTextSearchIndex, getTargetDir);
 registerExporterHandlers();
 
 function getMcpServerPathInternal(): string {
@@ -848,7 +850,7 @@ ipcMain.handle('rename-note', (_, oldName: string, newName: string, syncDir?: st
     const targetDir = getTargetDir(syncDir);
     const oldPath = safeResolve(targetDir, oldName);
     const newPath = safeResolve(targetDir, newName);
-    if (fs.existsSync(newPath)) throw new Error(`Una nota con il nome "${newName}" esiste già`);
+    if (fs.existsSync(newPath)) throw new Error(`A note named "${newName}" already exists`);
     // The old name vanishes from the vault — claim it like a delete, or the
     // watcher reports the rename as an external removal.
     markAppDelete(oldName);
@@ -975,7 +977,7 @@ ipcMain.handle('get-native-theme', () => ({
 ipcMain.handle('setup-claude-mcp', async () => {
   try {
     const homeDir = process.env.HOME || '';
-    if (!homeDir) throw new Error('Impossibile determinare la cartella utente HOME');
+    if (!homeDir) throw new Error('Could not determine the HOME directory');
     const claudeConfigDir = path.join(homeDir, 'Library/Application Support/Claude');
     const configPath = path.join(claudeConfigDir, 'claude_desktop_config.json');
 
@@ -985,7 +987,7 @@ ipcMain.handle('setup-claude-mcp', async () => {
       : path.join(__dirname, '../dist-mcp/index.cjs');
 
     if (!fs.existsSync(mcpPath)) {
-      throw new Error(`Server MCP non trovato al path: ${mcpPath}. Esegui prima il build.`);
+      throw new Error(`MCP server not found at ${mcpPath}. Build it first.`);
     }
 
     if (!fs.existsSync(claudeConfigDir)) {
@@ -1151,7 +1153,7 @@ ipcMain.handle('create-folder', (_, folderName: string, syncDir?: string) => {
     validateFolderName(folderName);
     const targetDir = getTargetDir(syncDir);
     const folderPath = safeResolve(targetDir, folderName);
-    if (fs.existsSync(folderPath)) throw new Error(`La cartella "${folderName}" esiste già`);
+    if (fs.existsSync(folderPath)) throw new Error(`Folder "${folderName}" already exists`);
     fs.mkdirSync(folderPath);
     fullTextSearchIndex.markDirty(targetDir);
     return { success: true };
@@ -1167,8 +1169,8 @@ ipcMain.handle('rename-folder', (_, oldName: string, newName: string, syncDir?: 
     const targetDir = getTargetDir(syncDir);
     const oldPath = safeResolve(targetDir, oldName);
     const newPath = safeResolve(targetDir, newName);
-    if (!fs.existsSync(oldPath)) throw new Error(`Cartella "${oldName}" non trovata`);
-    if (fs.existsSync(newPath)) throw new Error(`Cartella "${newName}" esiste già`);
+    if (!fs.existsSync(oldPath)) throw new Error(`Folder "${oldName}" not found`);
+    if (fs.existsSync(newPath)) throw new Error(`Folder "${newName}" already exists`);
     fs.renameSync(oldPath, newPath);
     fullTextSearchIndex.markDirty(targetDir);
     return { success: true };
@@ -1182,14 +1184,12 @@ ipcMain.handle('delete-folder', (_, folderName: string, syncDir?: string) => {
     validateFolderName(folderName);
     const targetDir = getTargetDir(syncDir);
     const folderPath = safeResolve(targetDir, folderName);
-    if (!fs.existsSync(folderPath)) throw new Error(`Cartella "${folderName}" non trovata`);
-    // Move notes to root before deleting folder
-    for (const f of fs.readdirSync(folderPath).filter(f => f.endsWith('.md'))) {
-      fs.renameSync(path.join(folderPath, f), safeResolve(targetDir, f));
-    }
-    fs.rmdirSync(folderPath);
+    if (!fs.existsSync(folderPath)) throw new Error(`Folder "${folderName}" not found`);
+    // Moves the folder's contents to the root without ever overwriting a note
+    // that's already there, then removes the folder.
+    const { moved, renamed } = deleteFolderMovingContentToRoot(targetDir, folderName, safeResolve);
     fullTextSearchIndex.markDirty(targetDir);
-    return { success: true };
+    return { success: true, data: { moved, renamed } };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -1206,8 +1206,8 @@ ipcMain.handle('move-note', (_, fileName: string, toFolder: string, syncDir?: st
     const destPath = toFolder
       ? safeResolve(targetDir, `${toFolder}/${baseName}`)
       : safeResolve(targetDir, baseName);
-    if (!fs.existsSync(srcPath)) throw new Error(`Nota "${fileName}" non trovata`);
-    if (fs.existsSync(destPath)) throw new Error(`Esiste già una nota "${baseName}" nella destinazione`);
+    if (!fs.existsSync(srcPath)) throw new Error(`Note "${fileName}" not found`);
+    if (fs.existsSync(destPath)) throw new Error(`A note named "${baseName}" already exists at the destination`);
     if (toFolder) {
       const folderPath = safeResolve(targetDir, toFolder);
       if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath);
@@ -1392,7 +1392,7 @@ ipcMain.handle('llm-fetch', async (_, url: string, options: { method: string; he
     return { ok: res.ok, status: res.status, text };
   } catch (err: unknown) {
     const e = err as Error & { name?: string };
-    const msg = e.name === 'AbortError' ? `Timeout dopo ${LLM_FETCH_TIMEOUT_MS / 1000}s` : e.message;
+    const msg = e.name === 'AbortError' ? `Timed out after ${LLM_FETCH_TIMEOUT_MS / 1000}s` : e.message;
     return { ok: false, status: 0, text: msg };
   } finally {
     clearTimeout(timer);
