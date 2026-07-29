@@ -1,10 +1,10 @@
 ---
 layout: home
-title: Noted — local-first macOS notes
+title: Noted — local-first notes
 
 hero:
   name: "Noted"
-  text: "Notes that stay on your Mac"
+  text: "Notes that stay on your machine"
   tagline: "A local-first Markdown notebook with wikilinks, full-text search, multi-provider AI, Git, and a built-in MCP server. No account, no telemetry."
   image:
     src: /logo.svg
@@ -67,3 +67,21 @@ features:
     title: Automate with MCP
     details: A built-in Model Context Protocol server lets compatible AI clients read, search, and write your notes.
 ---
+
+<div style="max-width: 960px; margin: 4rem auto 0; padding: 0 24px;">
+
+## A look inside
+
+The editor stays out of the way — headings, task lists, code, math, and inline
+[[wikilinks]] that connect your notes as you write.
+
+![The Noted editor showing a note with a task list, headings, and a wikilink.](/media/screenshot-editor.png)
+
+<video controls muted playsinline preload="metadata" poster="/media/screenshot-editor.png" style="width: 100%; border-radius: 12px; margin-top: 2rem;">
+  <source src="/media/demo.mp4" type="video/mp4">
+  Your browser does not support the video tag —
+  <a href="/media/demo.mp4">download the demo</a> instead.
+</video>
+
+</div>
+

@@ -1,0 +1,76 @@
+name: Build installers
+
+# Windows and Linux installers, built on their own runners.
+#
+# The macOS DMGs are deliberately NOT built here: they need the Developer ID
+# certificate and the Apple notarization credentials, which live only on the
+# maintainer's machine (scripts/release.sh). This workflow covers the two
+# platforms that cannot be built from a Mac.
+#
+# Everything lands in a DRAFT GitHub release — nothing is public until someone
+# opens the release and clicks Publish.
+#
+# Triggers:
+#   - pushing a v* tag
+#   - manual run from the Actions tab
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: win
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: npm
+
+      # electron-builder shells out to dpkg/fakeroot for the .deb target.
+      - name: Install Linux packaging tools
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y fakeroot dpkg
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build renderer, main, preload, and MCP bundles
+        run: npm run build:bundles
+
+      # --publish always uploads to a draft release (electron-builder's default
+      # releaseType) together with the latest-*.yml metadata that the in-app
+      # updater reads. Without that metadata, installs never learn about a new
+      # version.
+      - name: Package ${{ matrix.platform }}
+        run: npx electron-builder --${{ matrix.platform }} --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # A second copy as a workflow artifact, so a manual run with no tag still
+      # produces something downloadable.
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: noted-${{ matrix.platform }}
+          path: |
+            release/*.AppImage
+            release/*.deb
+            release/*.exe
+            release/latest*.yml
+          if-no-files-found: error

@@ -8,9 +8,11 @@
  * Usage:
  *   node dist-mcp/index.cjs [--notes-dir /path/to/notes]
  *
- * If --notes-dir is omitted the server auto-detects the production Noted
- * data directory on macOS:
- *   ~/Library/Application Support/Noted/notes
+ * If --notes-dir is omitted the server auto-detects the production Noted data
+ * directory for the platform:
+ *   macOS    ~/Library/Application Support/Noted/notes
+ *   Windows  %APPDATA%\Noted\notes
+ *   Linux    ~/.config/Noted/notes
  * falling back to ~/Documents/Noted if the first path does not exist.
  */
 
@@ -66,6 +68,25 @@ export function formatLocal(d: Date, withTime = false): string {
   return `${date} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+/**
+ * Where Noted keeps its default vault, per platform — the same directory
+ * Electron's `app.getPath('userData')` resolves to, plus `/notes`.
+ *
+ * Exported and fully parameterised so the resolution order is testable off the
+ * platform it describes.
+ */
+export function defaultNotesDirCandidates(
+  home: string,
+  platform: NodeJS.Platform,
+  appData?: string,
+): string[] {
+  const userData =
+    platform === 'darwin' ? path.join(home, 'Library', 'Application Support', 'Noted')
+    : platform === 'win32' ? path.join(appData || path.join(home, 'AppData', 'Roaming'), 'Noted')
+    : path.join(home, '.config', 'Noted');
+  return [path.join(userData, 'notes'), path.join(home, 'Documents', 'Noted')];
+}
+
 export function resolveNotesDir(): string {
   // Accept --notes-dir <path> or --notes-dir=<path>
   const argv = process.argv.slice(2);
@@ -74,12 +95,7 @@ export function resolveNotesDir(): string {
   const spaceIdx = argv.indexOf('--notes-dir');
   if (spaceIdx !== -1 && argv[spaceIdx + 1]) return path.resolve(argv[spaceIdx + 1]);
 
-  // Auto-detect macOS paths
-  const home = os.homedir();
-  const candidates = [
-    path.join(home, 'Library', 'Application Support', 'Noted', 'notes'),
-    path.join(home, 'Documents', 'Noted'),
-  ];
+  const candidates = defaultNotesDirCandidates(os.homedir(), process.platform, process.env.APPDATA);
   return candidates.find(p => fs.existsSync(p)) ?? candidates[0];
 }
 

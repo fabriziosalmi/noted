@@ -50,3 +50,25 @@ for dmg in "release/Noted-$VERSION"*.dmg; do
 done
 [[ "$found" == 1 ]] || { echo "✗ no release/Noted-$VERSION*.dmg found" >&2; exit 1; }
 echo "Done — v$VERSION DMGs signed, notarized, stapled."
+
+# ── Publish checklist ─────────────────────────────────────────────────────
+# electron-updater discovers new versions by fetching latest-mac.yml from the
+# release assets. Ship the DMGs without it and every existing install stays on
+# its current version forever, silently — so refuse to print a green light when
+# the metadata is missing.
+echo
+echo "── Upload these assets to the GitHub release ──"
+YML="release/latest-mac.yml"
+if [[ ! -f "$YML" ]]; then
+  echo "✗ $YML is missing — auto-update needs it." >&2
+  echo "  It is generated when build.publish is set in package.json; re-run 'npm run build'." >&2
+  exit 1
+fi
+ASSETS=("$YML")
+for f in "release/Noted-$VERSION"*.dmg; do ASSETS+=("$f"); done
+printf '  %s\n' "${ASSETS[@]}"
+echo
+echo "  gh release create v$VERSION ${ASSETS[*]} \\"
+echo "    --title 'Noted $VERSION' --notes-file <notes.md>"
+echo
+echo "  (add --draft first if you want to eyeball it before it goes public)"

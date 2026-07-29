@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest an improvement or a new capability.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. The best requests describe a **problem** first — the
+        solution is easier to get right once the problem is clear.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: What are you doing, and where does Noted get in the way today?
+      placeholder: "When I have hundreds of notes, I can't … because …"
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: What would you like to happen?
+      description: Your proposed solution, if you have one.
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have considered
+      description: Other approaches, or how you work around it now.
+    validations:
+      required: false
+  - type: checkboxes
+    id: fit
+    attributes:
+      label: Fit with Noted
+      description: Noted is local-first and privacy-preserving — no accounts, no telemetry.
+      options:
+        - label: This request keeps notes on the user's machine and does not require an account or tracking.
+          required: true
+        - label: I searched existing issues and this is not already requested.
+          required: true

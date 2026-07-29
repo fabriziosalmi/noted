@@ -169,6 +169,7 @@ const {
   excerpt,
   main,
   resolveNotesDir,
+  defaultNotesDirCandidates,
   formatLocal,
   taskListsToTiptap,
 } = await import('./index');
@@ -1205,25 +1206,28 @@ describe('MCP server additional coverage', () => {
     process.argv = originalArgv;
   });
 
-  it('auto-detects macOS Library path if --notes-dir is omitted', async () => {
+  it('auto-detects the platform default vault path if --notes-dir is omitted', async () => {
     const path = await import('node:path');
     const os = await import('node:os');
     vi.resetModules();
     const originalArgv = [...process.argv];
     process.argv = ['node', 'index.js'];
-    
+
+    // The default is per-OS (macOS Application Support, Windows APPDATA, Linux
+    // .config), so derive the expected first candidate rather than hardcoding
+    // the macOS layout — otherwise this fails on the Linux CI runner.
     const home = os.homedir();
-    const firstCandidate = path.join(home, 'Library', 'Application Support', 'Noted', 'notes');
-    
+    const firstCandidate = defaultNotesDirCandidates(home, process.platform, process.env.APPDATA)[0];
+
     const fsModule = await import('node:fs');
     const existsSpy = vi.spyOn(fsModule, 'existsSync').mockImplementation((p) => {
       if (String(p) === firstCandidate) return true;
       return false;
     });
-    
+
     const { safeNotePath: localSafeNotePath } = await import('./index?cachebust=5');
     expect(localSafeNotePath('note.md')).toBe(path.join(firstCandidate, 'note.md'));
-    
+
     existsSpy.mockRestore();
     process.argv = originalArgv;
   });
@@ -1340,6 +1344,11 @@ describe('MCP server additional coverage', () => {
   it('wraps string errors in CallToolRequestSchema handler', async () => {
     const { CallToolRequestSchema } = await import('@modelcontextprotocol/sdk/types.js');
     vi.resetModules();
+    // Pin the vault to /mockdir so crash.md resolves into it regardless of the
+    // host platform's default — otherwise on Linux CI the note resolves under
+    // ~/.config and the read hits "not found" before the mocked throw.
+    const originalArgv = [...process.argv];
+    process.argv = ['node', 'index.js', '--notes-dir=/mockdir'];
     const setRequestHandlerSpy = vi.spyOn(Server.prototype, 'setRequestHandler');
     await import('./index?cachebust=8');
     
@@ -1368,6 +1377,7 @@ describe('MCP server additional coverage', () => {
 
     readSpy.mockRestore();
     setRequestHandlerSpy.mockRestore();
+    process.argv = originalArgv;
   });
 
   it('starts sse transport defaulting to port 3000 if --port is omitted', async () => {
@@ -1476,11 +1486,11 @@ describe('MCP server additional coverage', () => {
       process.argv = originalArgv;
     });
 
-    it('resolves using auto-detect macOS Library path', () => {
+    it('resolves using the auto-detected platform default path', () => {
       const originalArgv = [...process.argv];
       process.argv = ['node', 'index.js'];
       const home = os.homedir();
-      const firstCandidate = path.join(home, 'Library', 'Application Support', 'Noted', 'notes');
+      const firstCandidate = defaultNotesDirCandidates(home, process.platform, process.env.APPDATA)[0];
       const existsSpy = vi.spyOn(fs, 'existsSync').mockImplementation((p) => {
         if (String(p) === firstCandidate) return true;
         return false;
@@ -1504,11 +1514,11 @@ describe('MCP server additional coverage', () => {
       process.argv = originalArgv;
     });
 
-    it('falls back to macOS Library path if neither candidate exists', () => {
+    it('falls back to the platform default path if neither candidate exists', () => {
       const originalArgv = [...process.argv];
       process.argv = ['node', 'index.js'];
       const home = os.homedir();
-      const firstCandidate = path.join(home, 'Library', 'Application Support', 'Noted', 'notes');
+      const firstCandidate = defaultNotesDirCandidates(home, process.platform, process.env.APPDATA)[0];
       const existsSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(false);
       expect(resolveNotesDir()).toBe(firstCandidate);
       existsSpy.mockRestore();
@@ -1531,5 +1541,33 @@ describe('MCP server additional coverage', () => {
     expect(res).toEqual({ tools: expect.any(Array) });
     
     setRequestHandlerSpy.mockRestore();
+  });
+});
+
+describe('defaultNotesDirCandidates', () => {
+  // The MCP server has to find the same vault Electron writes to, on a machine
+  // where Electron is not running to tell it where that is.
+  it('mirrors the Electron userData location per platform', async () => {
+    const { defaultNotesDirCandidates } = await import('./index');
+    expect(defaultNotesDirCandidates('/Users/x', 'darwin')[0])
+      .toBe(path.join('/Users/x', 'Library', 'Application Support', 'Noted', 'notes'));
+    expect(defaultNotesDirCandidates('C:\\Users\\x', 'win32', 'C:\\Users\\x\\AppData\\Roaming')[0])
+      .toBe(path.join('C:\\Users\\x\\AppData\\Roaming', 'Noted', 'notes'));
+    expect(defaultNotesDirCandidates('/home/x', 'linux')[0])
+      .toBe(path.join('/home/x', '.config', 'Noted', 'notes'));
+  });
+
+  it('falls back to ~/Documents/Noted everywhere', async () => {
+    const { defaultNotesDirCandidates } = await import('./index');
+    for (const platform of ['darwin', 'win32', 'linux'] as NodeJS.Platform[]) {
+      expect(defaultNotesDirCandidates('/home/x', platform)[1])
+        .toBe(path.join('/home/x', 'Documents', 'Noted'));
+    }
+  });
+
+  it('derives the Windows path from the profile when APPDATA is unset', async () => {
+    const { defaultNotesDirCandidates } = await import('./index');
+    expect(defaultNotesDirCandidates('C:\\Users\\x', 'win32')[0])
+      .toBe(path.join('C:\\Users\\x', 'AppData', 'Roaming', 'Noted', 'notes'));
   });
 });

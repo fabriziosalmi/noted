@@ -35,10 +35,22 @@ const HOLD = 1600;          // pause to let a result land on screen
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Neutral demo content — never real client names.
+//
+// Bodies are several lines rather than one: a note holding a single sentence
+// leaves the editor 90% white, which reads as "empty app" in a still frame.
 const NOTE_A_TITLE = 'Aurora — Launch Plan';
-const NOTE_A_BODY = 'Ship the beta by Friday. Draft the announcement and line up the changelog.';
+const NOTE_A_BODY = [
+  'Beta ships Friday. Everything below has to be true before we tag it.',
+  '- Changelog written and proofread',
+  '- Release notes drafted for the blog',
+  '- Notarized build verified on a clean machine',
+  '- Rollback tested end to end',
+];
 const NOTE_B_TITLE = 'Aurora — Q3 Notes';
-const NOTE_B_BODY = 'Weekly sync: metrics up, onboarding polish next.';
+const NOTE_B_BODY = [
+  'Weekly sync — metrics up, onboarding polish is next.',
+  'Retention held through the migration, so the risk we sized in June never landed.',
+];
 
 async function main() {
   const vault = mkdtempSync(join(tmpdir(), 'noted-demo-'));
@@ -72,6 +84,16 @@ async function main() {
 
   const editor = () => win.locator('[contenteditable="true"]').first();
 
+  // Type an array of lines, letting the editor's input rules turn "- " into a
+  // real bullet list. Leaves the list at the end (Enter on an empty item would
+  // exit it, which we don't need mid-note).
+  const typeLines = async (lines) => {
+    for (let i = 0; i < lines.length; i++) {
+      if (i > 0) await win.keyboard.press('Enter');
+      await win.keyboard.type(lines[i], { delay: TYPE_DELAY });
+    }
+  };
+
   // 1 — Capture loop: ⌘N lands in an empty title; type it, watch the sidebar
   //     row rename itself live, then flow into the body.
   await beat('new note A', async () => {
@@ -79,9 +101,11 @@ async function main() {
     await sleep(BEAT);
     await editor().click();
     await win.keyboard.type(NOTE_A_TITLE, { delay: TYPE_DELAY });
+    // The title→filename sync is debounced ~900ms, so pause past it: the point
+    // of the beat is watching the sidebar row rename itself.
     await sleep(HOLD);
     await win.keyboard.press('Enter');
-    await win.keyboard.type(NOTE_A_BODY, { delay: TYPE_DELAY });
+    await typeLines(NOTE_A_BODY);
     await sleep(HOLD);
   });
 
@@ -93,13 +117,35 @@ async function main() {
     await editor().click();
     await win.keyboard.type(NOTE_B_TITLE, { delay: TYPE_DELAY });
     await sleep(HOLD);
-    await win.keyboard.press('Tab').catch(() => {});
+    // Accept the chip by clicking it, and only if it is actually on screen. A
+    // blind Tab here moves focus to the nearest title-bar button when no chip
+    // appeared, and the Enter below then *presses* that button — which is how
+    // an earlier take ended up recording the History dialog opening by itself.
+    const chip = win.locator('button', { hasText: /^Group #/ }).first();
+    if (await chip.isVisible().catch(() => false)) {
+      await chip.click();
+      await sleep(BEAT);
+      await editor().click();
+      await win.keyboard.press('End');
+    }
     await win.keyboard.press('Enter');
-    await win.keyboard.type(NOTE_B_BODY, { delay: TYPE_DELAY });
+    await typeLines(NOTE_B_BODY);
     await sleep(HOLD);
   });
 
-  // 3 — Instant search across the vault.
+  // 3 — Wikilinks: "[[" opens the suggester over existing notes; accepting one
+  //     writes a real link and gives note A a backlink.
+  await beat('wikilink to note A', async () => {
+    await win.keyboard.press('Enter');
+    await win.keyboard.type('Ship checklist lives in [[', { delay: TYPE_DELAY });
+    await sleep(HOLD);
+    await win.keyboard.type('Launch', { delay: TYPE_DELAY });
+    await sleep(HOLD);
+    await win.keyboard.press('Enter');
+    await sleep(HOLD);
+  });
+
+  // 4 — Instant search across the vault.
   await beat('global search', async () => {
     await win.keyboard.press('Meta+Shift+KeyF');
     await sleep(BEAT);
@@ -108,16 +154,27 @@ async function main() {
     await win.keyboard.press('Escape');
   });
 
-  // 4 — Quick-open to jump back to the first note.
+  // 5 — Quick-open back to the first note. Click the matching row rather than
+  //     pressing Enter blind: if the query matched nothing, Enter would land on
+  //     the "Create note" row and the take would end on a note nobody asked for.
   await beat('quick open', async () => {
     await win.keyboard.press('Meta+KeyP');
     await sleep(BEAT);
     await win.keyboard.type('launch', { delay: TYPE_DELAY });
     await sleep(HOLD);
-    await win.keyboard.press('Enter');
+    const row = win.locator('button[data-idx]', { hasText: NOTE_A_TITLE }).first();
+    const opened = await row.click({ timeout: 4000 }).then(() => true).catch(() => false);
+    if (!opened) {
+      // Never fall through to a blind Enter: the last row in the list is
+      // "Create note", so Enter would end the take on an empty note nobody
+      // asked for. Close the palette and leave the note on screen instead.
+      console.log('  [skip] quick open: no row matched, closing the palette');
+      await win.keyboard.press('Escape');
+    }
     await sleep(HOLD);
   });
 
+  // Close on note A with its backlink panel — a full window, not a modal.
   await sleep(HOLD);
   await app.close();
 

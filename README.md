@@ -4,23 +4,45 @@
 [![Latest release](https://img.shields.io/github/v/release/fabriziosalmi/noted)](https://github.com/fabriziosalmi/noted/releases/latest)
 [![Docs](https://img.shields.io/badge/docs-fabriziosalmi.github.io%2Fnoted-6366f1)](https://fabriziosalmi.github.io/noted/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-![Platform: macOS](https://img.shields.io/badge/platform-macOS-lightgrey)
+![Platform: macOS · Windows · Linux](https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-lightgrey)
 
-Noted is an open-source macOS desktop app for taking notes in Markdown/HTML, with built-in AI, note links (wikilinks), global search, local history, and Git integration. Local-first: your notes stay on your machine, there is no account and no telemetry.
+Noted is an open-source desktop app for taking notes in Markdown/HTML, with built-in AI, note links (wikilinks), global search, local history, and Git integration. Local-first: your notes stay on your machine, there is no account and no telemetry.
+
+<p align="center">
+  <img src="docs/public/media/screenshot-editor.png" width="860" alt="The Noted editor: a note with a task list, headings, and an inline wikilink, alongside the notes sidebar.">
+</p>
+
+<p align="center">
+  <strong><a href="https://github.com/fabriziosalmi/noted/blob/main/docs/public/media/demo.mp4">▶ Watch the 15-second demo</a></strong>
+  &nbsp;·&nbsp;
+  <a href="https://fabriziosalmi.github.io/noted/">Documentation</a>
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/public/media/screenshot-search.png" alt="Full-text search across the whole vault, matching note titles and body text."></td>
+    <td width="50%"><img src="docs/public/media/screenshot-quickopen.png" alt="The quick-open switcher, jumping to any note by name."></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Full-text search</strong> — every note, title and body</td>
+    <td align="center"><strong>Quick open</strong> — jump anywhere by name (⌘P)</td>
+  </tr>
+</table>
 
 **Documentation: [fabriziosalmi.github.io/noted](https://fabriziosalmi.github.io/noted/)** — installation, features, settings, keyboard shortcuts, the MCP server, and architecture.
 
-<!-- Add a hero screenshot here once available, e.g.:
-![Noted](docs/screenshot.png) -->
-
 ## Download
 
-Grab the latest **signed & notarized** build from the [**Releases page**](https://github.com/fabriziosalmi/noted/releases/latest):
+Grab the latest build from the [**Releases page**](https://github.com/fabriziosalmi/noted/releases/latest):
 
-- **Apple Silicon** — `Noted-<version>-arm64.dmg`
-- **Intel** — `Noted-<version>.dmg`
+- **macOS — Apple Silicon** — `Noted-<version>-arm64.dmg`
+- **macOS — Intel** — `Noted-<version>.dmg`
+- **Windows** — `Noted-<version>-x64-setup.exe`
+- **Linux** — `Noted-<version>.AppImage` or `.deb`
 
-Builds are notarized by Apple, so macOS opens them without the "unidentified developer" warning. Requires **macOS 11 (Big Sur) or later**. Prefer to build it yourself? See [Development setup](#development-setup).
+The macOS builds are **signed & notarized** by Apple, so they open without the "unidentified developer" warning (requires **macOS 11 Big Sur or later**). Windows and Linux installers are produced automatically for each tagged release by the [build workflow](.github/workflows/release.yml); they are not code-signed yet, so expect a SmartScreen/Gatekeeper prompt on first launch. Prefer to build it yourself? See [Development setup](#development-setup).
+
+Once installed, Noted keeps itself current: it checks for new releases on launch and offers a one-click update (**{App menu} → Check for Updates…**). Nothing downloads without your say-so.
 
 ## What it offers today
 
@@ -158,6 +180,14 @@ npm run test
 - Release builds run with the hardened runtime and are notarized by Apple
 
 To report a vulnerability, see [SECURITY.md](./SECURITY.md).
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, the
+checks your PR must pass, and how a change becomes a release; by participating you
+agree to the [Code of Conduct](./CODE_OF_CONDUCT.md). Good places to start are
+issues labelled [`good first issue`](https://github.com/fabriziosalmi/noted/issues?q=is%3Aopen+label%3A%22good+first+issue%22).
+Release history lives in [CHANGELOG.md](./CHANGELOG.md).
 
 ## License
 
