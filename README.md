@@ -181,6 +181,14 @@ npm run test
 
 To report a vulnerability, see [SECURITY.md](./SECURITY.md).
 
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, the
+checks your PR must pass, and how a change becomes a release; by participating you
+agree to the [Code of Conduct](./CODE_OF_CONDUCT.md). Good places to start are
+issues labelled [`good first issue`](https://github.com/fabriziosalmi/noted/issues?q=is%3Aopen+label%3A%22good+first+issue%22).
+Release history lives in [CHANGELOG.md](./CHANGELOG.md).
+
 ## License
 
 MIT — see [LICENSE](./LICENSE).
