@@ -41,9 +41,18 @@ export function canSelfUpdate(
 }
 
 let wiredUp = false;
-// A manual check must answer; the periodic one must not nag. The listeners are
-// shared, so remember which kind of check is in flight.
+// A manual check must answer ("up to date" / an error); the automatic startup
+// check must stay silent. The autoUpdater singleton fires its result events
+// globally, so the manual-ness of the check that triggered them can't ride
+// along on the event — it lives here instead.
+//
+// Because those events are global, two overlapping checks (the 8s startup check
+// still awaiting the network when the user picks "Check for Updates…") would
+// clobber each other's intent. So checks are serialised: at most one runs at a
+// time, and a manual request arriving mid-flight upgrades the running check to
+// manual rather than starting a second one.
 let checkIsManual = false;
+let inFlightCheck: Promise<void> | null = null;
 
 function reportManualOnly(title: string, message: string): void {
   if (!checkIsManual) return;
@@ -129,10 +138,8 @@ export async function checkForUpdates(
   getWindow: () => BrowserWindow | undefined,
   manual = false,
 ): Promise<void> {
-  checkIsManual = manual;
-
   if (!app.isPackaged) {
-    reportManualOnly('Updates unavailable', 'Update checks only run in a packaged build.');
+    if (manual) reportManualDialog('Updates unavailable', 'Update checks only run in a packaged build.');
     return;
   }
   if (!canSelfUpdate()) {
@@ -154,13 +161,31 @@ export async function checkForUpdates(
   }
 
   wireListeners(getWindow);
-  try {
-    await autoUpdater.checkForUpdates();
-  } catch (err) {
-    // The 'error' listener already reported it; this only stops the rejection
-    // from escaping as an unhandled promise.
-    logEvent('warn', 'update_check_threw', { error: (err as Error).message });
+
+  // Coalesce onto the running check rather than starting a second one. A manual
+  // request always wins the intent: an automatic check already in flight is
+  // upgraded so it will report its result.
+  if (inFlightCheck) {
+    if (manual) checkIsManual = true;
+    return inFlightCheck;
   }
+
+  checkIsManual = manual;
+  inFlightCheck = autoUpdater.checkForUpdates()
+    .then(() => undefined)
+    .catch((err: Error) => {
+      // The 'error' listener already reported it; this only stops the rejection
+      // from escaping as an unhandled promise.
+      logEvent('warn', 'update_check_threw', { error: err.message });
+    })
+    .finally(() => { inFlightCheck = null; });
+  return inFlightCheck;
+}
+
+// A plain info dialog, shown regardless of manual/automatic intent. Used for the
+// pre-check "can't even try" cases, which only ever run for a manual request.
+function reportManualDialog(title: string, message: string): void {
+  void dialog.showMessageBox({ type: 'info', title, message, buttons: ['OK'] });
 }
 
 /** Kick off the one-shot startup check, well after the window has settled. */

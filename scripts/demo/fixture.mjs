@@ -30,10 +30,14 @@ export const NOTES = [
 
 // Write the fixture into a vault directory, oldest first with distinct mtimes
 // so the "recently modified" order is stable rather than dependent on loop
-// speed. `sleep` is injected so callers control pacing.
-export async function seedVault(vaultDir, writeFileSync, joinPath, sleep) {
+// speed. Self-contained so both the screenshot and video harnesses call the
+// exact same seeding — one source of truth for what the demo vault contains.
+export async function seedVault(vaultDir) {
+  const { writeFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
   for (const [name, html] of NOTES) {
-    writeFileSync(joinPath(vaultDir, name), html, 'utf-8');
+    writeFileSync(join(vaultDir, name), html, 'utf-8');
     await sleep(15);
   }
 }

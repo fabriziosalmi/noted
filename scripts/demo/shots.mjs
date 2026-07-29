@@ -18,11 +18,11 @@
 //   npm run demo:render                             # -> out/demo.mp4
 
 import { createRequire } from 'node:module';
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { NOTES } from './fixture.mjs';
+import { seedVault } from './fixture.mjs';
 
 const require = createRequire(import.meta.url);
 const { _electron } = require('playwright');
@@ -36,11 +36,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function main() {
   const vault = mkdtempSync(join(tmpdir(), 'noted-shots-'));
   mkdirSync(OUT_DIR, { recursive: true });
-  for (const [name, html] of NOTES) {
-    writeFileSync(join(vault, name), html, 'utf-8');
-    // Distinct mtimes, so the sidebar's "recently modified" order is stable.
-    await sleep(15);
-  }
+  await seedVault(vault);
   console.log('vault:', vault);
 
   // Launch the *package* ('.') rather than the entry file directly: pointed at
