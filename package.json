@@ -23,7 +23,10 @@
     "build:mcp": "esbuild mcp-server/index.ts --bundle --platform=node --format=cjs --outfile=dist-mcp/index.cjs --external:fsevents --external:jsdom && npm install jsdom@^29.1.1 --prefix dist-mcp --no-save --no-package-lock --omit=dev",
     "dev": "npm run build:main && npm run build:preload && vite",
     "build": "tsc -b && vite build && npm run build:main && npm run build:preload && npm run build:mcp && electron-builder",
-    "build:dmg": "tsc -b && vite build && npm run build:main && npm run build:preload && npm run build:mcp && electron-builder --mac dmg --arm64",
+    "build:bundles": "tsc -b && vite build && npm run build:main && npm run build:preload && npm run build:mcp",
+    "build:dmg": "npm run build:bundles && electron-builder --mac dmg --arm64",
+    "build:win": "npm run build:bundles && electron-builder --win",
+    "build:linux": "npm run build:bundles && electron-builder --linux",
     "lint": "eslint . --cache",
     "lint:ci": "eslint .",
     "preview": "vite preview",
@@ -33,7 +36,8 @@
     "test:e2e:keyboard-intl": "node scripts/playwright-keyboard-intl.mjs",
     "demo:record": "node scripts/demo/record.mjs",
     "demo:render": "node scripts/demo/render.mjs",
-    "demo": "npm run build:main && npm run build:preload && vite build && npm run demo:record && npm run demo:render"
+    "demo": "npm run build:main && npm run build:preload && vite build && npm run demo:record && npm run demo:render",
+    "demo:shots": "node scripts/demo/shots.mjs"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.24",
@@ -54,6 +58,7 @@
     "@tiptap/starter-kit": "^3.23.4",
     "@tiptap/suggestion": "^3.23.4",
     "dompurify": "^3.4.5",
+    "electron-updater": "^6.8.9",
     "fuse.js": "^7.3.0",
     "html-to-docx": "^1.8.0",
     "jsdom": "^29.1.1",
@@ -118,6 +123,13 @@
     "asarUnpack": [
       "dist-mcp/**/*"
     ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "fabriziosalmi",
+        "repo": "noted"
+      }
+    ],
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
@@ -151,6 +163,50 @@
           "path": "/Applications"
         }
       ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "${productName}-${version}-${arch}-setup.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "Office",
+      "synopsis": "Local-first Markdown notes with wikilinks, search, AI, and Git",
+      "desktop": {
+        "entry": {
+          "StartupWMClass": "Noted"
+        }
+      }
     }
   }
 }

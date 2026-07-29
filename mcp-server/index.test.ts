@@ -1533,3 +1533,31 @@ describe('MCP server additional coverage', () => {
     setRequestHandlerSpy.mockRestore();
   });
 });
+
+describe('defaultNotesDirCandidates', () => {
+  // The MCP server has to find the same vault Electron writes to, on a machine
+  // where Electron is not running to tell it where that is.
+  it('mirrors the Electron userData location per platform', async () => {
+    const { defaultNotesDirCandidates } = await import('./index');
+    expect(defaultNotesDirCandidates('/Users/x', 'darwin')[0])
+      .toBe(path.join('/Users/x', 'Library', 'Application Support', 'Noted', 'notes'));
+    expect(defaultNotesDirCandidates('C:\\Users\\x', 'win32', 'C:\\Users\\x\\AppData\\Roaming')[0])
+      .toBe(path.join('C:\\Users\\x\\AppData\\Roaming', 'Noted', 'notes'));
+    expect(defaultNotesDirCandidates('/home/x', 'linux')[0])
+      .toBe(path.join('/home/x', '.config', 'Noted', 'notes'));
+  });
+
+  it('falls back to ~/Documents/Noted everywhere', async () => {
+    const { defaultNotesDirCandidates } = await import('./index');
+    for (const platform of ['darwin', 'win32', 'linux'] as NodeJS.Platform[]) {
+      expect(defaultNotesDirCandidates('/home/x', platform)[1])
+        .toBe(path.join('/home/x', 'Documents', 'Noted'));
+    }
+  });
+
+  it('derives the Windows path from the profile when APPDATA is unset', async () => {
+    const { defaultNotesDirCandidates } = await import('./index');
+    expect(defaultNotesDirCandidates('C:\\Users\\x', 'win32')[0])
+      .toBe(path.join('C:\\Users\\x', 'AppData', 'Roaming', 'Noted', 'notes'));
+  });
+});

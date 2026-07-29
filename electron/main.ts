@@ -13,6 +13,7 @@ import * as gitOps from './git-ops.js';
 import { sanitizeGitError } from './git-ops.js';
 import { FullTextSearchReadModel } from './fulltext-index.js';
 import { logEvent, newRequestId } from './structured-log.js';
+import { checkForUpdates, scheduleStartupUpdateCheck } from './updater.js';
 
 // Disable hardware acceleration only in dev to avoid GPU process crashes in sandboxed environments.
 // In production we need it for vibrancy/blur effects.
@@ -381,6 +382,7 @@ function buildAppMenu() {
       label: app.name,
       submenu: [
         { role: 'about' as const },
+        { label: 'Check for Updates…', click: () => void checkForUpdates(() => win, true) },
         { type: 'separator' as const },
         { label: 'Preferences…', accelerator: 'Cmd+,', click: () => send('settings') },
         { type: 'separator' as const },
@@ -417,6 +419,19 @@ function buildAppMenu() {
       ],
     },
     { role: 'windowMenu' },
+    {
+      role: 'help' as const,
+      submenu: [
+        { label: 'Documentation', click: () => void shell.openExternal('https://fabriziosalmi.github.io/noted/') },
+        { label: 'Release Notes', click: () => void shell.openExternal('https://github.com/fabriziosalmi/noted/releases') },
+        { label: 'Report an Issue', click: () => void shell.openExternal('https://github.com/fabriziosalmi/noted/issues/new') },
+        // On macOS this lives in the app menu, where the platform expects it.
+        ...(isMac ? [] : [
+          { type: 'separator' as const },
+          { label: 'Check for Updates…', click: () => void checkForUpdates(() => win, true) },
+        ]),
+      ],
+    },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -477,6 +492,7 @@ app.whenReady().then(() => {
   buildAppMenu();
   startVaultWatch();
   globalShortcut.register('CommandOrControl+Shift+Space', openCaptureWindow);
+  scheduleStartupUpdateCheck(() => win);
 });
 
 // Give the renderer a chance to flush pending autosaves before the app exits,
@@ -974,12 +990,20 @@ ipcMain.handle('get-native-theme', () => ({
 
 
 
+// Where Claude Desktop keeps claude_desktop_config.json, per platform. Windows
+// has no HOME, so the home directory comes from Electron rather than the env.
+export function resolveClaudeConfigDir(home: string, platform: NodeJS.Platform, appData?: string): string {
+  if (platform === 'darwin') return path.join(home, 'Library', 'Application Support', 'Claude');
+  if (platform === 'win32') return path.join(appData || path.join(home, 'AppData', 'Roaming'), 'Claude');
+  return path.join(home, '.config', 'Claude');
+}
+
 ipcMain.handle('setup-claude-mcp', async () => {
   try {
-    const homeDir = process.env.HOME || '';
-    if (!homeDir) throw new Error('Could not determine the HOME directory');
-    const claudeConfigDir = path.join(homeDir, 'Library/Application Support/Claude');
-    const configPath = path.join(claudeConfigDir, 'claude_desktop_config.json');
+    const homeDir = app.getPath('home');
+    if (!homeDir) throw new Error('Could not determine the home directory');
+    const configDir = resolveClaudeConfigDir(homeDir, process.platform, process.env.APPDATA);
+    const configPath = path.join(configDir, 'claude_desktop_config.json');
 
     // Get the actual MCP server path
     const mcpPath = app.isPackaged
@@ -990,8 +1014,8 @@ ipcMain.handle('setup-claude-mcp', async () => {
       throw new Error(`MCP server not found at ${mcpPath}. Build it first.`);
     }
 
-    if (!fs.existsSync(claudeConfigDir)) {
-      fs.mkdirSync(claudeConfigDir, { recursive: true });
+    if (!fs.existsSync(configDir)) {
+      fs.mkdirSync(configDir, { recursive: true });
     }
 
     let config: { mcpServers?: Record<string, unknown> } & Record<string, unknown> = { mcpServers: {} };
