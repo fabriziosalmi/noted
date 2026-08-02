@@ -235,10 +235,12 @@ body {
 
 /* ── Tables ────────────────────────────────────────────────────────── */
 .vp-doc table {
+  /* Keep `display: block` + `overflow-x: auto` (VitePress default) so wide
+     tables scroll horizontally on narrow screens instead of being clipped. */
+  display: block;
+  overflow-x: auto;
   border-radius: var(--r-md);
-  overflow: hidden;
   border: 1px solid var(--vp-c-divider);
-  display: table;
   width: 100%;
 }
 

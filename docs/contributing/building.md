@@ -7,7 +7,11 @@ continuous-integration gates that run on every push.
 
 - **Node.js 20 or later**
 - **npm 10 or later**
-- macOS with Xcode command-line tools (for packaging and, optionally, signing)
+- To package the desktop app: **macOS** for the DMG (with Xcode command-line
+  tools for signing), **Windows** for the NSIS installer, or **Linux** for the
+  AppImage and `.deb`. electron-builder does not cross-compile, so each
+  platform's installer is built on that platform — see
+  [Cross-platform builds (CI)](#cross-platform-builds-ci).
 
 Install dependencies once:
 
@@ -31,6 +35,8 @@ starts the Vite renderer with hot-module reloading.
 | `npm run dev` | Build main + preload, then start Vite |
 | `npm run build` | Full production build and package (`electron-builder`) |
 | `npm run build:dmg` | Build and package a macOS DMG (arm64) |
+| `npm run build:win` | Build and package the Windows NSIS installer (x64 + arm64) |
+| `npm run build:linux` | Build and package the Linux AppImage and `.deb` (x64 + arm64) |
 | `npm run build:main` | Bundle the Electron main process (`dist-electron/main.cjs`) |
 | `npm run build:preload` | Bundle the preload script (`dist-electron/preload.js`) |
 | `npm run build:mcp` | Bundle the MCP server (`dist-mcp/index.cjs`) |
@@ -49,18 +55,22 @@ starts the Vite renderer with hot-module reloading.
 3. `build:main`, `build:preload`, `build:mcp` — three `esbuild` passes that emit
    CommonJS bundles for the Electron main process, the preload bridge, and the
    standalone MCP server.
-4. `electron-builder` — package the app and produce DMGs.
+4. `electron-builder` — package the app and produce installers (a DMG on macOS,
+   an NSIS `.exe` on Windows, an AppImage and `.deb` on Linux).
 
 The renderer, main process, preload bridge, and MCP server are separate bundles;
 see [Architecture](/contributing/architecture) for how they fit together.
 
 ## Packaging
 
-`electron-builder` is configured in `package.json` under the `build` key. On
-macOS it produces a DMG for both architectures:
+`electron-builder` is configured in `package.json` under the `build` key. Each
+platform produces its own installers:
 
-- `Noted-<version>-arm64.dmg` — Apple Silicon
-- `Noted-<version>.dmg` — Intel
+- **macOS** — `Noted-<version>-arm64.dmg` (Apple Silicon) and
+  `Noted-<version>.dmg` (Intel)
+- **Windows** — `Noted-<version>-<arch>-setup.exe` (NSIS, x64 and arm64)
+- **Linux** — `Noted-<version>.AppImage` / `Noted-<version>-arm64.AppImage`, and
+  `noted_<version>_<arch>.deb` (x64 and arm64)
 
 Packaged output lands in `release/`. The MCP server bundle is unpacked from the
 asar (`asarUnpack`) so it can be spawned as a child process.
@@ -101,13 +111,24 @@ itself. `scripts/release.sh` owns DMG notarization, which is why
 `mac.notarize` is set to `false` in `package.json`.
 :::
 
-After a successful build, tag the release and publish it:
+After a successful macOS build, notarize and publish the DMGs, then tag the
+release to trigger the cross-platform CI build:
 
 ```bash
+bash scripts/release.sh          # build + notarize + staple the DMGs
 git tag v<version>
-git push --tags
+git push --tags                  # triggers the Windows/Linux CI build below
 gh release create v<version> release/Noted-<version>*.dmg
 ```
+
+## Cross-platform builds (CI) {#cross-platform-builds-ci}
+
+Windows and Linux installers are built in CI, because electron-builder cannot
+cross-compile them from macOS. `.github/workflows/release.yml` runs on a `v*`
+tag (and on manual dispatch): it builds the Windows and Linux targets on their
+own runners with `build:win` / `build:linux` and uploads them — together with
+the `latest-*.yml` auto-update metadata — to the GitHub release. The macOS DMGs
+are built and notarized locally (above) and added to the same release.
 
 ## Continuous integration
 

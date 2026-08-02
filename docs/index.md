@@ -75,9 +75,11 @@ features:
 The editor stays out of the way — headings, task lists, code, math, and inline
 [[wikilinks]] that connect your notes as you write.
 
-![The Noted editor showing a note with a task list, headings, and a wikilink.](/media/screenshot-editor.png)
+<img src="/media/screenshot-editor.png" width="1440" height="900" loading="lazy" decoding="async"
+     alt="The Noted editor showing a note with a task list, headings, and a wikilink."
+     style="width: 100%; height: auto; border-radius: 12px;" />
 
-<video controls muted playsinline preload="metadata" poster="/media/screenshot-editor.png" style="width: 100%; border-radius: 12px; margin-top: 2rem;">
+<video controls muted playsinline preload="metadata" width="1440" height="900" poster="/media/screenshot-editor.png" style="width: 100%; height: auto; border-radius: 12px; margin-top: 2rem;">
   <source src="/media/demo.mp4" type="video/mp4">
   Your browser does not support the video tag —
   <a href="/media/demo.mp4">download the demo</a> instead.

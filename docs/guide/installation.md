@@ -20,7 +20,7 @@ Grab the latest build from the
 | macOS — Apple Silicon (M1 and later) | `Noted-<version>-arm64.dmg` |
 | macOS — Intel | `Noted-<version>.dmg` |
 | Windows (x64 / arm64) | `Noted-<version>-<arch>-setup.exe` |
-| Linux (x64 / arm64) | `Noted-<version>.AppImage` or `.deb` |
+| Linux (x64 / arm64) | `Noted-<version>.AppImage` / `Noted-<version>-arm64.AppImage`, or `noted_<version>_<arch>.deb` |
 
 **macOS** — open the DMG and drag **Noted** into your Applications folder. The
 builds are notarized by Apple, so macOS opens them normally, with no
@@ -31,7 +31,7 @@ the app and choose **Open** once to confirm.
 SmartScreen may warn you: choose **More info → Run anyway**.
 
 **Linux** — mark the `.AppImage` executable (`chmod +x Noted-*.AppImage`) and run
-it, or install the `.deb` with `sudo apt install ./Noted-*.deb`.
+it, or install the `.deb` with `sudo apt install ./noted_*.deb`.
 
 ::: tip Which macOS build do I need?
 If you are on an M-series Mac, use the `arm64` DMG. On older Intel Macs, use the

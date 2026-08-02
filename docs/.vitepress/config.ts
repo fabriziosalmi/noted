@@ -9,6 +9,9 @@ export default defineConfig({
   base: '/noted/',
   cleanUrls: true,
   lastUpdated: true,
+  sitemap: {
+    hostname: 'https://fabriziosalmi.github.io/noted/',
+  },
 
   head: [
     // Everything this site loads is first-party. 'unsafe-inline' is required
@@ -43,6 +46,18 @@ export default defineConfig({
           'Markdown notes with wikilinks, full-text search, multi-provider AI, Git, and an MCP server. Local-first: no account, no telemetry.',
       },
     ],
+    ['meta', { property: 'og:url', content: 'https://fabriziosalmi.github.io/noted/' }],
+    ['meta', { property: 'og:image', content: 'https://fabriziosalmi.github.io/noted/media/screenshot-editor.png' }],
+    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    ['meta', { name: 'twitter:title', content: 'Noted — local-first macOS notes' }],
+    [
+      'meta',
+      {
+        name: 'twitter:description',
+        content: 'Markdown notes with wikilinks, full-text search, multi-provider AI, Git, and an MCP server.',
+      },
+    ],
+    ['meta', { name: 'twitter:image', content: 'https://fabriziosalmi.github.io/noted/media/screenshot-editor.png' }],
   ],
 
   themeConfig: {
@@ -106,7 +121,7 @@ export default defineConfig({
 
     footer: {
       message: 
-        'Local-first. No account. No telemetry. · <a href="https://fabriziosalmi.github.io/privacy">Privacy &amp; legal</a>',
+        'Local-first. No account. No telemetry. · <a href="https://fabriziosalmi.github.io/privacy" target="_blank" rel="noopener">Privacy &amp; legal</a>',
       copyright: 'MIT Licensed · Copyright © Fabrizio Salmi',
     },
 
