@@ -1,4 +1,5 @@
 import { useStore } from '../store/useStore';
+import { platformizeShortcut } from './platform';
 
 type Lang = 'en' | 'it' | 'es' | 'pt' | 'fr' | 'de';
 
@@ -2735,14 +2736,14 @@ export type TranslationKey = keyof typeof translations.en;
 // to produce a localized string from the current language.
 export function translate(key: TranslationKey, lang?: string): string {
   const dict = translations[(lang ?? 'en') as Lang] ?? translations.en;
-  return (dict as Record<string, string>)[key] ?? translations.en[key];
+  return platformizeShortcut((dict as Record<string, string>)[key] ?? translations.en[key]);
 }
 
 export function useI18n() {
   const language = useStore(s => s.settings.language ?? 'en');
   const dict = translations[language as Lang] ?? translations.en;
   return {
-    t: (key: TranslationKey) => (dict as Record<string, string>)[key] ?? translations.en[key],
+    t: (key: TranslationKey) => platformizeShortcut((dict as Record<string, string>)[key] ?? translations.en[key]),
     language,
   };
 }

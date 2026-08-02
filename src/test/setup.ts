@@ -26,6 +26,14 @@ Object.defineProperty(window, 'localStorage', {
   value: localStorageMock
 });
 
+// The app is macOS-primary; pin the test UA to macOS so the shortcut-label
+// helpers in src/lib/platform.ts resolve to the ⌘ glyphs the component tests
+// assert (isMac is read at module load, after this setup file runs).
+Object.defineProperty(navigator, 'userAgent', {
+  value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko)',
+  configurable: true,
+});
+
 // Mock electronAPI
 window.electronAPI = {
   getNotesList: vi.fn().mockResolvedValue({ success: true, data: [] }),

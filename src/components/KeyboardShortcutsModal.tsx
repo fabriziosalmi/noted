@@ -4,6 +4,7 @@ import { useI18n } from '../lib/i18n';
 import type { TranslationKey } from '../lib/i18n';
 import { Modal } from './Modal';
 import { useStore } from '../store/useStore';
+import { modKey, shiftKey } from '../lib/platform';
 
 interface ShortcutRow {
   keys: string[];
@@ -24,13 +25,13 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
     {
       titleKey: 'sectionGeneral',
       rows: [
-        { keys: ['⌘', 'P'], descriptionKey: 'shortcutQuickOpen' },
-        { keys: ['⌘', '⇧', 'F'], descriptionKey: 'shortcutSearchAll' },
-        { keys: ['⌘', 'S'], descriptionKey: 'shortcutSave' },
-        { keys: ['⌘', 'F'], descriptionKey: 'shortcutFind' },
-        { keys: ['⌘', '\\'], descriptionKey: 'shortcutFocusMode' },
-        { keys: ['⌘', 'Z'], descriptionKey: 'shortcutUndo' },
-        { keys: ['⌘', '⇧', 'Z'], descriptionKey: 'shortcutRedo' },
+        { keys: [modKey, 'P'], descriptionKey: 'shortcutQuickOpen' },
+        { keys: [modKey, shiftKey, 'F'], descriptionKey: 'shortcutSearchAll' },
+        { keys: [modKey, 'S'], descriptionKey: 'shortcutSave' },
+        { keys: [modKey, 'F'], descriptionKey: 'shortcutFind' },
+        { keys: [modKey, '\\'], descriptionKey: 'shortcutFocusMode' },
+        { keys: [modKey, 'Z'], descriptionKey: 'shortcutUndo' },
+        { keys: [modKey, shiftKey, 'Z'], descriptionKey: 'shortcutRedo' },
         { keys: ['?'], descriptionKey: 'shortcutShowShortcuts' },
       ],
     },
@@ -38,7 +39,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
       titleKey: 'sectionAi',
       rows: [
         { keys: ['/'], descriptionKey: 'shortcutSlash' },
-        { keys: ['⌘', 'L'], descriptionKey: 'shortcutGhostManual' },
+        { keys: [modKey, 'L'], descriptionKey: 'shortcutGhostManual' },
         { keys: ['Tab'], descriptionKey: 'shortcutTab' },
         { keys: ['Esc'], descriptionKey: 'shortcutEsc' },
       ],
@@ -46,19 +47,19 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
     {
       titleKey: 'sectionFormatting',
       rows: [
-        { keys: ['⌘', 'B'], descriptionKey: 'shortcutBold' },
-        { keys: ['⌘', 'I'], descriptionKey: 'shortcutItalic' },
-        { keys: ['⌘', 'Alt', '1'], descriptionKey: 'shortcutH1' },
-        { keys: ['⌘', 'Alt', '2'], descriptionKey: 'shortcutH2' },
-        { keys: ['⌘', 'Alt', '3'], descriptionKey: 'shortcutH3' },
-        { keys: ['⌘', 'E'], descriptionKey: 'shortcutCode' },
+        { keys: [modKey, 'B'], descriptionKey: 'shortcutBold' },
+        { keys: [modKey, 'I'], descriptionKey: 'shortcutItalic' },
+        { keys: [modKey, 'Alt', '1'], descriptionKey: 'shortcutH1' },
+        { keys: [modKey, 'Alt', '2'], descriptionKey: 'shortcutH2' },
+        { keys: [modKey, 'Alt', '3'], descriptionKey: 'shortcutH3' },
+        { keys: [modKey, 'E'], descriptionKey: 'shortcutCode' },
       ],
     },
     {
       titleKey: 'sectionNotes',
       rows: [
-        { keys: ['⌘', 'N'], descriptionKey: 'shortcutNewNote' },
-        { keys: ['⌘', '⇧', 'Space'], descriptionKey: 'shortcutQuickCapture' },
+        { keys: [modKey, 'N'], descriptionKey: 'shortcutNewNote' },
+        { keys: [modKey, shiftKey, 'Space'], descriptionKey: 'shortcutQuickCapture' },
         { keys: [t('gestureDoubleClick')], descriptionKey: 'shortcutRename' },
       ],
     },
