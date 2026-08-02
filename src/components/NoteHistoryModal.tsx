@@ -50,7 +50,7 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
   }, [preview, onRestore, onClose, confirm, t]);
 
   return (
-    <Modal id="history" onClose={onClose} labelledBy="history-title" className="w-[700px] max-h-[80vh]">
+    <Modal id="history" onClose={onClose} labelledBy="history-title" className="w-[700px] max-w-[92vw] max-h-[80vh]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100/40 dark:border-gray-700/40">
           <div className="flex items-center gap-2">
             <Clock size={15} className="text-gray-400" />

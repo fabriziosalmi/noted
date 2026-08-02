@@ -120,6 +120,18 @@ function quickHash(text: string): string {
 
 const embeddingCache = new Map<string, number[]>();
 const noteEmbeddingKeyIndex = new Map<string, string>();
+const MAX_EMBEDDING_CACHE = 2000;
+
+// Bound the embedding caches (FIFO) so a long session — many unique queries, or
+// repeated vault switches that strand a previous vault's note embeddings — can't
+// grow them without limit.
+function capMap<V>(m: Map<string, V>, max: number): void {
+  while (m.size > max) {
+    const oldest = m.keys().next().value;
+    if (oldest === undefined) break;
+    m.delete(oldest);
+  }
+}
 
 async function transportFetch(url: string, init: { method: string; headers: Record<string, string>; body: string }): Promise<{ ok: boolean; status: number; text: string; }> {
   const api = getElectronApi();
@@ -231,6 +243,7 @@ export async function findRelevantNotesHybrid(
     if (!queryEmb) {
       queryEmb = await fetchEmbedding(cfg.provider, cfg.model, query, cfg.apiKey, cfg.lmStudioUrl);
       embeddingCache.set(queryKey, queryEmb);
+      capMap(embeddingCache, MAX_EMBEDDING_CACHE);
     }
 
     const denseScores = await Promise.all(notes.map(async (note) => {
@@ -239,10 +252,12 @@ export async function findRelevantNotesHybrid(
       const prevKey = noteEmbeddingKeyIndex.get(noteIndexKey);
       if (prevKey && prevKey !== nKey) embeddingCache.delete(prevKey);
       noteEmbeddingKeyIndex.set(noteIndexKey, nKey);
+      capMap(noteEmbeddingKeyIndex, MAX_EMBEDDING_CACHE);
       let emb = embeddingCache.get(nKey);
       if (!emb) {
         emb = await fetchEmbedding(cfg.provider, cfg.model, note.text.slice(0, 2400), cfg.apiKey, cfg.lmStudioUrl);
         embeddingCache.set(nKey, emb);
+        capMap(embeddingCache, MAX_EMBEDDING_CACHE);
       }
       return { name: note.name, dense: cosineSimilarityDense(queryEmb, emb) };
     }));

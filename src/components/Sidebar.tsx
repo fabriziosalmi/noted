@@ -149,7 +149,7 @@ function NoteRow({
               place. The title keeps the full width the rest of the time. */}
           <div className="flex flex-col min-w-0 flex-1 gap-0.5">
             <div className="flex items-baseline gap-2 min-w-0">
-              <span className="truncate leading-snug flex-1">
+              <span className="truncate leading-snug flex-1" title={baseName.replace(/\.md$/, '')}>
                 {(() => {
                   const raw = baseName.replace(/\.md$/, '');
                   return !raw.trim() || /^(untitled|new[_ ]?note)[_ ]?[\d:.T-]*$/i.test(raw) ? t('untitled') : raw;
@@ -704,7 +704,7 @@ export function Sidebar({
       <div className="px-2 pb-2">
         <div className="flex items-center gap-1.5 bg-gray-200/40 dark:bg-gray-800/40 rounded-lg px-2.5 py-1.5 group focus-within:bg-white dark:focus-within:bg-gray-800 focus-within:ring-1 focus-within:ring-[var(--accent)]/35 focus-within:shadow-sm transition-all duration-200">
           <Search size={12} className="text-gray-400 group-focus-within:text-[var(--accent)] shrink-0 transition-colors duration-200" />
-          <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder={t('search')}
+          <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder={t('search')} aria-label={t('search')}
             className="bg-transparent text-xs text-gray-700 dark:text-gray-200 placeholder-gray-400 outline-none w-full" />
         </div>
       </div>

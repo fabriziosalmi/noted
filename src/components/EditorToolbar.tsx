@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { useI18n } from '../lib/i18n';
+import { modKey, shiftKey } from '../lib/platform';
 import type { Editor } from '@tiptap/react';
 import {
   Bold, Italic, Strikethrough, Heading1, Heading2, Heading3,
@@ -182,7 +183,7 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
               <Search size={15} />
             </TbButton>
             {onOpenGlobalSearch && (
-              <TbButton onClick={onOpenGlobalSearch} label="Search all notes (⌘⇧F)">
+              <TbButton onClick={onOpenGlobalSearch} label={`${t('shortcutSearchAll')} (${modKey}${shiftKey}F)`}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
                   <path d="M11 8v6M8 11h6" strokeWidth="1.8"/>
