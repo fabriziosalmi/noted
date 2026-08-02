@@ -47,6 +47,14 @@ trigger a check any time from **{App menu} → Check for Updates…** (in the He
 menu on Windows and Linux). Linux `.deb` installs update through your package
 manager instead; the AppImage updates itself.
 
+::: info Update signatures
+macOS updates are verified through Apple code signing and notarization. The
+Windows and Linux builds are **not code-signed yet**, so their in-place updates
+are verified by checksum (the SHA-512 in the release metadata) but not by a
+signing certificate. Install and update only from the official
+[Releases page](https://github.com/fabriziosalmi/noted/releases).
+:::
+
 ## Build from source
 
 If you prefer to build it yourself, you need:

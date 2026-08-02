@@ -83,3 +83,12 @@ Release builds run with the macOS hardened runtime and a minimal set of
 entitlements, are signed with an Apple Developer ID, and are notarized and stapled
 by Apple so they pass Gatekeeper offline. Signing and notarization happen locally,
 never in CI, so no signing credentials are ever exposed to a build server.
+
+Windows and Linux builds are not yet code-signed. Their auto-updates are verified
+by the SHA-512 checksum in the release metadata (`latest*.yml`), which protects
+against tampering in transit, but no signing certificate binds a build to the
+maintainer — so the trust root is the GitHub release itself. The publishing
+pipeline is locked down accordingly: the release workflow runs only on version
+tags (never on pull requests) and publishes to a draft release, and updates are
+never downloaded or installed without explicit user consent. Always install from
+the official Releases page.
