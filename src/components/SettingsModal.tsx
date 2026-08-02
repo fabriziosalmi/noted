@@ -643,7 +643,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                     <Info size={12} />
                   </span>
                 </div>
-                <Select value={settings.llmProvider} onChange={(e) => onUpdate({ llmProvider: e.target.value as LLMProvider })}>
+                <Select aria-label={t('llmProvider')} value={settings.llmProvider} onChange={(e) => onUpdate({ llmProvider: e.target.value as LLMProvider })}>
                   <option value="openai">OpenAI (GPT-4o)</option>
                   <option value="anthropic">Anthropic (Claude 3)</option>
                   <option value="gemini">Google Gemini</option>
@@ -666,11 +666,11 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   )}
                 </div>
                 {canDetectModels(settings.llmProvider) && discoveredModels.length > 0 ? (
-                  <Select value={settings.llmModel} onChange={e => onUpdate({ llmModel: e.target.value })}>
+                  <Select aria-label={t('model')} value={settings.llmModel} onChange={e => onUpdate({ llmModel: e.target.value })}>
                     {discoveredModels.map(m => <option key={m} value={m}>{m}</option>)}
                   </Select>
                 ) : (
-                  <Input type="text" value={settings.llmModel} onChange={(e) => onUpdate({ llmModel: e.target.value })}
+                  <Input aria-label={t('model')} type="text" value={settings.llmModel} onChange={(e) => onUpdate({ llmModel: e.target.value })}
                     placeholder={
                       settings.llmProvider === 'openai' ? 'gpt-4o' :
                       settings.llmProvider === 'anthropic' ? 'claude-3-5-sonnet-20241022' :
@@ -693,7 +693,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
               {settings.llmProvider === 'lmstudio' && (
                 <div>
                   <FieldLabel>{t('lmStudioUrl')}</FieldLabel>
-                  <Input type="text" value={settings.lmStudioUrl} onChange={(e) => onUpdate({ lmStudioUrl: e.target.value })} placeholder="http://localhost:1234/v1" />
+                  <Input aria-label={t('lmStudioUrl')} type="text" value={settings.lmStudioUrl} onChange={(e) => onUpdate({ lmStudioUrl: e.target.value })} placeholder="http://localhost:1234/v1" />
                   <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">{t('lmStudioHelp')}</p>
                 </div>
               )}
@@ -701,7 +701,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
               {settings.llmProvider === 'openai-compatible' && (
                 <div>
                   <FieldLabel>{t('openaiCompatUrlLabel')}</FieldLabel>
-                  <Input type="text" value={settings.openaiCompatibleUrl} onChange={(e) => onUpdate({ openaiCompatibleUrl: e.target.value })} placeholder="https://api.regolo.ai/v1" />
+                  <Input aria-label={t('openaiCompatUrlLabel')} type="text" value={settings.openaiCompatibleUrl} onChange={(e) => onUpdate({ openaiCompatibleUrl: e.target.value })} placeholder="https://api.regolo.ai/v1" />
                   <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">{t('openaiCompatUrlHelp')}</p>
                 </div>
               )}
@@ -715,7 +715,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                     </div>
                   )}
                   <div className="relative">
-                    <Input type={showApiKey ? 'text' : 'password'} value={settings.llmApiKey} onChange={(e) => onUpdate({ llmApiKey: e.target.value })} placeholder="sk-..." className="pr-8" />
+                    <Input aria-label={t('apiKey')} type={showApiKey ? 'text' : 'password'} value={settings.llmApiKey} onChange={(e) => onUpdate({ llmApiKey: e.target.value })} placeholder="sk-..." className="pr-8" />
                     <button
                       type="button"
                       onClick={() => setShowApiKey(v => !v)}
@@ -846,7 +846,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
 
               <div>
                 <FieldLabel>{t('language')}</FieldLabel>
-                <Select value={settings.language ?? 'en'} onChange={e => onUpdate({ language: e.target.value as Settings['language'] })}>
+                <Select aria-label={t('language')} value={settings.language ?? 'en'} onChange={e => onUpdate({ language: e.target.value as Settings['language'] })}>
                   <option value="en">English</option>
                   <option value="it">Italiano</option>
                   <option value="es">Español</option>
@@ -1043,7 +1043,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   <div className="space-y-2 pt-1 border-t border-gray-200/40 dark:border-gray-700/40">
                     <div>
                       <FieldLabel>{t('embeddingsProvider')}</FieldLabel>
-                      <Select value={settings.embeddingProvider ?? 'none'} onChange={e => onUpdate({ embeddingProvider: e.target.value as Settings['embeddingProvider'] })}>
+                      <Select aria-label={t('embeddingsProvider')} value={settings.embeddingProvider ?? 'none'} onChange={e => onUpdate({ embeddingProvider: e.target.value as Settings['embeddingProvider'] })}>
                         <option value="none">{t('embeddingsProviderNone')}</option>
                         <option value="openai">OpenAI</option>
                         <option value="lmstudio">LM Studio (Local)</option>
