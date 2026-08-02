@@ -69,6 +69,25 @@ done
 [[ "$found" == 1 ]] || { echo "✗ no release/Noted-$VERSION*.dmg found" >&2; exit 1; }
 echo "Done — v$VERSION DMGs signed, notarized, stapled."
 
+# ── Notarize the auto-update zips ──────────────────────────────────────────
+# macOS applies updates from the .zip (Squirrel.Mac), never the DMG, so the zip
+# target must exist and its app must be notarized. No stapling: Squirrel swaps
+# the bundle in place without a quarantine flag, so a cloud notarization ticket
+# is enough for Gatekeeper. notarytool does not modify the file, so the zip
+# hashes recorded in latest-mac.yml stay valid.
+echo
+echo "── Notarizing auto-update zips (v$VERSION) ──"
+zfound=0
+for zip in "release/Noted-$VERSION"*-mac.zip; do
+  zfound=1
+  echo "== $zip =="
+  xcrun notarytool submit "$zip" \
+    --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+    --wait
+done
+[[ "$zfound" == 1 ]] || { echo "✗ no release/Noted-$VERSION*-mac.zip found — add the 'zip' mac target so macOS auto-update works." >&2; exit 1; }
+echo "Done — v$VERSION update zips notarized."
+
 # ── Rebuild the update metadata from the STAPLED DMGs ──────────────────────
 # Stapling rewrites each DMG (it appends the notarization ticket), so the
 # sha512/size electron-builder recorded in latest-mac.yml at build time — before
@@ -134,7 +153,7 @@ echo "  ✓ removed stale .dmg.blockmap files"
 echo
 echo "── Upload these assets to the GitHub release ──"
 ASSETS=("$YML")
-for f in "release/Noted-$VERSION"*.dmg; do ASSETS+=("$f"); done
+for f in "release/Noted-$VERSION"*.dmg "release/Noted-$VERSION"*-mac.zip; do ASSETS+=("$f"); done
 printf '  %s\n' "${ASSETS[@]}"
 echo
 echo "  gh release create v$VERSION ${ASSETS[*]} \\"
