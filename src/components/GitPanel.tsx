@@ -388,6 +388,7 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
                 <label className="text-[10px] text-gray-400 mb-0.5 block">{t('gitRemote')}</label>
                 <input
                   type="text"
+                  aria-label={t('gitRemote')}
                   defaultValue={settings.gitRemote ?? ''}
                   onBlur={e => updateSettings({ gitRemote: e.target.value.trim() })}
                   placeholder="https://github.com/user/repo"
@@ -398,6 +399,7 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
                 <label className="text-[10px] text-gray-400 mb-0.5 block">{t('gitGhToken')}</label>
                 <input
                   type="password"
+                  aria-label={t('gitGhToken')}
                   placeholder="ghp_…"
                   onBlur={e => { if (e.target.value) void handleSaveToken(e.target.value); }}
                   className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:border-[var(--accent)] font-mono"
@@ -408,6 +410,7 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
                 <label className="text-[10px] text-gray-400 mb-0.5 block">{t('gitDefaultBase')}</label>
                 <input
                   type="text"
+                  aria-label={t('gitDefaultBase')}
                   defaultValue={settings.gitDefaultBase ?? 'main'}
                   onBlur={e => updateSettings({ gitDefaultBase: e.target.value.trim() || 'main' })}
                   placeholder="main"

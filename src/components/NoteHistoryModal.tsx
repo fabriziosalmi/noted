@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { X, RotateCcw, Clock } from 'lucide-react';
 import { Modal } from './Modal';
+import { useConfirm } from './ConfirmProvider';
 import { useI18n } from '../lib/i18n';
 import { sanitizeHtml } from '../lib/sanitizeHtml';
 
@@ -15,6 +16,7 @@ interface NoteHistoryModalProps {
 
 export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: NoteHistoryModalProps) {
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
   const [selected, setSelected] = useState<Snapshot | null>(null);
@@ -23,10 +25,12 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
 
   useEffect(() => {
     if (!window.electronAPI) return;
-    window.electronAPI.getNoteHistory(fileName, syncDir ?? undefined).then(res => {
-      if (res.success && res.data) setSnapshots(res.data);
-      setLoading(false);
-    });
+    window.electronAPI.getNoteHistory(fileName, syncDir ?? undefined)
+      .then(res => {
+        if (res.success && res.data) setSnapshots(res.data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false)); // never leave the panel stuck on "Loading…"
   }, [fileName, syncDir]);
 
   const loadPreview = useCallback(async (snap: Snapshot) => {
@@ -36,9 +40,14 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
     if (res.success && res.data) setPreview(res.data);
   }, [fileName, syncDir]);
 
-  const handleRestore = useCallback(() => {
-    if (preview) { onRestore(preview); onClose(); }
-  }, [preview, onRestore, onClose]);
+  const handleRestore = useCallback(async () => {
+    if (!preview) return;
+    // Restoring overwrites the live note — confirm first, like delete/wipe/merge.
+    if (await confirm({ message: t('restoreVersion'), confirmLabel: t('restoreVersion'), danger: true })) {
+      onRestore(preview);
+      onClose();
+    }
+  }, [preview, onRestore, onClose, confirm, t]);
 
   return (
     <Modal id="history" onClose={onClose} labelledBy="history-title" className="w-[700px] max-h-[80vh]">

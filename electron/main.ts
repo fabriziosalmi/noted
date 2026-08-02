@@ -1356,11 +1356,23 @@ const LLM_HOST_ALLOWLIST = new Set<string>([
 // Hosts of the user's configured local/custom LLM endpoints (reported by the
 // renderer from settings, e.g. a LAN Ollama).
 let configuredLlmHosts = new Set<string>();
+// Cloud-metadata endpoints are never a real LLM host and are the classic SSRF
+// credential-theft target, so reject them even though the renderer supplies this
+// list. Private LAN ranges stay allowed on purpose — a LAN Ollama/LM Studio is a
+// supported endpoint.
+function isForbiddenLlmHost(h: string): boolean {
+  return h === '169.254.169.254'          // AWS/GCP/Azure IMDS (IPv4)
+    || h === 'metadata.google.internal'
+    || h === '100.100.100.200'            // Alibaba Cloud metadata
+    || h === 'fd00:ec2::254';             // AWS IMDS (IPv6)
+}
 ipcMain.on('set-llm-hosts', (_e, hosts: unknown) => {
   const next = new Set<string>();
   if (Array.isArray(hosts)) {
-    for (const h of hosts) {
-      if (typeof h === 'string' && h.trim()) next.add(h.trim().toLowerCase().replace(/^\[|\]$/g, ''));
+    for (const h of hosts.slice(0, 32)) {   // cap the list
+      if (typeof h !== 'string' || !h.trim()) continue;
+      const host = h.trim().toLowerCase().replace(/^\[|\]$/g, '');
+      if (!isForbiddenLlmHost(host)) next.add(host);
     }
   }
   configuredLlmHosts = next;

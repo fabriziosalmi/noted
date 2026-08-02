@@ -43,6 +43,9 @@
 /* ─── Accent color (set via JS on :root) ─────────────────────────────── */
 :root {
   --accent: #6366f1;
+  /* Accent tuned for small text on light surfaces: #6366f1 as text on white is
+     ~4.47:1 (just under AA). Darkened to ~5.6:1 for links/labels. */
+  --accent-text: color-mix(in srgb, var(--accent) 82%, #000 18%);
   --accent-light: color-mix(in srgb, var(--accent) 12%, transparent);
   --accent-mid:   color-mix(in srgb, var(--accent) 25%, transparent);
   --btn-primary-disabled-bg: color-mix(in srgb, var(--accent) 24%, #6b7280 76%);
@@ -96,6 +99,14 @@
 .dark .ProseMirror pre     { background: #101013; border-color: #1e1e23; }
 
 /* ─── Sepia theme — warm, cohesive, complete ──────────────────────────── */
+/* Muted text: Tailwind gray-400 (#9ca3af) fails WCAG AA on white (~2.5:1).
+   Promote it to gray-500 (~4.8:1) in light mode; restore gray-400 for dark
+   (where it reads fine on near-black), and let sepia keep its own remap. */
+.text-gray-400 { color: #6b7280 !important; }
+.placeholder-gray-400::placeholder { color: #6b7280 !important; }
+.dark .text-gray-400 { color: #9ca3af !important; }
+.dark .placeholder-gray-400::placeholder { color: #9ca3af !important; }
+
 .sepia { color-scheme: light; }
 .sepia body { color: #3d2b1f; background: #fbf3e0; }
 
@@ -307,7 +318,7 @@ body {
 .ProseMirror p { margin: 0; }
 
 .ProseMirror p.is-editor-empty:first-child::before {
-  color: #b0b0b8;
+  color: #8a8a92;
   content: attr(data-placeholder);
   float: left;
   height: 0;
@@ -375,7 +386,7 @@ body {
 
 /* ─── Links ──────────────────────────────────────────────────────────── */
 .ProseMirror a {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
