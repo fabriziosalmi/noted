@@ -219,6 +219,16 @@ interface NoteState {
   wipeAllNotes: () => Promise<void>;
 }
 
+// Debounce the note-list refresh. A full get-notes-tree re-reads every note's
+// preview off disk, so running it on every autosave makes typing stutter on a
+// large vault. Coalesce to ~2s after the last save; genuine external changes
+// still arrive via the vault watcher (note-changed-externally).
+let notesRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleNotesRefresh(run: () => void): void {
+  if (notesRefreshTimer) clearTimeout(notesRefreshTimer);
+  notesRefreshTimer = setTimeout(run, 2000);
+}
+
 export const useStore = create<NoteState>()(
   persist(
     (set, get) => ({
@@ -458,7 +468,8 @@ export const useStore = create<NoteState>()(
             tagIndex: newTagIndex,
           };
         });
-        await get().fetchNotes();
+        // Refresh the note list off the keystroke path (see scheduleNotesRefresh).
+        scheduleNotesRefresh(() => { void get().fetchNotes(); });
         // Auto-commit if enabled
         const { gitEnabled, gitAutoCommit, syncDirectory } = get().settings;
         if (gitEnabled && gitAutoCommit && api?.gitCommitNote) {

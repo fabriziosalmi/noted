@@ -159,7 +159,7 @@ export function registerExporterHandlers() {
       if (!filePath) return { success: false, error: 'Export cancelled' };
       const safe = stripUnsafeHtml(htmlContent);
       const full = `<!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
