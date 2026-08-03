@@ -22,6 +22,13 @@ export function validateFileName(fileName: unknown): asserts fileName is string 
     if (/[\x00-\x1F\x7F\\/:*?"<>|;`$]/.test(base)) {
       throw new Error('Invalid file name: contains reserved characters (\\ / : * ? " < > | ; ` $)');
     }
+    // Windows: reserved device names, and trailing dot/space, are unwritable.
+    if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(base)) {
+      throw new Error('Invalid file name: reserved device name');
+    }
+    if (/[. ]$/.test(base)) {
+      throw new Error('Invalid file name: cannot end with a dot or space');
+    }
   }
   if (!fileName.endsWith('.md')) throw new Error('File must have .md extension');
 }

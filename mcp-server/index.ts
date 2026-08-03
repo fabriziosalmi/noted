@@ -133,6 +133,13 @@ export function validateNoteName(name: unknown): asserts name is string {
         `Invalid segment "${seg}": contains reserved characters (\\ / : * ? " < > | ; \` $)`,
       );
     }
+    // Windows: reserved device names and trailing dot/space are unwritable.
+    if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(base)) {
+      throw new McpError(ErrorCode.InvalidParams, `Invalid segment "${seg}": reserved device name`);
+    }
+    if (/[. ]$/.test(base)) {
+      throw new McpError(ErrorCode.InvalidParams, `Invalid segment "${seg}": cannot end with a dot or space`);
+    }
   }
 }
 

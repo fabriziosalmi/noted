@@ -265,16 +265,25 @@ function applyNavigationGuards(w: BrowserWindow) {
 }
 
 function createWindow() {
+  const isMac = process.platform === 'darwin';
   win = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 720,
     minHeight: 500,
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 13 },
-    vibrancy: 'under-window',
-    visualEffectState: 'active',
-    backgroundColor: '#00000000',
+    // macOS-only chrome: hidden-inset title bar + vibrancy filling a transparent
+    // background. On Windows/Linux these are ignored, and a transparent window
+    // with no titleBarOverlay leaves the user *no* native caption controls — so
+    // off-mac use the default frame with an opaque background instead.
+    ...(isMac
+      ? {
+          titleBarStyle: 'hiddenInset' as const,
+          trafficLightPosition: { x: 16, y: 13 },
+          vibrancy: 'under-window' as const,
+          visualEffectState: 'active' as const,
+          backgroundColor: '#00000000',
+        }
+      : { backgroundColor: '#0a0a0c' }),
     // No `icon`: nativeImage can't decode SVG (it logged a load failure on every
     // launch) and macOS takes the window icon from the app bundle regardless.
     webPreferences: {
@@ -491,7 +500,11 @@ app.whenReady().then(() => {
   createWindow();
   buildAppMenu();
   startVaultWatch();
-  globalShortcut.register('CommandOrControl+Shift+Space', openCaptureWindow);
+  // Ctrl+Shift+Space is collision-prone on Windows/Linux (IMEs, other apps); if
+  // another process owns it, registration fails silently — surface it in the log.
+  if (!globalShortcut.register('CommandOrControl+Shift+Space', openCaptureWindow)) {
+    logEvent('warn', 'quick_capture_shortcut_unavailable', {});
+  }
   scheduleStartupUpdateCheck(() => win);
 });
 
@@ -591,7 +604,10 @@ function startMcpSseServer(port: number, syncDir?: string) {
   logEvent('info', 'mcp_sse_starting', { reqId, port, notesDir: targetDir });
 
   try {
-    mcpSseChild = spawn('node', [
+    // Run the bundled Electron binary as Node (ELECTRON_RUN_AS_NODE) rather than a
+    // PATH `node`: a packaged app on a clean Windows/Linux machine can't assume
+    // Node is installed, so `spawn('node', …)` would ENOENT there.
+    mcpSseChild = spawn(process.execPath, [
       mcpPath,
       '--transport',
       'sse',
@@ -602,7 +618,7 @@ function startMcpSseServer(port: number, syncDir?: string) {
     ], {
       // Pass the auth token via the environment, not argv — argv is readable by
       // any same-user process via the process list.
-      env: { ...process.env, NOTED_MCP_AUTH_TOKEN: getMcpSseToken() },
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', NOTED_MCP_AUTH_TOKEN: getMcpSseToken() },
       stdio: ['ignore', 'pipe', 'pipe']
     });
 

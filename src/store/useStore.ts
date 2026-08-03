@@ -381,10 +381,13 @@ export const useStore = create<NoteState>()(
     const lang = get().settings.language ?? 'en';
     const stem = slugifyTitle(trimmed) || `${translate('newNoteFilePrefix', lang)}_${Date.now()}`;
     const prefix = folder ? `${folder}/` : '';
-    const taken = new Set(get().notes.map(n => n.name));
+    // Case-insensitive: on macOS/Windows filesystems "meeting.md" and
+    // "Meeting.md" are the same file, so an exact-case check would let a new
+    // note silently overwrite an existing one.
+    const taken = new Set(get().notes.map(n => n.name.toLowerCase()));
     let candidate = `${prefix}${stem}.md`;
     let n = 2;
-    while (taken.has(candidate)) {
+    while (taken.has(candidate.toLowerCase())) {
       candidate = `${prefix}${stem} ${n}.md`;
       n++;
     }
@@ -632,14 +635,16 @@ export const useStore = create<NoteState>()(
     const stem = slugifyTitle(title);
     if (!stem || stem === currentStem) return;
     // Collision-safe candidate name within the same folder.
-    const taken = new Set(get().notes.map(n => n.name));
+    // Case-insensitive so a rename can't collide with (and overwrite) another
+    // note that differs only by case on a case-insensitive filesystem.
+    const taken = new Set(get().notes.map(n => n.name.toLowerCase()));
     let candidate = `${folder}${stem}.md`;
     let n = 2;
-    while (taken.has(candidate) && candidate !== activeNoteName) {
+    while (taken.has(candidate.toLowerCase()) && candidate.toLowerCase() !== activeNoteName.toLowerCase()) {
       candidate = `${folder}${stem} ${n}.md`;
       n++;
     }
-    if (candidate === activeNoteName) return;
+    if (candidate.toLowerCase() === activeNoteName.toLowerCase()) return;
     try {
       await get().renameNote(activeNoteName, candidate, { reopen: false });
     } catch {

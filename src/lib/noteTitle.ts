@@ -30,12 +30,18 @@ export function deriveTitle(html: string): string {
  * (electron/ipc-utils.ts). Returns '' when the title yields no usable name.
  */
 export function slugifyTitle(title: string): string {
-  return title
+  let stem = title
     // reserved characters: \ / : * ? " < > | ; ` $
     .replace(/[\\/:*?"<>|;`$]/g, '')
     // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x1F\x7F]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, 120);
+    .slice(0, 120)
+    // No trailing dot/space: "Notes." → "Notes..md" trips the `..` guard, and
+    // Windows silently strips trailing dots/spaces (desyncing the on-disk name).
+    .replace(/[. ]+$/, '');
+  // Windows reserved device names can't be a bare filename stem — prefix them.
+  if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(stem)) stem = `_${stem}`;
+  return stem;
 }
