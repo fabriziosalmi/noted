@@ -1086,6 +1086,11 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
 
                     <div>
                       <FieldLabel>{t('gitGhToken')}</FieldLabel>
+                      {!encryptionAvailable && (
+                        <div className="mb-1.5 text-[11px] px-2.5 py-1.5 rounded-md bg-amber-50/30 dark:bg-amber-900/15 border border-amber-200/40 dark:border-amber-800/40 text-amber-800 dark:text-amber-200">
+                          {t('safeStorageUnavailable')}
+                        </div>
+                      )}
                       <div className="flex gap-2">
                         <Input
                           type="password"

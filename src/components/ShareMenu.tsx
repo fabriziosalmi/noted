@@ -7,6 +7,7 @@ import { useI18n } from '../lib/i18n';
 import { getElectronApi } from '../lib/electronApi';
 import { initialShareWorkflowState, isShareWorkflowBusy, shareWorkflowReducer } from '../lib/shareWorkflow';
 import { Tooltip } from './Tooltip';
+import { isMac } from '../lib/platform';
 
 interface ShareMenuProps {
   getCurrentNoteContent: () => string;
@@ -288,13 +289,13 @@ export function ShareMenu({
           {menuItem(<FileCode size={14} />, t('exportHtml'),      handleExportHtml, !hasNote)}
           {menuItem(<DocxIcon size={14} />, t('exportDocx'),      handleExportDocx, !hasNote)}
           {menuItem(<Printer size={14} />,  t('print'),           handlePrint,      !hasNote)}
-          {menuItem(<Wifi size={14} />,     t('shareAirdrop'),    handleShareNote,  !hasNote)}
+          {isMac && menuItem(<Wifi size={14} />,     t('shareAirdrop'),    handleShareNote,  !hasNote)}
 
           <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
 
           {/* Vault */}
           <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('shareExportVault')}</div>
-          {menuItem(<Cloud size={14} />,      t('copyToICloud'),      handleCopyVaultToICloud)}
+          {isMac && menuItem(<Cloud size={14} />,      t('copyToICloud'),      handleCopyVaultToICloud)}
           {menuItem(<FolderOpen size={14} />, t('exportVaultFolder'), handleExportVaultToFolder)}
 
           {/* Gist */}
