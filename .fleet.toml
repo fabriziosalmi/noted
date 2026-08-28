@@ -1,0 +1,15 @@
+# noted — mcp-fleet per-repo overrides.
+
+[hygiene]
+# `build/` is a junk target fleet-wide, and for good reason: it is build output
+# almost everywhere. Not here. This is an electron-builder project, and its
+# `build/` holds *inputs*, not outputs:
+#
+#   build/icon.png              -> referenced by build.win.icon and
+#                                  build.linux.icon in package.json
+#   build/entitlements.mac.plist -> required to sign and notarize the macOS app
+#
+# The real output goes to `release/` (build.directories.output). Untracking
+# these two would break packaging on every platform, so they are declared
+# deliberate rather than cleaned.
+exempt = ["build/*"]
