@@ -62,7 +62,9 @@ export function AppModals({
           onRestore={(content) => {
             // Reloads the editor with the restored content AND persists it, so
             // the stale buffer can't clobber the restore on its next autosave.
-            onRestoreVersion(content);
+            if (activeNoteName) {
+              onRestoreVersion(content);
+            }
             panels.closeHistory();
           }}
           onClose={panels.closeHistory}
