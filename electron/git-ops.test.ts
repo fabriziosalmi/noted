@@ -8,7 +8,9 @@ import {
 } from './git-ops';
 
 // A realistic-shaped GitHub PAT: prefix + 36 token chars (regex requires >= 20).
-const TOKEN = 'ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8';
+// Joined at runtime, like the other prefixes below, so no PAT-shaped literal sits
+// in the tree for secret scanners to flag and redact out of their own output.
+const TOKEN = 'ghp_' + 'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8';
 
 describe('sanitizeGitError', () => {
   it('redacts ghp_/ghs_/gho_/ghr_/github_pat_ tokens', () => {
