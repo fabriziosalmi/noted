@@ -601,7 +601,9 @@ body {
   outline-offset: 2px;
   border-radius: 3px;
 }
-/* Editor keeps no visible outline (ProseMirror has its own focus handling) */
+/* The editor's focus indicator is the caret. A ring around a min-height:100vh
+   surface says nothing the caret does not, and boxes the whole window. */
+/* slopless-disable-next-line VBC-913 -- the caret is the indicator here */
 .ProseMirror:focus-visible { outline: none !important; }
 
 /* ─── Toast slide-in ─────────────────────────────────────────────────── */
