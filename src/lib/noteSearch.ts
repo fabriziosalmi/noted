@@ -103,10 +103,21 @@ function cosineSimilarityDense(a: number[], b: number[]): number {
   return normA === 0 || normB === 0 ? 0 : dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
+/** localhost, loopback, or a name only this machine or the LAN resolves. */
+function isLocalHost(hostPart: string): boolean {
+  const host = hostPart.split('/')[0].split(':')[0].toLowerCase();
+  return host === 'localhost' || host === '0.0.0.0' || host === '[::1]' || host === '::1'
+    || /^127\./.test(host) || host.endsWith('.local') || host.endsWith('.localhost');
+}
+
 function normalizeBaseUrl(url: string): string {
   const trimmed = url.trim().replace(/\/+$/, '');
   if (!trimmed) return 'http://localhost:1234/v1';
-  return /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  // A local model server speaks plain HTTP and always has. Anything reached over
+  // a network should not be downgraded because the scheme was left out: the
+  // prompt, the note text and the API key all travel over this.
+  return `${isLocalHost(trimmed) ? 'http' : 'https'}://${trimmed}`;
 }
 
 function quickHash(text: string): string {
