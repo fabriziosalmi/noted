@@ -33,6 +33,8 @@ import { getElectronApi } from '../lib/electronApi';
 import { suggestProject, type ProjectSuggestion } from '../lib/projectSuggestion';
 import { usePrompt } from './ConfirmProvider';
 import { ProjectSuggestionHint } from './ProjectSuggestionHint';
+import { marked } from 'marked';
+import { isMarkdownList, convertTaskListsToTiptap } from '../lib/listUtils';
 
 const lowlight = createLowlight(common);
 
@@ -345,6 +347,25 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
             editor?.chain().focus().setImage({ src: reader.result as string }).run();
           };
           reader.readAsDataURL(file);
+          return true;
+        }
+
+        // HTML task list paste: convert checkbox inputs to TipTap taskList format
+        const html = event.clipboardData?.getData('text/html');
+        if (html && /<input[^>]*type=["']checkbox["']/i.test(html) && editor && !editor.isActive('codeBlock')) {
+          event.preventDefault();
+          const converted = convertTaskListsToTiptap(html);
+          editor.chain().focus().insertContent(converted).run();
+          return true;
+        }
+
+        // Plain text markdown list paste: convert markdown lists into structured HTML lists
+        const text = event.clipboardData?.getData('text/plain');
+        if (!html && text && editor && !editor.isActive('codeBlock') && isMarkdownList(text)) {
+          event.preventDefault();
+          const parsed = marked.parse(text, { breaks: true, gfm: true, async: false }) as string;
+          const converted = convertTaskListsToTiptap(parsed);
+          editor.chain().focus().insertContent(converted).run();
           return true;
         }
 

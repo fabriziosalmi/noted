@@ -6,6 +6,14 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-09-16
+
+### Fixed
+
+- **List numbers and bullet markers visibility**: Restored missing list styles for ordered (`<ol>`) and unordered (`<ul>`) lists in the editor (`.ProseMirror`) and preview containers, resolving an issue where list markers were hidden due to CSS reset.
+- **Enhanced list paste handling**: Automatically detect and parse plain-text markdown lists into native list blocks upon pasting.
+- **Task list preservation**: Convert GFM task lists into interactive Tiptap checkboxes on note open, paste, and serialization back to Markdown via Turndown.
+
 ## [1.3.0] - 2026-07-29
 
 The first cross-platform release, and the first that keeps itself up to date.
@@ -58,7 +66,8 @@ The first cross-platform release, and the first that keeps itself up to date.
   backlinks, full-text search, multi-provider AI, Git integration, export, quick
   capture, and a built-in MCP server.
 
-[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.3.4...HEAD
+[1.3.4]: https://github.com/fabriziosalmi/noted/compare/v1.3.3...v1.3.4
 [1.3.0]: https://github.com/fabriziosalmi/noted/compare/v1.2.5...v1.3.0
 [1.2.5]: https://github.com/fabriziosalmi/noted/compare/v1.2.3...v1.2.5
 [1.2.3]: https://github.com/fabriziosalmi/noted/compare/v1.2.2...v1.2.3

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { marked } from 'marked';
+import { convertTaskListsToTiptap } from '../lib/listUtils';
 import type { NoteTemplate } from '../lib/templates';
 import { extractWikilinks } from '../lib/WikilinkExtension';
 import { extractTags } from '../lib/tagUtils';
@@ -420,7 +421,7 @@ export const useStore = create<NoteState>()(
         } else {
           const extracted = extractMarkdownFrontmatter(content);
           frontmatter = extracted.frontmatter;
-          content = marked.parse(extracted.body, { breaks: true, gfm: true, async: false }) as string;
+          content = convertTaskListsToTiptap(marked.parse(extracted.body, { breaks: true, gfm: true, async: false }) as string);
         }
         const links = extractWikilinks(content);
         set(state => ({
