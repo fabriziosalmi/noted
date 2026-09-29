@@ -15,7 +15,7 @@
 
 import { app, dialog, shell, type BrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';
-import { logEvent } from './structured-log.js';
+import { logEvent, type LogLevel } from './structured-log.js';
 
 const RELEASES_URL = 'https://github.com/fabriziosalmi/noted/releases/latest';
 
@@ -24,20 +24,50 @@ const RELEASES_URL = 'https://github.com/fabriziosalmi/noted/releases/latest';
 const STARTUP_CHECK_DELAY_MS = 8_000;
 
 /**
+ * Is this app path on a mounted disk image? Squirrel.Mac replaces the running
+ * .app in place, which is impossible from the read-only DMG volume — and the
+ * check itself has crashed there (EPIPE in electron-updater's logging).
+ */
+export function isDiskImagePath(
+  appPath: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  return platform === 'darwin' && appPath.startsWith('/Volumes/');
+}
+
+// app.getAppPath() throws when the app object isn't ready (or is mocked);
+// an unknown location must not block updating.
+function safeGetAppPath(): string | undefined {
+  try {
+    return typeof app.getAppPath === 'function' ? app.getAppPath() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Can this install actually replace itself in place?
  *
- * A `.deb`/`.rpm` is owned by the system package manager and an unpacked dev
- * tree has nothing to replace, so in both cases electron-updater would throw.
- * Detect it up front and send those users to the releases page instead.
+ * A `.deb`/`.rpm` is owned by the system package manager, an unpacked dev
+ * tree has nothing to replace, and a macOS app running straight from the
+ * mounted DMG lives on a read-only volume — so in all three cases
+ * electron-updater would throw. Detect it up front and send those users to
+ * the releases page instead.
  */
 export function canSelfUpdate(
   platform: NodeJS.Platform = process.platform,
   env: NodeJS.ProcessEnv = process.env,
+  appPath: string | undefined = undefined,
 ): boolean {
   // On Linux only the AppImage carries the metadata needed to swap itself out;
   // APPIMAGE is set by the AppImage runtime.
   if (platform === 'linux') return Boolean(env.APPIMAGE);
-  return platform === 'darwin' || platform === 'win32';
+  if (platform === 'darwin') {
+    const p = appPath ?? safeGetAppPath();
+    if (p && isDiskImagePath(p, platform)) return false;
+    return true;
+  }
+  return platform === 'win32';
 }
 
 let wiredUp = false;
@@ -59,10 +89,30 @@ function reportManualOnly(title: string, message: string): void {
   void dialog.showMessageBox({ type: 'info', title, message, buttons: ['OK'] });
 }
 
+// electron-updater logs through bare `console` by default, and console.info to
+// a dead stdout (closed pipe/socket, e.g. a Finder/DMG launch) throws EPIPE
+// *synchronously* — taking down the main process with the "A JavaScript error
+// occurred" dialog. Route its chatter through our logger behind a final guard
+// so logging can never crash the app. Real failures still surface through the
+// 'error' event listener below.
+function safeUpdaterLog(level: LogLevel, message: unknown): void {
+  try {
+    logEvent(level, 'electron_updater_log', { message: String(message).slice(0, 500) });
+  } catch {
+    /* logging must never crash the app */
+  }
+}
+
 function wireListeners(getWindow: () => BrowserWindow | undefined): void {
   if (wiredUp) return;
   wiredUp = true;
 
+  autoUpdater.logger = {
+    info: (message?: unknown) => safeUpdaterLog('info', message),
+    warn: (message?: unknown) => safeUpdaterLog('warn', message),
+    error: (message?: unknown) => safeUpdaterLog('error', message),
+    debug: (message?: unknown) => safeUpdaterLog('info', message),
+  };
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 
@@ -146,11 +196,18 @@ export async function checkForUpdates(
     // A package-managed install can still be *told* about a new version — it
     // just can't install it itself.
     if (manual) {
+      const fromDiskImage =
+        process.platform === 'darwin' &&
+        isDiskImagePath(safeGetAppPath() ?? '', process.platform);
       const { response } = await dialog.showMessageBox({
         type: 'info',
         title: 'Check for updates',
-        message: 'This install updates through your package manager.',
-        detail: 'Open the releases page to see the latest version.',
+        message: fromDiskImage
+          ? 'Noted is running from the disk image, which cannot update itself.'
+          : 'This install updates through your package manager.',
+        detail: fromDiskImage
+          ? 'Drag Noted to Applications first, then check for updates — or open the releases page to see the latest version.'
+          : 'Open the releases page to see the latest version.',
         buttons: ['Open releases', 'Cancel'],
         defaultId: 0,
         cancelId: 1,

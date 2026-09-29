@@ -26,7 +26,7 @@ vi.mock('electron-updater', () => ({
 }));
 
 const { app } = await import('electron');
-const { canSelfUpdate, checkForUpdates } = await import('./updater');
+const { canSelfUpdate, checkForUpdates, isDiskImagePath } = await import('./updater');
 
 describe('canSelfUpdate', () => {
   it('is true on the platforms that can swap their own binary', () => {
@@ -39,6 +39,68 @@ describe('canSelfUpdate', () => {
   it('on Linux depends on running from an AppImage', () => {
     expect(canSelfUpdate('linux', { APPIMAGE: '/tmp/Noted.AppImage' })).toBe(true);
     expect(canSelfUpdate('linux', {})).toBe(false);
+  });
+
+  it('is false on macOS when running from the mounted DMG', () => {
+    expect(canSelfUpdate('darwin', {}, '/Volumes/Noted/Noted.app/Contents/Resources/app.asar')).toBe(false);
+    expect(canSelfUpdate('darwin', {}, '/Applications/Noted.app/Contents/Resources/app.asar')).toBe(true);
+  });
+
+  it('reads the real app path when none is passed', () => {
+    const electronApp = app as unknown as { getAppPath?: () => string };
+    const original = electronApp.getAppPath;
+    try {
+      electronApp.getAppPath = () => '/Volumes/Noted/Noted.app/Contents/Resources/app.asar';
+      expect(canSelfUpdate('darwin', {})).toBe(false);
+      electronApp.getAppPath = () => '/Applications/Noted.app/Contents/Resources/app.asar';
+      expect(canSelfUpdate('darwin', {})).toBe(true);
+    } finally {
+      if (original) electronApp.getAppPath = original;
+      else delete electronApp.getAppPath;
+    }
+  });
+});
+
+describe('isDiskImagePath', () => {
+  it('only matches macOS /Volumes paths', () => {
+    expect(isDiskImagePath('/Volumes/Noted/Noted.app', 'darwin')).toBe(true);
+    expect(isDiskImagePath('/Applications/Noted.app', 'darwin')).toBe(false);
+    expect(isDiskImagePath('/Volumes/Noted/Noted.app', 'win32')).toBe(false);
+  });
+});
+
+describe('updater logging', () => {
+  it('routes electron-updater chatter off bare console', async () => {
+    const { autoUpdater } = await import('electron-updater');
+    // Trigger wireListeners through a check (dev, unpackaged → still wires).
+    (app as { isPackaged: boolean }).isPackaged = true;
+    process.env.APPIMAGE = '/tmp/Noted.AppImage';
+    const pending = checkForUpdates(() => undefined, false);
+    h.resolve();
+    await pending;
+    delete process.env.APPIMAGE;
+    (app as { isPackaged: boolean }).isPackaged = false;
+
+    const logger = (autoUpdater as unknown as { logger?: {
+      info: (m?: unknown) => void; warn: (m?: unknown) => void;
+      error: (m?: unknown) => void; debug: (m?: unknown) => void;
+    } }).logger;
+    expect(logger).toBeDefined();
+
+    // Simulate the reported crash: stdout.write throwing EPIPE synchronously
+    // (dead socket stdio, as in DownloadedUpdateHelper.getValidCachedUpdateFile).
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (() => {
+      throw Object.assign(new Error('write EPIPE'), { code: 'EPIPE' });
+    }) as typeof process.stdout.write;
+    try {
+      expect(() => logger!.info('cached update file')).not.toThrow();
+      expect(() => logger!.warn('w')).not.toThrow();
+      expect(() => logger!.error('e')).not.toThrow();
+      expect(() => logger!.debug('d')).not.toThrow();
+    } finally {
+      process.stdout.write = originalWrite;
+    }
   });
 });
 

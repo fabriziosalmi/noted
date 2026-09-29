@@ -6,6 +6,19 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.6] - 2026-09-29
+
+### Fixed
+
+- **"A JavaScript error occurred in the main process" (write EPIPE) during the
+  update check**: electron-updater logged through bare `console`, and a
+  `console.info` to a dead stdout throws EPIPE synchronously, killing the main
+  process. Its chatter is now routed through the app logger behind a guard, a
+  stdio EPIPE guard is installed first thing in the main process, and an app
+  running straight from the mounted DMG (`/Volumes`, read-only) no longer
+  attempts to self-update — a manual check explains to move Noted to
+  Applications instead.
+
 ## [1.3.5] - 2026-09-29
 
 ### Fixed

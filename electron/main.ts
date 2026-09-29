@@ -14,6 +14,11 @@ import { sanitizeGitError } from './git-ops.js';
 import { FullTextSearchReadModel } from './fulltext-index.js';
 import { logEvent, newRequestId } from './structured-log.js';
 import { checkForUpdates, scheduleStartupUpdateCheck } from './updater.js';
+import { installStdioEpipeGuard } from './stdio-guard.js';
+
+// First thing: a closed stdout pipe (Finder/DMG launch) must never kill the
+// main process with EPIPE — see stdio-guard.ts.
+installStdioEpipeGuard();
 
 // Disable hardware acceleration only in dev to avoid GPU process crashes in sandboxed environments.
 // In production we need it for vibrancy/blur effects.
