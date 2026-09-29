@@ -26,7 +26,8 @@ finish the title, the file on disk is renamed to match it. See
 
 ## Find your way around
 
-- <kbd>⌘P</kbd> — Quick Open, to jump to any note or run a command.
+- <kbd>⌘K</kbd> — Quick Open, to jump to any note or run a command.
+- <kbd>⌘P</kbd> — Print the current note.
 - <kbd>⌘⇧F</kbd> — search across every note.
 - <kbd>⌘⇧Space</kbd> — Quick Capture, from anywhere on your Mac.
 - <kbd>?</kbd> — show the full list of keyboard shortcuts.

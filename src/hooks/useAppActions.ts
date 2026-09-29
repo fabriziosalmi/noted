@@ -22,7 +22,7 @@ export function useAppActions({
     try {
       const title = opts?.title?.trim();
       if (title) {
-        // Named capture (⌘P → type a name → Enter): the file is named after the
+        // Named capture (⌘K → type a name → Enter): the file is named after the
         // title and the title is seeded as the <h1>.
         await createTitledNote(title, opts?.folder);
         return;

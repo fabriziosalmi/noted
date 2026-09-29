@@ -7,17 +7,23 @@ function Harness(args: Parameters<typeof useGlobalShortcuts>[0]) {
   return null;
 }
 
+const baseArgs = () => ({
+  onToggleShortcuts: vi.fn(),
+  onToggleQuickOpen: vi.fn(),
+  onPrintNote: vi.fn(),
+  onToggleFind: vi.fn(),
+  onToggleGlobalSearch: vi.fn(),
+  onToggleFocusMode: vi.fn(),
+  onCreateNote: vi.fn(),
+});
+
 describe('useGlobalShortcuts', () => {
   it('does not open shortcuts when typing ? inside contenteditable', () => {
     const onToggleShortcuts = vi.fn();
     render(
       <Harness
+        {...baseArgs()}
         onToggleShortcuts={onToggleShortcuts}
-        onToggleQuickOpen={vi.fn()}
-        onToggleFind={vi.fn()}
-        onToggleGlobalSearch={vi.fn()}
-        onToggleFocusMode={vi.fn()}
-        onCreateNote={vi.fn()}
       />,
     );
 
@@ -29,18 +35,15 @@ describe('useGlobalShortcuts', () => {
     Object.defineProperty(evt, 'target', { value: editable });
     document.dispatchEvent(evt);
     expect(onToggleShortcuts).not.toHaveBeenCalled();
+    document.body.removeChild(editable);
   });
 
   it('opens shortcuts for ? outside editable targets', () => {
     const onToggleShortcuts = vi.fn();
     render(
       <Harness
+        {...baseArgs()}
         onToggleShortcuts={onToggleShortcuts}
-        onToggleQuickOpen={vi.fn()}
-        onToggleFind={vi.fn()}
-        onToggleGlobalSearch={vi.fn()}
-        onToggleFocusMode={vi.fn()}
-        onCreateNote={vi.fn()}
       />,
     );
     document.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }));
@@ -51,12 +54,8 @@ describe('useGlobalShortcuts', () => {
     const onToggleFocusMode = vi.fn();
     render(
       <Harness
-        onToggleShortcuts={vi.fn()}
-        onToggleQuickOpen={vi.fn()}
-        onToggleFind={vi.fn()}
-        onToggleGlobalSearch={vi.fn()}
+        {...baseArgs()}
         onToggleFocusMode={onToggleFocusMode}
-        onCreateNote={vi.fn()}
       />,
     );
     document.dispatchEvent(new KeyboardEvent('keydown', { key: '|', code: 'Backslash', metaKey: true }));
@@ -67,12 +66,8 @@ describe('useGlobalShortcuts', () => {
     const onToggleFind = vi.fn();
     render(
       <Harness
-        onToggleShortcuts={vi.fn()}
-        onToggleQuickOpen={vi.fn()}
+        {...baseArgs()}
         onToggleFind={onToggleFind}
-        onToggleGlobalSearch={vi.fn()}
-        onToggleFocusMode={vi.fn()}
-        onCreateNote={vi.fn()}
       />,
     );
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, altKey: true }));
@@ -83,34 +78,47 @@ describe('useGlobalShortcuts', () => {
     const onToggleQuickOpen = vi.fn();
     render(
       <Harness
-        onToggleShortcuts={vi.fn()}
+        {...baseArgs()}
         onToggleQuickOpen={onToggleQuickOpen}
-        onToggleFind={vi.fn()}
-        onToggleGlobalSearch={vi.fn()}
-        onToggleFocusMode={vi.fn()}
-        onCreateNote={vi.fn()}
       />,
     );
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', metaKey: true, repeat: true }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, repeat: true }));
     expect(onToggleQuickOpen).not.toHaveBeenCalled();
   });
 
-  it('triggers quick open on Cmd+p or Ctrl+p', () => {
+  it('triggers quick open on Cmd+k or Ctrl+k', () => {
     const onToggleQuickOpen = vi.fn();
+    const onPrintNote = vi.fn();
     render(
       <Harness
-        onToggleShortcuts={vi.fn()}
+        {...baseArgs()}
         onToggleQuickOpen={onToggleQuickOpen}
-        onToggleFind={vi.fn()}
-        onToggleGlobalSearch={vi.fn()}
-        onToggleFocusMode={vi.fn()}
-        onCreateNote={vi.fn()}
+        onPrintNote={onPrintNote}
+      />,
+    );
+    const evt = new KeyboardEvent('keydown', { key: 'k', metaKey: true });
+    const preventDefaultSpy = vi.spyOn(evt, 'preventDefault');
+    document.dispatchEvent(evt);
+    expect(onToggleQuickOpen).toHaveBeenCalledTimes(1);
+    expect(onPrintNote).not.toHaveBeenCalled();
+    expect(preventDefaultSpy).toHaveBeenCalled();
+  });
+
+  it('triggers print on Cmd+p or Ctrl+p (not quick open)', () => {
+    const onToggleQuickOpen = vi.fn();
+    const onPrintNote = vi.fn();
+    render(
+      <Harness
+        {...baseArgs()}
+        onToggleQuickOpen={onToggleQuickOpen}
+        onPrintNote={onPrintNote}
       />,
     );
     const evt = new KeyboardEvent('keydown', { key: 'p', metaKey: true });
     const preventDefaultSpy = vi.spyOn(evt, 'preventDefault');
     document.dispatchEvent(evt);
-    expect(onToggleQuickOpen).toHaveBeenCalledTimes(1);
+    expect(onPrintNote).toHaveBeenCalledTimes(1);
+    expect(onToggleQuickOpen).not.toHaveBeenCalled();
     expect(preventDefaultSpy).toHaveBeenCalled();
   });
 
@@ -118,12 +126,8 @@ describe('useGlobalShortcuts', () => {
     const onToggleFind = vi.fn();
     render(
       <Harness
-        onToggleShortcuts={vi.fn()}
-        onToggleQuickOpen={vi.fn()}
+        {...baseArgs()}
         onToggleFind={onToggleFind}
-        onToggleGlobalSearch={vi.fn()}
-        onToggleFocusMode={vi.fn()}
-        onCreateNote={vi.fn()}
       />,
     );
     const evt = new KeyboardEvent('keydown', { key: 'f', ctrlKey: true });
@@ -137,12 +141,8 @@ describe('useGlobalShortcuts', () => {
     const onToggleGlobalSearch = vi.fn();
     render(
       <Harness
-        onToggleShortcuts={vi.fn()}
-        onToggleQuickOpen={vi.fn()}
-        onToggleFind={vi.fn()}
+        {...baseArgs()}
         onToggleGlobalSearch={onToggleGlobalSearch}
-        onToggleFocusMode={vi.fn()}
-        onCreateNote={vi.fn()}
       />,
     );
     const evt = new KeyboardEvent('keydown', { key: 'f', metaKey: true, shiftKey: true });
@@ -156,11 +156,7 @@ describe('useGlobalShortcuts', () => {
     const onCreateNote = vi.fn();
     render(
       <Harness
-        onToggleShortcuts={vi.fn()}
-        onToggleQuickOpen={vi.fn()}
-        onToggleFind={vi.fn()}
-        onToggleGlobalSearch={vi.fn()}
-        onToggleFocusMode={vi.fn()}
+        {...baseArgs()}
         onCreateNote={onCreateNote}
       />,
     );
@@ -175,12 +171,8 @@ describe('useGlobalShortcuts', () => {
     const onToggleShortcuts = vi.fn();
     render(
       <Harness
+        {...baseArgs()}
         onToggleShortcuts={onToggleShortcuts}
-        onToggleQuickOpen={vi.fn()}
-        onToggleFind={vi.fn()}
-        onToggleGlobalSearch={vi.fn()}
-        onToggleFocusMode={vi.fn()}
-        onCreateNote={vi.fn()}
       />,
     );
 
@@ -221,11 +213,7 @@ describe('useGlobalShortcuts', () => {
     const onCreateNote = vi.fn();
     const { unmount } = render(
       <Harness
-        onToggleShortcuts={vi.fn()}
-        onToggleQuickOpen={vi.fn()}
-        onToggleFind={vi.fn()}
-        onToggleGlobalSearch={vi.fn()}
-        onToggleFocusMode={vi.fn()}
+        {...baseArgs()}
         onCreateNote={onCreateNote}
       />,
     );

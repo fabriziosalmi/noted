@@ -63,7 +63,7 @@ export function QuickOpen({ notes, onSelect, onCreateNote, onOpenDaily, onOpenSe
       .filter((n): n is NoteFile => !!n);
   }, [fuse, query, notes]);
 
-  // Full-text pass: so ⌘P finds notes by *content*, not just filename. Name
+  // Full-text pass: so ⌘K finds notes by *content*, not just filename. Name
   // matches rank first; content-only hits follow. Debounced, with an
   // out-of-order guard mirroring GlobalSearch.
   useEffect(() => {

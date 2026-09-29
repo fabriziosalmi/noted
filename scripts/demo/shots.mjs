@@ -88,7 +88,7 @@ async function main() {
   await sleep(700);
 
   // 4 — Quick open: jump anywhere by name.
-  await win.keyboard.press('Meta+KeyP');
+  await win.keyboard.press('Meta+KeyK');
   await sleep(700);
   await win.keyboard.type('aur', { delay: 90 });
   await sleep(1500);

@@ -6,6 +6,17 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.5] - 2026-09-29
+
+### Fixed
+
+- **Print with `⌘P` / `Ctrl+P` on all platforms**: the shortcut opened Quick
+  Open instead of printing, so the system print dialog was unreachable by
+  keyboard (notably on macOS, where `⌘P` is the universal Print shortcut).
+  `⌘P` / `Ctrl+P` now prints the current note via the **File → Print…** menu
+  entry (system dialog in Electron, `window.print()` fallback on web), and
+  Quick Open moves to `⌘K` / `Ctrl+K`.
+
 ## [1.3.4] - 2026-09-16
 
 ### Fixed

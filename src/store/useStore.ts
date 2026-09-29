@@ -385,7 +385,7 @@ export const useStore = create<NoteState>()(
   },
 
   // Create a note whose filename follows a given title (Apple Notes-style
-  // capture: ⌘P → type a name → Enter). Collision-safe within the folder; the
+  // capture: ⌘K → type a name → Enter). Collision-safe within the folder; the
   // title is seeded as the <h1> so the caret lands right after it.
   createTitledNote: async (title: string, folder?: string) => {
     const trimmed = title.trim();

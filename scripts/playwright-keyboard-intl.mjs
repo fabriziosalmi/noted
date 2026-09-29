@@ -61,7 +61,7 @@ await runStep('AltGr-like ctrl+alt+f does not open find bar', async () => {
 await runStep('repeated keydown is ignored for quick-open shortcut', async () => {
   await page.evaluate(() => {
     document.dispatchEvent(new KeyboardEvent('keydown', {
-      key: 'p',
+      key: 'k',
       metaKey: true,
       repeat: true,
       bubbles: true,
@@ -74,8 +74,8 @@ await runStep('repeated keydown is ignored for quick-open shortcut', async () =>
 });
 
 await runStep('normal quick-open shortcut still works', async () => {
-  await page.keyboard.press('Meta+KeyP').catch(async () => {
-    await page.keyboard.press('Control+KeyP');
+  await page.keyboard.press('Meta+KeyK').catch(async () => {
+    await page.keyboard.press('Control+KeyK');
   });
   await quickOpenInput.waitFor({ state: 'visible', timeout: 3000 });
   await page.keyboard.press('Escape');

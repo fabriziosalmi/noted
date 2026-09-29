@@ -25,7 +25,8 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
     {
       titleKey: 'sectionGeneral',
       rows: [
-        { keys: [modKey, 'P'], descriptionKey: 'shortcutQuickOpen' },
+        { keys: [modKey, 'K'], descriptionKey: 'shortcutQuickOpen' },
+        { keys: [modKey, 'P'], descriptionKey: 'shortcutPrint' },
         { keys: [modKey, shiftKey, 'F'], descriptionKey: 'shortcutSearchAll' },
         { keys: [modKey, 'S'], descriptionKey: 'shortcutSave' },
         { keys: [modKey, 'F'], descriptionKey: 'shortcutFind' },

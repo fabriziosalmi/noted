@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import { getElectronApi } from '../lib/electronApi';
+import { printNoteFromHtml } from '../lib/printNote';
 import { initialShareWorkflowState, isShareWorkflowBusy, shareWorkflowReducer } from '../lib/shareWorkflow';
 import { Tooltip } from './Tooltip';
 import { isMac } from '../lib/platform';
@@ -188,22 +189,12 @@ export function ShareMenu({
 
   const handlePrint = async () => {
     if (isShareWorkflowBusy(workflow.stage)) return;
-    const api = getElectronApi();
-    if (!api) return;
     dispatchWorkflow({ type: 'START_ACTION', action: 'printNote' });
     setOpen(false);
-    const html = getCurrentNoteHtml();
-    if (!html || !api.printNote) {
-      dispatchWorkflow({ type: 'ACTION_FAILED', message: t('noActiveNote') });
-      return;
-    }
-    const res = await api.printNote(html, getCurrentNoteTitle() || t('untitledExportTitle'));
-    if (!res.success && res.error) {
-      onToast(res.error || t('printError'), 'error');
-      dispatchWorkflow({ type: 'ACTION_FAILED', message: res.error || t('printError') });
-    } else {
-      dispatchWorkflow({ type: 'ACTION_SUCCESS' });
-    }
+    const ok = await printNoteFromHtml(getCurrentNoteHtml(), getCurrentNoteTitle(), { t, onToast });
+    dispatchWorkflow(ok
+      ? { type: 'ACTION_SUCCESS' }
+      : { type: 'ACTION_FAILED', message: t('printError') });
   };
 
   const handleShareNote = async () => {

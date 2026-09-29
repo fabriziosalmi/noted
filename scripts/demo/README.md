@@ -34,7 +34,7 @@ The recording runs against a **throwaway vault** (a temp dir passed via
 
 1. The capture loop — `⌘N` lands in an empty title; typing it renames the note live.
 2. Project cohesion — a second same-project note, accepting the grouping chip.
-3. Instant search (`⌘⇧F`) and quick-open (`⌘P`).
+3. Instant search (`⌘⇧F`) and quick-open (`⌘K`).
 
 ## Tweaking
 

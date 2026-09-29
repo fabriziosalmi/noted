@@ -25,6 +25,7 @@ export interface AppActionsArgs {
 export interface GlobalShortcutsArgs {
   onToggleShortcuts: () => void;
   onToggleQuickOpen: () => void;
+  onPrintNote: () => void;
   onToggleFind: () => void;
   onToggleGlobalSearch: () => void;
   onToggleFocusMode: () => void;

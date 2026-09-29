@@ -5,7 +5,7 @@ a full-text search across the whole vault.
 
 ## Quick Open
 
-Press <kbd>⌘P</kbd> to open the switcher.
+Press <kbd>⌘K</kbd> to open the switcher.
 
 - With an empty query, it lists your 20 most recently modified notes.
 - As you type, it fuzzy-matches note **names** first, then appends **full-text

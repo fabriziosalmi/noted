@@ -25,7 +25,7 @@ Noted is an open-source desktop app for taking notes in Markdown/HTML, with buil
   </tr>
   <tr>
     <td align="center"><strong>Full-text search</strong> — every note, title and body</td>
-    <td align="center"><strong>Quick open</strong> — jump anywhere by name (⌘P)</td>
+    <td align="center"><strong>Quick open</strong> — jump anywhere by name (⌘K)</td>
   </tr>
 </table>
 

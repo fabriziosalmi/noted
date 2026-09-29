@@ -7,7 +7,8 @@ outside a text field to open this list inside the app.
 
 | Shortcut | Action |
 | --- | --- |
-| <kbd>⌘P</kbd> | Quick Open |
+| <kbd>⌘K</kbd> | Quick Open |
+| <kbd>⌘P</kbd> | Print current note |
 | <kbd>⌘⇧F</kbd> | Search all notes |
 | <kbd>⌘S</kbd> | Save |
 | <kbd>⌘F</kbd> | Find in note |

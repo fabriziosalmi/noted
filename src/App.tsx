@@ -17,6 +17,7 @@ import { AppModals } from './components/app/AppModals';
 import { createAppComposition } from './components/app/composition';
 import type { Suggestion } from './lib/noteAdvisor';
 import { getElectronApi } from './lib/electronApi';
+import { printNoteFromHtml } from './lib/printNote';
 import { initialMergeWorkflowState, mergeWorkflowReducer } from './lib/mergeWorkflow';
 import { useConfirm, usePrompt } from './components/ConfirmProvider';
 
@@ -118,9 +119,16 @@ function App() {
     moveNote,
   });
 
+  const handlePrintNote = useCallback(() => {
+    const html = editorRef.current?.getHTML() ?? '';
+    const title = activeNoteName?.replace(/\.md$/i, '') ?? '';
+    void printNoteFromHtml(html, title, { t, onToast: toast });
+  }, [activeNoteName, t, toast]);
+
   useGlobalShortcuts({
     onToggleShortcuts: panels.toggleShortcuts,
     onToggleQuickOpen: panels.toggleQuickOpen,
+    onPrintNote: handlePrintNote,
     onToggleFind: panels.toggleFind,
     onToggleGlobalSearch: panels.toggleGlobalSearch,
     onToggleFocusMode: () => updateSettings({ focusMode: !settings.focusMode }),
@@ -137,12 +145,13 @@ function App() {
         case 'new-note': void handleCreateNote(); break;
         case 'daily': void handleOpenDaily(); break;
         case 'quick-open': panels.toggleQuickOpen(); break;
+        case 'print-note': handlePrintNote(); break;
         case 'search': panels.toggleGlobalSearch(); break;
         case 'focus-mode': updateSettings({ focusMode: !settings.focusMode }); break;
         case 'shortcuts': panels.toggleShortcuts(); break;
       }
     });
-  }, [panels, handleCreateNote, handleOpenDaily, updateSettings, settings.focusMode]);
+  }, [panels, handleCreateNote, handleOpenDaily, handlePrintNote, updateSettings, settings.focusMode]);
 
   const handleEditorReady = useCallback((editor: Editor | null) => {
     editorRef.current = editor;

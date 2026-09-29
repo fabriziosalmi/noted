@@ -158,7 +158,7 @@ async function main() {
   //     pressing Enter blind: if the query matched nothing, Enter would land on
   //     the "Create note" row and the take would end on a note nobody asked for.
   await beat('quick open', async () => {
-    await win.keyboard.press('Meta+KeyP');
+    await win.keyboard.press('Meta+KeyK');
     await sleep(BEAT);
     await win.keyboard.type('launch', { delay: TYPE_DELAY });
     await sleep(HOLD);

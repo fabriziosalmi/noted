@@ -16,6 +16,7 @@ function hasShortcutModifier(e: KeyboardEvent): boolean {
 export function useGlobalShortcuts({
   onToggleShortcuts,
   onToggleQuickOpen,
+  onPrintNote,
   onToggleFind,
   onToggleGlobalSearch,
   onToggleFocusMode,
@@ -31,7 +32,13 @@ export function useGlobalShortcuts({
       if (e.key === '?' && !accel && !e.altKey && !isTextInputTarget(e.target)) {
         onToggleShortcuts();
       }
+      // Cmd/Ctrl+P is Print everywhere (Apple HIG + Windows convention).
+      // Quick Open moved to Cmd/Ctrl+K (Notion/Linear-style).
       if (accel && key === 'p') {
+        e.preventDefault();
+        onPrintNote();
+      }
+      if (accel && key === 'k') {
         e.preventDefault();
         onToggleQuickOpen();
       }
@@ -59,6 +66,7 @@ export function useGlobalShortcuts({
   }, [
     onToggleShortcuts,
     onToggleQuickOpen,
+    onPrintNote,
     onToggleFind,
     onToggleGlobalSearch,
     onToggleFocusMode,

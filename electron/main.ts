@@ -410,6 +410,8 @@ function buildAppMenu() {
         { label: 'New Note', accelerator: 'CmdOrCtrl+N', click: () => send('new-note') },
         { label: 'Daily Note', click: () => send('daily') },
         { label: 'Quick Capture', click: () => openCaptureWindow() },
+        { type: 'separator' as const },
+        { label: 'Print…', accelerator: 'CmdOrCtrl+P', click: () => send('print-note') },
         ...(isMac ? [] : [{ type: 'separator' as const }, { role: 'quit' as const }]),
       ],
     },
@@ -417,7 +419,7 @@ function buildAppMenu() {
     {
       label: 'View',
       submenu: [
-        { label: 'Quick Open', accelerator: 'CmdOrCtrl+P', click: () => send('quick-open') },
+        { label: 'Quick Open', accelerator: 'CmdOrCtrl+K', click: () => send('quick-open') },
         { label: 'Search All Notes', accelerator: 'CmdOrCtrl+Shift+F', click: () => send('search') },
         { type: 'separator' as const },
         { label: 'Focus Mode', accelerator: 'CmdOrCtrl+\\', click: () => send('focus-mode') },
