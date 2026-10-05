@@ -9,6 +9,7 @@ import { useNoteAdvisor } from './hooks/useNoteAdvisor';
 import { useNoteChunks } from './hooks/useNoteChunks';
 import { useAppLifecycle } from './hooks/useAppLifecycle';
 import { useGitSync } from './hooks/useGitSync';
+import { useVaultIndex } from './hooks/useVaultIndex';
 import { useGitSyncStore } from './store/gitSyncStore';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { useAppActions } from './hooks/useAppActions';
@@ -87,6 +88,9 @@ function App() {
 
   // Background git sync: engine state mirror + the interval / idle / focus triggers.
   useGitSync(settings.syncDirectory || undefined);
+
+  // Links and tags come from the main-process VaultIndex (snapshot + deltas).
+  useVaultIndex(settings.syncDirectory || undefined);
 
   useAppLifecycle({
     accentColor: settings.accentColor,

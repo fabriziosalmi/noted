@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { FolderGit2, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
+import { backlinksOf } from '../lib/backlinks';
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
 
@@ -46,11 +47,8 @@ export function ConnectionsPanel({ onOpenNote }: { onOpenNote: (name: string) =>
     if (!activeNoteName) {
       return { outgoing: [] as string[], backlinks: [] as string[], projectTags: [] as string[], projectSiblings: [] as string[] };
     }
-    const bare = activeNoteName.replace(/\.md$/, '');
     const outgoing = [...new Set(noteLinksIndex[activeNoteName] ?? [])];
-    const backlinks = Object.entries(noteLinksIndex)
-      .filter(([name, links]) => name !== activeNoteName && links.some(l => l === activeNoteName || l === bare))
-      .map(([name]) => name);
+    const backlinks = backlinksOf(noteLinksIndex, activeNoteName);
     const projectTags = Object.keys(tagIndex)
       .filter(tag => tag.startsWith('#project/') && tagIndex[tag].includes(activeNoteName));
     const sib = new Set<string>();

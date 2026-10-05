@@ -75,7 +75,17 @@ Notes are files in a **vault** folder. The vault location resolves from the
   (The MCP `delete_note` tool deletes directly — see
   [MCP server](/reference/mcp-server#note-tools).)
 - **External-change watcher.** The vault is watched; a foreign change to an open
-  note warns the user instead of silently overwriting it.
+  note is reloaded (or, if the user is typing, kept alongside the other version)
+  instead of being silently overwritten.
+- **Vault index.** The main process keeps one `VaultIndex` for the open vault: each
+  note's `[[wikilinks]]` (with alias and heading), `#tags`, headings and
+  frontmatter keys. It is built by a scan at startup and then updated
+  incrementally — by the app's own save/rename/move/delete and by the file
+  watcher, which re-checks a note's mtime and size, so edits from an MCP client,
+  a Git pull or another device are picked up too. The renderer receives a
+  snapshot and then deltas (each with a sequence number, so a delta that raced
+  the snapshot is dropped) and derives backlinks, the tag filter and "Same
+  project" from them. Nothing about links or tags is persisted in the renderer.
 
 ## Shared modules
 
@@ -86,6 +96,8 @@ Code that must behave identically across processes lives in `shared/`:
   `htmlPolicy.browser.ts` (renderer) and `htmlPolicy.node.ts` (main and MCP, via
   jsdom). The single policy means the sanitizer cannot drift between processes.
 - **`markdown/frontmatter.ts`** — the frontmatter encode/decode helpers.
+- **`vault/extract.ts`** — what counts as a wikilink, tag, heading or frontmatter
+  key. The main-process index and the editor both use it.
 - **`search/`** — a BM25 `InvertedIndex` class and a Unicode-aware tokenizer, used
   by both the app's full-text index and the MCP server.
 - **`agent/`** — the [agent-workflow](/reference/agent-workflows) engine: types,
