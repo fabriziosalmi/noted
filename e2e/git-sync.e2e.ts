@@ -59,6 +59,10 @@ const test = base.extend<{ gv: GitVault }>({
     if (testInfo.status !== testInfo.expectedStatus) {
       const shot = await current.win.screenshot().catch(() => null);
       if (shot) await testInfo.attach('window-on-failure', { body: shot, contentType: 'image/png' });
+      const appLog = current.appLog();
+      await testInfo.attach('app-log', { body: appLog || '(empty)', contentType: 'text/plain' });
+      // Also in the CI log itself, where it is read first.
+      console.warn(`[app-log tail] ${testInfo.title}\n${appLog.slice(-3000)}`);
     }
     await current.app.close().catch(() => undefined);
     fs.rmSync(root, { recursive: true, force: true });

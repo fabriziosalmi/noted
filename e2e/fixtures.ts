@@ -16,6 +16,8 @@ export interface Launched {
   app: ElectronApplication;
   win: Page;
   vault: string;
+  /** Everything the app wrote to stdout/stderr so far (structured JSON log lines). */
+  appLog: () => string;
   /** Read every .md file in the vault, keyed by file name. */
   readVault: () => Record<string, string>;
   /** Quit and relaunch against the same vault and profile. */
@@ -42,12 +44,16 @@ export async function launch(
   const win = await app.firstWindow({ timeout: 30_000 });
   await win.waitForLoadState('domcontentloaded');
 
+  const logChunks: string[] = [];
+  app.process().stdout?.on('data', d => logChunks.push(String(d)));
+  app.process().stderr?.on('data', d => logChunks.push(String(d)));
+
   const readVault = () =>
     Object.fromEntries(
       fs.readdirSync(vault).filter(f => f.endsWith('.md')).map(f => [f, fs.readFileSync(path.join(vault, f), 'utf8')]),
     );
   const launched: Launched = {
-    app, win, vault, readVault,
+    app, win, vault, readVault, appLog: () => logChunks.join(''),
     relaunch: async () => {
       await app.close().catch(() => undefined);
       return launch(vault, profile, track, extraEnv);
@@ -77,6 +83,10 @@ export const test = base.extend<{ noted: Launched }>({
       // Screenshot of whatever is on screen when a test fails, attached to the report.
       const shot = await current.win.screenshot().catch(() => null);
       if (shot) await testInfo.attach('window-on-failure', { body: shot, contentType: 'image/png' });
+      const appLog = current.appLog();
+      await testInfo.attach('app-log', { body: appLog || '(empty)', contentType: 'text/plain' });
+      // Also in the CI log itself, where it is read first.
+      console.warn(`[app-log tail] ${testInfo.title}\n${appLog.slice(-3000)}`);
     }
     await current.app.close().catch(() => undefined);
     fs.rmSync(base, { recursive: true, force: true });
