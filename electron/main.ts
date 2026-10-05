@@ -15,6 +15,12 @@ import { FullTextSearchReadModel } from './fulltext-index.js';
 import { VaultIndex } from './vault-index.js';
 import { applyRewrite, previewRewrite, type RewriteDeps, type RewriteOutcome } from './link-rewrite.js';
 import type { NoteRename } from '../shared/vault/links.js';
+import {
+  saveAttachment, readVaultImage, scanEmbeddedImages, migrateEmbeddedImages, listOrphanAttachments,
+  deleteAttachments, inlineVaultImages, AttachmentError, type MigrationDeps,
+} from './attachments.js';
+import { resolveDistPath, vaultRelFromPathname } from './app-protocol.js';
+import { DEFAULT_ATTACHMENTS_FOLDER } from '../shared/vault/attachments.js';
 import { logEvent, newRequestId } from './structured-log.js';
 import { checkForUpdates, scheduleStartupUpdateCheck } from './updater.js';
 import { installStdioEpipeGuard } from './stdio-guard.js';
@@ -488,10 +494,20 @@ app.whenReady().then(() => {
   protocol.handle('app', async (request) => {
     try {
       const url = new URL(request.url);
-      const relPath = decodeURIComponent(url.pathname.replace(/^\/+/, ''));
-      const filePath = path.join(process.env.DIST!, relPath);
-      const data = await fs.promises.readFile(filePath);
-      const ext = path.extname(filePath).toLowerCase();
+      // The renderer bundle first; if the request is not a bundle file, it may be an
+      // image from the vault (attachments), served under the same confinement rules.
+      const filePath = resolveDistPath(process.env.DIST!, url.pathname);
+      let data: Buffer | null = null;
+      if (filePath) { try { data = await fs.promises.readFile(filePath); } catch { data = null; } }
+      if (!data) {
+        const rel = vaultRelFromPathname(url.pathname);
+        const img = rel ? readVaultImage(getTargetDir(activeVaultDir || undefined), rel) : null;
+        if (!img) return new Response('Not Found', { status: 404 });
+        return new Response(Buffer.from(img.bytes), {
+          headers: { 'Content-Type': img.type.mime, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-cache' },
+        });
+      }
+      const ext = path.extname(filePath ?? '').toLowerCase();
       const mimeMap: Record<string, string> = {
         '.html': 'text/html', '.js': 'application/javascript', '.mjs': 'application/javascript',
         '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml',
@@ -881,10 +897,13 @@ async function writeNoteAtomic(targetDir: string, fileName: string, content: str
  * the other version) instead of being overwritten by the editor's stale buffer.
  */
 function linkRewriteDeps(targetDir: string): RewriteDeps {
+/** Note access for operations that rewrite many notes (image migration, orphan checks). */
+function vaultNoteDeps(targetDir: string): MigrationDeps & { readNote: (name: string) => Promise<string> } {
   return {
     vaultIndex,
     readNote: (name) => fs.promises.readFile(safeResolve(targetDir, name), 'utf-8'),
     snapshotBefore: (name, previous) => saveSnapshot(targetDir, name, previous, { force: true }),
+    // Not marked as an app write: the watcher reports it, so an open note reloads.
     writeNote: async (name, content) => {
       await writeNoteAtomic(targetDir, name, content);
       fullTextSearchIndex.upsertFromRaw(targetDir, name, content);
@@ -913,6 +932,8 @@ function parseRenames(input: unknown): NoteRename[] {
     return { from, to };
   });
 }
+/** The attachments folder name the renderer asks for; anything invalid falls back to the default. */
+const attachmentsFolderOf = (v: unknown): string => (typeof v === 'string' && v ? v : DEFAULT_ATTACHMENTS_FOLDER);
 
 ipcMain.handle('save-note', async (_, fileName: string, content: string, syncDir?: string) => {
   try {
@@ -1412,6 +1433,9 @@ ipcMain.handle('copy-vault-to-folder', async (_, args: { destDir?: string; syncD
         } else if (entry.name.endsWith('.md')) {
           fs.copyFileSync(path.join(src, entry.name), path.join(dest, entry.name));
           copied++;
+        } else if (/\.(png|jpe?g|gif|webp)$/i.test(entry.name)) {
+          // Attachments travel with the notes that show them (not counted as notes).
+          fs.copyFileSync(path.join(src, entry.name), path.join(dest, entry.name));
         }
       }
     }
@@ -1643,6 +1667,70 @@ ipcMain.handle('rewrite-links', async (_, renames: unknown, syncDir?: string) =>
     return { success: true, data: await rewriteLinks(dir, parseRenames(renames)) };
   } catch (err) {
     return { success: false, error: (err as Error).message };
+// ─── Image attachments ────────────────────────────────────────────────────────
+
+const toApiError = (err: unknown) => ({ success: false as const, error: err instanceof AttachmentError ? err.message : (err as Error).message });
+
+// A pasted/dropped image: stored under its content hash, the note keeps the path.
+ipcMain.handle('save-attachment', (_, bytes: unknown, folder?: string, syncDir?: string) => {
+  try {
+    if (!(bytes instanceof Uint8Array)) throw new AttachmentError('Image data must be binary');
+    const saved = saveAttachment(getTargetDir(syncDir), attachmentsFolderOf(folder), bytes);
+    return { success: true, data: saved.rel };
+  } catch (err) {
+    return toApiError(err);
+  }
+});
+
+// Dry run first: what moving embedded (base64) images out of notes would do.
+ipcMain.handle('scan-embedded-images', async (_, syncDir?: string) => {
+  try {
+    const dir = getTargetDir(syncDir);
+    return { success: true, data: await scanEmbeddedImages(dir, vaultNoteDeps(dir)) };
+  } catch (err) {
+    return toApiError(err);
+  }
+});
+
+ipcMain.handle('migrate-embedded-images', async (_, folder?: string, syncDir?: string) => {
+  try {
+    const dir = getTargetDir(syncDir);
+    const out = await migrateEmbeddedImages(dir, attachmentsFolderOf(folder), vaultNoteDeps(dir));
+    logEvent('info', 'embedded_images_migrated', { notes: out.notes, images: out.images, failed: out.failed.length });
+    return { success: true, data: out };
+  } catch (err) {
+    return toApiError(err);
+  }
+});
+
+// Images only this note uses (what deleting it would leave unused), and their removal.
+ipcMain.handle('list-orphan-attachments', async (_, noteName: string, folder?: string, syncDir?: string) => {
+  try {
+    validateFileName(noteName);
+    const dir = getTargetDir(syncDir);
+    return { success: true, data: await listOrphanAttachments(dir, attachmentsFolderOf(folder), noteName, vaultNoteDeps(dir)) };
+  } catch (err) {
+    return toApiError(err);
+  }
+});
+
+ipcMain.handle('delete-attachments', async (_, rels: unknown, folder?: string, syncDir?: string) => {
+  try {
+    if (!Array.isArray(rels) || rels.length > 500 || rels.some(r => typeof r !== 'string')) throw new AttachmentError('Invalid attachment list');
+    const dir = getTargetDir(syncDir);
+    return { success: true, data: await deleteAttachments(dir, attachmentsFolderOf(folder), rels as string[], vaultNoteDeps(dir), (file) => shell.trashItem(file)) };
+  } catch (err) {
+    return toApiError(err);
+  }
+});
+
+// Exports must stand alone: embed the vault's images into the HTML/Markdown being exported.
+ipcMain.handle('inline-vault-images', (_, content: unknown, syncDir?: string) => {
+  try {
+    if (typeof content !== 'string') throw new AttachmentError('Content must be a string');
+    return { success: true, data: inlineVaultImages(getTargetDir(syncDir), content) };
+  } catch (err) {
+    return toApiError(err);
   }
 });
 

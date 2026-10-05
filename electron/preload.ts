@@ -86,6 +86,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gitLog: (noteName?: string, syncDir?: string) => ipcRenderer.invoke('git-log', noteName, syncDir),
   gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => ipcRenderer.invoke('git-create-pr', params),
   setVaultConfig: (config: { trashRetentionDays?: number }, syncDir?: string) => ipcRenderer.invoke('set-vault-config', config, syncDir),
+  saveAttachment: (bytes: Uint8Array, folder?: string, syncDir?: string) => ipcRenderer.invoke('save-attachment', bytes, folder, syncDir),
+  scanEmbeddedImages: (syncDir?: string) => ipcRenderer.invoke('scan-embedded-images', syncDir),
+  migrateEmbeddedImages: (folder?: string, syncDir?: string) => ipcRenderer.invoke('migrate-embedded-images', folder, syncDir),
+  listOrphanAttachments: (noteName: string, folder?: string, syncDir?: string) => ipcRenderer.invoke('list-orphan-attachments', noteName, folder, syncDir),
+  deleteAttachments: (rels: string[], folder?: string, syncDir?: string) => ipcRenderer.invoke('delete-attachments', rels, folder, syncDir),
+  inlineVaultImages: (content: string, syncDir?: string) => ipcRenderer.invoke('inline-vault-images', content, syncDir),
   getVaultIndexSnapshot: (syncDir?: string) => ipcRenderer.invoke('vault-index-snapshot', syncDir),
   getVaultIndexNote: (name: string, syncDir?: string) => ipcRenderer.invoke('vault-index-note', name, syncDir),
   onVaultIndexDelta: (cb: (delta: unknown) => void) => {

@@ -110,6 +110,8 @@ export interface SettingsState {
   titleFollowsFilename?: boolean;
   // After a rename or move, rewrite [[links]] that pointed at the old name.
   linkUpdateMode?: 'always' | 'ask' | 'never';
+  // Where pasted/dropped images are stored, relative to the vault (one folder level).
+  attachmentsFolder?: string;
 }
 
 export interface FolderInfo {
@@ -412,6 +414,7 @@ export const useStore = create<NoteState>()(
         smartTagsEnabled: false,
         titleFollowsFilename: true,
         linkUpdateMode: 'always' as const,
+        attachmentsFolder: 'attachments',
       },
 
       updateSettings: (newSettings) => {

@@ -20,6 +20,9 @@ export interface AppActionsArgs {
   renameFolder: (oldName: string, newName: string) => Promise<void>;
   deleteFolder: (name: string) => Promise<string[]>;
   moveNote: (fileName: string, toFolder: string) => Promise<void>;
+  /** Ask the user a yes/no question (used to offer removing images only the deleted note used). */
+  confirm?: (opts: { message: string; confirmLabel?: string; cancelLabel?: string; danger?: boolean }) => Promise<boolean>;
+  attachmentsFolder?: string;
 }
 
 export interface GlobalShortcutsArgs {

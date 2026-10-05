@@ -14,6 +14,7 @@ import { useI18n, type TranslationKey } from '../lib/i18n';
 import { getElectronApi } from '../lib/electronApi';
 import { importWorkflowReducer, initialImportWorkflowState, isImportWorkflowBusy } from '../lib/importWorkflow';
 import { useTablist } from '../lib/useTablist';
+import { AttachmentsSettings } from './AttachmentsSettings';
 
 type SettingsTab = 'ai' | 'appearance' | 'editor' | 'sync' | 'mcp' | 'git' | 'import';
 
@@ -56,6 +57,7 @@ interface Settings {
   mcpSsePort?: number;
   mcpTrashRetentionDays?: number;
   linkUpdateMode?: 'always' | 'ask' | 'never';
+  attachmentsFolder?: string;
   smartTagsEnabled?: boolean;
 }
 
@@ -941,6 +943,12 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                 ]}
                 value={settings.linkUpdateMode ?? 'always'}
                 onChange={v => onUpdate({ linkUpdateMode: v as Settings['linkUpdateMode'] })}
+              />
+
+              <AttachmentsSettings
+                folder={settings.attachmentsFolder}
+                syncDirectory={settings.syncDirectory}
+                onChangeFolder={name => onUpdate({ attachmentsFolder: name })}
               />
 
               <div className="divide-y divide-gray-100 dark:divide-gray-700/50">

@@ -48,6 +48,10 @@ each feature behaves.
 - **Update links when renaming** — when a note is renamed or moved, rewrite the
   `[[links]]` to it in other notes: Always (default), Ask, or Never. See
   [Wikilinks](/guide/organizing-notes#renaming-and-moving-notes).
+- **Images folder** — where pasted and dropped images are stored inside the vault
+  (default `attachments`; one plain folder name). **Move embedded images out of
+  notes…** converts images that older versions embedded in the note text. See
+  [Images](/guide/editor).
 
 ## Sync
 

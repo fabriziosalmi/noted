@@ -6,6 +6,7 @@ import {
 import { useI18n } from '../lib/i18n';
 import { getElectronApi } from '../lib/electronApi';
 import { printNoteFromHtml } from '../lib/printNote';
+import { inlineVaultImages } from '../lib/exportContent';
 import { initialShareWorkflowState, isShareWorkflowBusy, shareWorkflowReducer } from '../lib/shareWorkflow';
 import { Tooltip } from './Tooltip';
 import { isMac } from '../lib/platform';
@@ -103,7 +104,7 @@ export function ShareMenu({
     if (!api) return;
     dispatchWorkflow({ type: 'START_ACTION', action: 'exportMarkdown' });
     setOpen(false);
-    const content = getCurrentNoteContent();
+    const content = await inlineVaultImages(getCurrentNoteContent());
     if (!content) {
       onToast(t('noActiveNote'), 'error');
       dispatchWorkflow({ type: 'ACTION_FAILED', message: t('noActiveNote') });
@@ -125,7 +126,7 @@ export function ShareMenu({
     if (!api) return;
     dispatchWorkflow({ type: 'START_ACTION', action: 'exportPdf' });
     setOpen(false);
-    const html = getCurrentNoteHtml();
+    const html = await inlineVaultImages(getCurrentNoteHtml());
     if (!html) {
       onToast(t('noActiveNote'), 'error');
       dispatchWorkflow({ type: 'ACTION_FAILED', message: t('noActiveNote') });
@@ -147,7 +148,7 @@ export function ShareMenu({
     if (!api) return;
     dispatchWorkflow({ type: 'START_ACTION', action: 'exportHtml' });
     setOpen(false);
-    const html = getCurrentNoteHtml();
+    const html = await inlineVaultImages(getCurrentNoteHtml());
     if (!html) {
       onToast(t('noActiveNote'), 'error');
       dispatchWorkflow({ type: 'ACTION_FAILED', message: t('noActiveNote') });
@@ -170,7 +171,7 @@ export function ShareMenu({
     if (!api) return;
     dispatchWorkflow({ type: 'START_ACTION', action: 'exportDocx' });
     setOpen(false);
-    const html = getCurrentNoteHtml();
+    const html = await inlineVaultImages(getCurrentNoteHtml());
     if (!html) {
       onToast(t('noActiveNote'), 'error');
       dispatchWorkflow({ type: 'ACTION_FAILED', message: t('noActiveNote') });
@@ -203,7 +204,7 @@ export function ShareMenu({
     if (!api) return;
     dispatchWorkflow({ type: 'START_ACTION', action: 'shareNote' });
     setOpen(false);
-    const content = getCurrentNoteContent();
+    const content = await inlineVaultImages(getCurrentNoteContent());
     const title = getCurrentNoteTitle();
     if (!content && !title) {
       onToast(t('noActiveNote'), 'error');
@@ -230,7 +231,7 @@ export function ShareMenu({
       dispatchWorkflow({ type: 'OPEN_GIST_CONFIRM' });
       return;
     }
-    const content = getCurrentNoteContent();
+    const content = await inlineVaultImages(getCurrentNoteContent());
     const fileName = getCurrentNoteFileName() || 'note.md';
     const res = await api.gitSaveAsGist?.({ fileName, content, isPublic: workflow.gistPublic, token });
     if (res?.success && res.data) {
