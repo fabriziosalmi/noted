@@ -114,6 +114,12 @@ export default defineConfig({
             { text: 'Building & releasing', link: '/contributing/building' },
           ],
         },
+        {
+          text: 'Decisions',
+          items: [
+            { text: '0001 Markdown on disk', link: '/contributing/adr/0001-markdown-canonical-format' },
+          ],
+        },
       ],
     },
 

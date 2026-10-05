@@ -13,6 +13,8 @@ export default defineConfig([
     'dist-mcp',
     'coverage',
     'release',
+    // Throwaway experiments with their own dependencies (see each folder's README).
+    'spikes',
     // VitePress build artefacts: vendored dependency bundles, not our source.
     // ESLint doesn't read .gitignore, so these need naming explicitly or
     // `npm run lint` fails on third-party code.
