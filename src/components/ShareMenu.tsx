@@ -346,7 +346,7 @@ export function ShareMenu({
                     <Check size={11} /> {t('gistCreated')}
                   </div>
                   <button
-                    onClick={() => { if (workflow.gistUrl) window.open(workflow.gistUrl, '_blank'); }}
+                    onClick={() => { if (workflow.gistUrl) window.open(workflow.gistUrl, '_blank', 'noopener,noreferrer'); }}
                     className="w-full text-left text-[11px] text-[var(--accent)] hover:underline truncate"
                   >
                     {workflow.gistUrl}
