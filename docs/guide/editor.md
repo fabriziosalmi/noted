@@ -63,8 +63,20 @@ Three ways to format text:
 - **Code blocks** — with syntax highlighting for the common languages (powered
   by lowlight).
 - **Math** — LaTeX math is rendered with KaTeX.
-- **Images** — paste or drag an image into the editor and it is embedded inline
-  as a base64 data URL, so the note stays self-contained.
+- **Images** — paste or drag an image into the editor (PNG, JPEG, GIF or WebP, up
+  to 25 MB). It is saved as a file in the vault's `attachments/` folder under a
+  name made from its content (the same image is stored once), and the note keeps
+  only the relative path, e.g. `attachments/3f2a….png`. Notes stay small, Git
+  diffs stay readable, and the full-text index and MCP clients see a path rather
+  than megabytes of base64. Deleting a note offers to remove the images only that
+  note used (they go to the system Trash). Exports (PDF, HTML, Word, Markdown),
+  printing and gists embed the images again so the result stands alone.
+
+  Notes written by older versions have their images embedded in the text. **Settings →
+  Editor → Move embedded images out of notes…** moves them to files: it first
+  reports how many images in how many notes would move, and every changed note
+  keeps a history snapshot, so it can be undone. The folder name is configurable
+  in the same place.
 - **Typography** — smart quotes, dashes, and similar substitutions are applied
   as you type.
 

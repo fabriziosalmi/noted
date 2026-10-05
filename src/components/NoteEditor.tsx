@@ -30,6 +30,7 @@ import { SmartTagSuggestion } from './SmartTagSuggestion';
 import { GhostTextExtension, ghostTextKey } from '../lib/ghostTextExtension';
 import { deriveTitle } from '../lib/noteTitle';
 import { planExternalChange } from '../lib/externalChange';
+import { attachImage } from '../lib/imageAttach';
 import { getElectronApi } from '../lib/electronApi';
 import { suggestProject, type ProjectSuggestion } from '../lib/projectSuggestion';
 import { usePrompt } from './ConfirmProvider';
@@ -253,6 +254,15 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     if (ed) ed.view.dispatch(ed.state.tr.setMeta(ghostTextKey, ''));
   }, []);
 
+  // Store an image file in the vault's attachments folder and put the path in the note.
+  // `editor` is read through the ref: the handlers below are created with the editor.
+  const insertImageFile = useCallback((file: Blob) => {
+    const { settings } = useStore.getState();
+    void attachImage(file, { folder: settings.attachmentsFolder, syncDir: settings.syncDirectory || undefined })
+      .then(({ src }) => { editorRef.current?.chain().focus().setImage({ src }).run(); })
+      .catch((err: unknown) => { onNoticeRef.current?.((err as Error).message, 'error'); });
+  }, []);
+
   const editor = useEditor({
     extensions: [
       // StarterKit bundles its own Link; disable it so the configured one
@@ -345,18 +355,14 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
         return false;
       },
       handlePaste: (_view, event) => {
-        // Image paste — convert to base64 and insert
+        // Image paste: stored as a file in the attachments folder, the note keeps the path
         const items = Array.from(event.clipboardData?.items ?? []);
         const imageItem = items.find(i => i.type.startsWith('image/'));
         if (imageItem) {
           event.preventDefault();
           const file = imageItem.getAsFile();
           if (!file) return false;
-          const reader = new FileReader();
-          reader.onload = () => {
-            editor?.chain().focus().setImage({ src: reader.result as string }).run();
-          };
-          reader.readAsDataURL(file);
+          insertImageFile(file);
           return true;
         }
 
@@ -385,13 +391,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
         const files = Array.from(event.dataTransfer?.files ?? []).filter(f => f.type.startsWith('image/'));
         if (!files.length) return false;
         event.preventDefault();
-        files.forEach(file => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            editor?.chain().focus().setImage({ src: reader.result as string }).run();
-          };
-          reader.readAsDataURL(file);
-        });
+        files.forEach(insertImageFile);
         return true;
       },
     },
