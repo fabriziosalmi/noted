@@ -1,4 +1,5 @@
 import { test as base, _electron, type ElectronApplication, type Page } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -63,6 +64,34 @@ export async function launch(
   return launched;
 }
 
+/**
+ * What the app's main process and its git children are doing right now (Linux
+ * only). For a hang this tells busy-looping (state R) from blocked (S + wchan /
+ * syscall), which the app's own log cannot say once its event loop is stuck.
+ */
+function describeProcesses(pid: number | undefined): string {
+  if (process.platform !== 'linux' || !pid) return '(not available)';
+  const out: string[] = [];
+  const read = (f: string) => { try { return fs.readFileSync(f, 'utf8').trim(); } catch { return '?'; } };
+  try {
+    for (const tid of fs.readdirSync(`/proc/${pid}/task`)) {
+      const base = `/proc/${pid}/task/${tid}`;
+      const stat = read(`${base}/stat`);
+      const state = stat.slice(stat.lastIndexOf(')') + 2, stat.lastIndexOf(')') + 3);
+      out.push(`tid ${tid} ${read(`${base}/comm`)} state=${state} wchan=${read(`${base}/wchan`)} syscall=${read(`${base}/syscall`)}`);
+    }
+  } catch (e) {
+    out.push(`task read failed: ${(e as Error).message}`);
+  }
+  try {
+    out.push(execFileSync('ps', ['-eo', 'pid,ppid,stat,etime,pcpu,wchan:20,args'], { encoding: 'utf8', timeout: 5000 })
+      .split('\n').filter(l => /PID|git|noted|electron/i.test(l)).map(l => l.slice(0, 200)).slice(0, 40).join('\n'));
+  } catch (e) {
+    out.push(`ps failed: ${(e as Error).message}`);
+  }
+  return out.join('\n');
+}
+
 export const test = base.extend<{ noted: Launched }>({
   noted: async ({}, use, testInfo) => {
     const base = fs.mkdtempSync(path.join(os.tmpdir(), 'noted-e2e-'));
@@ -80,6 +109,9 @@ export const test = base.extend<{ noted: Launched }>({
     await use(current);
 
     if (testInfo.status !== testInfo.expectedStatus) {
+      const procs = describeProcesses(current.app.process().pid);
+      await testInfo.attach('processes', { body: procs, contentType: 'text/plain' });
+      console.warn(`[processes] ${testInfo.title}\n${procs}`);
       // Screenshot of whatever is on screen when a test fails, attached to the report.
       const shot = await current.win.screenshot().catch(() => null);
       if (shot) await testInfo.attach('window-on-failure', { body: shot, contentType: 'image/png' });
