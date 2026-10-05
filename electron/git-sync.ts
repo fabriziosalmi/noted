@@ -180,8 +180,10 @@ interface Tracking {
 }
 
 class SyncBlocked extends Error {
-  constructor(public phase: 'error' | 'unconfigured', message: string) {
+  phase: 'error' | 'unconfigured';
+  constructor(phase: 'error' | 'unconfigured', message: string) {
     super(message);
+    this.phase = phase;
   }
 }
 
