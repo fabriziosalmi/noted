@@ -25,7 +25,7 @@ declare global {
       selectSyncFolder: () => Promise<{ success: boolean; data?: string }>;
       exportPdf: (htmlContent: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       printNote: (htmlContent: string, title?: string) => Promise<{ success: boolean; error?: string }>;
-      renameNote: (oldName: string, newName: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
+      renameNote: (oldName: string, newName: string, syncDir?: string, opts?: LinkUpdateOptions) => Promise<{ success: boolean; links?: LinkUpdateResult; error?: string }>;
       exportMarkdown: (content: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       storeApiKey: (key: string) => Promise<{ success: boolean; error?: string }>;
       getApiKey: () => Promise<{ success: boolean; data?: string; error?: string }>;
@@ -53,9 +53,11 @@ declare global {
       shareNoteMacOS: (args: { content: string; title: string }) => Promise<{ success: boolean; fallback?: boolean; error?: string }>;
       getNotesTree: (syncDir?: string) => Promise<{ success: boolean; data?: NotesTree; error?: string }>;
       createFolder: (name: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
-      renameFolder: (oldName: string, newName: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
-      deleteFolder: (name: string, syncDir?: string) => Promise<{ success: boolean; data?: { moved: number; renamed: string[] }; error?: string }>;
-      moveNote: (fileName: string, toFolder: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+      renameFolder: (oldName: string, newName: string, syncDir?: string, opts?: LinkUpdateOptions) => Promise<{ success: boolean; links?: LinkUpdateResult; error?: string }>;
+      deleteFolder: (name: string, syncDir?: string, opts?: LinkUpdateOptions) => Promise<{ success: boolean; data?: { moved: number; renamed: string[] }; links?: LinkUpdateResult; error?: string }>;
+      moveNote: (fileName: string, toFolder: string, syncDir?: string, opts?: LinkUpdateOptions) => Promise<{ success: boolean; data?: string; links?: LinkUpdateResult; error?: string }>;
+      previewLinkRewrite: (renames: { from: string; to: string }[], syncDir?: string) => Promise<{ success: boolean; data?: { notes: number; links: number }; error?: string }>;
+      rewriteLinks: (renames: { from: string; to: string }[], syncDir?: string) => Promise<{ success: boolean; data?: LinkUpdateResult; error?: string }>;
       setNoteTitle: (noteName: string) => Promise<void>;
       safeStorageStatus: () => Promise<{ encrypted: boolean }>;
       getMcpServerPath: () => Promise<{ path: string; exists: boolean }>;
@@ -116,4 +118,15 @@ interface PrData {
   url: string;
   number: number;
   title: string;
+}
+
+/** Ask the main process to also rewrite [[links]] that point at what is being renamed or moved. */
+interface LinkUpdateOptions {
+  updateLinks?: boolean;
+}
+
+interface LinkUpdateResult {
+  notes: number;
+  links: number;
+  failed: number;
 }

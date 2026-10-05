@@ -198,7 +198,7 @@ describe('useStore', () => {
     await useStore.getState().renameNote('old.md', 'new');
 
     const state = useStore.getState();
-    expect(window.electronAPI.renameNote).toHaveBeenCalledWith('old.md', 'new.md', undefined);
+    expect(window.electronAPI.renameNote).toHaveBeenCalledWith('old.md', 'new.md', undefined, { updateLinks: true });
     expect(state.pinnedNotes).toContain('new.md');
     expect(window.electronAPI.readNote).toHaveBeenCalledWith('new.md', undefined);
     // No pretend-rewrite of links in memory: the index mirrors what is on disk, and
@@ -274,10 +274,10 @@ describe('useStore', () => {
     await useStore.getState().deleteFolder('docs2');
 
     expect(window.electronAPI.createFolder).toHaveBeenCalledWith('docs', undefined);
-    expect(window.electronAPI.renameFolder).toHaveBeenCalledWith('docs', 'docs2', undefined);
-    expect(window.electronAPI.moveNote).toHaveBeenCalledWith('note.md', 'dst', undefined);
+    expect(window.electronAPI.renameFolder).toHaveBeenCalledWith('docs', 'docs2', undefined, { updateLinks: true });
+    expect(window.electronAPI.moveNote).toHaveBeenCalledWith('note.md', 'dst', undefined, { updateLinks: true });
     expect(window.electronAPI.readNote).toHaveBeenCalledWith('dst/note.md', undefined);
-    expect(window.electronAPI.deleteFolder).toHaveBeenCalledWith('docs2', undefined);
+    expect(window.electronAPI.deleteFolder).toHaveBeenCalledWith('docs2', undefined, { updateLinks: true });
   });
 
   it('should reopen active note when renaming its folder', async () => {
@@ -288,7 +288,7 @@ describe('useStore', () => {
 
     await useStore.getState().renameFolder('docs', 'docs-new');
 
-    expect(window.electronAPI.renameFolder).toHaveBeenCalledWith('docs', 'docs-new', undefined);
+    expect(window.electronAPI.renameFolder).toHaveBeenCalledWith('docs', 'docs-new', undefined, { updateLinks: true });
     expect(window.electronAPI.readNote).toHaveBeenCalledWith('docs-new/note.md', undefined);
   });
 

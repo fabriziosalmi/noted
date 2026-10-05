@@ -528,7 +528,14 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     return api.onFlushBeforeQuit(() => {
       const pending = pendingSaveRef.current;
       pendingSaveRef.current = null;
-      const ack = () => api.notifyFlushed?.();
+      // After the note is on disk: settle a held-back link rewrite (never prompting
+      // — nobody is there to answer), so quitting right after a retitle does not
+      // leave other notes linking to the old name.
+      const ack = () => {
+        void useStore.getState().flushPendingLinkRewrite({ quiet: true })
+          .catch(() => undefined)
+          .finally(() => api.notifyFlushed?.());
+      };
       if (pending?.name) {
         void useStore.getState()
           .flushNoteToDisk(pending.name, pending.content, pending.frontmatter)
