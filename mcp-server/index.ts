@@ -49,6 +49,8 @@ import {
   type EngineResult,
 } from '../shared/agent/index.js';
 import pkg from '../package.json';
+import { moveToTrash, listTrash, restoreFromTrash, purgeTrash, parseRetentionDays, DEFAULT_RETENTION_DAYS, TrashError } from './trash';
+import { readVaultConfig } from '../shared/vault-config.js';
 
 // ─── Notes-directory resolution ───────────────────────────────────────────────
 
@@ -100,6 +102,22 @@ export function resolveNotesDir(): string {
 }
 
 const NOTES_DIR = resolveNotesDir();
+
+/**
+ * How long trashed notes are kept, in whole days (0 = until removed by hand).
+ * Resolved on every use so a change made in the app applies without restarting
+ * this server. Precedence: `--trash-retention-days N`, then
+ * NOTED_MCP_TRASH_RETENTION_DAYS, then the vault's `.noted/config.json` (written
+ * by the app's settings), then 30.
+ */
+export function trashRetentionDays(): number {
+  const argv = process.argv.slice(2);
+  const eq = argv.find(a => a.startsWith('--trash-retention-days='));
+  const i = argv.indexOf('--trash-retention-days');
+  const explicit = eq ? eq.slice('--trash-retention-days='.length) : i !== -1 ? argv[i + 1] : process.env.NOTED_MCP_TRASH_RETENTION_DAYS;
+  if (explicit !== undefined && explicit.trim() !== '') return parseRetentionDays(explicit);
+  return readVaultConfig(NOTES_DIR).trashRetentionDays ?? DEFAULT_RETENTION_DAYS;
+}
 
 // ─── Path security ────────────────────────────────────────────────────────────
 
@@ -374,6 +392,8 @@ const TOOL_NAME = {
   UPDATE_NOTE: 'update_note',
   SEARCH_NOTES: 'search_notes',
   DELETE_NOTE: 'delete_note',
+  RESTORE_NOTE: 'restore_note',
+  LIST_TRASH: 'list_trash',
   CREATE_AGENT_WORKFLOW: 'create_agent_workflow',
   APPEND_AGENT_EVENT: 'append_agent_event',
   ADVANCE_AGENT_STATE: 'advance_agent_state',
@@ -790,8 +810,9 @@ const TOOLS: Tool[] = [
   {
     name: TOOL_NAME.DELETE_NOTE,
     description:
-      'Permanently delete a note. This action cannot be undone — ' +
-      'ask the user for confirmation before calling this tool.',
+      'Move a note to the Noted trash (.noted/trash inside the vault). It is not erased: ' +
+      'restore it with restore_note (see list_trash). Trashed notes are removed for good ' +
+      'after the retention period (default 30 days). Ask the user before deleting.',
     inputSchema: {
       type: 'object',
       required: ['name'],
@@ -800,6 +821,26 @@ const TOOLS: Tool[] = [
           type: 'string',
           description: 'Note file name to delete, e.g. "old-note.md"',
         },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: TOOL_NAME.LIST_TRASH,
+    description: 'List notes in the trash, newest first, with the id of each deletion.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: TOOL_NAME.RESTORE_NOTE,
+    description:
+      'Restore a trashed note to its original path. Without `id`, the most recently deleted ' +
+      'version of that name. Fails instead of overwriting if a note with that name exists again.',
+    inputSchema: {
+      type: 'object',
+      required: ['name'],
+      properties: {
+        name: { type: 'string', description: 'Original note name, e.g. "folder/old-note.md"' },
+        id: { type: 'string', description: 'Deletion id from list_trash, to restore a specific version' },
       },
       additionalProperties: false,
     },
@@ -1107,6 +1148,9 @@ export async function handleSearchNotes(args: Record<string, unknown>) {
   };
 }
 
+const retentionText = () =>
+  trashRetentionDays() > 0 ? `kept for ${trashRetentionDays()} days` : 'kept until removed by hand';
+
 export async function handleDeleteNote(args: Record<string, unknown>) {
   const name = args.name;
   validateNoteName(name);
@@ -1114,11 +1158,42 @@ export async function handleDeleteNote(args: Record<string, unknown>) {
   if (!fs.existsSync(filePath)) {
     throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}`);
   }
-  fs.unlinkSync(filePath);
+  purgeTrash(NOTES_DIR, new Date(), trashRetentionDays());
+  const item = moveToTrash(NOTES_DIR, name as string);
   indexRemove(name as string);
   return {
-    content: [{ type: 'text', text: `Note deleted: ${name as string}` }],
+    content: [{
+      type: 'text',
+      text: `Note moved to trash: ${name as string} (${retentionText()}). Restore it with restore_note (id ${item.stamp}).`,
+    }],
   };
+}
+
+export async function handleListTrash() {
+  purgeTrash(NOTES_DIR, new Date(), trashRetentionDays());
+  const items = listTrash(NOTES_DIR);
+  if (items.length === 0) return { content: [{ type: 'text', text: 'The trash is empty.' }] };
+  const lines = items.map(i => `${i.name} — deleted ${formatLocal(i.trashedAt, true)} — id ${i.stamp}`);
+  return { content: [{ type: 'text', text: `${items.length} note(s) in the trash (${retentionText()}):\n${lines.join('\n')}` }] };
+}
+
+export async function handleRestoreNote(args: Record<string, unknown>) {
+  const name = args.name;
+  validateNoteName(name);
+  const id = args.id;
+  if (id !== undefined && typeof id !== 'string') {
+    throw new McpError(ErrorCode.InvalidParams, 'id must be a string');
+  }
+  safeNotePath(name as string); // same confinement rules as every other note path
+  purgeTrash(NOTES_DIR, new Date(), trashRetentionDays());
+  try {
+    const item = restoreFromTrash(NOTES_DIR, name as string, id as string | undefined);
+    indexUpsert(name as string, fs.readFileSync(safeNotePath(name as string), 'utf8'));
+    return { content: [{ type: 'text', text: `Note restored: ${name as string} (deleted ${formatLocal(item.trashedAt, true)})` }] };
+  } catch (err) {
+    if (err instanceof TrashError) throw new McpError(ErrorCode.InvalidParams, err.message);
+    throw err;
+  }
 }
 
 export async function handleCreateAgentWorkflow(args: Record<string, unknown>) {
@@ -1377,6 +1452,8 @@ const TOOL_HANDLERS: Record<ToolName, ToolHandler> = {
   [TOOL_NAME.UPDATE_NOTE]: handleUpdateNote,
   [TOOL_NAME.SEARCH_NOTES]: handleSearchNotes,
   [TOOL_NAME.DELETE_NOTE]: handleDeleteNote,
+  [TOOL_NAME.LIST_TRASH]: handleListTrash,
+  [TOOL_NAME.RESTORE_NOTE]: handleRestoreNote,
   [TOOL_NAME.CREATE_AGENT_WORKFLOW]: handleCreateAgentWorkflow,
   [TOOL_NAME.APPEND_AGENT_EVENT]: handleAppendAgentEvent,
   [TOOL_NAME.ADVANCE_AGENT_STATE]: handleAdvanceAgentState,
@@ -1427,6 +1504,13 @@ export async function main() {
   process.stderr.write(`[noted-mcp] notes directory: ${NOTES_DIR}\n`);
   if (!fs.existsSync(NOTES_DIR)) {
     process.stderr.write(`[noted-mcp] WARNING: notes directory does not exist yet — it will be created on first write.\n`);
+  }
+
+  try {
+    const purged = purgeTrash(NOTES_DIR, new Date(), trashRetentionDays());
+    if (purged > 0) process.stderr.write(`[noted-mcp] purged ${purged} expired item(s) from the trash\n`);
+  } catch (err) {
+    process.stderr.write(`[noted-mcp] trash purge failed: ${err instanceof Error ? err.message : String(err)}\n`);
   }
 
   const transportType = getArgValue('--transport') ?? 'stdio';

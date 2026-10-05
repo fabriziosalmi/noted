@@ -170,6 +170,9 @@ describe('plain cycles', () => {
     const s = scenario();
     fs.mkdirSync(path.join(s.a, '.noted_history', 'one.md'), { recursive: true });
     write(path.join(s.a, '.noted_history', 'one.md'), '2026-10-05.html', '<p>old draft</p>');
+    fs.mkdirSync(path.join(s.a, '.noted', 'trash', '2026-10-05T10-00-00-000Z-abcd'), { recursive: true });
+    write(path.join(s.a, '.noted', 'trash', '2026-10-05T10-00-00-000Z-abcd'), 'deleted.md', '<p>trashed</p>');
+    write(path.join(s.a, '.noted'), 'config.json', '{}');
     write(s.a, 'one.md.123.abcdef.tmp', 'half-written');
     write(s.a, '.DS_Store', 'x');
     write(s.a, 'real.md', '<p>real note</p>\n');
@@ -177,7 +180,7 @@ describe('plain cycles', () => {
     expect(st.phase).toBe('idle');
     const tracked = git(s.remote, 'ls-tree', '-r', '--name-only', 'main').split('\n');
     expect(tracked).toContain('real.md');
-    expect(tracked.filter(f => f.startsWith('.noted_history') || f.endsWith('.tmp') || f === '.DS_Store')).toEqual([]);
+    expect(tracked.filter(f => f.startsWith('.noted_history') || f.startsWith('.noted/') || f.endsWith('.tmp') || f === '.DS_Store')).toEqual([]);
     // The user's own repository content is untouched: no .gitignore was added or edited.
     expect(tracked).not.toContain('.gitignore');
     // Idempotent: a second cycle adds each pattern only once.

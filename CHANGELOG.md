@@ -31,6 +31,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **MCP `delete_note` is no longer permanent**: it moves the note to
+  `.noted/trash/`, with new `list_trash` and `restore_note` tools and a retention
+  setting (Settings → MCP, default 30 days). `.noted/` is ignored by the watcher
+  and by Git sync.
 - A note changed on disk while it was open (by a sync, an MCP client or another
   device) was only flagged, and the next autosave overwrote it with the stale
   editor text. It now reloads, or — if you were typing — keeps your text and

@@ -71,6 +71,7 @@ declare global {
       gitPushBranch: (branch: string, remoteUrl: string, syncDir?: string) => Promise<GitResult>;
       gitLog: (noteName?: string, syncDir?: string) => Promise<GitResult<GitLogEntry[]>>;
       gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => Promise<GitResult<PrData>>;
+      setVaultConfig: (config: { trashRetentionDays?: number }, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       gitSyncNow: (syncDir?: string) => Promise<GitSyncState>;
       gitSyncState: (syncDir?: string) => Promise<GitSyncState>;
       gitSyncResolve: (resolutions: GitConflictResolution[], syncDir?: string) => Promise<GitResult<GitSyncState>>;

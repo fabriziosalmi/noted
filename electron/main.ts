@@ -10,6 +10,7 @@ import { registerExporterHandlers } from './src/services/exporter.js';
 import * as gitOps from './git-ops.js';
 import { sanitizeGitError } from './git-ops.js';
 import * as gitSync from './git-sync.js';
+import { writeVaultConfig, isValidRetentionDays } from '../shared/vault-config.js';
 import { FullTextSearchReadModel } from './fulltext-index.js';
 import { logEvent, newRequestId } from './structured-log.js';
 import { checkForUpdates, scheduleStartupUpdateCheck } from './updater.js';
@@ -175,7 +176,8 @@ function startVaultWatch(): void {
     vaultWatcher = fs.watch(watchRoot, { recursive: true }, (_event, filename) => {
       if (!filename) return;
       const name = String(filename).split(path.sep).join('/');
-      if (!name.endsWith('.md') || name.includes('.noted_history/')) return;
+      // The app's own bookkeeping (version history, MCP trash and config) is not a note change.
+      if (!name.endsWith('.md') || name.includes('.noted_history/') || name.startsWith('.noted/')) return;
       // A file we can't stat is gone — deleted, or renamed away. Report those
       // too: dropping them left notes removed by an external writer sitting in
       // the sidebar until the next launch.
@@ -676,6 +678,23 @@ ipcMain.handle('get-mcp-server-path', () => {
 
 // The SSE auth token, so Settings can render a ready-to-paste authenticated URL.
 ipcMain.handle('get-mcp-sse-token', () => getMcpSseToken());
+
+// Settings the MCP server (possibly started by another program) must share with
+// the app live in <vault>/.noted/config.json; the renderer pushes them here.
+ipcMain.handle('set-vault-config', (_, config: { trashRetentionDays?: unknown }, syncDir?: string) => {
+  try {
+    if (typeof config !== 'object' || config === null) throw new Error('Invalid config');
+    const patch: { trashRetentionDays?: number } = {};
+    if (config.trashRetentionDays !== undefined) {
+      if (!isValidRetentionDays(config.trashRetentionDays)) throw new Error('trashRetentionDays must be a whole number from 0 to 3650');
+      patch.trashRetentionDays = config.trashRetentionDays;
+    }
+    writeVaultConfig(getTargetDir(syncDir), patch);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
 
 ipcMain.handle('update-mcp-sse-config', (_, config: { enabled: boolean; port: number; syncDir?: string }) => {
   const reqId = newRequestId('mcp-sse-config');

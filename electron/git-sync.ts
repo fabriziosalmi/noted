@@ -227,11 +227,12 @@ async function revParse(g: SimpleGit, rev: string): Promise<string | null> {
 /**
  * Files that live in the vault folder but must never be synced: the app's own
  * version history (a snapshot per autosave would bloat the remote and leak every
- * intermediate draft), the half-written temp file of an in-flight atomic save,
+ * intermediate draft), the MCP trash and per-vault config (`.noted/`; synced, a
+ * deleted note would travel to every device), the half-written temp file of an in-flight atomic save,
  * and OS litter. Written to the repo-local `info/exclude` rather than a tracked
  * .gitignore so we never modify the user's repository content.
  */
-const LOCAL_EXCLUDES = ['.noted_history/', '*.tmp', '.DS_Store', 'Thumbs.db'];
+const LOCAL_EXCLUDES = ['.noted_history/', '.noted/', '*.tmp', '.DS_Store', 'Thumbs.db'];
 
 async function ensureLocalExcludes(g: SimpleGit, dir: string): Promise<void> {
   const common = (await tryRaw(g, ['rev-parse', '--git-common-dir'])).trim();

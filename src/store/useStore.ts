@@ -102,6 +102,8 @@ export interface SettingsState {
   enableAutoCommit?: boolean;
   mcpSseEnabled?: boolean;
   mcpSsePort?: number;
+  // Days a note deleted through MCP stays in <vault>/.noted/trash (0 = until removed by hand).
+  mcpTrashRetentionDays?: number;
   smartTagsEnabled?: boolean;
   // Apple Notes-style: the first line (title) drives the .md filename.
   titleFollowsFilename?: boolean;
@@ -331,6 +333,7 @@ export const useStore = create<NoteState>()(
         enableAutoCommit: false,
         mcpSseEnabled: false,
         mcpSsePort: 3000,
+        mcpTrashRetentionDays: 30,
         smartTagsEnabled: false,
         titleFollowsFilename: true,
       },
