@@ -1,11 +1,7 @@
-/** Extract all #tags from HTML or plain text content */
-export function extractTags(content: string): string[] {
-  const text = content.replace(/<[^>]+>/g, ' ');
-  // Allow one optional namespace segment (e.g. #project/aurora) so tags can
-  // group notes; a second slash is not part of the tag.
-  const matches = text.match(/#([a-zA-Z0-9_\-àèéìòùÀÈÉÌÒÙ]+(?:\/[a-zA-Z0-9_\-àèéìòùÀÈÉÌÒÙ]+)?)/g) ?? [];
-  return [...new Set(matches.map(t => t.toLowerCase()))];
-}
+import { extractTags } from '../../shared/vault/extract';
+
+/** What counts as a #tag is defined once, in shared/vault/extract.ts (the main-process index uses it too). */
+export { extractTags };
 
 /** Build a tag → note names index from an array of {name, text} objects */
 export function buildTagIndex(notes: { name: string; text: string }[]): Record<string, string[]> {

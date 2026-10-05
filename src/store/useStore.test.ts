@@ -178,14 +178,11 @@ describe('useStore', () => {
     expect(window.electronAPI.readNote).toHaveBeenCalledWith('resume.md', undefined);
   });
 
-  it('should rename note and update indices, tags, pins and active note', async () => {
+  it('renames a note: pins follow, the vault index is left to the main process', async () => {
     useStore.setState({
       activeNoteName: 'old.md',
       pinnedNotes: ['old.md'],
-      noteLinksIndex: {
-        'old.md': ['x'],
-        'other.md': ['old', 'z'],
-      },
+      noteLinksIndex: { 'old.md': ['x'], 'other.md': ['old', 'z'] },
       tagIndex: { t1: ['old.md', 'other.md'] },
     });
     window.electronAPI.renameNote = vi.fn().mockResolvedValue({ success: true });
@@ -202,11 +199,11 @@ describe('useStore', () => {
 
     const state = useStore.getState();
     expect(window.electronAPI.renameNote).toHaveBeenCalledWith('old.md', 'new.md', undefined);
-    expect(state.noteLinksIndex['new.md']).toContain('x');
-    expect(state.noteLinksIndex['other.md']).toContain('new');
-    expect(state.tagIndex.t1).toContain('new.md');
     expect(state.pinnedNotes).toContain('new.md');
     expect(window.electronAPI.readNote).toHaveBeenCalledWith('new.md', undefined);
+    // No pretend-rewrite of links in memory: the index mirrors what is on disk, and
+    // arrives as a delta from the main process.
+    expect(state.noteLinksIndex['other.md']).toEqual(['old', 'z']);
   });
 
   it('should auto-commit note on save when git auto commit is enabled', async () => {
@@ -323,26 +320,17 @@ describe('useStore', () => {
     expect(window.electronAPI.saveNote).not.toHaveBeenCalled();
   });
 
-  it('handles localStorage quota by dropping noteLinksIndex and retrying persist', () => {
-    const originalSetItem = window.localStorage.setItem;
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    let calls = 0;
-    window.localStorage.setItem = vi.fn((key: string, value: string) => {
-      calls += 1;
-      if (calls === 1) {
-        const err = new Error('quota');
-        (err as Error & { name: string }).name = 'QuotaExceededError';
-        throw err;
-      }
-      return originalSetItem.call(window.localStorage, key, value);
-    }) as typeof window.localStorage.setItem;
+  it('never persists the vault index, and ignores a copy left by an older version', () => {
+    const opts = (useStore as any).persist.getOptions();
+    useStore.setState({ noteLinksIndex: { 'a.md': ['b'] }, tagIndex: { '#t': ['a.md'] } });
+    expect(Object.keys(opts.partialize(useStore.getState()))).not.toContain('noteLinksIndex');
+    expect(Object.keys(opts.partialize(useStore.getState()))).not.toContain('tagIndex');
 
-    useStore.setState({ noteLinksIndex: { 'a.md': ['b'] } });
-
-    expect(window.localStorage.setItem).toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledWith('[useStore] localStorage quota exceeded — dropped noteLinksIndex');
-    window.localStorage.setItem = originalSetItem;
-    warnSpy.mockRestore();
+    const current = useStore.getState();
+    const merged = opts.merge({ noteLinksIndex: { 'stale.md': ['gone'] }, pinnedNotes: ['kept.md'] }, current);
+    expect(merged.noteLinksIndex).toBe(current.noteLinksIndex); // the stale persisted copy is dropped
+    expect(merged.pinnedNotes).toEqual(['kept.md']);            // everything else still hydrates
+    expect(opts.merge(undefined, current).pinnedNotes).toEqual(current.pinnedNotes);
   });
 
   it('swallows persist write failures and logs warning', () => {
@@ -403,7 +391,7 @@ describe('useStore', () => {
     await expect(useStore.getState().wipeAllNotes()).rejects.toThrow('wipe failed');
   });
 
-  it('should parse markdown, preserve frontmatter metadata, convert tables to HTML and extract wikilinks when opening a note', async () => {
+  it('should parse markdown, preserve frontmatter metadata, convert tables to HTML when opening a note', async () => {
     const mdContent = `---
 title: Note Title
 tags: [tag1, tag2]
@@ -433,9 +421,8 @@ Here is a table:
     expect(state.activeNoteContent).toContain('<th>Col A</th>');
     expect(state.activeNoteContent).toContain('<td>Val A</td>');
     
-    // Check that wikilink is preserved and extracted
+    // The wikilink text is preserved (links are indexed by the main process)
     expect(state.activeNoteContent).toContain('[[WikilinkTarget]]');
-    expect(state.noteLinksIndex['markdown-note.md']).toEqual(['WikilinkTarget']);
 
     window.electronAPI.saveNote = vi.fn().mockResolvedValue({ success: true });
     await useStore.getState().saveActiveNote('<h1>Welcome back</h1>');

@@ -35,6 +35,14 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `.noted/trash/`, with new `list_trash` and `restore_note` tools and a retention
   setting (Settings → MCP, default 30 days). `.noted/` is ignored by the watcher
   and by Git sync.
+- **Tags, "Same project" and backlinks after a restart or an external edit**:
+  links and tags now come from one index of the whole vault in the main process,
+  built at startup and kept current by the app's own changes and the file watcher.
+  Before, tags were only known for notes saved this session, links only for notes
+  opened at least once (so backlinks were incomplete for imported vaults), and the
+  link cache was dropped when localStorage filled up. `[[Note|alias]]` and
+  `[[Note#Heading]]` now count as links to `Note`, and a link's `#Heading` is no
+  longer read as a tag.
 - A note changed on disk while it was open (by a sync, an MCP client or another
   device) was only flagged, and the next autosave overwrote it with the stale
   editor text. It now reloads, or — if you were typing — keeps your text and
