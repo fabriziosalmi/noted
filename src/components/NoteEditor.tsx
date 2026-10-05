@@ -124,6 +124,11 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   // so it can be flushed to the right file before a switch/close even if the
   // active note has already changed.
   const pendingSaveRef = useRef<{ name: string; content: string; frontmatter: string | null } | null>(null);
+  // The editor's own HTML for the content it last loaded or saved. Opening a note
+  // makes the editor emit an update that arms an autosave of the UNCHANGED text;
+  // comparing the pending buffer with this baseline tells that echo apart from
+  // real typing.
+  const baselineHtmlRef = useRef<string | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -146,6 +151,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     try {
       await saveActiveNote(content);
       pendingSaveRef.current = null;
+      baselineHtmlRef.current = content;
       if (mountedRef.current) {
         setSaveStatus('saved');
         savedTimerRef.current = setTimeout(() => { if (mountedRef.current) setSaveStatus('idle'); }, 1500);
@@ -167,6 +173,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       try {
         await saveActiveNote(content);
         pendingSaveRef.current = null;
+        baselineHtmlRef.current = content;
         if (mountedRef.current) {
           setSaveStatus('saved');
           savedTimerRef.current = setTimeout(() => { if (mountedRef.current) setSaveStatus('idle'); }, 1500);
@@ -426,6 +433,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       flushPending();
       prevNoteNameRef.current = activeNoteName;
       editor.commands.setContent(activeNoteContent);
+      baselineHtmlRef.current = editor.getHTML();
       updateWordCount(editor.getText());
       // Baseline the title tracker to the loaded note so body edits don't
       // trigger a rename; only an actual title change will.
@@ -460,11 +468,14 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       // "is the user typing?" answer cannot go stale between check and action.
       const cur = useStore.getState();
       if (!mountedRef.current || cur.activeNoteName !== name) return;
+      // Real typing only: a pending save identical to the editor's baseline is
+      // just the echo of loading the note, with nothing of the user's in it.
       const pending = pendingSaveRef.current;
+      const typed = pending && pending.name === name && pending.content !== baselineHtmlRef.current ? pending : null;
       const plan = planExternalChange({
         disk: disk && { content: disk.content, frontmatter: disk.frontmatter },
         loaded: { content: cur.activeNoteContent, frontmatter: cur.activeNoteFrontmatter },
-        unsaved: pending && pending.name === name ? { content: pending.content } : null,
+        unsaved: typed ? { content: typed.content } : null,
       });
       const notice = onNoticeRef.current;
       const tr = tRef.current;
@@ -479,9 +490,14 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
         return;
       }
       // reload: adopt the disk content, then show it, keeping the caret where it was.
+      // Any save still armed holds only the stale echo of what we are replacing;
+      // left alone it would write that over the content we are about to show.
+      if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
+      pendingSaveRef.current = null;
       cur.applyExternalContent(name, plan.disk.content, plan.disk.frontmatter);
       const { from, to } = editor.state.selection;
       editor.commands.setContent(plan.disk.content, { emitUpdate: false });
+      baselineHtmlRef.current = editor.getHTML();
       const max = editor.state.doc.content.size;
       editor.commands.setTextSelection({ from: Math.min(from, max), to: Math.min(to, max) });
       updateWordCount(editor.getText());

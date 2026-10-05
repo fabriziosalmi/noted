@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { test, expect, SEED_NOTES } from './fixtures';
 
 const MOD = 'ControlOrMeta';
@@ -49,6 +51,35 @@ test.describe('Noted desktop app', () => {
     // No wait: quit immediately, inside the autosave debounce window.
     const again = await relaunch();
     expect(again.readVault()['Alpha plan.md']).toContain('flushed-on-quit');
+  });
+
+  test('a note changed on disk while open reloads in the editor and is not overwritten', async ({ noted }) => {
+    const { win, vault, readVault } = noted;
+    await win.getByText('Beta notes', { exact: true }).first().click();
+    const editor = win.locator('[contenteditable="true"]').first();
+    await expect(editor).toContainText('Weekly sync');
+    // Another device / a git pull / an MCP client rewrites the file.
+    fs.writeFileSync(path.join(vault, 'Beta notes.md'), '<h1>Beta notes</h1><p>edited by another device</p>');
+    await expect(editor).toContainText('edited by another device');
+    // Autosave must not put the stale text back over it.
+    await win.waitForTimeout(1500);
+    expect(readVault()['Beta notes.md']).toContain('edited by another device');
+  });
+
+  test('a change on disk while the user is typing keeps both versions', async ({ noted }) => {
+    const { win, vault, readVault } = noted;
+    await win.getByText('Beta notes', { exact: true }).first().click();
+    const editor = win.locator('[contenteditable="true"]').first();
+    await expect(editor).toContainText('Weekly sync');
+    await editor.click();
+    await win.keyboard.press(`${MOD}+End`);
+    await win.keyboard.type(' LOCAL-TYPING');
+    // Inside the autosave window, the file changes underneath.
+    fs.writeFileSync(path.join(vault, 'Beta notes.md'), '<h1>Beta notes</h1><p>edited by another device</p>');
+    const copyName = () => Object.keys(readVault()).find(f => f.includes('(other version)'));
+    await expect.poll(copyName, { timeout: 15_000 }).toBeTruthy();
+    expect(readVault()[copyName()!]).toContain('edited by another device');
+    await expect.poll(() => readVault()['Beta notes.md'], { timeout: 15_000 }).toContain('LOCAL-TYPING');
   });
 
   test('"Check for Updates" degrades gracefully with no network or packaged build', async ({ noted }) => {

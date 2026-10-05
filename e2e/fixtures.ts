@@ -22,10 +22,15 @@ export interface Launched {
   relaunch: () => Promise<Launched>;
 }
 
-async function launch(vault: string, profile: string, track: (l: Launched) => void): Promise<Launched> {
+export async function launch(
+  vault: string,
+  profile: string,
+  track: (l: Launched) => void,
+  extraEnv: Record<string, string> = {},
+): Promise<Launched> {
   // ELECTRON_RUN_AS_NODE leaks in from some hosts (e.g. VS Code terminals) and
   // turns the Electron binary into plain Node.
-  const env = { ...process.env, NOTED_NOTES_DIR: vault, NOTED_USER_DATA_DIR: profile } as Record<string, string>;
+  const env = { ...process.env, ...extraEnv, NOTED_NOTES_DIR: vault, NOTED_USER_DATA_DIR: profile } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
 
   const args = ['dist-electron/main.cjs'];
@@ -45,7 +50,7 @@ async function launch(vault: string, profile: string, track: (l: Launched) => vo
     app, win, vault, readVault,
     relaunch: async () => {
       await app.close().catch(() => undefined);
-      return launch(vault, profile, track);
+      return launch(vault, profile, track, extraEnv);
     },
   };
   track(launched);
