@@ -13,6 +13,7 @@ import * as gitSync from './git-sync.js';
 import { writeVaultConfig, isValidRetentionDays } from '../shared/vault-config.js';
 import { FullTextSearchReadModel } from './fulltext-index.js';
 import { VaultIndex } from './vault-index.js';
+import { watchVaultTree, type VaultWatcher } from './vault-watch.js';
 import { applyRewrite, previewRewrite, type RewriteDeps, type RewriteOutcome } from './link-rewrite.js';
 import type { NoteRename } from '../shared/vault/links.js';
 import {
@@ -134,7 +135,7 @@ ipcMain.on('set-active-vault-dir', (_e, dir: unknown) => {
 // user when the note they have open changed underneath them so the editor's
 // autosave doesn't silently clobber it. The app's own writes are suppressed by
 // recording the mtime we just wrote.
-let vaultWatcher: fs.FSWatcher | null = null;
+let vaultWatcher: VaultWatcher | null = null;
 let watchedDir: string | null = null;
 const appWriteMtimes = new Map<string, number>();
 // Deletions the app made itself, by name. A trashed file can't be stat'd, so
@@ -183,9 +184,7 @@ function startVaultWatch(): void {
   try { watchRoot = fs.realpathSync.native(dir); } catch { /* keep the configured path */ }
   void vaultIndex.ensure(dir);
   try {
-    vaultWatcher = fs.watch(watchRoot, { recursive: true }, (_event, filename) => {
-      if (!filename) return;
-      const name = String(filename).split(path.sep).join('/');
+    vaultWatcher = watchVaultTree(watchRoot, (name) => {
       // The app's own bookkeeping (version history, MCP trash and config) is not a note change.
       if (!name.endsWith('.md') || name.includes('.noted_history/') || name.startsWith('.noted/')) return;
       // Every change, the app's own included, goes through the index: it compares
