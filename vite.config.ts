@@ -23,6 +23,7 @@ export default defineConfig({
       'electron/**/*.test.ts',
       'mcp-server/**/*.test.ts',
       'shared/**/*.test.ts',
+      'scripts/**/*.test.mjs',
     ],
     exclude: [
       '**/node_modules/**',

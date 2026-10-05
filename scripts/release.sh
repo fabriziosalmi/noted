@@ -40,6 +40,11 @@ for v in APPLE_ID APPLE_TEAM_ID APPLE_APP_SPECIFIC_PASSWORD; do
 done
 echo "✓ Apple credentials present (APPLE_ID=$APPLE_ID, TEAM=$APPLE_TEAM_ID)"
 
+# ── CHANGELOG must be ready for this version ───────────────────────────────
+# A section for package.json's version and consistent compare links; fail now,
+# not after a 10-minute notarization.
+node scripts/check-changelog.mjs --release || { echo "✗ fix CHANGELOG.md first." >&2; exit 1; }
+
 # ── Build + sign (electron-builder signs with the Developer ID + hardened runtime) ──
 if [[ "$NOTARIZE_ONLY" == 1 ]]; then
   echo "→ --notarize-only: skipping the build, using existing release/*.dmg"

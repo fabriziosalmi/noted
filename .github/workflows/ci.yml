@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Changelog links
+        run: node scripts/check-changelog.mjs
+
       - name: Lint
         run: npm run lint
 
