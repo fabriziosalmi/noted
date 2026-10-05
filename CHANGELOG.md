@@ -6,6 +6,22 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Automatic git sync** (off by default): Git panel → Sync. Every few minutes
+  or after you stop typing, plus after launch and on window focus, Noted commits,
+  pulls and pushes the notes repository. It never force-pushes, never puts
+  conflict markers in your notes, and pauses when the same note changed on both
+  sides; a three-way merge view (Git → Resolve conflicts…) lets you choose per
+  part, or edit by hand. The title-bar Git badge shows the sync state.
+
+### Fixed
+
+- A note changed on disk while it was open (by a sync, an MCP client or another
+  device) was only flagged, and the next autosave overwrote it with the stale
+  editor text. It now reloads, or — if you were typing — keeps your text and
+  saves the other version beside it.
+
 ## [1.3.6] - 2026-09-29
 
 ### Fixed

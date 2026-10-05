@@ -29,6 +29,7 @@ import { SlashCommands } from './SlashCommands';
 import { SmartTagSuggestion } from './SmartTagSuggestion';
 import { GhostTextExtension, ghostTextKey } from '../lib/ghostTextExtension';
 import { deriveTitle } from '../lib/noteTitle';
+import { planExternalChange } from '../lib/externalChange';
 import { getElectronApi } from '../lib/electronApi';
 import { suggestProject, type ProjectSuggestion } from '../lib/projectSuggestion';
 import { usePrompt } from './ConfirmProvider';
@@ -61,6 +62,8 @@ interface NoteEditorProps {
   onOpenDaily?: () => void;
   onOpenSettings?: () => void;
   onOpenShortcuts?: () => void;
+  // Tell the user something happened to the open note behind their back.
+  onNotice?: (text: string, variant?: 'success' | 'error') => void;
 }
 
 function hasShortcutModifier(event: KeyboardEvent | globalThis.KeyboardEvent): boolean {
@@ -69,7 +72,7 @@ function hasShortcutModifier(event: KeyboardEvent | globalThis.KeyboardEvent): b
   return event.ctrlKey && !event.altKey;
 }
 
-export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError, allNoteNames = [], allTags = [], backlinks = [], onSelectNote, notesCount = 0, onCreateNote, onOpenDaily, onOpenSettings, onOpenShortcuts }: NoteEditorProps) {
+export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError, allNoteNames = [], allTags = [], backlinks = [], onSelectNote, notesCount = 0, onCreateNote, onOpenDaily, onOpenSettings, onOpenShortcuts, onNotice }: NoteEditorProps) {
   const { t } = useI18n();
   const prompt = usePrompt();
   const llmProvider = useStore(s => s.settings.llmProvider);
@@ -433,6 +436,62 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       setTimeout(() => editor.commands.focus('start'), 0);
     }
   }, [activeNoteName, activeNoteContent, editor, updateWordCount, flushPending]);
+
+  // The open note changed on disk behind the editor (a git sync pulled it, an MCP
+  // client wrote it). Autosave would otherwise overwrite that change with the
+  // stale buffer on the next keystroke, so decide now: reload, or — if the user
+  // has unsaved typing — keep their buffer AND the other version. See
+  // lib/externalChange.ts for the rules.
+  const externalChange = useStore(s => s.externalChange);
+  const handledExternalSeq = useRef(0);
+  const onNoticeRef = useRef(onNotice);
+  useEffect(() => { onNoticeRef.current = onNotice; });
+  const tRef = useRef(t);
+  useEffect(() => { tRef.current = t; });
+  useEffect(() => {
+    if (!editor || !externalChange || externalChange.seq === handledExternalSeq.current) return;
+    handledExternalSeq.current = externalChange.seq;
+    const name = externalChange.name;
+    if (name !== activeNoteName) return;
+    void (async () => {
+      const store = useStore.getState();
+      const disk = await store.readNoteFromDisk(name);
+      // Everything below runs without further awaits until it acts, so the
+      // "is the user typing?" answer cannot go stale between check and action.
+      const cur = useStore.getState();
+      if (!mountedRef.current || cur.activeNoteName !== name) return;
+      const pending = pendingSaveRef.current;
+      const plan = planExternalChange({
+        disk: disk && { content: disk.content, frontmatter: disk.frontmatter },
+        loaded: { content: cur.activeNoteContent, frontmatter: cur.activeNoteFrontmatter },
+        unsaved: pending && pending.name === name ? { content: pending.content } : null,
+      });
+      const notice = onNoticeRef.current;
+      const tr = tRef.current;
+      if (plan.kind === 'ignore') return;
+      if (plan.kind === 'missing') {
+        notice?.(tr('noteDeletedExternally'), 'error');
+        return;
+      }
+      if (plan.kind === 'keep-both') {
+        const copy = disk ? await cur.saveOtherVersion(name, disk.raw) : null;
+        if (copy) notice?.(tr('noteKeptBoth').replace('{name}', copy.replace(/\.md$/i, '')), 'error');
+        return;
+      }
+      // reload: adopt the disk content, then show it, keeping the caret where it was.
+      cur.applyExternalContent(name, plan.disk.content, plan.disk.frontmatter);
+      const { from, to } = editor.state.selection;
+      editor.commands.setContent(plan.disk.content, { emitUpdate: false });
+      const max = editor.state.doc.content.size;
+      editor.commands.setTextSelection({ from: Math.min(from, max), to: Math.min(to, max) });
+      updateWordCount(editor.getText());
+      // Baseline the title tracker so a title that arrived from elsewhere doesn't
+      // read as the user renaming the note.
+      lastTitleRef.current = deriveTitle(plan.disk.content);
+      setHintTitle(lastTitleRef.current);
+      notice?.(tr('noteReloadedFromDisk'), 'success');
+    })();
+  }, [externalChange, editor, activeNoteName, updateWordCount]);
 
   // Flush a pending autosave when the window is closing / the editor unmounts,
   // so edits within the debounce window aren't lost on quit or note-close.

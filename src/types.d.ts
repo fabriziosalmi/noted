@@ -1,5 +1,7 @@
 export {};
 
+import type { GitSyncState, GitConflictResolution } from './lib/gitSyncTypes';
+
 interface NoteFileBase {
   name: string;
   path: string;
@@ -109,34 +111,4 @@ interface PrData {
   url: string;
   number: number;
   title: string;
-}
-
-type GitSyncPhase = 'idle' | 'syncing' | 'conflict' | 'error' | 'unconfigured';
-
-interface GitSyncConflict {
-  path: string;
-  kind: 'both-modified' | 'both-added' | 'deleted-by-us' | 'deleted-by-them';
-  binary: boolean;
-  base: string | null;
-  ours: string | null;
-  theirs: string | null;
-  oursSha: string | null;
-  theirsSha: string | null;
-}
-
-interface GitSyncState {
-  phase: GitSyncPhase;
-  branch: string | null;
-  upstream: string | null;
-  lastSyncAt: number | null;
-  message: string | null;
-  conflicts: GitSyncConflict[];
-}
-
-interface GitConflictResolution {
-  path: string;
-  oursSha: string | null;
-  theirsSha: string | null;
-  choice: 'ours' | 'theirs' | 'content' | 'delete';
-  content?: string;
 }
