@@ -6,6 +6,14 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- CHANGELOG link references now exist for every version (they were missing for
+  1.3.5 and 1.3.6, and `[Unreleased]` compared from v1.3.4), the missing
+  1.3.1–1.3.3 sections were written from the commit history, and the package
+  description no longer says macOS-only. `scripts/check-changelog.mjs` runs in CI
+  and at the start of `release.sh` so they cannot drift again.
+
 ### Added
 
 - **SBOM and provenance for every release**: publishing a release now attaches a
@@ -66,7 +74,45 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **List numbers and bullet markers visibility**: Restored missing list styles for ordered (`<ol>`) and unordered (`<ul>`) lists in the editor (`.ProseMirror`) and preview containers, resolving an issue where list markers were hidden due to CSS reset.
 - **Enhanced list paste handling**: Automatically detect and parse plain-text markdown lists into native list blocks upon pasting.
+- **Remote model endpoints** are no longer silently downgraded to plain `http`.
+- **History modal** no longer fails when there is no active note.
 - **Task list preservation**: Convert GFM task lists into interactive Tiptap checkboxes on note open, paste, and serialization back to Markdown via Turndown.
+
+## [1.3.3] - 2026-08-03
+
+### Fixed
+
+- **Windows and Linux polish**: window controls and the default frame off macOS,
+  case- and Windows-safe file names, macOS-only share actions hidden elsewhere,
+  and a warning when the Git token cannot be stored encrypted.
+- **Accessibility**: Ctrl/Shift shown instead of ⌘/⇧ in shortcut hints off
+  macOS; labelled AI-setup fields in Settings, toolbar and inputs.
+- **Embedding cache** is capped, and the history modal is sized sensibly.
+
+### Changed
+
+- Autosave no longer rescans the whole vault.
+
+## [1.3.2] - 2026-08-03
+
+### Fixed
+
+- **macOS auto-update**: releases now ship the update `.zip` that Squirrel.Mac
+  applies in place; with only the DMG, the in-app update failed.
+
+## [1.3.1] - 2026-08-03
+
+### Fixed
+
+- **Release metadata**: `latest-mac.yml` is regenerated after the DMG is stapled,
+  so its hashes match the shipped files; `release.sh --notarize-only` added.
+- Pre-release audit fixes: contrast, toast timer, history modal, SSRF hardening
+  and accessibility.
+
+### Security
+
+- Documented that Windows and Linux auto-updates are verified by checksum but not
+  yet code-signed.
 
 ## [1.3.0] - 2026-07-29
 
@@ -120,8 +166,13 @@ The first cross-platform release, and the first that keeps itself up to date.
   backlinks, full-text search, multi-provider AI, Git integration, export, quick
   capture, and a built-in MCP server.
 
-[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.3.4...HEAD
+[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.3.6...HEAD
+[1.3.6]: https://github.com/fabriziosalmi/noted/compare/v1.3.5...v1.3.6
+[1.3.5]: https://github.com/fabriziosalmi/noted/compare/v1.3.4...v1.3.5
 [1.3.4]: https://github.com/fabriziosalmi/noted/compare/v1.3.3...v1.3.4
+[1.3.3]: https://github.com/fabriziosalmi/noted/compare/v1.3.2...v1.3.3
+[1.3.2]: https://github.com/fabriziosalmi/noted/compare/v1.3.1...v1.3.2
+[1.3.1]: https://github.com/fabriziosalmi/noted/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/fabriziosalmi/noted/compare/v1.2.5...v1.3.0
 [1.2.5]: https://github.com/fabriziosalmi/noted/compare/v1.2.3...v1.2.5
 [1.2.3]: https://github.com/fabriziosalmi/noted/compare/v1.2.2...v1.2.3

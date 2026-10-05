@@ -1,6 +1,6 @@
 {
   "name": "noted",
-  "description": "Free, open-source macOS note-taking app with AI, Git integration and MCP server",
+  "description": "Free, open-source note-taking app for macOS, Windows and Linux with AI, Git sync and an MCP server",
   "author": {
     "name": "Fabrizio Salmi",
     "email": "fabrizio.salmi@gmail.com"
