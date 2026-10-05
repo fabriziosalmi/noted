@@ -165,8 +165,14 @@ function startVaultWatch(): void {
   try { vaultWatcher?.close(); } catch { /* ignore */ }
   vaultWatcher = null;
   watchedDir = dir;
+  // Watch the canonical path. On Windows a vault under a short (8.3) path such as
+  // C:\\Users\\RUNNER~1\\... makes Node's recursive watcher compute relative names
+  // off by the length difference ("lt/Note.md" for "Note.md"), so changes were
+  // reported under names that match no note.
+  let watchRoot = dir;
+  try { watchRoot = fs.realpathSync.native(dir); } catch { /* keep the configured path */ }
   try {
-    vaultWatcher = fs.watch(dir, { recursive: true }, (_event, filename) => {
+    vaultWatcher = fs.watch(watchRoot, { recursive: true }, (_event, filename) => {
       if (!filename) return;
       const name = String(filename).split(path.sep).join('/');
       if (!name.endsWith('.md') || name.includes('.noted_history/')) return;
@@ -174,7 +180,7 @@ function startVaultWatch(): void {
       // too: dropping them left notes removed by an external writer sitting in
       // the sidebar until the next launch.
       let mtimeMs: number | null = null;
-      try { mtimeMs = fs.statSync(path.join(dir, name)).mtimeMs; } catch { /* gone */ }
+      try { mtimeMs = fs.statSync(path.join(watchRoot, name)).mtimeMs; } catch { /* gone */ }
       if (isAppOwnVaultEvent({
         mtimeMs,
         lastAppWriteMtimeMs: appWriteMtimes.get(name),
@@ -1541,7 +1547,15 @@ gitSync.setSyncListener((dir, state) => {
 });
 
 ipcMain.handle('git-sync-now', async (_, syncDir?: string) => {
-  return gitSync.syncNow(getTargetDir(syncDir));
+  const reqId = newRequestId('git-sync');
+  const t0 = Date.now();
+  logEvent('info', 'git_sync_start', { reqId });
+  const state = await gitSync.syncNow(getTargetDir(syncDir));
+  logEvent(state.phase === 'error' ? 'warn' : 'info', 'git_sync_end', {
+    reqId, phase: state.phase, ms: Date.now() - t0, conflicts: state.conflicts.length,
+    message: state.message ? sanitizeGitError(state.message) : null,
+  });
+  return state;
 });
 
 ipcMain.handle('git-sync-state', async (_, syncDir?: string) => {
@@ -1551,7 +1565,14 @@ ipcMain.handle('git-sync-state', async (_, syncDir?: string) => {
 ipcMain.handle('git-sync-resolve', async (_, resolutions: unknown, syncDir?: string) => {
   const parsed = gitSync.parseConflictResolutions(resolutions);
   if (!parsed) return { success: false, error: 'Invalid resolutions.' };
-  return gitSync.resolveConflicts(getTargetDir(syncDir), parsed);
+  const reqId = newRequestId('git-resolve');
+  const t0 = Date.now();
+  logEvent('info', 'git_sync_resolve_start', { reqId, count: parsed.length });
+  const result = await gitSync.resolveConflicts(getTargetDir(syncDir), parsed);
+  logEvent(result.success ? 'info' : 'warn', 'git_sync_resolve_end', {
+    reqId, ok: result.success, ms: Date.now() - t0, error: result.error ? sanitizeGitError(result.error) : null,
+  });
+  return result;
 });
 
 ipcMain.handle('git-prepare-pr-branch', async (_, noteName: string, commitMessage: string | undefined, syncDir?: string) => {

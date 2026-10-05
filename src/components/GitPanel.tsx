@@ -2,6 +2,11 @@ import { useState, useEffect, useCallback, useReducer, useRef } from 'react';
 import { GitBranch, GitCommit, Upload, GitPullRequest, RefreshCw, X, Check, AlertCircle, Loader2, ExternalLink } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
+import { useGitSyncStore } from '../store/gitSyncStore';
+import { useNow } from '../hooks/useNow';
+import { GitConflictModal } from './GitConflictModal';
+import { readSyncPrefs, summarizeSync, SYNC_INTERVAL_MIN, SYNC_IDLE_SEC } from '../lib/gitSyncPolicy';
+import { syncStatusText } from '../lib/gitSyncText';
 import { gitWorkflowReducer, initialGitWorkflowState, isGitWorkflowBusy, type GitWorkflowStage } from '../lib/gitWorkflow';
 import { Tooltip } from './Tooltip';
 import { useModalStack } from '../hooks/useModalStack';
@@ -23,7 +28,7 @@ interface LocalGitStatus {
 }
 
 export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const panelRef = useRef<HTMLDivElement>(null);
   useModalStack('git-panel', true, onClose);
   useFocusTrap(panelRef, true);
@@ -38,6 +43,20 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
 
   // Commit form
   const [commitMsg, setCommitMsg] = useState('');
+
+  // Background sync
+  const syncState = useGitSyncStore(st => st.state);
+  const now = useNow(30_000, syncState?.lastSyncAt);
+  const [showConflicts, setShowConflicts] = useState(false);
+  const syncPrefs = readSyncPrefs(settings);
+  const syncSummary = summarizeSync(syncState, syncPrefs.mode);
+  const syncBusy = syncState?.phase === 'syncing';
+  const handleSyncNow = async () => {
+    if (!window.electronAPI?.gitSyncNow || syncBusy) return;
+    const st = await window.electronAPI.gitSyncNow(syncDir);
+    useGitSyncStore.getState().setState(st);
+    void refreshStatus();
+  };
 
   // PR form
   const [showPrForm, setShowPrForm] = useState(false);
@@ -380,6 +399,90 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
             </section>
           )}
 
+          {/* Background sync */}
+          <section>
+            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('gitSyncSection')}</p>
+            <div className="space-y-2">
+              <fieldset className="space-y-1">
+                <legend className="text-[10px] text-gray-400 mb-0.5">{t('gitSyncMode')}</legend>
+                {([['off', 'gitSyncModeOff'], ['interval', 'gitSyncModeInterval'], ['idle', 'gitSyncModeIdle']] as const).map(([mode, label]) => (
+                  <label key={mode} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="gitSyncMode"
+                      checked={(settings.gitSyncMode ?? 'off') === mode}
+                      onChange={() => updateSettings({ gitSyncMode: mode })}
+                      className="accent-[var(--accent)] w-3.5 h-3.5"
+                    />
+                    <span className="text-xs text-gray-600 dark:text-gray-300">{t(label)}</span>
+                  </label>
+                ))}
+              </fieldset>
+
+              {settings.gitSyncMode === 'interval' && (
+                <div>
+                  <label className="text-[10px] text-gray-400 mb-0.5 block" htmlFor="git-sync-interval">{t('gitSyncIntervalMin')}</label>
+                  <input
+                    id="git-sync-interval"
+                    type="number"
+                    min={SYNC_INTERVAL_MIN.min}
+                    max={SYNC_INTERVAL_MIN.max}
+                    defaultValue={settings.gitSyncIntervalMin ?? SYNC_INTERVAL_MIN.def}
+                    onBlur={e => updateSettings({ gitSyncIntervalMin: Number(e.target.value) })}
+                    className="w-24 text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-gray-700 dark:text-gray-300 focus:outline-none focus:border-[var(--accent)]"
+                  />
+                </div>
+              )}
+              {settings.gitSyncMode === 'idle' && (
+                <div>
+                  <label className="text-[10px] text-gray-400 mb-0.5 block" htmlFor="git-sync-idle">{t('gitSyncIdleSec')}</label>
+                  <input
+                    id="git-sync-idle"
+                    type="number"
+                    min={SYNC_IDLE_SEC.min}
+                    max={SYNC_IDLE_SEC.max}
+                    defaultValue={settings.gitSyncIdleSec ?? SYNC_IDLE_SEC.def}
+                    onBlur={e => updateSettings({ gitSyncIdleSec: Number(e.target.value) })}
+                    className="w-24 text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-gray-700 dark:text-gray-300 focus:outline-none focus:border-[var(--accent)]"
+                  />
+                </div>
+              )}
+
+              <p
+                className={`text-xs ${syncSummary.tone === 'error' ? 'text-red-600 dark:text-red-400' : syncSummary.tone === 'attention' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'}`}
+                role="status"
+                title={syncSummary.kind === 'error' ? (syncSummary.message ?? undefined) : (syncState?.message ?? undefined)}
+              >
+                {syncStatusText(syncSummary, t, language, now)}
+              </p>
+              {syncState?.message && (syncSummary.kind === 'error' || syncSummary.kind === 'unconfigured') && (
+                <p className="text-[10px] text-gray-400 break-words">{syncState.message}</p>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => { void handleSyncNow(); }}
+                  disabled={syncBusy}
+                  className="text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 flex items-center gap-1.5"
+                >
+                  <RefreshCw size={11} className={syncBusy ? 'animate-spin' : ''} />
+                  {t('gitSyncNow')}
+                </button>
+                {syncState?.phase === 'conflict' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowConflicts(true)}
+                    className="text-xs px-2.5 py-1.5 rounded-lg bg-amber-500 text-white hover:opacity-90"
+                  >
+                    {t('gitSyncResolve')}
+                  </button>
+                )}
+              </div>
+              <p className="text-[10px] text-gray-400">{t('gitSyncHelp')}</p>
+            </div>
+          </section>
+
           {/* Settings inline — remote + token */}
           <section>
             <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('gitSettingsSection')}</p>
@@ -431,6 +534,7 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
 
         </div>
       </div>
+      {showConflicts && <GitConflictModal syncDir={syncDir} onClose={() => setShowConflicts(false)} />}
     </div>
   );
 }
@@ -438,9 +542,13 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
 /** Small status badge shown in the titlebar. */
 export function GitBadge({ onClick }: { onClick: () => void }) {
   const { settings } = useStore();
+  const { t, language } = useI18n();
   const [dirty, setDirty] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const syncDir = settings.syncDirectory || undefined;
+  const syncState = useGitSyncStore(st => st.state);
+  const summary = summarizeSync(syncState, readSyncPrefs(settings).mode);
+  const now = useNow(30_000, syncState?.lastSyncAt);
 
   useEffect(() => {
     if (!settings.gitEnabled || !window.electronAPI?.gitStatus) return;
@@ -458,17 +566,25 @@ export function GitBadge({ onClick }: { onClick: () => void }) {
 
   if (!settings.gitEnabled) return null;
 
+  // The sync status wins over the "uncommitted changes" dot while it has news.
+  const dot =
+    summary.tone === 'error' ? 'bg-red-500'
+    : summary.tone === 'attention' ? 'bg-amber-500'
+    : dirty ? 'bg-amber-400' : 'bg-emerald-400';
+  const label = summary.kind === 'off' ? 'Git' : `Git · ${syncStatusText(summary, t, language, now)}`;
+
   return (
-    <Tooltip label="Git">
+    <Tooltip label={label}>
       <button
         type="button"
         onClick={onClick}
-        aria-label="Git"
+        aria-label={label}
         className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors flex items-center gap-1"
       >
-        <GitBranch size={16} />
-        {initialized && (
-          <span className={`w-1.5 h-1.5 rounded-full ${dirty ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+        {summary.kind === 'syncing' ? <Loader2 size={16} className="animate-spin" /> : <GitBranch size={16} />}
+        {summary.kind === 'conflict' && <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">{summary.count}</span>}
+        {(initialized || summary.kind !== 'off') && summary.kind !== 'syncing' && (
+          <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
         )}
       </button>
     </Tooltip>

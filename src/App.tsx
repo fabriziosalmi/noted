@@ -8,6 +8,8 @@ import { useTheme } from './hooks/useTheme';
 import { useNoteAdvisor } from './hooks/useNoteAdvisor';
 import { useNoteChunks } from './hooks/useNoteChunks';
 import { useAppLifecycle } from './hooks/useAppLifecycle';
+import { useGitSync } from './hooks/useGitSync';
+import { useGitSyncStore } from './store/gitSyncStore';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { useAppActions } from './hooks/useAppActions';
 import { useAppPanels } from './hooks/useAppPanels';
@@ -82,6 +84,9 @@ function App() {
     syncDirectory: settings.syncDirectory,
     ragMaxNotes: settings.ragMaxNotes,
   });
+
+  // Background git sync: engine state mirror + the interval / idle / focus triggers.
+  useGitSync(settings.syncDirectory || undefined);
 
   useAppLifecycle({
     accentColor: settings.accentColor,
@@ -359,26 +364,37 @@ function App() {
     announce(`${t('noteOpened')} ${title}`);
   }, [activeNoteName, announce, t]);
 
-  // Latest toast/t for the vault-change subscription below. Both are rebuilt on
-  // every render, so listing them as effect deps would resubscribe on every
-  // keystroke — and each resubscribe would cancel the pending refresh, which is
-  // exactly the debounce this needs to survive.
-  const externalChangeDeps = useRef({ toast, t });
-  useEffect(() => { externalChangeDeps.current = { toast, t }; });
+  // Tell the user once when sync pauses on a conflict. The engine reports
+  // 'syncing' on every cycle, so compare against the last settled phase, or a
+  // paused sync would re-announce itself each time it re-checks.
+  const conflictToastDeps = useRef({ toast, t });
+  useEffect(() => { conflictToastDeps.current = { toast, t }; });
+  useEffect(() => {
+    let settled = useGitSyncStore.getState().state?.phase;
+    return useGitSyncStore.subscribe(({ state }) => {
+      const phase = state?.phase;
+      if (phase === 'syncing' || phase === settled) return;
+      if (phase === 'conflict') {
+        const { toast: show, t: tr } = conflictToastDeps.current;
+        show(tr('gitSyncConflictToast').replace('{n}', String(state?.conflicts.length ?? 0)), 'error');
+      }
+      settled = phase;
+    });
+  }, []);
 
   // React to vault writes by anyone other than the app itself (an MCP client, a
   // sync client): refresh the list, since a note they created or deleted would
-  // otherwise stay invisible until the next launch, and warn when the note the
-  // user has open is the one that changed, so autosave doesn't clobber it.
-  // The active note is read at event time rather than closed over, for the same
-  // reason: the subscription is set up once and must outlive note switching.
+  // otherwise stay invisible until the next launch, and hand the open note to the
+  // editor when it is the one that changed, so autosave doesn't clobber it.
+  // The active note is read at event time rather than closed over: the
+  // subscription is set up once and must outlive note switching.
   useEffect(() => {
     const api = getElectronApi();
     if (!api?.onNoteChangedExternally) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const off = api.onNoteChangedExternally((fileName) => {
-      const { toast: showToast, t: translate } = externalChangeDeps.current;
-      if (fileName === useStore.getState().activeNoteName) showToast(translate('noteChangedExternally'), 'error');
+      // The editor decides what to do (reload / keep both) and tells the user.
+      if (fileName === useStore.getState().activeNoteName) useStore.getState().notifyExternalChange(fileName);
       // Coalesce: one external batch fires an event per file, and every refresh
       // re-reads the whole vault.
       clearTimeout(timer);
