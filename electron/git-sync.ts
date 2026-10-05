@@ -222,8 +222,31 @@ async function revParse(g: SimpleGit, rev: string): Promise<string | null> {
   return out || null;
 }
 
+/**
+ * Files that live in the vault folder but must never be synced: the app's own
+ * version history (a snapshot per autosave would bloat the remote and leak every
+ * intermediate draft), the half-written temp file of an in-flight atomic save,
+ * and OS litter. Written to the repo-local `info/exclude` rather than a tracked
+ * .gitignore so we never modify the user's repository content.
+ */
+const LOCAL_EXCLUDES = ['.noted_history/', '*.tmp', '.DS_Store', 'Thumbs.db'];
+
+async function ensureLocalExcludes(g: SimpleGit, dir: string): Promise<void> {
+  const common = (await tryRaw(g, ['rev-parse', '--git-common-dir'])).trim();
+  if (!common) return;
+  const file = path.join(path.resolve(dir, common), 'info', 'exclude');
+  const current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+  const have = new Set(current.split(/\r?\n/).map(l => l.trim()));
+  const missing = LOCAL_EXCLUDES.filter(p => !have.has(p));
+  if (missing.length === 0) return;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const sep = current === '' || current.endsWith('\n') ? '' : '\n';
+  fs.writeFileSync(file, `${current}${sep}# Noted sync\n${missing.join('\n')}\n`, 'utf8');
+}
+
 /** Commits any local change. Returns true when a commit was made. */
 async function commitLocalChanges(g: SimpleGit, dir: string): Promise<boolean> {
+  await ensureLocalExcludes(g, dir);
   const porcelain = await tryRaw(g, ['status', '--porcelain']);
   if (!porcelain.trim()) return false;
   await g.raw(['add', '-A']);
