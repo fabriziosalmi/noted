@@ -1,25 +1,29 @@
 import fs from 'node:fs';
+import type { Page } from '@playwright/test';
 import path from 'node:path';
 import { test, expect, SEED_NOTES } from './fixtures';
 
 const MOD = 'ControlOrMeta';
 
 /** Record which vault-change events reach the renderer, to explain a failure. */
-async function recordExternalEvents(win: import('@playwright/test').Page) {
+async function recordExternalEvents(win: Page) {
   await win.evaluate(() => {
-    const w = window as unknown as { __ext: string[] };
+    const w = window as unknown as {
+      __ext: string[];
+      electronAPI: { onNoteChangedExternally?: (cb: (n: string) => void) => unknown };
+    };
     w.__ext = [];
-    window.electronAPI.onNoteChangedExternally?.((n: string) => w.__ext.push(n));
+    w.electronAPI.onNoteChangedExternally?.((n: string) => w.__ext.push(n));
   });
 }
 
-async function withContext<T>(win: import('@playwright/test').Page, readVault: () => Record<string, string>, run: () => Promise<T>): Promise<T> {
+async function withContext<T>(win: Page, readVault: () => Record<string, string>, run: () => Promise<T>): Promise<T> {
   try {
     return await run();
   } catch (e) {
     const events = await win.evaluate(() => (window as unknown as { __ext?: string[] }).__ext ?? null).catch(() => null);
     const vault = readVault();
-    throw new Error(`${(e as Error).message}\n[context] renderer saw events=${JSON.stringify(events)} files=${JSON.stringify(Object.keys(vault))} Beta notes.md=${JSON.stringify(vault['Beta notes.md'])}`);
+    throw new Error(`${(e as Error).message}\n[context] renderer saw events=${JSON.stringify(events)} files=${JSON.stringify(Object.keys(vault))} Beta notes.md=${JSON.stringify(vault['Beta notes.md'])}`, { cause: e });
   }
 }
 
