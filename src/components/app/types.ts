@@ -39,7 +39,8 @@ export interface AppChromeProps extends AppSharedProps {
   allTags: string[];
   activeTagFilter: string | null;
   suggestions: Suggestion[];
-  noteChunks: NoteChunk[];
+  retrieveNotes: (query: string) => Promise<NoteChunk[]>;
+  ragNoteCount: number;
   noteLinksIndex: Record<string, string[]>;
   allNoteNames: string[];
   backlinks: string[];

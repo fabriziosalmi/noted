@@ -45,7 +45,7 @@ describe('AiChat retrieval mode wiring', () => {
   });
 
   it('passes lexical config when embeddings are disabled', async () => {
-    render(<AiChat getEditorText={() => 'hello'} noteChunks={[{ name: 'a.md', text: 'hello world' }]} />);
+    render(<AiChat getEditorText={() => 'hello'} retrieveNotes={async () => [{ name: 'a.md', text: 'hello world' }]} noteCount={1} />);
     const input = screen.getByPlaceholderText(/ask something/i);
     fireEvent.change(input, { target: { value: 'query test' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -62,7 +62,7 @@ describe('AiChat retrieval mode wiring', () => {
       settings: { ...state.settings, embeddingsEnabled: true },
     }));
 
-    render(<AiChat getEditorText={() => 'hello'} noteChunks={[{ name: 'a.md', text: 'hello world' }]} />);
+    render(<AiChat getEditorText={() => 'hello'} retrieveNotes={async () => [{ name: 'a.md', text: 'hello world' }]} noteCount={1} />);
     const input = screen.getByPlaceholderText(/ask something/i);
     fireEvent.change(input, { target: { value: 'query test' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -75,9 +75,37 @@ describe('AiChat retrieval mode wiring', () => {
     expect(cfg.model).toBe('text-embedding-3-small');
   });
 
+  it('asks for candidates only when a question is sent (not on mount), with that question, and ranks only those', async () => {
+    const retrieve = vi.fn(async (_q: string) => [{ name: 'a.md', text: 'hello world' }, { name: 'b.md', text: 'other' }]);
+    render(<AiChat getEditorText={() => 'hello'} retrieveNotes={retrieve} noteCount={812} />);
+    expect(retrieve).not.toHaveBeenCalled(); // opening the panel reads nothing
+    expect(screen.getByText(/812/)).toBeTruthy(); // the badge reports the vault size, not a capped sample
+
+    const input = screen.getByPlaceholderText(/ask something/i);
+    fireEvent.change(input, { target: { value: 'what is quokka' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => expect(hybridMock).toHaveBeenCalled());
+    expect(retrieve).toHaveBeenCalledTimes(1);
+    expect(retrieve).toHaveBeenCalledWith('what is quokka');
+    // The re-ranker receives exactly the candidates, nothing else.
+    expect(hybridMock.mock.calls.at(-1)?.[1]).toEqual([{ name: 'a.md', text: 'hello world' }, { name: 'b.md', text: 'other' }]);
+  });
+
+  it('still answers, without related notes, when retrieval fails', async () => {
+    const retrieve = vi.fn(async () => { throw new Error('index busy'); });
+    render(<AiChat getEditorText={() => 'hello'} retrieveNotes={retrieve} noteCount={3} />);
+    const input = screen.getByPlaceholderText(/ask something/i);
+    fireEvent.change(input, { target: { value: 'question' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(retrieve).toHaveBeenCalled());
+    expect(hybridMock).not.toHaveBeenCalled(); // nothing to rank
+    await waitFor(() => expect(askLLMMock).toHaveBeenCalled());
+  });
+
   it('clears chat history and aborts current query on clear click', async () => {
     const abortSpy = vi.spyOn(AbortController.prototype, 'abort');
-    render(<AiChat getEditorText={() => 'hello'} noteChunks={[]} />);
+    render(<AiChat getEditorText={() => 'hello'} />);
     
     // Trigger user query to make controller active
     const input = screen.getByPlaceholderText(/ask something/i);
@@ -98,7 +126,7 @@ describe('AiChat retrieval mode wiring', () => {
     const abortSpy = vi.spyOn(AbortController.prototype, 'abort');
     // Never resolves, so the request stays in flight and the Stop button renders.
     askLLMMock.mockImplementationOnce(() => new Promise(() => undefined));
-    render(<AiChat getEditorText={() => 'ctx'} noteChunks={[]} />);
+    render(<AiChat getEditorText={() => 'ctx'} />);
 
     const input = screen.getByPlaceholderText(/ask something/i);
     fireEvent.change(input, { target: { value: 'slow query' } });
@@ -112,7 +140,7 @@ describe('AiChat retrieval mode wiring', () => {
 
   it('handles AbortedError gracefully without adding error messages to chat', async () => {
     askLLMMock.mockRejectedValueOnce(new AbortedError('Aborted'));
-    render(<AiChat getEditorText={() => 'hello'} noteChunks={[]} />);
+    render(<AiChat getEditorText={() => 'hello'} />);
     
     const input = screen.getByPlaceholderText(/ask something/i);
     fireEvent.change(input, { target: { value: 'fail query' } });
@@ -128,7 +156,7 @@ describe('AiChat retrieval mode wiring', () => {
 
   it('displays friendly error when askLLM throws a generic error', async () => {
     askLLMMock.mockRejectedValueOnce(new Error('Unknown backend error'));
-    render(<AiChat getEditorText={() => 'hello'} noteChunks={[]} />);
+    render(<AiChat getEditorText={() => 'hello'} />);
     
     const input = screen.getByPlaceholderText(/ask something/i);
     fireEvent.change(input, { target: { value: 'error query' } });
@@ -159,7 +187,7 @@ describe('AiChat retrieval mode wiring', () => {
       ],
     });
 
-    render(<AiChat getEditorText={() => 'hello'} noteChunks={[{ name: 'note-a.md', text: 'content a' }]} />);
+    render(<AiChat getEditorText={() => 'hello'} retrieveNotes={async () => [{ name: 'note-a.md', text: 'content a' }]} noteCount={1} />);
     
     const input = screen.getByPlaceholderText(/ask something/i);
     fireEvent.change(input, { target: { value: 'rag test query' } });
@@ -176,7 +204,7 @@ describe('AiChat retrieval mode wiring', () => {
       settings: { ...state.settings, ragDebug: true },
     }));
 
-    render(<AiChat getEditorText={() => 'hello'} noteChunks={[]} />);
+    render(<AiChat getEditorText={() => 'hello'} />);
     expect(screen.getByText(/No retrieval scores yet/i)).toBeInTheDocument();
   });
 
@@ -190,7 +218,7 @@ describe('AiChat retrieval mode wiring', () => {
     const baseText = 'a'.repeat(1000) + '\n\n' + 'b'.repeat(598);
     expect(baseText.length).toBe(1600);
 
-    render(<AiChat getEditorText={() => baseText} noteChunks={[]} />);
+    render(<AiChat getEditorText={() => baseText} />);
     
     const input = screen.getByPlaceholderText(/ask something/i);
     fireEvent.change(input, { target: { value: 'trunc query' } });
@@ -217,7 +245,7 @@ describe('AiChat retrieval mode wiring', () => {
     const baseText = 'a'.repeat(1000) + '\n' + 'b'.repeat(599);
     expect(baseText.length).toBe(1600);
 
-    render(<AiChat getEditorText={() => baseText} noteChunks={[]} />);
+    render(<AiChat getEditorText={() => baseText} />);
     
     const input = screen.getByPlaceholderText(/ask something/i);
     fireEvent.change(input, { target: { value: 'trunc query 2' } });
@@ -242,7 +270,7 @@ describe('AiChat retrieval mode wiring', () => {
     // Text length is 1600. No \n or \n\n at all.
     const baseText = 'a'.repeat(1600);
 
-    render(<AiChat getEditorText={() => baseText} noteChunks={[]} />);
+    render(<AiChat getEditorText={() => baseText} />);
     
     const input = screen.getByPlaceholderText(/ask something/i);
     fireEvent.change(input, { target: { value: 'trunc query 3' } });
@@ -263,7 +291,7 @@ describe('AiChat retrieval mode wiring', () => {
       settings: { ...state.settings, piiMasking: true },
     }));
 
-    render(<AiChat getEditorText={() => 'My email is user@domain.com'} noteChunks={[]} />);
+    render(<AiChat getEditorText={() => 'My email is user@domain.com'} />);
     
     const input = screen.getByPlaceholderText(/ask something/i);
     fireEvent.change(input, { target: { value: 'Contact me at +39 02 1234567' } });
@@ -300,7 +328,7 @@ describe('AiChat retrieval mode wiring', () => {
 
     askLLMMock.mockRejectedValueOnce(new Error('Italian error'));
 
-    render(<AiChat getEditorText={() => 'ciao'} noteChunks={[]} />);
+    render(<AiChat getEditorText={() => 'ciao'} />);
 
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: 'Chiedi' } });
@@ -332,7 +360,7 @@ describe('AiChat retrieval mode wiring', () => {
       return 'second-ok';
     });
 
-    render(<AiChat getEditorText={() => 'hello'} noteChunks={[]} />);
+    render(<AiChat getEditorText={() => 'hello'} />);
 
     inputEl = screen.getByRole('textbox') as HTMLInputElement;
     

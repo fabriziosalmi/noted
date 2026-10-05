@@ -23,11 +23,37 @@ interface SearchOutput {
   truncated: boolean;
 }
 
-const FT_MAX_FILES = 1500;
-const FT_MAX_TOTAL_BYTES = 50 * 1024 * 1024;
-const FT_MAX_FILE_BYTES = 2 * 1024 * 1024;
+/** A retrieval candidate: a note with enough of its text to rank and to quote. */
+export interface RetrievalCandidate {
+  name: string;
+  title: string;
+  text: string;
+  score: number;
+}
+
+// The index must cover the WHOLE vault (it feeds search and the AI chat's
+// retrieval), so the caps are safety nets, not working limits. The text budget is
+// counted on the extracted plain text: an old note carrying megabytes of base64
+// images is a few KB of text once its tags are stripped.
+const FT_MAX_FILES = 20_000;
+const FT_MAX_TOTAL_TEXT = 200 * 1024 * 1024;
+const FT_MAX_FILE_BYTES = 20 * 1024 * 1024;
+const FT_READ_CONCURRENCY = 32;
 const CTX_CHARS = 90;
-const AUTO_RESCAN_MS = 30_000;
+// Safety net only: changes are applied incrementally (own writes and the watcher).
+const AUTO_RESCAN_MS = 10 * 60_000;
+/** How much of a note's text a retrieval candidate carries. */
+const CANDIDATE_TEXT_CHARS = 6000;
+const REFRESH_DEBOUNCE_MS = 80;
+
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) { const i = next++; out[i] = await fn(items[i]); }
+  }));
+  return out;
+}
 
 function normalizeDir(dir: string): string {
   return path.resolve(dir);
@@ -125,6 +151,60 @@ export class FullTextSearchReadModel {
     return { results, truncated: state.truncated };
   }
 
+  /**
+   * The best-matching notes for a question, from the whole vault (BM25 over the
+   * in-memory index), with their text. The caller re-ranks this short list.
+   */
+  async candidates(
+    dir: string,
+    query: string,
+    limit: number,
+    validateFileName: (name: string) => void,
+  ): Promise<{ candidates: RetrievalCandidate[]; truncated: boolean; indexed: number }> {
+    const normalizedDir = normalizeDir(dir);
+    const state = await this.ensureFresh(normalizedDir, validateFileName);
+    const n = Math.max(1, Math.min(200, Math.floor(limit)));
+    const hits = state.index.search(query, { limit: n });
+    const candidates = hits.map((hit) => {
+      const doc = state.index.getDoc(hit.id);
+      return {
+        name: hit.id,
+        title: doc?.title ?? deriveTitleFromRelPath(hit.id),
+        text: (doc?.text ?? '').slice(0, CANDIDATE_TEXT_CHARS),
+        score: hit.score,
+      };
+    });
+    return { candidates, truncated: state.truncated, indexed: state.index.size };
+  }
+
+  private readonly refreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  /** Debounced refresh of one note from disk (the watcher fires several events per save). */
+  scheduleRefresh(dir: string, relPath: string): void {
+    const key = `${normalizeDir(dir)}\0${relPath}`;
+    const prev = this.refreshTimers.get(key);
+    if (prev) clearTimeout(prev);
+    this.refreshTimers.set(key, setTimeout(() => {
+      this.refreshTimers.delete(key);
+      void this.refreshFile(dir, relPath);
+    }, REFRESH_DEBOUNCE_MS));
+  }
+
+  /** Re-read one note: gone -> removed, changed -> re-indexed. A no-op until the vault has been indexed. */
+  async refreshFile(dir: string, relPath: string): Promise<void> {
+    const state = this.byDir.get(normalizeDir(dir));
+    if (!state) return;
+    const file = path.join(dir, relPath);
+    let stat: fs.Stats;
+    try { stat = await fs.promises.stat(file); } catch { if (state.index.has(relPath)) state.index.remove(relPath); return; }
+    if (!stat.isFile() || stat.size > FT_MAX_FILE_BYTES) return;
+    const known = state.index.getDoc(relPath);
+    if (known && known.mtimeMs === stat.mtimeMs) return;
+    let raw: string;
+    try { raw = await fs.promises.readFile(file, 'utf-8'); } catch { return; }
+    state.index.add({ id: relPath, title: deriveTitleFromRelPath(relPath), text: htmlToPlainText(raw), mtimeMs: stat.mtimeMs });
+  }
+
   private async ensureFresh(
     dir: string,
     validateFileName: (name: string) => void,
@@ -186,44 +266,43 @@ export class FullTextSearchReadModel {
         }
       }
 
-      const statPromises = validCandidates.map(async (cand) => {
+      const stattedFiles = (await mapLimit(validCandidates, FT_READ_CONCURRENCY, async (cand) => {
         try {
           const stat = await fs.promises.stat(cand.filePath);
           return { ...cand, size: stat.size, mtimeMs: stat.mtimeMs };
         } catch {
           return null;
         }
-      });
-
-      const stattedFiles = (await Promise.all(statPromises)).filter(
+      })).filter(
         (f): f is { relPath: string; filePath: string; size: number; mtimeMs: number } => f !== null
       );
 
+      // Most recent first: if a safety cap ever bites, it drops the oldest notes.
       stattedFiles.sort((a, b) => b.mtimeMs - a.mtimeMs);
 
-      const readPromises = stattedFiles.map(async (entry) => {
+      // Read with bounded concurrency (a vault of thousands of notes would
+      // otherwise open them all at once and run out of file descriptors).
+      const readFiles = await mapLimit(stattedFiles, FT_READ_CONCURRENCY, async (entry) => {
         if (entry.size > FT_MAX_FILE_BYTES) return null;
         try {
           const raw = await fs.promises.readFile(entry.filePath, 'utf-8');
-          return { ...entry, raw };
+          return { ...entry, text: htmlToPlainText(raw) };
         } catch {
           return null;
         }
       });
 
-      const readFiles = await Promise.all(readPromises);
-
       for (const entry of readFiles) {
         if (!entry) continue;
-        if (totalBytes + entry.raw.length > FT_MAX_TOTAL_BYTES) {
+        if (totalBytes + entry.text.length > FT_MAX_TOTAL_TEXT) {
           truncated = true;
           break;
         }
-        totalBytes += entry.raw.length;
+        totalBytes += entry.text.length;
         index.add({
           id: entry.relPath,
           title: deriveTitleFromRelPath(entry.relPath),
-          text: htmlToPlainText(entry.raw),
+          text: entry.text,
           mtimeMs: entry.mtimeMs,
         });
       }

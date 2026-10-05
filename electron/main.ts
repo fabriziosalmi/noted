@@ -181,6 +181,7 @@ function startVaultWatch(): void {
       // Every change, the app's own included, goes through the index: it compares
       // mtime and size, so an echo of our own save costs a stat and nothing else.
       vaultIndex.scheduleTouch(dir, name);
+      fullTextSearchIndex.scheduleRefresh(dir, name);
       // A file we can't stat is gone — deleted, or renamed away. Report those
       // too: dropping them left notes removed by an external writer sitting in
       // the sidebar until the next launch.
@@ -1535,6 +1536,21 @@ ipcMain.handle('search-notes-fulltext', async (_, query: string, syncDir?: strin
     truncated,
   });
   return { success: true, data: results, truncated };
+});
+
+// ─── Retrieval for the AI chat ────────────────────────────────────────────────
+
+// The best-matching notes for a question from the WHOLE vault (BM25 over the
+// in-memory index), with their text; the renderer re-ranks this short list.
+ipcMain.handle('rag-candidates', async (_, query: unknown, limit: unknown, syncDir?: string) => {
+  try {
+    if (typeof query !== 'string' || query.length > 4000) throw new Error('Invalid query');
+    const n = typeof limit === 'number' && Number.isFinite(limit) ? limit : 30;
+    const dir = getTargetDir(syncDir);
+    return { success: true, data: await fullTextSearchIndex.candidates(dir, query, n, (name) => validateFileName(name)) };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
 });
 
 // ─── Vault index IPC ──────────────────────────────────────────────────────────

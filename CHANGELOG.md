@@ -23,6 +23,14 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The AI chat only saw the 100 most recent notes.** Retrieval now asks the
+  main-process search index (BM25 over the whole vault, kept current by the app's
+  own writes and the file watcher) for candidate notes when a question is sent,
+  and re-ranks only those — lexically or, if enabled, with embeddings. Opening the
+  chat panel no longer re-reads notes. The index itself now covers vaults of up to
+  20,000 notes (it was 1,500, read all at once), counts text rather than embedded
+  image bytes, and reads with bounded concurrency. The "Max notes" setting became
+  "Candidate notes per question".
 - **Tags, "Same project" and backlinks after a restart or an external edit**:
   links and tags now come from one index of the whole vault in the main process,
   built at startup and kept current by the app's own changes and the file watcher.

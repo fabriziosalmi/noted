@@ -318,7 +318,7 @@ export const useStore = create<NoteState>()(
         gitDefaultBase: 'main',
         gitGhToken: '',
         ragTopK: 3,
-        ragMaxNotes: 100,
+        ragMaxNotes: 30,
         ragContextChars: 8000,
         ragDebug: false,
         embeddingsEnabled: false,

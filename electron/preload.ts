@@ -83,6 +83,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gitPushBranch: (branch: string, remoteUrl: string, syncDir?: string) => ipcRenderer.invoke('git-push-branch', branch, remoteUrl, syncDir),
   gitLog: (noteName?: string, syncDir?: string) => ipcRenderer.invoke('git-log', noteName, syncDir),
   gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => ipcRenderer.invoke('git-create-pr', params),
+  ragCandidates: (query: string, limit: number, syncDir?: string) => ipcRenderer.invoke('rag-candidates', query, limit, syncDir),
   getVaultIndexSnapshot: (syncDir?: string) => ipcRenderer.invoke('vault-index-snapshot', syncDir),
   getVaultIndexNote: (name: string, syncDir?: string) => ipcRenderer.invoke('vault-index-note', name, syncDir),
   onVaultIndexDelta: (cb: (delta: unknown) => void) => {

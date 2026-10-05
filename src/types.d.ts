@@ -72,6 +72,7 @@ declare global {
       gitPushBranch: (branch: string, remoteUrl: string, syncDir?: string) => Promise<GitResult>;
       gitLog: (noteName?: string, syncDir?: string) => Promise<GitResult<GitLogEntry[]>>;
       gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => Promise<GitResult<PrData>>;
+      ragCandidates: (query: string, limit: number, syncDir?: string) => Promise<{ success: boolean; data?: { candidates: { name: string; title: string; text: string; score: number }[]; truncated: boolean; indexed: number }; error?: string }>;
       getVaultIndexSnapshot: (syncDir?: string) => Promise<VaultIndexSnapshot>;
       getVaultIndexNote: (name: string, syncDir?: string) => Promise<{ success: boolean; data?: VaultIndexNote; error?: string }>;
       onVaultIndexDelta: (cb: (delta: VaultIndexDelta) => void) => () => void;
