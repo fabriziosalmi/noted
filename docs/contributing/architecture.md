@@ -112,3 +112,20 @@ the React components and hooks. A **locale-parity** test fails the build if any 
 the six shipped locales is missing or has stray keys, and a Playwright script
 checks keyboard-shortcut behavior across locales. See
 [Building &amp; releasing](/contributing/building) for how to run them.
+
+### Vault-integrity suite
+
+`electron/vault-integrity.test.ts` runs on a deterministic **500-note vault**
+(`electron/test-support/vault-fixture.ts`: folders, every wikilink form, tags,
+headings, frontmatter, names that need HTML escaping, links to notes that do not
+exist). It performs what the app does to a vault — rename, move, rename or delete
+a folder, delete and restore, edits made outside the app, a restart, and a long
+random session — and after each step asserts two invariants:
+
+1. the live `VaultIndex` equals an index rebuilt from scratch from the files;
+2. renames and moves never leave a `[[link]]` dangling that was not dangling before.
+
+`e2e/vault-integrity.e2e.ts` checks the same on the real application, through the
+same IPC calls the UI makes, on all three operating systems in CI. Both run on
+every pull request. When you add an operation that changes note names or
+contents, add it to the suite.
