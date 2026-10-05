@@ -1605,6 +1605,13 @@ ipcMain.handle('git-commit-all', async (_, message: string, syncDir?: string) =>
 // ─── Git background sync ──────────────────────────────────────────────────────
 // Every state change (syncing / conflict / error / idle) is pushed to the window
 // so the title bar can show it without polling.
+// Opt-in trace of every git command the sync engine runs (E2E diagnostics).
+if (process.env.NOTED_GIT_TRACE) {
+  gitSync.setSyncTrace((e) => logEvent('info', 'git_cmd', {
+    phase: e.phase, id: e.id, ms: e.ms, args: sanitizeGitError(e.args.join(' ')).slice(0, 200),
+  }));
+}
+
 gitSync.setSyncListener((dir, state) => {
   if (dir !== getTargetDir(activeVaultDir || undefined)) return;
   if (win && !win.isDestroyed()) win.webContents.send('git-sync-state', state);

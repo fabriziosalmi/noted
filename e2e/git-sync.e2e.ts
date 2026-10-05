@@ -21,7 +21,7 @@ const test = base.extend<{ gv: GitVault }>({
     const gitConfig = path.join(root, 'gitconfig');
     // No identity and no hostname guessing: the engine must cope with a bare machine.
     fs.writeFileSync(gitConfig, '[user]\n\tuseConfigOnly = true\n');
-    const gitEnv = { GIT_CONFIG_GLOBAL: gitConfig, GIT_CONFIG_NOSYSTEM: '1' };
+    const gitEnv = { GIT_CONFIG_GLOBAL: gitConfig, GIT_CONFIG_NOSYSTEM: '1', NOTED_GIT_TRACE: '1' };
     const git = (cwd: string, ...args: string[]) =>
       execFileSync('git', ['-c', 'user.name=Dev', '-c', 'user.email=dev@example.com', ...args], {
         cwd, encoding: 'utf8', env: { ...process.env, ...gitEnv },
@@ -62,7 +62,7 @@ const test = base.extend<{ gv: GitVault }>({
       const appLog = current.appLog();
       await testInfo.attach('app-log', { body: appLog || '(empty)', contentType: 'text/plain' });
       // Also in the CI log itself, where it is read first.
-      console.warn(`[app-log tail] ${testInfo.title}\n${appLog.slice(-3000)}`);
+      console.warn(`[app-log tail] ${testInfo.title}\n${appLog.slice(-8000)}`);
     }
     await current.app.close().catch(() => undefined);
     fs.rmSync(root, { recursive: true, force: true });

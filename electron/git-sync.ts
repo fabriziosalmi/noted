@@ -94,14 +94,49 @@ function forbidPrompts(): void {
   process.env.GCM_INTERACTIVE ??= 'never';
 }
 
+export interface GitTraceEvent {
+  phase: 'start' | 'end';
+  /** Correlates a start with its end; a start with no end is a command that never returned. */
+  id: number;
+  args: string[];
+  ms?: number;
+}
+
+let trace: ((e: GitTraceEvent) => void) | null = null;
+let traceId = 0;
+
+/**
+ * Optional trace of every git command the engine runs (off by default). When a
+ * sync hangs, the last `start` without an `end` names the command that did.
+ */
+export function setSyncTrace(fn: ((e: GitTraceEvent) => void) | null): void {
+  trace = fn;
+}
+
 function gitFor(dir: string, trimmed = true): SimpleGit {
   forbidPrompts();
-  return simpleGit(dir, {
+  const g = simpleGit(dir, {
     binary: 'git',
     maxConcurrentProcesses: 1,
     trimmed,
     timeout: { block: GIT_TIMEOUT_MS },
   });
+  if (trace) {
+    g.outputHandler((_cmd, stdout, _stderr, args) => {
+      const id = ++traceId;
+      const t0 = Date.now();
+      try { trace?.({ phase: 'start', id, args: [...args] }); } catch { /* tracing must never break sync */ }
+      let done = false;
+      const end = () => {
+        if (done) return;
+        done = true;
+        try { trace?.({ phase: 'end', id, args: [...args], ms: Date.now() - t0 }); } catch { /* ignore */ }
+      };
+      stdout.once('close', end);
+      stdout.once('end', end);
+    });
+  }
+  return g;
 }
 
 /** `git <args>` that tolerates a non-zero exit with no stderr (e.g. `rev-parse -q`). */

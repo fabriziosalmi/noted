@@ -9,6 +9,17 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Flake hunting: run a subset many times (Actions -> E2E -> Run workflow).
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: 'Only tests whose title matches this (blank = all)'
+        required: false
+        default: ''
+      repeat:
+        description: 'Run each selected test this many times'
+        required: false
+        default: '1'
 
 permissions:
   contents: read
@@ -38,13 +49,22 @@ jobs:
         run: npm run build:bundles
 
       # Electron needs a display on Linux runners.
+      # Inputs are only set for a manual run; on push/PR they are empty and this
+      # is a plain `npm run test:e2e`.
       - name: Run E2E (Linux, under xvfb)
         if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum npm run test:e2e
+        env:
+          E2E_GREP: ${{ inputs.grep }}
+          E2E_REPEAT: ${{ inputs.repeat }}
+        run: xvfb-run --auto-servernum npm run test:e2e -- ${E2E_GREP:+--grep "$E2E_GREP"} ${E2E_REPEAT:+--repeat-each="$E2E_REPEAT"}
 
       - name: Run E2E
         if: runner.os != 'Linux'
-        run: npm run test:e2e
+        shell: bash
+        env:
+          E2E_GREP: ${{ inputs.grep }}
+          E2E_REPEAT: ${{ inputs.repeat }}
+        run: npm run test:e2e -- ${E2E_GREP:+--grep "$E2E_GREP"} ${E2E_REPEAT:+--repeat-each="$E2E_REPEAT"}
 
       # Screenshots of the window at the moment of failure live in the HTML
       # report and in test-results/; traces are kept for failed tests.

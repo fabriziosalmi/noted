@@ -8,6 +8,8 @@ import {
   syncNow,
   parseConflictResolutions,
   resolveInside,
+  setSyncTrace,
+  type GitTraceEvent,
   resolveConflicts,
   getSyncState,
   setSyncListener,
@@ -521,3 +523,34 @@ describe('resolveInside (the worktree write guard)', () => {
     expect(() => resolveInside(root, 'D:\\other\\evil.md', w)).toThrow(/outside/);
   });
 });
+
+describe('git command trace (diagnostics)', () => {
+  it('reports each git command with a start and a matching end, and is off by default', async () => {
+    const s = scenario();
+    const events: GitTraceEvent[] = [];
+    expect((await syncNow(s.a)).phase).toBe('idle'); // nothing recorded while off
+    setSyncTrace(e => events.push(e));
+    try {
+      write(s.a, 'one.md', '<p>traced</p>\n');
+      await syncNow(s.a);
+    } finally { setSyncTrace(null); }
+    const starts = events.filter(e => e.phase === 'start');
+    const ends = events.filter(e => e.phase === 'end');
+    expect(starts.length).toBeGreaterThan(3);
+    expect(starts.some(e => e.args.includes('fetch'))).toBe(true);
+    expect(starts.some(e => e.args.includes('push'))).toBe(true);
+    // every command that started also ended, with a duration
+    expect(new Set(ends.map(e => e.id))).toEqual(new Set(starts.map(e => e.id)));
+    for (const e of ends) expect(typeof e.ms).toBe('number');
+  });
+
+  it('a throwing trace callback never breaks a sync', async () => {
+    const s = scenario();
+    setSyncTrace(() => { throw new Error('boom'); });
+    try {
+      write(s.a, 'one.md', '<p>x</p>\n');
+      expect((await syncNow(s.a)).phase).toBe('idle');
+    } finally { setSyncTrace(null); }
+  });
+});
+

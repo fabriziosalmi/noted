@@ -86,7 +86,7 @@ export const test = base.extend<{ noted: Launched }>({
       const appLog = current.appLog();
       await testInfo.attach('app-log', { body: appLog || '(empty)', contentType: 'text/plain' });
       // Also in the CI log itself, where it is read first.
-      console.warn(`[app-log tail] ${testInfo.title}\n${appLog.slice(-3000)}`);
+      console.warn(`[app-log tail] ${testInfo.title}\n${appLog.slice(-8000)}`);
     }
     await current.app.close().catch(() => undefined);
     fs.rmSync(base, { recursive: true, force: true });
