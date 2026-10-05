@@ -9,6 +9,7 @@ import { registerImporterHandlers } from './src/services/importer.js';
 import { registerExporterHandlers } from './src/services/exporter.js';
 import * as gitOps from './git-ops.js';
 import { sanitizeGitError } from './git-ops.js';
+import * as gitSync from './git-sync.js';
 import { FullTextSearchReadModel } from './fulltext-index.js';
 import { logEvent, newRequestId } from './structured-log.js';
 import { checkForUpdates, scheduleStartupUpdateCheck } from './updater.js';
@@ -1529,6 +1530,28 @@ ipcMain.handle('git-commit-all', async (_, message: string, syncDir?: string) =>
   if (!message || typeof message !== 'string') return { success: false, error: 'Commit message required' };
   const dir = getTargetDir(syncDir);
   return gitOps.commitAll(dir, message);
+});
+
+// ─── Git background sync ──────────────────────────────────────────────────────
+// Every state change (syncing / conflict / error / idle) is pushed to the window
+// so the title bar can show it without polling.
+gitSync.setSyncListener((dir, state) => {
+  if (dir !== getTargetDir(activeVaultDir || undefined)) return;
+  if (win && !win.isDestroyed()) win.webContents.send('git-sync-state', state);
+});
+
+ipcMain.handle('git-sync-now', async (_, syncDir?: string) => {
+  return gitSync.syncNow(getTargetDir(syncDir));
+});
+
+ipcMain.handle('git-sync-state', async (_, syncDir?: string) => {
+  return gitSync.getSyncState(getTargetDir(syncDir));
+});
+
+ipcMain.handle('git-sync-resolve', async (_, resolutions: unknown, syncDir?: string) => {
+  const parsed = gitSync.parseConflictResolutions(resolutions);
+  if (!parsed) return { success: false, error: 'Invalid resolutions.' };
+  return gitSync.resolveConflicts(getTargetDir(syncDir), parsed);
 });
 
 ipcMain.handle('git-prepare-pr-branch', async (_, noteName: string, commitMessage: string | undefined, syncDir?: string) => {

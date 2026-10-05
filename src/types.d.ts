@@ -69,6 +69,10 @@ declare global {
       gitPushBranch: (branch: string, remoteUrl: string, syncDir?: string) => Promise<GitResult>;
       gitLog: (noteName?: string, syncDir?: string) => Promise<GitResult<GitLogEntry[]>>;
       gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => Promise<GitResult<PrData>>;
+      gitSyncNow: (syncDir?: string) => Promise<GitSyncState>;
+      gitSyncState: (syncDir?: string) => Promise<GitSyncState>;
+      gitSyncResolve: (resolutions: GitConflictResolution[], syncDir?: string) => Promise<GitResult<GitSyncState>>;
+      onGitSyncState: (cb: (state: GitSyncState) => void) => () => void;
       gitSaveAsGist: (params: { fileName: string; content: string; isPublic: boolean; token: string }) => Promise<GitResult<string>>;
       searchNotesFulltext: (query: string, syncDir?: string) => Promise<{ success: boolean; data?: { relPath: string; title: string; snippet: string; score: number; terms: string[] }[]; truncated?: boolean; error?: string }>;
       setupClaudeMcp: () => Promise<{ success: boolean; error?: string }>;
@@ -105,4 +109,34 @@ interface PrData {
   url: string;
   number: number;
   title: string;
+}
+
+type GitSyncPhase = 'idle' | 'syncing' | 'conflict' | 'error' | 'unconfigured';
+
+interface GitSyncConflict {
+  path: string;
+  kind: 'both-modified' | 'both-added' | 'deleted-by-us' | 'deleted-by-them';
+  binary: boolean;
+  base: string | null;
+  ours: string | null;
+  theirs: string | null;
+  oursSha: string | null;
+  theirsSha: string | null;
+}
+
+interface GitSyncState {
+  phase: GitSyncPhase;
+  branch: string | null;
+  upstream: string | null;
+  lastSyncAt: number | null;
+  message: string | null;
+  conflicts: GitSyncConflict[];
+}
+
+interface GitConflictResolution {
+  path: string;
+  oursSha: string | null;
+  theirsSha: string | null;
+  choice: 'ours' | 'theirs' | 'content' | 'delete';
+  content?: string;
 }
