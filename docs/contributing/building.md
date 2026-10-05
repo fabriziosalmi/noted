@@ -169,6 +169,14 @@ Node **20.x** and **22.x** matrix:
    if any of the six shipped locales is missing a key.
 5. Verify bundles — `vite build` plus the three `esbuild` bundles.
 
+`.github/workflows/e2e.yml` additionally drives the real Electron app with
+Playwright on **macOS, Windows and Linux** (open a vault, edit, rename, search,
+quit-flush, update check), and uploads window screenshots and traces as
+artifacts when a run fails. Locally: `npm run build:bundles && npm run test:e2e`
+(set `ELECTRON_RUN_AS_NODE` away first if your shell exports it). The suite
+runs the unpackaged app, so the update check is exercised in its "packaged
+builds only" path, not against a real update feed.
+
 CI never signs or notarizes; that is a local-only step.
 
 Run the same gates locally before opening a pull request:

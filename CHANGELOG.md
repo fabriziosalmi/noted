@@ -11,6 +11,9 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **SBOM and provenance for every release**: publishing a release now attaches a
   CycloneDX SBOM, a cosign-signed `SHA256SUMS`, and GitHub artifact attestations
   for all installers. See "Verify your download" in the installation guide.
+- **Electron E2E tests in CI on macOS, Windows and Linux** (Playwright
+  `_electron`): open vault, edit, rename, search, quit-flush and the update
+  check, with failure screenshots and traces as artifacts. `npm run test:e2e`.
 
 ### Security
 

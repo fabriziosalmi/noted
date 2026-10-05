@@ -1,0 +1,60 @@
+name: E2E
+
+# Drives the real Electron app (Playwright `_electron`) on all three desktop
+# platforms: open a vault, edit, rename, search, quit-flush, and the update
+# check. Runs against the built bundles; installers are not built here.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: E2E (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build bundles
+        run: npm run build:bundles
+
+      # Electron needs a display on Linux runners.
+      - name: Run E2E (Linux, under xvfb)
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum npm run test:e2e
+
+      - name: Run E2E
+        if: runner.os != 'Linux'
+        run: npm run test:e2e
+
+      # Screenshots of the window at the moment of failure live in the HTML
+      # report and in test-results/; traces are kept for failed tests.
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ runner.os }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7

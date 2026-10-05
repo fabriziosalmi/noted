@@ -28,9 +28,12 @@ if (!app.isPackaged) {
 
 // In dev: keep userData/notes local to the project so we don't pollute ~/Library.
 // In production (packaged): userData is already ~/Library/Application Support/Noted — write there.
+// NOTED_USER_DATA_DIR points a run (the E2E suite) at its own throwaway profile
+// instead of the shared dev one.
 if (!app.isPackaged) {
-  app.setPath('userData', path.join(__dirname, '../.electron_data'));
-  app.setPath('sessionData', path.join(__dirname, '../.electron_session'));
+  const userDataDir = process.env.NOTED_USER_DATA_DIR;
+  app.setPath('userData', userDataDir ?? path.join(__dirname, '../.electron_data'));
+  app.setPath('sessionData', userDataDir ? path.join(userDataDir, 'session') : path.join(__dirname, '../.electron_session'));
 }
 
 // Resolved inside app.whenReady() to ensure app paths are available.

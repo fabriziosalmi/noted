@@ -76,4 +76,13 @@ export default defineConfig([
       '@typescript-eslint/no-explicit-any': 'off',
     },
   },
+  {
+    // Playwright fixtures: its API requires an empty `{}` destructuring pattern
+    // for fixture-less setup, and calls its fixture callback `use`.
+    files: ['e2e/**/*.ts'],
+    rules: {
+      'no-empty-pattern': 'off',
+      'react-hooks/rules-of-hooks': 'off',
+    },
+  },
 ])

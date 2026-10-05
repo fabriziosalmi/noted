@@ -41,3 +41,5 @@ notes_dev/
 
 # Demo recordings
 scripts/demo/out/
+test-results/
+playwright-report/
