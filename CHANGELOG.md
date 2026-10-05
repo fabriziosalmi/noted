@@ -6,64 +6,23 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Changed
-
-- **Internal: the main process is split into modules.** `electron/main.ts` went
-  from 1,900 lines to a 130-line bootstrap; IPC handlers now live in
-  `electron/ipc/` by area and shared state in `electron/core/`. No behaviour
-  change: a new test pins every IPC channel, and the whole `electron/` folder is
-  now type-checked in strict mode. The two PDF/print export windows now set
-  `sandbox: true` explicitly (it was already the default).
-- **Internal: translations are JSON files, loaded on demand.** Each language is
-  `src/locales/<lang>.json`; English ships with the app and the other five are
-  separate chunks fetched the first time they are needed (the saved language is
-  loaded before the first paint). The main renderer bundle shrinks by about 160 KB
-  (46 KB gzipped). The locale-parity test now also checks for empty values and
-  that every translation keeps the `{placeholders}` of the English text.
-
-### Fixed
-
-- **The version in the sidebar showed Electron's, not Noted's, when run from source**
-  (e.g. `v42.10.0` instead of `v1.3.7`). It now reads the project's `package.json`
-  when the app is not packaged; installed builds were never affected.
-- **Linux: the app could freeze while git sync merged.** Node's recursive file
-  watcher on Linux watched `.git` too and locked up the whole app when git
-  created and removed its temporary worktree there. The vault is now watched
-  folder by folder, skipping hidden folders (`.git`, `.noted`, `.noted_history`).
-- CHANGELOG link references now exist for every version (they were missing for
-  1.3.5 and 1.3.6, and `[Unreleased]` compared from v1.3.4), the missing
-  1.3.1–1.3.3 sections were written from the commit history, and the package
-  description no longer says macOS-only. `scripts/check-changelog.mjs` runs in CI
-  and at the start of `release.sh` so they cannot drift again.
+## [1.4.0] - 2026-10-05
 
 ### Added
 
-- **SBOM and provenance for every release**: publishing a release now attaches a
-  CycloneDX SBOM, a cosign-signed `SHA256SUMS`, and GitHub artifact attestations
-  for all installers. See "Verify your download" in the installation guide.
-- **Electron E2E tests in CI on macOS, Windows and Linux** (Playwright
-  `_electron`): open vault, edit, rename, search, quit-flush and the update
-  check, with failure screenshots and traces as artifacts. `npm run test:e2e`.
 - **Automatic git sync** (off by default): Git panel → Sync. Every few minutes
   or after you stop typing, plus after launch and on window focus, Noted commits,
   pulls and pushes the notes repository. It never force-pushes, never puts
   conflict markers in your notes, and pauses when the same note changed on both
   sides; a three-way merge view (Git → Resolve conflicts…) lets you choose per
   part, or edit by hand. The title-bar Git badge shows the sync state.
-
-### Fixed
-
-- **MCP `delete_note` is no longer permanent**: it moves the note to
-  `.noted/trash/`, with new `list_trash` and `restore_note` tools and a retention
-  setting (Settings → MCP, default 30 days). `.noted/` is ignored by the watcher
-  and by Git sync.
-- **Renaming a note no longer breaks the links to it.** Renaming or moving a note,
+- **Renaming a note keeps the links to it working.** Renaming or moving a note,
   and renaming or deleting a folder, now rewrites `[[Old]]`, `[[Old|alias]]` and
   `[[Old#Heading]]` in every other note on disk (atomic writes, and a history
   snapshot of each changed note so it can be undone). Retitling a note rewrites the
   links once, when you move on, not at every pause. New setting: Update links when
   renaming (Always / Ask / Never).
-- **Pasted and dropped images are no longer stored inside the note as base64.**
+- **Pasted and dropped images are stored as files, not as base64 in the note.**
   They are saved to `attachments/` (configurable) under a content-hash name, and
   the note keeps a relative path, so notes stay small, under the full-text size
   limit, readable in Git diffs and light for MCP clients. The app serves them
@@ -72,6 +31,19 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   first, history snapshot per note). Deleting a note offers to remove the images
   only it used. PDF/HTML/Word/Markdown exports, printing and gists embed the images
   again so they stand alone, and "Export vault" now copies attachments too.
+- **SBOM and provenance for every release**: publishing a release now attaches a
+  CycloneDX SBOM, a cosign-signed `SHA256SUMS`, and GitHub artifact attestations
+  for all installers. See "Verify your download" in the installation guide.
+- **Electron E2E tests in CI on macOS, Windows and Linux** (Playwright
+  `_electron`): open vault, edit, rename, search, quit-flush and the update
+  check, with failure screenshots and traces as artifacts. `npm run test:e2e`.
+
+### Changed
+
+- **MCP `delete_note` is no longer permanent**: it moves the note to
+  `.noted/trash/`, with new `list_trash` and `restore_note` tools and a retention
+  setting (Settings → MCP, default 30 days). `.noted/` is ignored by the watcher
+  and by Git sync.
 - **The AI chat only saw the 100 most recent notes.** Retrieval now asks the
   main-process search index (BM25 over the whole vault, kept current by the app's
   own writes and the file watcher) for candidate notes when a question is sent,
@@ -88,10 +60,37 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   link cache was dropped when localStorage filled up. `[[Note|alias]]` and
   `[[Note#Heading]]` now count as links to `Note`, and a link's `#Heading` is no
   longer read as a tag.
+- **Internal: the main process is split into modules.** `electron/main.ts` went
+  from 1,900 lines to a 130-line bootstrap; IPC handlers now live in
+  `electron/ipc/` by area and shared state in `electron/core/`. No behaviour
+  change: a new test pins every IPC channel, and the whole `electron/` folder is
+  now type-checked in strict mode. The two PDF/print export windows now set
+  `sandbox: true` explicitly (it was already the default).
+- **Internal: translations are JSON files, loaded on demand.** Each language is
+  `src/locales/<lang>.json`; English ships with the app and the other five are
+  separate chunks fetched the first time they are needed (the saved language is
+  loaded before the first paint). The main renderer bundle shrinks by about 160 KB
+  (46 KB gzipped). The locale-parity test now also checks for empty values and
+  that every translation keeps the `{placeholders}` of the English text.
+
+### Fixed
+
 - A note changed on disk while it was open (by a sync, an MCP client or another
   device) was only flagged, and the next autosave overwrote it with the stale
   editor text. It now reloads, or — if you were typing — keeps your text and
   saves the other version beside it.
+- **The version in the sidebar showed Electron's, not Noted's, when run from source**
+  (e.g. `v42.10.0`). It now reads the project's `package.json`
+  when the app is not packaged; installed builds were never affected.
+- **Linux: the app could freeze while git sync merged.** Node's recursive file
+  watcher on Linux watched `.git` too and locked up the whole app when git
+  created and removed its temporary worktree there. The vault is now watched
+  folder by folder, skipping hidden folders (`.git`, `.noted`, `.noted_history`).
+- CHANGELOG link references now exist for every version (they were missing for
+  1.3.5 and 1.3.6, and `[Unreleased]` compared from v1.3.4), the missing
+  1.3.1–1.3.3 sections were written from the commit history, and the package
+  description no longer says macOS-only. `scripts/check-changelog.mjs` runs in CI
+  and at the start of `release.sh` so they cannot drift again.
 
 ### Security
 
@@ -226,7 +225,8 @@ The first cross-platform release, and the first that keeps itself up to date.
   backlinks, full-text search, multi-provider AI, Git integration, export, quick
   capture, and a built-in MCP server.
 
-[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.3.6...HEAD
+[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/fabriziosalmi/noted/compare/v1.3.6...v1.4.0
 [1.3.6]: https://github.com/fabriziosalmi/noted/compare/v1.3.5...v1.3.6
 [1.3.5]: https://github.com/fabriziosalmi/noted/compare/v1.3.4...v1.3.5
 [1.3.4]: https://github.com/fabriziosalmi/noted/compare/v1.3.3...v1.3.4
