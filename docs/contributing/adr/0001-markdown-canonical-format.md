@@ -1,6 +1,6 @@
 # ADR 0001: Markdown as the canonical on-disk format
 
-- **Status:** Proposed (2026-10-06). Becomes *Accepted* when merged.
+- **Status:** Accepted (2026-10-06).
 - **Issue:** [#58](https://github.com/fabriziosalmi/noted/issues/58), the first step of the *Markdown-native (v2.0.0)* milestone.
 - **Spike:** [`spikes/markdown-roundtrip`](https://github.com/fabriziosalmi/noted/tree/main/spikes/markdown-roundtrip) (64 golden snippets, four pipelines; run it with `npm run spike` there).
 
@@ -159,9 +159,15 @@ on paste (through the existing sanitizer) and what Markdown cannot express is ra
 and because the editor can still produce HTML from the same document, an export back to HTML is the same code path the
 app uses today. Each migrated note also keeps its pre-migration HTML in `.noted_history/`.
 
-## Questions for the maintainer
+## Open questions, resolved
 
-1. Are the four normalisations and the one known loss acceptable, or should any of them be preserved byte for byte (at the price of raw nodes)?
-2. Wikilinks as marked text (as proposed) or as atom nodes (what the spike used, easier for alias editing)?
-3. Existing vaults: migrate on an explicit prompt (proposed) or offer it once and remember the answer?
-4. Is a CodeMirror **source mode** (toggle between rich and raw Markdown) wanted later? It does not change this decision.
+1. **Normalisations and the reference-link loss: accepted.** The four normalisations do not change what a reader
+   sees, and byte-for-byte preservation of them would mean raw nodes for ordinary text, which is a worse trade. The
+   reference-link form is closed later (a `reference` attribute on the link mark) if real vaults show it matters.
+2. **Wikilinks are marked text** (`[[target#heading|alias]]` literal, carrying the existing `wikilink` mark), not atom
+   nodes: the editor already works this way, and Markdown, the index and `extract.ts` all then read the same characters.
+   Alias editing is done by a command that rewrites the text, as insertion does today.
+3. **Existing vaults migrate on an explicit prompt**, never silently: the dry-run report is shown first, the answer is
+   remembered per vault, and "not now" keeps the vault on HTML with dual read. A vault opened from outside is never rewritten on open.
+4. **A CodeMirror source mode is not part of this decision.** It can be added on top of the same document later;
+   it is tracked separately if wanted.
