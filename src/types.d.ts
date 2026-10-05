@@ -81,6 +81,7 @@ declare global {
       listOrphanAttachments: (noteName: string, folder?: string, syncDir?: string) => Promise<{ success: boolean; data?: string[]; error?: string }>;
       deleteAttachments: (rels: string[], folder?: string, syncDir?: string) => Promise<{ success: boolean; data?: { deleted: string[]; skipped: string[] }; error?: string }>;
       inlineVaultImages: (content: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+      ragCandidates: (query: string, limit: number, syncDir?: string) => Promise<{ success: boolean; data?: { candidates: { name: string; title: string; text: string; score: number }[]; truncated: boolean; indexed: number }; error?: string }>;
       getVaultIndexSnapshot: (syncDir?: string) => Promise<VaultIndexSnapshot>;
       getVaultIndexNote: (name: string, syncDir?: string) => Promise<{ success: boolean; data?: VaultIndexNote; error?: string }>;
       onVaultIndexDelta: (cb: (delta: VaultIndexDelta) => void) => () => void;

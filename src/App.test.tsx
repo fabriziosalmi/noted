@@ -101,7 +101,6 @@ vi.mock('./hooks/useToast', () => ({
 }));
 
 vi.mock('./hooks/useTheme', () => ({ useTheme: () => undefined }));
-vi.mock('./hooks/useNoteChunks', () => ({ useNoteChunks: () => [] }));
 vi.mock('./hooks/useAppLifecycle', () => ({ useAppLifecycle: () => undefined }));
 vi.mock('./hooks/useGlobalShortcuts', () => ({ useGlobalShortcuts: () => undefined }));
 vi.mock('./hooks/useAppDerivedState', () => ({

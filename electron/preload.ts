@@ -92,6 +92,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listOrphanAttachments: (noteName: string, folder?: string, syncDir?: string) => ipcRenderer.invoke('list-orphan-attachments', noteName, folder, syncDir),
   deleteAttachments: (rels: string[], folder?: string, syncDir?: string) => ipcRenderer.invoke('delete-attachments', rels, folder, syncDir),
   inlineVaultImages: (content: string, syncDir?: string) => ipcRenderer.invoke('inline-vault-images', content, syncDir),
+  ragCandidates: (query: string, limit: number, syncDir?: string) => ipcRenderer.invoke('rag-candidates', query, limit, syncDir),
   getVaultIndexSnapshot: (syncDir?: string) => ipcRenderer.invoke('vault-index-snapshot', syncDir),
   getVaultIndexNote: (name: string, syncDir?: string) => ipcRenderer.invoke('vault-index-note', name, syncDir),
   onVaultIndexDelta: (cb: (delta: unknown) => void) => {

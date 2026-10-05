@@ -17,7 +17,10 @@ function renderMarkdown(src: string): string {
 
 interface AiChatProps {
   getEditorText: () => string;
-  noteChunks?: NoteChunk[]; // all notes for RAG
+  /** Candidate notes for a question, from the whole vault (see lib/ragRetrieval). */
+  retrieveNotes?: (query: string) => Promise<NoteChunk[]>;
+  /** How many notes the vault holds, for the "RAG active" badge. */
+  noteCount?: number;
 }
 
 interface ChatMessage { role: 'assistant' | 'user'; content: string }
@@ -40,7 +43,7 @@ function ChatBubble({ role, content }: ChatMessage) {
   );
 }
 
-export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
+export function AiChat({ getEditorText, retrieveNotes, noteCount = 0 }: AiChatProps) {
   const { t } = useI18n();
   const lang = useStore(s => s.settings.language ?? 'en');
   const piiMasking = useStore(s => s.settings.piiMasking ?? false);
@@ -154,8 +157,9 @@ export function AiChat({ getEditorText, noteChunks = [] }: AiChatProps) {
       if (piiMasking && piiCount > 0) setPiiNotice(piiCount);
 
       // RAG: find related notes from the full vault
-      const retrieval = noteChunks.length > 0
-        ? await findRelevantNotesHybrid(userMessage, noteChunks, ragTopK, {
+      const candidates = retrieveNotes ? await retrieveNotes(userMessage).catch(() => [] as NoteChunk[]) : [];
+      const retrieval = candidates.length > 0
+        ? await findRelevantNotesHybrid(userMessage, candidates, ragTopK, {
           enabled: embeddingsEnabled,
           provider: embeddingProvider,
           model: embeddingModel,
@@ -210,10 +214,10 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
           <span>{t('aiAssistant')}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          {noteChunks.length > 0 && (
-            <span className="flex items-center gap-1 text-[10px] font-normal normal-case tracking-normal" style={{ color: 'var(--accent)' }} title={`${t('ragActive').replace('{n}', String(noteChunks.length))} · ${embeddingsEnabled ? 'hybrid' : 'lexical'}`}>
+          {noteCount > 0 && retrieveNotes && (
+            <span className="flex items-center gap-1 text-[10px] font-normal normal-case tracking-normal" style={{ color: 'var(--accent)' }} title={`${t('ragActive').replace('{n}', String(noteCount))} · ${embeddingsEnabled ? 'hybrid' : 'lexical'}`}>
               <Database size={10} />
-              {t('ragActive').replace('{n}', String(noteChunks.length))}
+              {t('ragActive').replace('{n}', String(noteCount))}
             </span>
           )}
           <Tooltip label={t('clearChat')}>

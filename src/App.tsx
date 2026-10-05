@@ -6,7 +6,7 @@ import type { AgentUiAction } from './store/useStore';
 import { useToast } from './hooks/useToast';
 import { useTheme } from './hooks/useTheme';
 import { useNoteAdvisor } from './hooks/useNoteAdvisor';
-import { useNoteChunks } from './hooks/useNoteChunks';
+import { fetchRetrievalCandidates } from './lib/ragRetrieval';
 import { useAppLifecycle } from './hooks/useAppLifecycle';
 import { useGitSync } from './hooks/useGitSync';
 import { useVaultIndex } from './hooks/useVaultIndex';
@@ -80,12 +80,12 @@ function App() {
     settings,
   });
 
-  const noteChunks = useNoteChunks({
-    rightOpen: panels.rightOpen,
-    notes,
-    syncDirectory: settings.syncDirectory,
-    ragMaxNotes: settings.ragMaxNotes,
-  });
+  // The AI chat asks the main process's index of the whole vault for candidates when a
+  // question is sent; nothing is read when the panel opens.
+  const retrieveNotes = useCallback(
+    (query: string) => fetchRetrievalCandidates(query, settings.ragMaxNotes, settings.syncDirectory || undefined),
+    [settings.ragMaxNotes, settings.syncDirectory],
+  );
 
   // Background git sync: engine state mirror + the interval / idle / focus triggers.
   useGitSync(settings.syncDirectory || undefined);
@@ -327,7 +327,8 @@ function App() {
       allTags,
       activeTagFilter,
       suggestions,
-      noteChunks,
+      retrieveNotes,
+      ragNoteCount: notes.length,
       noteLinksIndex,
       allNoteNames,
       backlinks,

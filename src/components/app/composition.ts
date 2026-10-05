@@ -20,7 +20,8 @@ interface AppCompositionState {
   allTags: string[];
   activeTagFilter: string | null;
   suggestions: Suggestion[];
-  noteChunks: NoteChunk[];
+  retrieveNotes: (query: string) => Promise<NoteChunk[]>;
+  ragNoteCount: number;
   noteLinksIndex: Record<string, string[]>;
   allNoteNames: string[];
   backlinks: string[];
@@ -79,7 +80,8 @@ export function createAppComposition(
     allTags: state.allTags,
     activeTagFilter: state.activeTagFilter,
     suggestions: state.suggestions,
-    noteChunks: state.noteChunks,
+    retrieveNotes: state.retrieveNotes,
+    ragNoteCount: state.ragNoteCount,
     noteLinksIndex: state.noteLinksIndex,
     allNoteNames: state.allNoteNames,
     backlinks: state.backlinks,
