@@ -1,0 +1,114 @@
+name: SBOM and provenance
+
+# Runs when a release is published. By then every installer is attached — the
+# Windows/Linux ones from the build workflow, the macOS ones uploaded by the
+# maintainer from scripts/release.sh — so this workflow can cover all of them in
+# one place:
+#
+#   - sbom.cdx.json        CycloneDX SBOM of the dependency tree at the release tag
+#   - SHA256SUMS           checksums of every installer and the SBOM
+#   - SHA256SUMS.sigstore.json   keyless cosign signature over SHA256SUMS
+#   - GitHub artifact attestations (SLSA provenance + SBOM) for every installer
+#
+# What the attestation proves: that these exact bytes were published to this
+# release by this repository's workflow, under the identity of the person who
+# published it. For the Windows/Linux installers the build also ran in CI; the
+# macOS ones are built and notarized on the maintainer's machine (Apple
+# credentials never leave it), so for those the attestation covers the
+# publication step, not the compile step. docs/contributing/building.md spells
+# this out.
+#
+# Manual run: pick a tag to (re)generate the files for an existing release.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to process (e.g. v1.4.0)'
+        required: true
+
+permissions:
+  contents: write       # upload the generated files to the release
+  id-token: write       # Sigstore keyless signing + attestations
+  attestations: write
+
+concurrency:
+  group: provenance-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  provenance:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      # The tag's own lockfile is what the installers were built from.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: npm
+
+      - name: Download the release installers
+        run: |
+          mkdir assets
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir assets \
+            --pattern '*.dmg' --pattern '*.zip' --pattern '*.exe' \
+            --pattern '*.AppImage' --pattern '*.deb'
+          ls -l assets
+          test -n "$(ls -A assets)" || { echo "No installers on release $TAG" >&2; exit 1; }
+
+      # --ignore-scripts: no need to download the Electron binary or run install
+      # hooks to read the dependency tree. Dev dependencies stay IN on purpose:
+      # the renderer (React, TipTap, ...) is bundled by Vite at build time, so
+      # what ships is declared under devDependencies too.
+      - name: Install dependencies (no scripts)
+        run: npm ci --ignore-scripts
+
+      - name: Generate CycloneDX SBOM
+        run: |
+          npx --yes @cyclonedx/cyclonedx-npm@^4 \
+            --ignore-npm-errors \
+            --spec-version 1.5 \
+            --output-format JSON \
+            --output-file assets/sbom.cdx.json
+          test -s assets/sbom.cdx.json
+
+      - name: Write SHA256SUMS
+        working-directory: assets
+        run: |
+          # Sorted so the output is stable; written outside the directory first
+          # so the file never lists (or reads) itself.
+          find . -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort \
+            | xargs sha256sum > ../SHA256SUMS.tmp
+          mv ../SHA256SUMS.tmp SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Attest build provenance (all installers + SBOM)
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-checksums: assets/SHA256SUMS
+
+      - name: Attest SBOM against the installers
+        uses: actions/attest-sbom@v4
+        with:
+          subject-checksums: assets/SHA256SUMS
+          sbom-path: assets/sbom.cdx.json
+
+      - uses: sigstore/cosign-installer@v4.1.2
+
+      - name: Sign SHA256SUMS (keyless)
+        working-directory: assets
+        run: cosign sign-blob --yes --bundle SHA256SUMS.sigstore.json SHA256SUMS
+
+      - name: Attach to the release
+        run: |
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber \
+            assets/sbom.cdx.json assets/SHA256SUMS assets/SHA256SUMS.sigstore.json

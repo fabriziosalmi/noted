@@ -6,6 +6,12 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **SBOM and provenance for every release**: publishing a release now attaches a
+  CycloneDX SBOM, a cosign-signed `SHA256SUMS`, and GitHub artifact attestations
+  for all installers. See "Verify your download" in the installation guide.
+
 ### Security
 
 - **Electron hardening**: `sandbox: true` is now set explicitly on every window,

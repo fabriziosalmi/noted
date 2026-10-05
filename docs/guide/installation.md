@@ -39,6 +39,28 @@ one without an architecture suffix. Installing the wrong one still runs under
 Rosetta, but the native build is faster.
 :::
 
+## Verify your download
+
+Each release carries an SBOM, a signed checksum file, and GitHub attestations.
+Verification is optional but takes a minute.
+
+```bash
+# Check a downloaded installer against the GitHub attestation
+gh attestation verify Noted-<version>-arm64.dmg --repo fabriziosalmi/noted
+
+# Or check the signed checksum file, then the checksums
+cosign verify-blob \
+  --bundle SHA256SUMS.sigstore.json \
+  --certificate-identity-regexp '^https://github.com/fabriziosalmi/noted/\.github/workflows/provenance\.yml@' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  SHA256SUMS
+shasum -a 256 -c --ignore-missing SHA256SUMS      # sha256sum on Linux
+```
+
+`sbom.cdx.json` is the CycloneDX software bill of materials for that release.
+See [Building & releasing](/contributing/building#sbom-and-provenance) for what
+the attestations cover.
+
 ## Staying up to date
 
 Noted checks for new releases on launch and can update itself in place — you are

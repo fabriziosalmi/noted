@@ -130,6 +130,33 @@ own runners with `build:win` / `build:linux` and uploads them — together with
 the `latest-*.yml` auto-update metadata — to the GitHub release. The macOS DMGs
 are built and notarized locally (above) and added to the same release.
 
+## SBOM and provenance {#sbom-and-provenance}
+
+When a release is **published**, `.github/workflows/provenance.yml` downloads
+every installer attached to it (the CI-built Windows/Linux ones and the
+locally-built macOS ones) and adds:
+
+- `sbom.cdx.json` — a CycloneDX 1.5 SBOM of the dependency tree at the release
+  tag. Dev dependencies are included on purpose: the renderer is bundled by Vite
+  at build time, so much of what ships is declared there.
+- `SHA256SUMS` — checksums of the installers and the SBOM — and
+  `SHA256SUMS.sigstore.json`, its keyless [cosign](https://docs.sigstore.dev/)
+  signature.
+- GitHub artifact attestations (SLSA build provenance and SBOM) for each file
+  listed in `SHA256SUMS`.
+
+The workflow only runs once the release is published, so upload the macOS
+assets into the draft *before* clicking Publish. To regenerate the files for an
+existing release, run the workflow manually from the Actions tab with the tag.
+
+::: warning What the attestation does and does not prove
+It proves these exact bytes were published to this release by this repository's
+workflow. For Windows and Linux the build itself also ran in CI. The macOS
+builds are compiled and notarized on the maintainer's machine, because the Apple
+credentials never leave it — for those, the attestation covers the publication
+step, not the compile step.
+:::
+
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on every push and pull request to `main`, on a

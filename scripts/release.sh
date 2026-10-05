@@ -160,5 +160,7 @@ echo "  gh release create v$VERSION ${ASSETS[*]} \\"
 echo "    --title 'Noted $VERSION' --notes-file <notes.md>"
 echo
 echo "  (add --draft first if you want to eyeball it before it goes public)"
+echo "  Publish only AFTER the mac assets are attached: publishing triggers the SBOM +"
+echo "  provenance workflow, which attests everything on the release at that moment."
 echo "  Note: if the vX.Y.Z tag already triggered the CI draft with the Windows/"
 echo "  Linux artifacts, upload into it instead: gh release upload v$VERSION ${ASSETS[*]}"
