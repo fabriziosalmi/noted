@@ -35,6 +35,12 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `.noted/trash/`, with new `list_trash` and `restore_note` tools and a retention
   setting (Settings → MCP, default 30 days). `.noted/` is ignored by the watcher
   and by Git sync.
+- **Renaming a note no longer breaks the links to it.** Renaming or moving a note,
+  and renaming or deleting a folder, now rewrites `[[Old]]`, `[[Old|alias]]` and
+  `[[Old#Heading]]` in every other note on disk (atomic writes, and a history
+  snapshot of each changed note so it can be undone). Retitling a note rewrites the
+  links once, when you move on, not at every pause. New setting: Update links when
+  renaming (Always / Ask / Never).
 - **Tags, "Same project" and backlinks after a restart or an external edit**:
   links and tags now come from one index of the whole vault in the main process,
   built at startup and kept current by the app's own changes and the file watcher.

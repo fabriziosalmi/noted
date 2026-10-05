@@ -47,6 +47,8 @@ export interface DeleteFolderResult {
   moved: number;
   /** "old name → new name" for every entry renamed to avoid a collision. */
   renamed: string[];
+  /** Every NOTE that moved, as vault-relative names: "Folder/Note.md" -> "Note.md" (or its disambiguated name). */
+  moves: { from: string; to: string }[];
 }
 
 /**
@@ -66,7 +68,7 @@ export function deleteFolderMovingContentToRoot(
   resolve: (dir: string, relName: string) => string,
 ): DeleteFolderResult {
   const folderPath = resolve(targetDir, folderName);
-  const result: DeleteFolderResult = { moved: 0, renamed: [] };
+  const result: DeleteFolderResult = { moved: 0, renamed: [], moves: [] };
 
   // Names claimed during this batch, so two entries can't both win the same
   // free name (existsSync alone can't see a move that hasn't happened yet).
@@ -83,6 +85,7 @@ export function deleteFolderMovingContentToRoot(
     fs.renameSync(path.join(folderPath, entry.name), resolve(targetDir, destName));
     result.moved++;
     if (destName !== entry.name) result.renamed.push(`${entry.name} → ${destName}`);
+    if (entry.isFile() && entry.name.endsWith('.md')) result.moves.push({ from: `${folderName}/${entry.name}`, to: destName });
 
     // Carry the note's version history across, the way a rename does — the
     // history of a note in a folder lives under ".noted_history/<folder>/<note>".

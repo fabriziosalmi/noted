@@ -55,6 +55,7 @@ interface Settings {
   mcpSseEnabled?: boolean;
   mcpSsePort?: number;
   mcpTrashRetentionDays?: number;
+  linkUpdateMode?: 'always' | 'ask' | 'never';
   smartTagsEnabled?: boolean;
 }
 
@@ -928,6 +929,18 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                 ]}
                 value={settings.aiGhostMode ?? 'manual'}
                 onChange={v => onUpdate({ aiGhostMode: v as Settings['aiGhostMode'] })}
+              />
+
+              <Seg3
+                label={t('linkUpdateMode')}
+                description={t('linkUpdateModeHelp')}
+                options={[
+                  { value: 'always', label: t('linkUpdateAlways') },
+                  { value: 'ask',    label: t('linkUpdateAsk') },
+                  { value: 'never',  label: t('linkUpdateNever') },
+                ]}
+                value={settings.linkUpdateMode ?? 'always'}
+                onChange={v => onUpdate({ linkUpdateMode: v as Settings['linkUpdateMode'] })}
               />
 
               <div className="divide-y divide-gray-100 dark:divide-gray-700/50">

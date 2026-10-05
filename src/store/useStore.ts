@@ -5,6 +5,8 @@ import { convertTaskListsToTiptap } from '../lib/listUtils';
 import type { NoteTemplate } from '../lib/templates';
 import { otherVersionName } from '../lib/externalChange';
 import type { VaultIndexSnapshot, VaultIndexDelta } from '../lib/vaultIndexTypes';
+import { readLinkUpdateMode, foldRename, isNoopRename, type PendingRename } from '../lib/linkUpdate';
+import { getLinkUpdateUi } from '../lib/linkUpdateUi';
 import { slugifyTitle } from '../lib/noteTitle';
 import { translate } from '../lib/i18n';
 import { getElectronApi } from '../lib/electronApi';
@@ -106,6 +108,8 @@ export interface SettingsState {
   smartTagsEnabled?: boolean;
   // Apple Notes-style: the first line (title) drives the .md filename.
   titleFollowsFilename?: boolean;
+  // After a rename or move, rewrite [[links]] that pointed at the old name.
+  linkUpdateMode?: 'always' | 'ask' | 'never';
 }
 
 export interface FolderInfo {
@@ -237,6 +241,8 @@ interface NoteState {
   renameNote: (oldName: string, newName: string, opts?: { reopen?: boolean }) => Promise<void>;
   syncActiveNoteTitle: (title: string) => Promise<void>;
   clearPendingSelfRename: () => void;
+  // Apply the link rewrite for title-driven renames that were held back (see queueLinkRewrite).
+  flushPendingLinkRewrite: (opts?: { quiet?: boolean }) => Promise<void>;
   announce: (message: string) => void;
   applyAgentAction: (
     action: AgentUiAction,
@@ -267,6 +273,71 @@ function scheduleNotesRefresh(run: () => void): void {
   if (notesRefreshTimer) clearTimeout(notesRefreshTimer);
   notesRefreshTimer = setTimeout(run, 2000);
 }
+
+// ── Link updates after renames ────────────────────────────────────────────────
+// Renaming or moving a note leaves every [[link]] to it pointing at a name that
+// no longer exists, unless the links are rewritten too. Manual renames do it
+// right away; a title-driven rename happens again at every pause while the user
+// retypes a title, so those are held back and applied ONCE (from the original
+// name to the final one) when the user moves on: after a quiet moment, on a note
+// switch, when the window loses focus, or on quit.
+
+const LINK_REWRITE_DEBOUNCE_MS = 5000;
+let pendingLinkRewrite: PendingRename | null = null;
+let linkRewriteTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Test seam. */
+export function _resetLinkRewriteForTest(): void {
+  pendingLinkRewrite = null;
+  if (linkRewriteTimer) clearTimeout(linkRewriteTimer);
+  linkRewriteTimer = null;
+}
+
+type StoreGet = () => NoteState;
+type LinkRenames = { from: string; to: string }[];
+
+/** Should links be rewritten for these renames? Honours Always / Ask / Never. */
+async function wantLinkUpdate(get: StoreGet, renames: LinkRenames, label: string, quiet = false): Promise<boolean> {
+  const mode = readLinkUpdateMode(get().settings.linkUpdateMode);
+  if (mode === 'never') return false;
+  // Always: the main process works out what changes from its own index, so the
+  // renderer's (possibly stale) list is not needed.
+  if (mode === 'always') return true;
+  // Ask: only when there is something to ask about, and someone to ask.
+  const api = getElectronApi();
+  const ui = getLinkUpdateUi();
+  if (quiet || !api || !ui || renames.length === 0) return false;
+  const preview = await api.previewLinkRewrite(renames, get().settings.syncDirectory || undefined);
+  if (!preview.success || !preview.data || preview.data.notes === 0) return false;
+  return ui.confirm({ name: label, notes: preview.data.notes, links: preview.data.links });
+}
+
+function reportLinkUpdate(result: { notes: number; links: number; failed: number } | undefined): void {
+  if (result && (result.links > 0 || result.failed > 0)) getLinkUpdateUi()?.notify(result);
+}
+
+/** Rewrite the links for one (already folded) rename, if the setting and the situation allow. */
+async function settleLinkRewrite(get: StoreGet, pending: PendingRename, quiet = false): Promise<void> {
+  const api = getElectronApi();
+  if (!api || isNoopRename(pending)) return;
+  // A new note has since taken the old name: links to it now mean THAT note.
+  if (get().notes.some(n => n.name.toLowerCase() === pending.from.toLowerCase())) return;
+  if (!(await wantLinkUpdate(get, [pending], bareName(pending.from), quiet))) return;
+  const res = await api.rewriteLinks([pending], get().settings.syncDirectory || undefined);
+  if (res.success) reportLinkUpdate(res.data);
+}
+
+function queueLinkRewrite(get: StoreGet, from: string, to: string): void {
+  if (readLinkUpdateMode(get().settings.linkUpdateMode) === 'never') return;
+  const folded = foldRename(pendingLinkRewrite, { from, to });
+  pendingLinkRewrite = folded.pending;
+  // A different note was renamed meanwhile: settle the earlier one now.
+  if (folded.flush) void settleLinkRewrite(get, folded.flush);
+  if (linkRewriteTimer) clearTimeout(linkRewriteTimer);
+  linkRewriteTimer = setTimeout(() => { void get().flushPendingLinkRewrite(); }, LINK_REWRITE_DEBOUNCE_MS);
+}
+
+const bareName = (n: string) => n.replace(/\.md$/i, '');
 
 export const useStore = create<NoteState>()(
   persist(
@@ -340,6 +411,7 @@ export const useStore = create<NoteState>()(
         mcpTrashRetentionDays: 30,
         smartTagsEnabled: false,
         titleFollowsFilename: true,
+        linkUpdateMode: 'always' as const,
       },
 
       updateSettings: (newSettings) => {
@@ -451,6 +523,8 @@ export const useStore = create<NoteState>()(
   },
 
   openNote: async (fileName: string) => {
+    // Moving on to another note: settle any held-back link rewrite now.
+    if (fileName !== get().activeNoteName) void get().flushPendingLinkRewrite();
     const api = getElectronApi();
     if (api) {
       const res = await api.readNote(fileName, get().settings.syncDirectory || undefined);
@@ -655,8 +729,14 @@ export const useStore = create<NoteState>()(
     if (!newName.endsWith('.md')) newName += '.md';
     const api = getElectronApi();
     if (!api) return;
-    const res = await api.renameNote(oldName, newName, get().settings.syncDirectory || undefined);
+    // A title-driven rename (reopen: false) fires at every pause in typing: its
+    // links are rewritten once, later. A manual rename rewrites them now.
+    const titleDriven = opts?.reopen === false;
+    const updateLinks = !titleDriven && await wantLinkUpdate(get, [{ from: oldName, to: newName }], bareName(oldName));
+    const res = await api.renameNote(oldName, newName, get().settings.syncDirectory || undefined, { updateLinks });
     if (!res.success) throw new Error(res.error ?? translate('errRenameFailed', get().settings.language));
+    if (titleDriven) queueLinkRewrite(get, oldName, newName);
+    else reportLinkUpdate(res.links);
 
     const currentNotesOrder = get().customNotesOrder || [];
     const newNotesOrder = currentNotesOrder.map(n => n === oldName ? newName : n);
@@ -683,6 +763,13 @@ export const useStore = create<NoteState>()(
       // Re-open by name so activeNoteContent is in sync with the renamed file.
       await get().openNote(newName);
     }
+  },
+
+  flushPendingLinkRewrite: async (opts) => {
+    const pending = pendingLinkRewrite;
+    pendingLinkRewrite = null;
+    if (linkRewriteTimer) { clearTimeout(linkRewriteTimer); linkRewriteTimer = null; }
+    if (pending) await settleLinkRewrite(get, pending, opts?.quiet);
   },
 
   clearPendingSelfRename: () => set({ pendingSelfRename: null }),
@@ -831,8 +918,12 @@ export const useStore = create<NoteState>()(
   renameFolder: async (oldName: string, newName: string) => {
     const api = getElectronApi();
     if (!api) return;
-    const res = await api.renameFolder(oldName, newName, get().settings.syncDirectory || undefined);
+    const inFolder = get().noteFolders.find(f => f.name === oldName)?.notes ?? [];
+    const folderRenames = inFolder.map(n => ({ from: n.name, to: `${newName}/${n.name.slice(oldName.length + 1)}` }));
+    const updateLinks = await wantLinkUpdate(get, folderRenames, oldName);
+    const res = await api.renameFolder(oldName, newName, get().settings.syncDirectory || undefined, { updateLinks });
     if (!res.success) throw new Error(res.error ?? translate('errRenameFolder', get().settings.language));
+    reportLinkUpdate(res.links);
     
     const currentFoldersOrder = get().customFoldersOrder || [];
     const newFoldersOrder = currentFoldersOrder.map(f => f === oldName ? newName : f);
@@ -861,8 +952,14 @@ export const useStore = create<NoteState>()(
   deleteFolder: async (name: string) => {
     const api = getElectronApi();
     if (!api) return [];
-    const res = await api.deleteFolder(name, get().settings.syncDirectory || undefined);
+    // Notes move to the vault root; (the preview assumes the plain file name, the
+    // main process uses the real, collision-free one when it rewrites).
+    const leaving = get().noteFolders.find(f => f.name === name)?.notes ?? [];
+    const rootMoves = leaving.map(n => ({ from: n.name, to: n.name.slice(name.length + 1) }));
+    const updateLinks = await wantLinkUpdate(get, rootMoves, name);
+    const res = await api.deleteFolder(name, get().settings.syncDirectory || undefined, { updateLinks });
     if (!res.success) throw new Error(res.error ?? translate('errDeleteFolder', get().settings.language));
+    reportLinkUpdate(res.links);
 
     const currentFoldersOrder = get().customFoldersOrder || [];
     const currentNotesOrder = get().customNotesOrder || [];
@@ -880,8 +977,11 @@ export const useStore = create<NoteState>()(
   moveNote: async (fileName: string, toFolder: string) => {
     const api = getElectronApi();
     if (!api) return;
-    const res = await api.moveNote(fileName, toFolder, get().settings.syncDirectory || undefined);
+    const destination = toFolder ? `${toFolder}/${fileName.slice(fileName.lastIndexOf('/') + 1)}` : fileName.slice(fileName.lastIndexOf('/') + 1);
+    const updateLinks = await wantLinkUpdate(get, [{ from: fileName, to: destination }], bareName(fileName));
+    const res = await api.moveNote(fileName, toFolder, get().settings.syncDirectory || undefined, { updateLinks });
     if (!res.success) throw new Error(res.error ?? translate('errMoveNote', get().settings.language));
+    reportLinkUpdate(res.links);
     const { activeNoteName } = get();
     
     const newPath = res.data as string;

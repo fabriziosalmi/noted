@@ -45,6 +45,9 @@ each feature behaves.
 - **Show hints** — inline onboarding hints (on by default).
 - **Title follows filename** — rename the `.md` file to match the note's title
   (on by default).
+- **Update links when renaming** — when a note is renamed or moved, rewrite the
+  `[[links]]` to it in other notes: Always (default), Ask, or Never. See
+  [Wikilinks](/guide/organizing-notes#renaming-and-moving-notes).
 
 ## Sync
 
