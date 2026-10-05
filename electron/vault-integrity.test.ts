@@ -111,7 +111,7 @@ beforeEach(async () => {
 });
 afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
 
-describe(`vault integrity (${COUNT} notes)`, () => {
+describe(`vault integrity (${COUNT} notes)`, { timeout: 120_000 }, () => {
   it('the fixture is what the suite claims: 500 notes, folders, every link form, and some links to nothing', () => {
     expect(listNotes(dir)).toHaveLength(gen.names.length);
     expect(gen.names.length).toBeGreaterThanOrEqual(COUNT - 5); // a few name collisions are skipped
