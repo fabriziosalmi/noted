@@ -13,6 +13,26 @@ link rendered as `[[Note name]]`.
   **creates it on the spot** and opens it — dead links never lead to a dead end.
 - With the cursor on a link, press <kbd>Mod+Enter</kbd> to follow it from the
   keyboard.
+- A link can carry an alias and a heading: `[[Note|shown text]]`,
+  `[[Note#Heading]]`, or both. They all count as links to `Note`.
+
+### Renaming and moving notes
+
+Rename or move a note, or rename or delete a folder, and the links that pointed
+at it are **rewritten in the other notes** (`[[Old]]`, `[[Old|alias]]` and
+`[[Old#Heading]]` all become `[[New…]]`), so nothing is left dangling. Every note
+that changes keeps a snapshot of its previous text in its
+[history](/guide/editor), so the change can be undone.
+
+When the name comes from the note's title, Noted does not rewrite links on every
+pause while you retype it: it waits until you stop, switch to another note, leave
+the window, or quit, and then rewrites them once, from the original name to the
+final one.
+
+The **Update links when renaming** setting (Settings → Editor) picks **Always**
+(default), **Ask** (a prompt tells you how many links in how many notes would
+change) or **Never**. With **Ask**, a held-back title rename asks when it settles,
+and not at all on quit.
 
 ## Backlinks
 

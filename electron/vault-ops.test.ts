@@ -163,7 +163,23 @@ describe('deleteFolderMovingContentToRoot', () => {
 
     const res = deleteFolderMovingContentToRoot(vault, 'Empty', resolve);
 
-    expect(res).toEqual({ moved: 0, renamed: [] });
+    expect(res).toEqual({ moved: 0, renamed: [], moves: [] });
     expect(exists('Empty')).toBe(false);
+  });
+
+  it('reports every moved NOTE with its final name, including collision renames (for link updates)', () => {
+    fs.mkdirSync(path.join(vault, 'Archive'));
+    fs.writeFileSync(path.join(vault, 'Archive', 'Plan.md'), 'in folder');
+    fs.writeFileSync(path.join(vault, 'Archive', 'Solo.md'), 'solo');
+    fs.writeFileSync(path.join(vault, 'Archive', 'pic.png'), 'png');
+    fs.writeFileSync(path.join(vault, 'Plan.md'), 'already at root');
+
+    const res = deleteFolderMovingContentToRoot(vault, 'Archive', resolve);
+
+    expect(res.moves.sort((a, b) => a.from.localeCompare(b.from))).toEqual([
+      { from: 'Archive/Plan.md', to: 'Plan (Archive).md' },
+      { from: 'Archive/Solo.md', to: 'Solo.md' },
+    ]); // media are moved too but are not notes: no link points at them
+    expect(res.moved).toBe(3);
   });
 });

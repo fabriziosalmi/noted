@@ -10,6 +10,7 @@ import { useNoteChunks } from './hooks/useNoteChunks';
 import { useAppLifecycle } from './hooks/useAppLifecycle';
 import { useGitSync } from './hooks/useGitSync';
 import { useVaultIndex } from './hooks/useVaultIndex';
+import { registerLinkUpdateUi } from './lib/linkUpdateUi';
 import { useGitSyncStore } from './store/gitSyncStore';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { useAppActions } from './hooks/useAppActions';
@@ -367,6 +368,31 @@ function App() {
     const title = activeNoteName.replace(/\.md$/i, '').split('/').pop() || activeNoteName;
     announce(`${t('noteOpened')} ${title}`);
   }, [activeNoteName, announce, t]);
+
+  // Link updates after renames: the store decides when, the UI asks and reports.
+  // A held-back (title-driven) rewrite is also settled when the window loses focus.
+  const linkUpdateDeps = useRef({ confirm, toast, t });
+  useEffect(() => { linkUpdateDeps.current = { confirm, toast, t }; });
+  useEffect(() => {
+    registerLinkUpdateUi({
+      confirm: ({ name, notes, links }) => {
+        const { confirm: ask, t: tr } = linkUpdateDeps.current;
+        return ask({
+          message: tr('linkUpdateConfirm').replace('{name}', name).replace('{links}', String(links)).replace('{notes}', String(notes)),
+          confirmLabel: tr('linkUpdateConfirmYes'),
+          cancelLabel: tr('linkUpdateConfirmNo'),
+        });
+      },
+      notify: ({ notes, links, failed }) => {
+        const { toast: show, t: tr } = linkUpdateDeps.current;
+        if (failed > 0) show(tr('linkUpdatePartial').replace('{n}', String(failed)), 'error');
+        else show(tr('linkUpdateDone').replace('{links}', String(links)).replace('{notes}', String(notes)), 'success');
+      },
+    });
+    const onBlur = () => { void useStore.getState().flushPendingLinkRewrite(); };
+    window.addEventListener('blur', onBlur);
+    return () => { registerLinkUpdateUi(null); window.removeEventListener('blur', onBlur); };
+  }, []);
 
   // Tell the user once when sync pauses on a conflict. The engine reports
   // 'syncing' on every cycle, so compare against the last settled phase, or a

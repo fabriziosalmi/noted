@@ -12,6 +12,8 @@ import { sanitizeGitError } from './git-ops.js';
 import * as gitSync from './git-sync.js';
 import { FullTextSearchReadModel } from './fulltext-index.js';
 import { VaultIndex } from './vault-index.js';
+import { applyRewrite, previewRewrite, type RewriteDeps, type RewriteOutcome } from './link-rewrite.js';
+import type { NoteRename } from '../shared/vault/links.js';
 import { logEvent, newRequestId } from './structured-log.js';
 import { checkForUpdates, scheduleStartupUpdateCheck } from './updater.js';
 import { installStdioEpipeGuard } from './stdio-guard.js';
@@ -777,7 +779,7 @@ const MAX_HISTORY_SNAPSHOTS = 20;
 const SNAPSHOT_MIN_DIFF_CHARS = 200;
 const SNAPSHOT_MIN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
-async function saveSnapshot(targetDir: string, fileName: string, content: string): Promise<void> {
+async function saveSnapshot(targetDir: string, fileName: string, content: string, opts?: { force?: boolean }): Promise<void> {
   try {
     const histDir = path.join(targetDir, '.noted_history', fileName);
     await fs.promises.mkdir(histDir, { recursive: true });
@@ -796,7 +798,11 @@ async function saveSnapshot(targetDir: string, fileName: string, content: string
         const stat = await fs.promises.stat(latestPath);
         ageMs = Date.now() - stat.mtimeMs;
       } catch { /* ignore */ }
-      if (diff < SNAPSHOT_MIN_DIFF_CHARS && ageMs < SNAPSHOT_MIN_INTERVAL_MS) {
+      if (opts?.force) {
+        // A change that must be undoable (a link rewrite): keep this exact content,
+        // unless it is already the latest snapshot.
+        if (prevContent === content) return;
+      } else if (diff < SNAPSHOT_MIN_DIFF_CHARS && ageMs < SNAPSHOT_MIN_INTERVAL_MS) {
         return; // not worth a new snapshot
       }
     }
@@ -838,6 +844,55 @@ async function fsyncDir(dir: string): Promise<void> {
   } finally {
     await fh?.close();
   }
+}
+
+/** Durable, atomic note write (temp file, fsync, rename, fsync dir). Same recipe as save-note. */
+async function writeNoteAtomic(targetDir: string, fileName: string, content: string): Promise<void> {
+  const filePath = safeResolve(targetDir, fileName);
+  const tmpPath = `${filePath}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
+  await writeFileDurable(tmpPath, content);
+  await fs.promises.rename(tmpPath, filePath);
+  await fsyncDir(path.dirname(filePath));
+}
+
+/**
+ * How link rewriting touches the vault. Deliberately NOT marked as an app write:
+ * the file watcher then reports each rewritten note like any external change, so
+ * a note open in the editor is reloaded (or, if the user is typing, kept beside
+ * the other version) instead of being overwritten by the editor's stale buffer.
+ */
+function linkRewriteDeps(targetDir: string): RewriteDeps {
+  return {
+    vaultIndex,
+    readNote: (name) => fs.promises.readFile(safeResolve(targetDir, name), 'utf-8'),
+    snapshotBefore: (name, previous) => saveSnapshot(targetDir, name, previous, { force: true }),
+    writeNote: async (name, content) => {
+      await writeNoteAtomic(targetDir, name, content);
+      fullTextSearchIndex.upsertFromRaw(targetDir, name, content);
+      vaultIndex.upsertFromRaw(targetDir, name, content);
+    },
+  };
+}
+
+interface LinkUpdateResult { notes: number; links: number; failed: number }
+
+async function rewriteLinks(targetDir: string, renames: NoteRename[]): Promise<LinkUpdateResult> {
+  const out: RewriteOutcome = await applyRewrite(targetDir, renames, linkRewriteDeps(targetDir));
+  if (out.failed.length > 0) logEvent('warn', 'link_rewrite_partial', { failed: out.failed.length, first: out.failed[0].error });
+  logEvent('info', 'link_rewrite', { renames: renames.length, notes: out.notes.length, links: out.links });
+  return { notes: out.notes.length, links: out.links, failed: out.failed.length };
+}
+
+/** Validate a renderer-supplied rename list (untrusted). */
+function parseRenames(input: unknown): NoteRename[] {
+  if (!Array.isArray(input) || input.length > 5000) throw new Error('Invalid renames');
+  return input.map((r) => {
+    const { from, to } = (r ?? {}) as { from?: unknown; to?: unknown };
+    if (typeof from !== 'string' || typeof to !== 'string') throw new Error('Invalid rename');
+    validateFileName(from);
+    validateFileName(to);
+    return { from, to };
+  });
 }
 
 ipcMain.handle('save-note', async (_, fileName: string, content: string, syncDir?: string) => {
@@ -907,7 +962,7 @@ ipcMain.handle('read-note-snapshot', async (_, fileName: string, snapshotName: s
   }
 });
 
-ipcMain.handle('rename-note', (_, oldName: string, newName: string, syncDir?: string) => {
+ipcMain.handle('rename-note', async (_, oldName: string, newName: string, syncDir?: string, opts?: { updateLinks?: boolean }) => {
   try {
     validateFileName(oldName);
     validateFileName(newName);
@@ -932,7 +987,8 @@ ipcMain.handle('rename-note', (_, oldName: string, newName: string, syncDir?: st
     markAppWrite(targetDir, newName);
     fullTextSearchIndex.renameDoc(targetDir, oldName, newName);
     vaultIndex.renameDoc(targetDir, oldName, newName);
-    return { success: true };
+    const links = opts?.updateLinks ? await rewriteLinks(targetDir, [{ from: oldName, to: newName }]) : undefined;
+    return { success: true, links };
   } catch (error: unknown) {
     const err = error as Error;
     return { success: false, error: err.message };
@@ -1237,7 +1293,7 @@ ipcMain.handle('create-folder', (_, folderName: string, syncDir?: string) => {
   }
 });
 
-ipcMain.handle('rename-folder', (_, oldName: string, newName: string, syncDir?: string) => {
+ipcMain.handle('rename-folder', async (_, oldName: string, newName: string, syncDir?: string, opts?: { updateLinks?: boolean }) => {
   try {
     validateFolderName(oldName);
     validateFolderName(newName);
@@ -1246,16 +1302,22 @@ ipcMain.handle('rename-folder', (_, oldName: string, newName: string, syncDir?: 
     const newPath = safeResolve(targetDir, newName);
     if (!fs.existsSync(oldPath)) throw new Error(`Folder "${oldName}" not found`);
     if (fs.existsSync(newPath)) throw new Error(`Folder "${newName}" already exists`);
+    // Which notes are in the folder, before it moves (the index is by note name).
+    await vaultIndex.ensure(targetDir);
+    const renames: NoteRename[] = vaultIndex.names(targetDir)
+      .filter((n) => n.startsWith(`${oldName}/`))
+      .map((n) => ({ from: n, to: `${newName}/${n.slice(oldName.length + 1)}` }));
     fs.renameSync(oldPath, newPath);
     fullTextSearchIndex.markDirty(targetDir);
-    void vaultIndex.reconcile(targetDir);
-    return { success: true };
+    await vaultIndex.reconcile(targetDir);
+    const links = opts?.updateLinks && renames.length ? await rewriteLinks(targetDir, renames) : undefined;
+    return { success: true, links };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
 });
 
-ipcMain.handle('delete-folder', (_, folderName: string, syncDir?: string) => {
+ipcMain.handle('delete-folder', async (_, folderName: string, syncDir?: string, opts?: { updateLinks?: boolean }) => {
   try {
     validateFolderName(folderName);
     const targetDir = getTargetDir(syncDir);
@@ -1263,16 +1325,18 @@ ipcMain.handle('delete-folder', (_, folderName: string, syncDir?: string) => {
     if (!fs.existsSync(folderPath)) throw new Error(`Folder "${folderName}" not found`);
     // Moves the folder's contents to the root without ever overwriting a note
     // that's already there, then removes the folder.
-    const { moved, renamed } = deleteFolderMovingContentToRoot(targetDir, folderName, safeResolve);
+    await vaultIndex.ensure(targetDir);
+    const { moved, renamed, moves } = deleteFolderMovingContentToRoot(targetDir, folderName, safeResolve);
     fullTextSearchIndex.markDirty(targetDir);
-    void vaultIndex.reconcile(targetDir);
-    return { success: true, data: { moved, renamed } };
+    await vaultIndex.reconcile(targetDir);
+    const links = opts?.updateLinks && moves.length ? await rewriteLinks(targetDir, moves) : undefined;
+    return { success: true, data: { moved, renamed }, links };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
 });
 
-ipcMain.handle('move-note', (_, fileName: string, toFolder: string, syncDir?: string) => {
+ipcMain.handle('move-note', async (_, fileName: string, toFolder: string, syncDir?: string, opts?: { updateLinks?: boolean }) => {
   try {
     validateFileName(fileName);
     if (toFolder !== '') validateFolderName(toFolder);
@@ -1293,7 +1357,8 @@ ipcMain.handle('move-note', (_, fileName: string, toFolder: string, syncDir?: st
     const movedRelPath = toFolder ? `${toFolder}/${baseName}` : baseName;
     fullTextSearchIndex.renameDoc(targetDir, fileName, movedRelPath);
     vaultIndex.renameDoc(targetDir, fileName, movedRelPath);
-    return { success: true, data: movedRelPath };
+    const links = opts?.updateLinks ? await rewriteLinks(targetDir, [{ from: fileName, to: movedRelPath }]) : undefined;
+    return { success: true, data: movedRelPath, links };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -1535,6 +1600,31 @@ ipcMain.handle('search-notes-fulltext', async (_, query: string, syncDir?: strin
     truncated,
   });
   return { success: true, data: results, truncated };
+});
+
+// ─── Link updates after renames ───────────────────────────────────────────────
+
+// How many notes/links WOULD change for these renames — for the "Ask" setting.
+ipcMain.handle('preview-link-rewrite', async (_, renames: unknown, syncDir?: string) => {
+  try {
+    const dir = getTargetDir(syncDir);
+    await vaultIndex.ensure(dir);
+    return { success: true, data: await previewRewrite(dir, parseRenames(renames), linkRewriteDeps(dir)) };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
+// Rewrite links for renames already done (title-driven renames are applied later,
+// once, instead of on every keystroke-pause).
+ipcMain.handle('rewrite-links', async (_, renames: unknown, syncDir?: string) => {
+  try {
+    const dir = getTargetDir(syncDir);
+    await vaultIndex.ensure(dir);
+    return { success: true, data: await rewriteLinks(dir, parseRenames(renames)) };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
 });
 
 // ─── Vault index IPC ──────────────────────────────────────────────────────────
