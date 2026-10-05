@@ -8,6 +8,9 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The version in the sidebar showed Electron's, not Noted's, when run from source**
+  (e.g. `v42.10.0` instead of `v1.3.7`). It now reads the project's `package.json`
+  when the app is not packaged; installed builds were never affected.
 - **Linux: the app could freeze while git sync merged.** Node's recursive file
   watcher on Linux watched `.git` too and locked up the whole app when git
   created and removed its temporary worktree there. The vault is now watched
