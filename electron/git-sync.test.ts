@@ -27,7 +27,9 @@ const savedEnv: Record<string, string | undefined> = {};
 beforeAll(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'noted-sync-test-'));
   emptyConfig = path.join(root, 'empty.gitconfig');
-  fs.writeFileSync(emptyConfig, '');
+  // useConfigOnly: git must not guess an identity from the hostname. CI runners
+  // can't, and machines that can would hide a missing-identity bug.
+  fs.writeFileSync(emptyConfig, '[user]\n\tuseConfigOnly = true\n');
   for (const k of ['GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM', 'GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL']) {
     savedEnv[k] = process.env[k];
   }

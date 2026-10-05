@@ -115,7 +115,12 @@ async function tryRaw(g: SimpleGit, args: string[]): Promise<string> {
 
 let identityCache = new Map<string, string[]>();
 
-/** `-c user.*` flags, only when the repo has no identity of its own configured. */
+/**
+ * `-c user.*` flags, only when the repo has no identity of its own configured.
+ * Needed on EVERY command that updates a ref (commit, merge, worktree add, ...):
+ * git refuses with "Committer identity unknown" when it cannot guess one, which
+ * is the normal case on CI runners and fresh Linux/Windows installs.
+ */
 async function identityArgs(g: SimpleGit, dir: string): Promise<string[]> {
   const cached = identityCache.get(dir);
   if (cached) return cached;
@@ -288,12 +293,13 @@ async function describeConflicts(dir: string, unmerged: Map<string, Stages>): Pr
 
 async function withTempWorktree<T>(
   g: SimpleGit,
+  id: string[],
   fn: (wt: SimpleGit) => Promise<T>,
 ): Promise<T> {
   await tryRaw(g, ['worktree', 'prune']); // forget worktrees a crashed run left behind
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'noted-sync-'));
   try {
-    await g.raw(['worktree', 'add', '--detach', tmp, 'HEAD']);
+    await g.raw([...id, 'worktree', 'add', '--detach', tmp, 'HEAD']);
     return await fn(gitFor(tmp));
   } finally {
     await tryRaw(g, ['worktree', 'remove', '--force', tmp]);
@@ -320,10 +326,10 @@ async function mergeInWorktree(
   resolutions?: ConflictResolution[],
 ): Promise<MergeOutcome> {
   const id = await identityArgs(g, dir);
-  return withTempWorktree(g, async wt => {
+  return withTempWorktree(g, id, async wt => {
     let mergeError: Error | null = null;
     try {
-      await wt.raw(['merge', '--no-commit', '--no-ff', theirs]);
+      await wt.raw([...id, 'merge', '--no-commit', '--no-ff', theirs]);
     } catch (e) {
       mergeError = e as Error;
     }
@@ -457,9 +463,9 @@ async function cycle(
       });
     }
     // Conflict-free (or resolved): move the real branch onto the finished merge commit.
-    await g.raw(['merge', '--ff-only', outcome.commit]);
+    await g.raw([...(await identityArgs(g, dir)), 'merge', '--ff-only', outcome.commit]);
   } else if (behind > 0) {
-    await g.raw(['merge', '--ff-only', upstream]);
+    await g.raw([...(await identityArgs(g, dir)), 'merge', '--ff-only', upstream]);
   } else if (resolutions && resolutions.length > 0) {
     throw new StaleResolution('There is nothing left to resolve. Sync again.');
   }
