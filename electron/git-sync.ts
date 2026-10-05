@@ -120,6 +120,12 @@ function gitFor(dir: string, trimmed = true): SimpleGit {
     maxConcurrentProcesses: 1,
     trimmed,
     timeout: { block: GIT_TIMEOUT_MS },
+    // Git's automatic gc/maintenance, started after a commit/merge, normally
+    // detaches into the background. Left detached it was still running (and
+    // holding the worktree) when we cleaned up, and `git worktree remove` hung
+    // for minutes on Linux CI (traced: the last command started, never ended).
+    // Run it in the foreground instead: same housekeeping, no stray process.
+    config: ['gc.autoDetach=false', 'maintenance.autoDetach=false'],
   });
   if (trace) {
     g.outputHandler((_cmd, stdout, _stderr, args) => {
@@ -363,7 +369,8 @@ async function withTempWorktree<T>(
     await g.raw([...id, 'worktree', 'add', '--detach', tmp, 'HEAD']);
     return await fn(gitFor(tmp), tmp);
   } finally {
-    await tryRaw(g, ['worktree', 'remove', '--force', tmp]);
+    // Delete the directory ourselves and let `prune` forget its bookkeeping:
+    // `worktree remove` also inspects the worktree, which is what hung.
     fs.rmSync(tmp, { recursive: true, force: true });
     await tryRaw(g, ['worktree', 'prune']);
   }
