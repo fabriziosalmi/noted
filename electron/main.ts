@@ -1609,6 +1609,7 @@ ipcMain.handle('git-commit-all', async (_, message: string, syncDir?: string) =>
 if (process.env.NOTED_GIT_TRACE) {
   gitSync.setSyncTrace((e) => logEvent('info', 'git_cmd', {
     phase: e.phase, id: e.id, ms: e.ms, args: sanitizeGitError(e.args.join(' ')).slice(0, 200),
+    detail: e.detail?.slice(0, 4000),
   }));
 }
 

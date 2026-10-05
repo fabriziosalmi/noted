@@ -20,6 +20,7 @@
  */
 
 import simpleGit, { type SimpleGit } from 'simple-git';
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -95,11 +96,26 @@ function forbidPrompts(): void {
 }
 
 export interface GitTraceEvent {
-  phase: 'start' | 'end';
+  phase: 'start' | 'end' | 'stalled';
   /** Correlates a start with its end; a start with no end is a command that never returned. */
   id: number;
   args: string[];
   ms?: number;
+  /** For `stalled`: the process table at that moment, to see what git is waiting on. */
+  detail?: string;
+}
+
+const STALL_MS = 10_000;
+
+/** Process table snapshot (POSIX only), for diagnosing a git command that never returns. */
+function processSnapshot(): string {
+  if (process.platform === 'win32') return 'n/a';
+  try {
+    return execFileSync('ps', ['-eo', 'pid,ppid,stat,etime,wchan:20,args'], { encoding: 'utf8', timeout: 5000 })
+      .split('\n').filter(l => /git|PID/.test(l)).slice(0, 40).join('\n');
+  } catch (e) {
+    return `ps failed: ${(e as Error).message}`;
+  }
 }
 
 let trace: ((e: GitTraceEvent) => void) | null = null;
@@ -133,9 +149,14 @@ function gitFor(dir: string, trimmed = true): SimpleGit {
       const t0 = Date.now();
       try { trace?.({ phase: 'start', id, args: [...args] }); } catch { /* tracing must never break sync */ }
       let done = false;
+      const stall = setTimeout(() => {
+        try { trace?.({ phase: 'stalled', id, args: [...args], ms: Date.now() - t0, detail: processSnapshot() }); } catch { /* ignore */ }
+      }, STALL_MS);
+      stall.unref();
       const end = () => {
         if (done) return;
         done = true;
+        clearTimeout(stall);
         try { trace?.({ phase: 'end', id, args: [...args], ms: Date.now() - t0 }); } catch { /* ignore */ }
       };
       stdout.once('close', end);
