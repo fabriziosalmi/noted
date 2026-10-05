@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { marked } from 'marked';
 import { convertTaskListsToTiptap } from '../lib/listUtils';
 import type { NoteTemplate } from '../lib/templates';
+import { otherVersionName } from '../lib/externalChange';
 import { extractWikilinks } from '../lib/WikilinkExtension';
 import { extractTags } from '../lib/tagUtils';
 import { slugifyTitle } from '../lib/noteTitle';
@@ -81,6 +82,10 @@ export interface SettingsState {
   gitEnabled?: boolean;
   gitRemote?: string;
   gitAutoCommit?: boolean;
+  // Background sync (pull -> commit -> push); see lib/gitSyncPolicy.ts for the rules.
+  gitSyncMode?: 'off' | 'interval' | 'idle';
+  gitSyncIntervalMin?: number;
+  gitSyncIdleSec?: number;
   gitDefaultBase?: string;   // default base branch for PRs, e.g. 'main'
   gitGhToken?: string;       // NOT persisted — loaded via safeStorage
   ragTopK?: number;
@@ -158,6 +163,24 @@ function ensureOptimisticNoteVisible(
   return upsertOptimisticNote(state.notes, state.noteFolders, createOptimisticNote(fileName, content));
 }
 
+/**
+ * Turn a note file's raw text into what the editor shows: HTML notes carry a
+ * frontmatter comment, legacy Markdown notes carry YAML frontmatter and are
+ * converted. Shared by opening a note and by re-reading it after an external
+ * change, so both agree on what "the same content" means.
+ */
+function parseNoteFile(raw: string): { content: string; frontmatter: string | null } {
+  if (raw.trimStart().startsWith('<')) {
+    const extracted = extractHtmlFrontmatterComment(raw);
+    return { content: extracted.body, frontmatter: extracted.frontmatter };
+  }
+  const extracted = extractMarkdownFrontmatter(raw);
+  return {
+    content: convertTaskListsToTiptap(marked.parse(extracted.body, { breaks: true, gfm: true, async: false }) as string),
+    frontmatter: extracted.frontmatter,
+  };
+}
+
 interface NoteState {
   notes: NoteFile[];           // flat list (root + all subfolders) for search/backlinks
   noteFolders: FolderInfo[];   // subfolders with their notes
@@ -172,6 +195,16 @@ interface NoteState {
   // Set during a title->filename self-rename so the editor can skip its
   // reload/refocus (the content is already live in the editor).
   pendingSelfRename: string | null;
+  // Set when the vault watcher reports that the OPEN note changed on disk behind
+  // the editor's back. The editor reacts to it (see lib/externalChange.ts).
+  externalChange: { name: string; seq: number } | null;
+  notifyExternalChange: (name: string) => void;
+  // Read a note as it is on disk right now, parsed like openNote does. null when unreadable.
+  readNoteFromDisk: (name: string) => Promise<{ raw: string; content: string; frontmatter: string | null } | null>;
+  // Adopt content that was changed on disk as the open note's content (editor reloads separately).
+  applyExternalContent: (name: string, content: string, frontmatter: string | null) => void;
+  // Save the other side of a concurrent edit as a sibling note; resolves to its name.
+  saveOtherVersion: (name: string, raw: string) => Promise<string | null>;
 
   // Screen-reader live-region message (opened/renamed announcements). Rendered
   // in a visually-hidden aria-live region at the app root.
@@ -245,6 +278,7 @@ export const useStore = create<NoteState>()(
       noteFolders: [],
       lastOpenedNote: null,
       pendingSelfRename: null,
+      externalChange: null,
       srAnnouncement: '',
       customNotesOrder: [],
       customFoldersOrder: [],
@@ -274,6 +308,9 @@ export const useStore = create<NoteState>()(
         gitEnabled: false,
         gitRemote: '',
         gitAutoCommit: false,
+        gitSyncMode: 'off' as const,
+        gitSyncIntervalMin: 5,
+        gitSyncIdleSec: 30,
         gitDefaultBase: 'main',
         gitGhToken: '',
         ragTopK: 3,
@@ -411,18 +448,7 @@ export const useStore = create<NoteState>()(
     if (api) {
       const res = await api.readNote(fileName, get().settings.syncDirectory || undefined);
       if (res.success && res.data !== undefined) {
-        let content = res.data as string;
-        let frontmatter: string | null = null;
-        const trimmed = content.trimStart();
-        if (trimmed.startsWith('<')) {
-          const extracted = extractHtmlFrontmatterComment(content);
-          frontmatter = extracted.frontmatter;
-          content = extracted.body;
-        } else {
-          const extracted = extractMarkdownFrontmatter(content);
-          frontmatter = extracted.frontmatter;
-          content = convertTaskListsToTiptap(marked.parse(extracted.body, { breaks: true, gfm: true, async: false }) as string);
-        }
+        const { content, frontmatter } = parseNoteFile(res.data as string);
         const links = extractWikilinks(content);
         set(state => ({
           activeNoteName: fileName,
@@ -434,6 +460,57 @@ export const useStore = create<NoteState>()(
         }));
       }
     }
+  },
+
+  notifyExternalChange: (name: string) => {
+    set(state => ({ externalChange: { name, seq: (state.externalChange?.seq ?? 0) + 1 } }));
+  },
+
+  readNoteFromDisk: async (name: string) => {
+    const api = getElectronApi();
+    if (!api) return null;
+    const res = await api.readNote(name, get().settings.syncDirectory || undefined);
+    if (!res.success || res.data === undefined) return null;
+    return { raw: res.data as string, ...parseNoteFile(res.data as string) };
+  },
+
+  applyExternalContent: (name: string, content: string, frontmatter: string | null) => {
+    // The user may have switched notes while we were reading; never put one
+    // note's text into another.
+    if (get().activeNoteName !== name) return;
+    const links = extractWikilinks(content);
+    const tags = extractTags(content);
+    set(state => {
+      const tagIndex = { ...state.tagIndex };
+      for (const tag of Object.keys(tagIndex)) {
+        tagIndex[tag] = tagIndex[tag].filter(n => n !== name);
+        if (!tagIndex[tag].length) delete tagIndex[tag];
+      }
+      for (const tag of tags) (tagIndex[tag] ??= []).push(name);
+      return {
+        activeNoteContent: content,
+        activeNoteFrontmatter: frontmatter,
+        noteLinksIndex: { ...state.noteLinksIndex, [name]: links },
+        tagIndex,
+      };
+    });
+  },
+
+  saveOtherVersion: async (name: string, raw: string) => {
+    const api = getElectronApi();
+    if (!api) return null;
+    // Ask the disk, not the (debounced, possibly stale) in-memory list, so a
+    // copy made a moment ago is never overwritten.
+    const listed = await api.getNotesList(get().settings.syncDirectory || undefined);
+    const existing = [
+      ...get().notes.map(n => n.name),
+      ...((listed.success && Array.isArray(listed.data) ? listed.data : []) as { name?: string }[]).map(n => n.name ?? ''),
+    ];
+    const target = otherVersionName(name, existing);
+    const res = await api.saveNote(target, raw, get().settings.syncDirectory || undefined);
+    if (!res.success) return null;
+    void get().fetchNotes();
+    return target;
   },
 
   saveActiveNote: async (content: string) => {

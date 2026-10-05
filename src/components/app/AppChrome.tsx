@@ -224,6 +224,7 @@ export function AppChrome({
                     saveActiveNote={onSaveActiveNote}
                     onEditorReady={onEditorReady}
                     onAiError={onToastError}
+                    onNotice={onToast}
                     allNoteNames={allNoteNames}
                     allTags={allTags}
                     backlinks={backlinks}
