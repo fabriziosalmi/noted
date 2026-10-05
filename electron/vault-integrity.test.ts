@@ -71,9 +71,16 @@ function restore(name: string, content: string) {
   deletedTargets.delete(bare(name));
 }
 
+// Every external edit gets its own, strictly later mtime. The index tells an edit
+// from an echo by (mtime, size); two edits of the same note in the same
+// millisecond with equal-length text would otherwise be indistinguishable, which
+// is a property of the filesystem timestamps, not of what this suite checks.
+let externalClock = Date.now() + 10_000;
+
 async function externalEdit(name: string, html: string) {
   fs.writeFileSync(abs(name), html);
-  fs.utimesSync(abs(name), new Date(Date.now() + 10_000 + Math.floor(Math.random() * 1000)), new Date(Date.now() + 10_000));
+  const mtime = new Date(externalClock += 5);
+  fs.utimesSync(abs(name), mtime, mtime);
   await index.touch(dir, name);
 }
 
