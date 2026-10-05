@@ -12,6 +12,7 @@
 import simpleGit, { type SimpleGit, type DefaultLogFields } from 'simple-git';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { withRepoLock } from './repo-lock';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,7 +59,10 @@ export function sanitizeGitError(msg: string): string {
     .replace(/\b(ghp|ghs|gho|ghr|github_pat)_[A-Za-z0-9_]{20,}/g, '[redacted-token]')
     .replace(/Bearer\s+[A-Za-z0-9\-._~+/]{8,}/gi, 'Bearer [redacted]')
     .replace(/\bx-access-token:[^@\s]+/gi, 'x-access-token:[redacted]')
-    .replace(/(authorization\s*:\s*)[^\s,;]+/gi, '$1[redacted]');
+    .replace(/(authorization\s*:\s*)[^\s,;]+/gi, '$1[redacted]')
+    // user:password@ credentials embedded in any remote URL (GitLab PATs, basic auth, ...)
+    .replace(/(\b[a-z][a-z0-9+.-]*:\/\/)[^\s/@:]+:[^\s/@]+@/gi, '$1[redacted]@')
+    .replace(/\bglpat-[A-Za-z0-9_-]{20,}/g, '[redacted-token]');
 }
 
 export function validateRemoteUrl(url: string): void {
@@ -225,15 +229,18 @@ export async function commitAll(
   dir: string,
   message: string,
 ): Promise<GitResult<{ hash: string }>> {
-  try {
-    validateCommitMessage(message);
-    const g = git(dir);
-    await g.add('.');
-    const result = await g.commit(message, { '--allow-empty': null });
-    return { success: true, data: { hash: result.commit } };
-  } catch (err) {
-    return { success: false, error: sanitizeGitError((err as Error).message) };
-  }
+  // Serialised with the background sync: both write .git/index.
+  return withRepoLock(dir, async () => {
+    try {
+      validateCommitMessage(message);
+      const g = git(dir);
+      await g.add('.');
+      const result = await g.commit(message, { '--allow-empty': null });
+      return { success: true, data: { hash: result.commit } };
+    } catch (err) {
+      return { success: false, error: sanitizeGitError((err as Error).message) };
+    }
+  });
 }
 
 /**
