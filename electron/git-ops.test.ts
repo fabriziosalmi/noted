@@ -108,3 +108,21 @@ describe('noteBranchName', () => {
     expect(out.length).toBe('note/'.length + 60);
   });
 });
+
+describe('sanitizeGitError — URL credentials', () => {
+  it('redacts user:password@ in any remote URL', () => {
+    const out = sanitizeGitError("fatal: unable to access 'https://alice:s3cr3t-pw@git.example.com/o/r.git/'");
+    expect(out).not.toContain('s3cr3t-pw');
+    expect(out).not.toContain('alice');
+    expect(out).toContain('git.example.com');
+  });
+
+  it('redacts GitLab personal access tokens', () => {
+    expect(sanitizeGitError('token glpat-' + 'x'.repeat(24) + ' rejected')).toBe('token [redacted-token] rejected');
+  });
+
+  it('leaves ordinary URLs and ssh remotes alone', () => {
+    expect(sanitizeGitError("fatal: 'https://github.com/o/r.git' not found")).toBe("fatal: 'https://github.com/o/r.git' not found");
+    expect(sanitizeGitError('git@github.com:o/r.git: Permission denied')).toBe('git@github.com:o/r.git: Permission denied');
+  });
+});
