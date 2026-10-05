@@ -4,6 +4,25 @@ import { test, expect, SEED_NOTES } from './fixtures';
 
 const MOD = 'ControlOrMeta';
 
+/** Record which vault-change events reach the renderer, to explain a failure. */
+async function recordExternalEvents(win: import('@playwright/test').Page) {
+  await win.evaluate(() => {
+    const w = window as unknown as { __ext: string[] };
+    w.__ext = [];
+    window.electronAPI.onNoteChangedExternally?.((n: string) => w.__ext.push(n));
+  });
+}
+
+async function withContext<T>(win: import('@playwright/test').Page, readVault: () => Record<string, string>, run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (e) {
+    const events = await win.evaluate(() => (window as unknown as { __ext?: string[] }).__ext ?? null).catch(() => null);
+    const vault = readVault();
+    throw new Error(`${(e as Error).message}\n[context] renderer saw events=${JSON.stringify(events)} files=${JSON.stringify(Object.keys(vault))} Beta notes.md=${JSON.stringify(vault['Beta notes.md'])}`);
+  }
+}
+
 test.describe('Noted desktop app', () => {
   test('opens a vault and lists its notes', async ({ noted }) => {
     const { win } = noted;
@@ -58,9 +77,10 @@ test.describe('Noted desktop app', () => {
     await win.getByText('Beta notes', { exact: true }).first().click();
     const editor = win.locator('[contenteditable="true"]').first();
     await expect(editor).toContainText('Weekly sync');
+    await recordExternalEvents(win);
     // Another device / a git pull / an MCP client rewrites the file.
     fs.writeFileSync(path.join(vault, 'Beta notes.md'), '<h1>Beta notes</h1><p>edited by another device</p>');
-    await expect(editor).toContainText('edited by another device');
+    await withContext(win, readVault, () => expect(editor).toContainText('edited by another device'));
     // Autosave must not put the stale text back over it.
     await win.waitForTimeout(1500);
     expect(readVault()['Beta notes.md']).toContain('edited by another device');
@@ -71,13 +91,14 @@ test.describe('Noted desktop app', () => {
     await win.getByText('Beta notes', { exact: true }).first().click();
     const editor = win.locator('[contenteditable="true"]').first();
     await expect(editor).toContainText('Weekly sync');
+    await recordExternalEvents(win);
     await editor.click();
     await win.keyboard.press(`${MOD}+End`);
     await win.keyboard.type(' LOCAL-TYPING');
     // Inside the autosave window, the file changes underneath.
     fs.writeFileSync(path.join(vault, 'Beta notes.md'), '<h1>Beta notes</h1><p>edited by another device</p>');
     const copyName = () => Object.keys(readVault()).find(f => f.includes('(other version)'));
-    await expect.poll(copyName, { timeout: 15_000 }).toBeTruthy();
+    await withContext(win, readVault, () => expect.poll(copyName, { timeout: 15_000 }).toBeTruthy());
     expect(readVault()[copyName()!]).toContain('edited by another device');
     await expect.poll(() => readVault()['Beta notes.md'], { timeout: 15_000 }).toContain('LOCAL-TYPING');
   });

@@ -7,6 +7,7 @@ import * as path from 'node:path';
 import {
   syncNow,
   parseConflictResolutions,
+  resolveInside,
   resolveConflicts,
   getSyncState,
   setSyncListener,
@@ -489,5 +490,31 @@ describe('parseConflictResolutions (untrusted IPC input)', () => {
   it('drops unexpected fields instead of passing them through', () => {
     const [r] = parseConflictResolutions([{ ...ok, evil: 'x' }])!;
     expect(r).not.toHaveProperty('evil');
+  });
+});
+
+describe('resolveInside (the worktree write guard)', () => {
+  it('accepts ordinary and nested paths', () => {
+    expect(resolveInside('/wt', 'Plan.md')).toBe(path.resolve('/wt', 'Plan.md'));
+    expect(resolveInside('/wt', 'Folder/Sub note.md')).toBe(path.resolve('/wt', 'Folder/Sub note.md'));
+  });
+
+  it.each(['../evil.md', 'a/../../evil.md', '..', '.', ''])('rejects %j', rel => {
+    expect(() => resolveInside('/wt', rel)).toThrow(/outside the worktree/);
+  });
+
+  it('rejects an absolute path', () => {
+    expect(() => resolveInside('/wt', path.resolve('/etc/passwd'))).toThrow(/outside/);
+  });
+
+  it('works with Windows semantics: backslashes, drive letters, case-insensitivity', () => {
+    const w = path.win32;
+    const root = 'C:\\Users\\RUNNER~1\\Temp\\noted-sync-abc';
+    expect(resolveInside(root, 'Plan.md', w)).toBe(`${root}\\Plan.md`);
+    expect(resolveInside(root, 'Folder/Plan.md', w)).toBe(`${root}\\Folder\\Plan.md`);
+    // git reports forward slashes, and drive letters differ in case
+    expect(resolveInside('c:/Users/x/wt', 'Plan.md', w)).toBe('c:\\Users\\x\\wt\\Plan.md');
+    expect(() => resolveInside(root, '..\\evil.md', w)).toThrow(/outside/);
+    expect(() => resolveInside(root, 'D:\\other\\evil.md', w)).toThrow(/outside/);
   });
 });

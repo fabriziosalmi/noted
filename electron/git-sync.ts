@@ -319,13 +319,13 @@ async function describeConflicts(dir: string, unmerged: Map<string, Stages>): Pr
 async function withTempWorktree<T>(
   g: SimpleGit,
   id: string[],
-  fn: (wt: SimpleGit) => Promise<T>,
+  fn: (wt: SimpleGit, dir: string) => Promise<T>,
 ): Promise<T> {
   await tryRaw(g, ['worktree', 'prune']); // forget worktrees a crashed run left behind
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'noted-sync-'));
   try {
     await g.raw([...id, 'worktree', 'add', '--detach', tmp, 'HEAD']);
-    return await fn(gitFor(tmp));
+    return await fn(gitFor(tmp), tmp);
   } finally {
     await tryRaw(g, ['worktree', 'remove', '--force', tmp]);
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -351,7 +351,7 @@ async function mergeInWorktree(
   resolutions?: ConflictResolution[],
 ): Promise<MergeOutcome> {
   const id = await identityArgs(g, dir);
-  return withTempWorktree(g, id, async wt => {
+  return withTempWorktree(g, id, async (wt, wtDir) => {
     let mergeError: Error | null = null;
     try {
       await wt.raw([...id, 'merge', '--no-commit', '--no-ff', theirs]);
@@ -365,7 +365,7 @@ async function mergeInWorktree(
       if (!resolutions) {
         return { kind: 'conflict', conflicts: await describeConflicts(dir, unmerged) } as MergeOutcome;
       }
-      await applyResolutions(wt, unmerged, resolutions);
+      await applyResolutions(wt, wtDir, unmerged, resolutions);
     } else if (!pending) {
       // The merge neither conflicted nor staged anything: a real failure
       // (unrelated histories, dirty temp tree, ...). Surface it.
@@ -384,6 +384,7 @@ class StaleResolution extends Error {}
 
 async function applyResolutions(
   wt: SimpleGit,
+  wtDir: string,
   unmerged: Map<string, Stages>,
   resolutions: ConflictResolution[],
 ): Promise<void> {
@@ -404,7 +405,7 @@ async function applyResolutions(
     switch (r.choice) {
       case 'content': {
         if (typeof r.content !== 'string') throw new Error(`Missing resolved content for "${p}".`);
-        await writeInWorktree(wt, p, r.content);
+        writeInside(wtDir, p, r.content);
         await wt.raw(['add', '--', p]);
         break;
       }
@@ -427,11 +428,24 @@ async function applyResolutions(
   }
 }
 
-async function writeInWorktree(wt: SimpleGit, relPath: string, content: string): Promise<void> {
-  const root = (await wt.revparse(['--show-toplevel'])).trim();
-  const abs = path.resolve(root, relPath);
+/**
+ * `rel` resolved against `root`, or a throw if it would land outside it. Judged
+ * with path.relative, which understands the platform's separators and case rules:
+ * a string-prefix test fails on Windows, where git reports "C:/x" and Node
+ * builds "C:\\x".
+ */
+export function resolveInside(root: string, rel: string, pathApi: typeof path = path): string {
+  const abs = pathApi.resolve(root, rel);
+  const back = pathApi.relative(root, abs);
+  if (back === '' || back === '..' || back.startsWith('..' + pathApi.sep) || pathApi.isAbsolute(back)) {
+    throw new Error('Refusing to write outside the worktree.');
+  }
+  return abs;
+}
+
+function writeInside(root: string, relPath: string, content: string): void {
   // relPath came from git's own unmerged list, but never write outside the worktree.
-  if (abs !== root && !abs.startsWith(root + path.sep)) throw new Error('Refusing to write outside the worktree.');
+  const abs = resolveInside(root, relPath);
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(abs, content, 'utf8');
 }
