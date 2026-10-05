@@ -897,19 +897,25 @@ async function writeNoteAtomic(targetDir: string, fileName: string, content: str
  * the other version) instead of being overwritten by the editor's stale buffer.
  */
 function linkRewriteDeps(targetDir: string): RewriteDeps {
-/** Note access for operations that rewrite many notes (image migration, orphan checks). */
-function vaultNoteDeps(targetDir: string): MigrationDeps & { readNote: (name: string) => Promise<string> } {
   return {
     vaultIndex,
     readNote: (name) => fs.promises.readFile(safeResolve(targetDir, name), 'utf-8'),
     snapshotBefore: (name, previous) => saveSnapshot(targetDir, name, previous, { force: true }),
-    // Not marked as an app write: the watcher reports it, so an open note reloads.
     writeNote: async (name, content) => {
       await writeNoteAtomic(targetDir, name, content);
       fullTextSearchIndex.upsertFromRaw(targetDir, name, content);
       vaultIndex.upsertFromRaw(targetDir, name, content);
     },
   };
+}
+
+/** Note access for operations that rewrite many notes (image migration, orphan checks). */
+function vaultNoteDeps(targetDir: string) {
+  return {
+    ...linkRewriteDeps(targetDir),
+    // The full index, not RewriteDeps' narrow view of it: image operations also query it.
+    vaultIndex,
+  } satisfies MigrationDeps & { readNote: (name: string) => Promise<string> };
 }
 
 interface LinkUpdateResult { notes: number; links: number; failed: number }
@@ -1667,6 +1673,9 @@ ipcMain.handle('rewrite-links', async (_, renames: unknown, syncDir?: string) =>
     return { success: true, data: await rewriteLinks(dir, parseRenames(renames)) };
   } catch (err) {
     return { success: false, error: (err as Error).message };
+  }
+});
+
 // ─── Image attachments ────────────────────────────────────────────────────────
 
 const toApiError = (err: unknown) => ({ success: false as const, error: err instanceof AttachmentError ? err.message : (err as Error).message });
