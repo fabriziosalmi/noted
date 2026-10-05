@@ -34,6 +34,34 @@ renderer can never drift apart. Handlers return a discriminated
 `{ success, data?, error? }` result rather than throwing across the IPC boundary,
 and input is validated centrally in `electron/ipc-utils.ts`.
 
+## Layout of the main process
+
+`electron/main.ts` is only the bootstrap: early process setup, the app lifecycle,
+and the calls that register everything else. The rest is split by responsibility:
+
+| Folder / file | Holds |
+| --- | --- |
+| `electron/core/paths.ts` | vault root allowlist, `getTargetDir`, `safeResolve`, the active vault |
+| `electron/core/services.ts` | the two long-lived read models: full-text index and vault index |
+| `electron/core/note-io.ts` | durable atomic note writes and version-history snapshots |
+| `electron/core/watcher.ts`, `app-writes.ts` | the vault file watcher and the record of the app's own writes |
+| `electron/core/rewrite.ts` | link rewriting and the dependencies image operations share |
+| `electron/core/windows.ts`, `protocol.ts` | windows, navigation guards, `app://` and the CSP |
+| `electron/ipc/*.ts` | IPC handlers by area: `notes`, `folders`, `vault`, `attachments`, `git`, `llm`, `mcp`, `secrets`, `capture`, `app` |
+| `electron/llm-guard.ts` | which hosts the LLM proxy may reach (SSRF guard) |
+| `electron/updater.ts`, `menu.ts` | auto-update and the application menu |
+
+Each `ipc/` module exports one `register…Handlers()` that `main.ts` calls; modules
+under `core/` have no side effects on import. A handler never reaches into
+another handler module: shared logic goes in `core/`.
+
+Two tests keep the split honest. `electron/ipc-channels.test.ts` lists every IPC
+channel and pushed event, so moving a handler can never drop, duplicate or rename
+one, and checks that the preload and the main process agree on all of them.
+`electron/hardening.test.ts` scans all of `electron/`, so every window keeps its
+sandbox. `tsc -b` type-checks the whole folder under strict mode
+(`tsconfig.electron.json`).
+
 ## The `app://` protocol
 
 In production the renderer is served from a privileged custom protocol,

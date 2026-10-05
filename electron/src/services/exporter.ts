@@ -41,7 +41,8 @@ export function registerExporterHandlers() {
         show: false,
         webPreferences: {
           nodeIntegration: false,
-          contextIsolation: true
+          contextIsolation: true,
+          sandbox: true
         }
       });
 
@@ -95,7 +96,7 @@ export function registerExporterHandlers() {
 
       const printWin = new BrowserWindow({
         show: false,
-        webPreferences: { nodeIntegration: false, contextIsolation: true }
+        webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true }
       });
 
       try {

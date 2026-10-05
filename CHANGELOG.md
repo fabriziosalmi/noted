@@ -6,6 +6,15 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Internal: the main process is split into modules.** `electron/main.ts` went
+  from 1,900 lines to a 130-line bootstrap; IPC handlers now live in
+  `electron/ipc/` by area and shared state in `electron/core/`. No behaviour
+  change: a new test pins every IPC channel, and the whole `electron/` folder is
+  now type-checked in strict mode. The two PDF/print export windows now set
+  `sandbox: true` explicitly (it was already the default).
+
 ### Fixed
 
 - **The version in the sidebar showed Electron's, not Noted's, when run from source**
