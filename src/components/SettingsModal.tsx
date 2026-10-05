@@ -772,10 +772,10 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                     <FieldLabel>{t('ragMaxNotesLabel')}</FieldLabel>
                     <Input
                       type="number"
-                      min={10}
-                      max={500}
-                      value={settings.ragMaxNotes ?? 100}
-                      onChange={(e) => onUpdate({ ragMaxNotes: Math.max(10, Math.min(500, Number(e.target.value) || 100)) })}
+                      min={5}
+                      max={100}
+                      value={settings.ragMaxNotes ?? 30}
+                      onChange={(e) => onUpdate({ ragMaxNotes: Math.max(5, Math.min(100, Number(e.target.value) || 30)) })}
                     />
                   </div>
                 </div>

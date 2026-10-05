@@ -70,6 +70,7 @@ describe('createAppComposition', () => {
       content: '<p>hello</p>',
     };
     const chunk: NoteChunk = { name: 'test.md', text: 'hello world' };
+    const retrieve = async () => [chunk];
     const settings = {
       llmProvider: 'lmstudio',
       llmApiKey: '',
@@ -116,7 +117,8 @@ describe('createAppComposition', () => {
         allTags: ['tag1'],
         activeTagFilter: 'tag1',
         suggestions: [suggestion],
-        noteChunks: [chunk],
+        retrieveNotes: retrieve,
+        ragNoteCount: 7,
         noteLinksIndex: { 'test.md': ['other'] },
         allNoteNames: ['test'],
         backlinks: ['other.md'],
@@ -155,7 +157,8 @@ describe('createAppComposition', () => {
 
     expect(composition.chrome.notes[0]).toBe(note);
     expect(composition.chrome.suggestions[0]).toBe(suggestion);
-    expect(composition.chrome.noteChunks[0]).toBe(chunk);
+    expect(composition.chrome.retrieveNotes).toBe(retrieve);
+    expect(composition.chrome.ragNoteCount).toBe(7);
     expect(composition.chrome.settings).toBe(settings);
     expect(composition.chrome.panels).toBe(panels);
     expect(composition.chrome.onOpenNote).toBe(onOpenNote);

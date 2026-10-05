@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -49,3 +49,115 @@ describe('FullTextSearchReadModel', () => {
     expect(deleted.results.length).toBe(0);
   });
 });
+
+describe('FullTextSearchReadModel as the retrieval source for the AI chat', () => {
+  const mkVault = () => fs.mkdtempSync(path.join(os.tmpdir(), 'noted-ft-'));
+  const write = (root: string, name: string, html: string, mtime?: Date) => {
+    const p = path.join(root, name);
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, html, 'utf8');
+    if (mtime) fs.utimesSync(p, mtime, mtime);
+  };
+
+  it('finds the best notes in the WHOLE vault, not just the most recent ones', async () => {
+    const root = mkVault();
+    // 300 recent filler notes and one OLD note holding the answer.
+    for (let i = 0; i < 300; i++) write(root, `filler-${i}.md`, `<p>weekly standup agenda item ${i}</p>`, new Date(2026, 5, 1, 0, 0, i));
+    write(root, 'old-answer.md', '<h1>Quokka budget</h1><p>The quokka migration budget is approved.</p>', new Date(2020, 0, 1));
+    const idx = new FullTextSearchReadModel();
+    const { candidates, indexed } = await idx.candidates(root, 'quokka migration budget', 5, validateName);
+    expect(indexed).toBe(301);
+    expect(candidates[0].name).toBe('old-answer.md');
+    expect(candidates[0].text).toContain('quokka migration budget');
+    expect(candidates.length).toBeLessThanOrEqual(5);
+  });
+
+  it('returns plain text capped in length, with the title and a score', async () => {
+    const root = mkVault();
+    write(root, 'long.md', `<h1>Long note</h1><p>needle ${'x '.repeat(20_000)}</p>`);
+    const idx = new FullTextSearchReadModel();
+    const { candidates } = await idx.candidates(root, 'needle', 3, validateName);
+    expect(candidates[0].title).toBe('long');
+    expect(candidates[0].text.length).toBeLessThanOrEqual(6000);
+    expect(candidates[0].text).not.toContain('<');
+    expect(candidates[0].score).toBeGreaterThan(0);
+  });
+
+  it('clamps the requested number of candidates to something sane', async () => {
+    const root = mkVault();
+    for (let i = 0; i < 5; i++) write(root, `n${i}.md`, '<p>alpha</p>');
+    const idx = new FullTextSearchReadModel();
+    expect((await idx.candidates(root, 'alpha', 0, validateName)).candidates).toHaveLength(1);
+    expect((await idx.candidates(root, 'alpha', 100000, validateName)).candidates).toHaveLength(5);
+  });
+
+  it('builds the index of a large vault without opening every file at once', async () => {
+    const root = mkVault();
+    // More files than a default per-process file-descriptor limit (256 on macOS):
+    // reading them all concurrently fails with EMFILE.
+    for (let i = 0; i < 3000; i++) write(root, `bulk-${i}.md`, `<p>note number ${i} about topic${i % 50}</p>`);
+    const idx = new FullTextSearchReadModel();
+    const { indexed, truncated } = await idx.candidates(root, 'topic7', 5, validateName);
+    expect(indexed).toBe(3000);
+    expect(truncated).toBe(false);
+  }, 60_000);
+
+  it('never has more than a bounded number of notes open at once while building', async () => {
+    const root = mkVault();
+    for (let i = 0; i < 400; i++) write(root, `c${i}.md`, `<p>concurrency ${i}</p>`);
+    const realRead = fs.promises.readFile.bind(fs.promises);
+    let inFlight = 0;
+    let peak = 0;
+    const spy = vi.spyOn(fs.promises, 'readFile').mockImplementation((async (...args: Parameters<typeof realRead>) => {
+      inFlight++; peak = Math.max(peak, inFlight);
+      try { await new Promise(r => setTimeout(r, 1)); return await realRead(...args); } finally { inFlight--; }
+    }) as typeof fs.promises.readFile);
+    try {
+      const idx = new FullTextSearchReadModel();
+      await idx.candidates(root, 'concurrency', 3, validateName);
+    } finally { spy.mockRestore(); }
+    expect(peak).toBeGreaterThan(1);   // it does read in parallel...
+    expect(peak).toBeLessThanOrEqual(32); // ...but never all at once
+  });
+
+  it('does not count embedded image data against the index: a base64-heavy note is still indexed', async () => {
+    const root = mkVault();
+    write(root, 'photo.md', `<p>cormorant colony</p><img src="data:image/png;base64,${'A'.repeat(3 * 1024 * 1024)}">`);
+    const idx = new FullTextSearchReadModel();
+    const { candidates } = await idx.candidates(root, 'cormorant', 3, validateName);
+    expect(candidates.map(c => c.name)).toEqual(['photo.md']);
+    expect(candidates[0].text.length).toBeLessThan(200);
+  });
+
+  it('picks up edits, new files and deletions made outside the app without a rescan', async () => {
+    const root = mkVault();
+    write(root, 'a.md', '<p>original words</p>');
+    const idx = new FullTextSearchReadModel();
+    await idx.candidates(root, 'original', 3, validateName);
+
+    write(root, 'a.md', '<p>rewritten externally</p>', new Date(Date.now() + 5000));
+    write(root, 'b.md', '<p>brand new platypus</p>');
+    await idx.refreshFile(root, 'a.md');
+    await idx.refreshFile(root, 'b.md');
+    expect((await idx.candidates(root, 'rewritten', 3, validateName)).candidates.map(c => c.name)).toEqual(['a.md']);
+    expect((await idx.candidates(root, 'original', 3, validateName)).candidates).toEqual([]);
+    expect((await idx.candidates(root, 'platypus', 3, validateName)).candidates.map(c => c.name)).toEqual(['b.md']);
+
+    fs.unlinkSync(path.join(root, 'b.md'));
+    await idx.refreshFile(root, 'b.md');
+    expect((await idx.candidates(root, 'platypus', 3, validateName)).candidates).toEqual([]);
+  });
+
+  it('refreshing before the vault was ever indexed is a no-op, and a burst of events is one refresh', async () => {
+    const root = mkVault();
+    write(root, 'a.md', '<p>zebra</p>');
+    const idx = new FullTextSearchReadModel();
+    await idx.refreshFile(root, 'a.md'); // nothing indexed yet: must not throw or build
+    await idx.candidates(root, 'zebra', 1, validateName);
+    write(root, 'a.md', '<p>giraffe</p>', new Date(Date.now() + 5000));
+    for (let i = 0; i < 5; i++) idx.scheduleRefresh(root, 'a.md');
+    await new Promise(r => setTimeout(r, 400));
+    expect((await idx.candidates(root, 'giraffe', 1, validateName)).candidates.map(c => c.name)).toEqual(['a.md']);
+  });
+});
+

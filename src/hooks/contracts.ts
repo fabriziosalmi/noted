@@ -43,13 +43,6 @@ export interface AppLifecycleArgs {
   loadApiKey: () => Promise<void>;
 }
 
-export interface NoteChunksArgs {
-  rightOpen: boolean;
-  notes: NoteFile[];
-  syncDirectory: string | null;
-  ragMaxNotes?: number;
-}
-
 export interface AppDerivedStateSettings {
   editorFont?: string;
   editorFontSize?: string;

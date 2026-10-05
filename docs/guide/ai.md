@@ -87,19 +87,25 @@ ten turns and can be cleared at any time.
 
 ## Retrieval (RAG)
 
-When it needs context, the assistant retrieves the most relevant notes from your
-vault rather than sending everything.
+When you send a question, the assistant retrieves the most relevant notes from
+**your whole vault** rather than sending everything — however many notes you have,
+and however old the one you need is.
 
-- By default retrieval is **lexical** (TF-IDF over note chunks) — fast and fully
-  local.
+It works in two steps. First, the app's search index (BM25, kept in memory and
+kept current as notes change — including edits made outside Noted) picks the best
+**candidate** notes for your question. Then only those candidates are re-ranked
+and the top few are sent. Nothing is read from disk when you open the chat panel.
+
+- By default the re-ranking is **lexical** (TF-IDF over the candidates) — fast
+  and fully local.
 - Optionally, enable **dense embeddings** (**Settings → Integrations**, labeled
-  **Beta**) for hybrid semantic retrieval, using OpenAI, LM Studio, or Ollama to
-  compute embeddings.
+  **Beta**) for hybrid semantic re-ranking, using OpenAI, LM Studio, or Ollama to
+  compute embeddings. Only the candidates are embedded, never the whole vault.
 
 Retrieval is tunable in **Settings → AI**: how many notes to send (Top-K,
-default 3), how many notes to consider (default 100), and how much of the active
-note to include (default 8000 characters). A debug toggle shows the per-note
-relevance scores.
+default 3), how many **candidate notes** to re-rank per question (5–100, default
+30), and how much of the active note to include (default 8000 characters). A
+debug toggle shows the per-note relevance scores.
 
 ## PII masking
 

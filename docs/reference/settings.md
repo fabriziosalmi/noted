@@ -16,8 +16,9 @@ each feature behaves.
 - **LM Studio URL** — the endpoint for LM Studio (shown only for that provider).
 - **API key** — for cloud providers, with a reveal toggle. Stored with the macOS
   Keychain when available; a warning appears if OS encryption is unavailable.
-- **Retrieval (RAG)** — **Top-K** notes to include (1–10, default 3), **Max
-  notes** to consider (10–500, default 100), **Context characters** from the
+- **Retrieval (RAG)** — **Top-K** notes to include (1–10, default 3),
+  **Candidate notes per question** to re-rank from the whole vault (5–100,
+  default 30), **Context characters** from the
   active note (1500–30000, default 8000), and a **RAG debug** toggle that shows
   relevance scores.
 - **Smart tags** — suggest tags after substantial edits (off by default).
