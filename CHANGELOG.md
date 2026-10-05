@@ -8,6 +8,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Linux: the app could freeze while git sync merged.** Node's recursive file
+  watcher on Linux watched `.git` too and locked up the whole app when git
+  created and removed its temporary worktree there. The vault is now watched
+  folder by folder, skipping hidden folders (`.git`, `.noted`, `.noted_history`).
 - CHANGELOG link references now exist for every version (they were missing for
   1.3.5 and 1.3.6, and `[Unreleased]` compared from v1.3.4), the missing
   1.3.1–1.3.3 sections were written from the commit history, and the package
