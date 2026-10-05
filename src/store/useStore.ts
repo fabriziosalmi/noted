@@ -4,8 +4,7 @@ import { marked } from 'marked';
 import { convertTaskListsToTiptap } from '../lib/listUtils';
 import type { NoteTemplate } from '../lib/templates';
 import { otherVersionName } from '../lib/externalChange';
-import { extractWikilinks } from '../lib/WikilinkExtension';
-import { extractTags } from '../lib/tagUtils';
+import type { VaultIndexSnapshot, VaultIndexDelta } from '../lib/vaultIndexTypes';
 import { slugifyTitle } from '../lib/noteTitle';
 import { translate } from '../lib/i18n';
 import { getElectronApi } from '../lib/electronApi';
@@ -191,8 +190,12 @@ interface NoteState {
   activeNoteFrontmatter: string | null;
   isLoading: boolean;
   pinnedNotes: string[];
+  // Derived from the main-process VaultIndex (snapshot + deltas); never persisted.
   noteLinksIndex: Record<string, string[]>;
   tagIndex: Record<string, string[]>;
+  vaultIndexSync: { vault: string; seq: number } | null;
+  applyVaultIndexSnapshot: (snapshot: VaultIndexSnapshot) => void;
+  applyVaultIndexDelta: (delta: VaultIndexDelta) => void;
   lastOpenedNote: string | null;
   // Set during a title->filename self-rename so the editor can skip its
   // reload/refocus (the content is already live in the editor).
@@ -277,6 +280,7 @@ export const useStore = create<NoteState>()(
       customTemplates: [],
       noteLinksIndex: {},
       tagIndex: {},
+      vaultIndexSync: null,
       noteFolders: [],
       lastOpenedNote: null,
       pendingSelfRename: null,
@@ -452,17 +456,45 @@ export const useStore = create<NoteState>()(
       const res = await api.readNote(fileName, get().settings.syncDirectory || undefined);
       if (res.success && res.data !== undefined) {
         const { content, frontmatter } = parseNoteFile(res.data as string);
-        const links = extractWikilinks(content);
-        set(state => ({
+        set({
           activeNoteName: fileName,
           activeNoteContent: content,
           activeNoteFrontmatter: frontmatter,
-          noteLinksIndex: { ...state.noteLinksIndex, [fileName]: links },
           lastOpenedNote: fileName,
           pendingSelfRename: null,
-        }));
+        });
       }
     }
+  },
+
+  applyVaultIndexSnapshot: (snapshot: VaultIndexSnapshot) => {
+    const noteLinksIndex: Record<string, string[]> = {};
+    const tagIndex: Record<string, string[]> = {};
+    for (const [name, v] of Object.entries(snapshot.notes)) {
+      noteLinksIndex[name] = v.links;
+      for (const t of v.tags) (tagIndex[t] ??= []).push(name);
+    }
+    set({ noteLinksIndex, tagIndex, vaultIndexSync: { vault: snapshot.vault, seq: snapshot.seq } });
+  },
+
+  applyVaultIndexDelta: (delta: VaultIndexDelta) => {
+    set(state => {
+      const sync = state.vaultIndexSync;
+      // A delta for another vault, or one the snapshot already includes, is stale.
+      if (!sync || sync.vault !== delta.vault || delta.seq <= sync.seq) return state;
+      const changed = new Set([...Object.keys(delta.upserts), ...delta.removals]);
+      const noteLinksIndex = { ...state.noteLinksIndex };
+      for (const n of delta.removals) delete noteLinksIndex[n];
+      for (const [n, v] of Object.entries(delta.upserts)) noteLinksIndex[n] = v.links;
+      // Drop the changed notes from every tag, then add back their current tags.
+      const tagIndex: Record<string, string[]> = {};
+      for (const [tag, names] of Object.entries(state.tagIndex)) {
+        const kept = names.filter(n => !changed.has(n));
+        if (kept.length) tagIndex[tag] = kept;
+      }
+      for (const [n, v] of Object.entries(delta.upserts)) for (const t of v.tags) (tagIndex[t] ??= []).push(n);
+      return { noteLinksIndex, tagIndex, vaultIndexSync: { vault: sync.vault, seq: delta.seq } };
+    });
   },
 
   notifyExternalChange: (name: string) => {
@@ -479,24 +511,9 @@ export const useStore = create<NoteState>()(
 
   applyExternalContent: (name: string, content: string, frontmatter: string | null) => {
     // The user may have switched notes while we were reading; never put one
-    // note's text into another.
+    // note's text into another. (Links and tags come from the vault index.)
     if (get().activeNoteName !== name) return;
-    const links = extractWikilinks(content);
-    const tags = extractTags(content);
-    set(state => {
-      const tagIndex = { ...state.tagIndex };
-      for (const tag of Object.keys(tagIndex)) {
-        tagIndex[tag] = tagIndex[tag].filter(n => n !== name);
-        if (!tagIndex[tag].length) delete tagIndex[tag];
-      }
-      for (const tag of tags) (tagIndex[tag] ??= []).push(name);
-      return {
-        activeNoteContent: content,
-        activeNoteFrontmatter: frontmatter,
-        noteLinksIndex: { ...state.noteLinksIndex, [name]: links },
-        tagIndex,
-      };
-    });
+    set({ activeNoteContent: content, activeNoteFrontmatter: frontmatter });
   },
 
   saveOtherVersion: async (name: string, raw: string) => {
@@ -530,25 +547,9 @@ export const useStore = create<NoteState>()(
         throw new Error(res.error || 'Failed to save note');
       }
       {
-        const links = extractWikilinks(content);
-        const tags = extractTags(content);
-        set(state => {
-          const newTagIndex = { ...state.tagIndex };
-          // Remove this note from all existing tag entries
-          for (const tag of Object.keys(newTagIndex)) {
-            newTagIndex[tag] = newTagIndex[tag].filter(n => n !== activeNoteName);
-            if (!newTagIndex[tag].length) delete newTagIndex[tag];
-          }
-          // Add current tags
-          for (const tag of tags) {
-            (newTagIndex[tag] ??= []).push(activeNoteName);
-          }
-          return {
-            activeNoteContent: content,
-            noteLinksIndex: { ...state.noteLinksIndex, [activeNoteName]: links },
-            tagIndex: newTagIndex,
-          };
-        });
+        // Links and tags are indexed in the main process from the file we just wrote
+        // and arrive as a vault-index delta.
+        set({ activeNoteContent: content });
         // Refresh the note list off the keystroke path (see scheduleNotesRefresh).
         scheduleNotesRefresh(() => { void get().fetchNotes(); });
         // Auto-commit if enabled
@@ -663,39 +664,8 @@ export const useStore = create<NoteState>()(
       customNotesOrder: newNotesOrder,
     });
 
-    // Update indices inline so backlinks render against the new name even
-    // during the brief window before fetchNotes resolves.
-    const oldBare = oldName.replace(/\.md$/, '');
-    const newBare = newName.replace(/\.md$/, '');
-    set(state => {
-      // 1. Move oldName key → newName in noteLinksIndex (its own outbound links).
-      const newLinksIndex = { ...state.noteLinksIndex };
-      if (oldName in newLinksIndex) {
-        newLinksIndex[newName] = newLinksIndex[oldName];
-        delete newLinksIndex[oldName];
-      }
-      // 2. Rewrite outbound link targets in every other note: any link that
-      //    pointed at oldName/oldBare now points at newName/newBare.
-      for (const [noteName, links] of Object.entries(newLinksIndex)) {
-        if (noteName === newName) continue;
-        let changed = false;
-        const updated = links.map(l => {
-          if (l === oldName || l === oldBare) { changed = true; return newBare; }
-          return l;
-        });
-        if (changed) newLinksIndex[noteName] = updated;
-      }
-      // 3. tagIndex: move references from oldName → newName.
-      const newTagIndex = { ...state.tagIndex };
-      for (const [tag, names] of Object.entries(newTagIndex)) {
-        if (names.includes(oldName)) {
-          newTagIndex[tag] = names.map(n => n === oldName ? newName : n);
-        }
-      }
-      // 4. pinnedNotes: rename if pinned.
-      const newPinned = state.pinnedNotes.map(n => n === oldName ? newName : n);
-      return { noteLinksIndex: newLinksIndex, tagIndex: newTagIndex, pinnedNotes: newPinned };
-    });
+    // Pins follow the rename; links and tags are re-indexed by the main process.
+    set(state => ({ pinnedNotes: state.pinnedNotes.map(n => n === oldName ? newName : n) }));
 
     // Retarget the active name synchronously (before the async fetchNotes) for a
     // self-rename, so a debounced autosave firing during fetchNotes can't save
@@ -763,13 +733,6 @@ export const useStore = create<NoteState>()(
         // skip unreadable/unwritable notes
       }
     }
-    set(state => {
-      const idx = { ...state.tagIndex };
-      const members = new Set(idx[tag] ?? []);
-      noteNames.forEach(n => members.add(n));
-      idx[tag] = [...members];
-      return { tagIndex: idx };
-    });
     await get().fetchNotes();
   },
 
@@ -969,16 +932,20 @@ export const useStore = create<NoteState>()(
     settings: { ...state.settings, llmApiKey: '' },
     pinnedNotes: state.pinnedNotes,
     customTemplates: state.customTemplates,
-    noteLinksIndex: state.noteLinksIndex,
     lastOpenedNote: state.lastOpenedNote,
     customNotesOrder: state.customNotesOrder,
     customFoldersOrder: state.customFoldersOrder,
     sortBy: state.sortBy,
   }),
-  // Custom storage wrapper that handles QuotaExceededError gracefully:
-  // - on quota exhaustion drop the heaviest field (noteLinksIndex) and retry
-  // - otherwise log once and swallow — persist failures must NOT crash the
-  //   action that triggered the save.
+  // Older versions persisted noteLinksIndex; it now comes from the main-process
+  // VaultIndex, so never hydrate a stale copy from localStorage.
+  merge: (persisted, current) => {
+    const { noteLinksIndex: legacy, ...rest } = (persisted ?? {}) as Record<string, unknown>;
+    void legacy;
+    return { ...current, ...rest } as typeof current;
+  },
+  // Custom storage wrapper: persist failures (quota, private mode) must NOT
+  // crash the action that triggered the save.
   storage: createJSONStorage(() => ({
     getItem: (name: string) => {
       try { return localStorage.getItem(name); } catch { return null; }
@@ -986,18 +953,6 @@ export const useStore = create<NoteState>()(
     setItem: (name: string, value: string) => {
       try { localStorage.setItem(name, value); return; }
       catch (err: unknown) {
-        const e = err as { name?: string };
-        if (e?.name === 'QuotaExceededError') {
-          try {
-            const parsed = JSON.parse(value) as { state?: Record<string, unknown> };
-            if (parsed.state && 'noteLinksIndex' in parsed.state) {
-              parsed.state.noteLinksIndex = {};
-              localStorage.setItem(name, JSON.stringify(parsed));
-              console.warn('[useStore] localStorage quota exceeded — dropped noteLinksIndex');
-              return;
-            }
-          } catch { /* fall through */ }
-        }
         console.warn('[useStore] persist write failed:', (err as Error).message);
       }
     },

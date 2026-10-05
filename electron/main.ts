@@ -12,6 +12,7 @@ import { sanitizeGitError } from './git-ops.js';
 import * as gitSync from './git-sync.js';
 import { writeVaultConfig, isValidRetentionDays } from '../shared/vault-config.js';
 import { FullTextSearchReadModel } from './fulltext-index.js';
+import { VaultIndex } from './vault-index.js';
 import { logEvent, newRequestId } from './structured-log.js';
 import { checkForUpdates, scheduleStartupUpdateCheck } from './updater.js';
 import { installStdioEpipeGuard } from './stdio-guard.js';
@@ -172,12 +173,16 @@ function startVaultWatch(): void {
   // reported under names that match no note.
   let watchRoot = dir;
   try { watchRoot = fs.realpathSync.native(dir); } catch { /* keep the configured path */ }
+  void vaultIndex.ensure(dir);
   try {
     vaultWatcher = fs.watch(watchRoot, { recursive: true }, (_event, filename) => {
       if (!filename) return;
       const name = String(filename).split(path.sep).join('/');
       // The app's own bookkeeping (version history, MCP trash and config) is not a note change.
       if (!name.endsWith('.md') || name.includes('.noted_history/') || name.startsWith('.noted/')) return;
+      // Every change, the app's own included, goes through the index: it compares
+      // mtime and size, so an echo of our own save costs a stat and nothing else.
+      vaultIndex.scheduleTouch(dir, name);
       // A file we can't stat is gone — deleted, or renamed away. Report those
       // too: dropping them left notes removed by an external writer sitting in
       // the sidebar until the next launch.
@@ -249,6 +254,17 @@ function checkSafeStorageOnce() {
 }
 
 const fullTextSearchIndex = new FullTextSearchReadModel();
+
+// Links, tags, headings and frontmatter keys for the whole vault, kept current
+// incrementally. The renderer gets a snapshot (vault-index-snapshot) and then
+// deltas for the vault it has open.
+const vaultIndex = new VaultIndex({
+  validateFileName: (name) => validateFileName(name),
+  onDelta: (dir, delta) => {
+    if (dir !== path.resolve(getTargetDir(activeVaultDir || undefined))) return;
+    if (win && !win.isDestroyed()) win.webContents.send('vault-index-delta', delta);
+  },
+});
 
 process.env.DIST = path.join(__dirname, '../dist');
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public');
@@ -374,6 +390,7 @@ ipcMain.handle('save-capture', async (_, text: string) => {
     await writeFileDurable(safeResolve(targetDir, fileName), content);
     markAppWrite(targetDir, fileName);
     fullTextSearchIndex.upsertFromRaw(targetDir, fileName, content);
+    vaultIndex.upsertFromRaw(targetDir, fileName, content);
     captureWin?.close();
     win?.webContents.send('refresh-notes');
     return { success: true, fileName };
@@ -864,6 +881,7 @@ ipcMain.handle('save-note', async (_, fileName: string, content: string, syncDir
     markAppWrite(targetDir, fileName);
     await fsyncDir(path.dirname(filePath));
     fullTextSearchIndex.upsertFromRaw(targetDir, fileName, content);
+    vaultIndex.upsertFromRaw(targetDir, fileName, content);
     if (isNewNote) {
       win?.webContents.send('refresh-notes');
     }
@@ -932,6 +950,7 @@ ipcMain.handle('rename-note', (_, oldName: string, newName: string, syncDir?: st
     }
     markAppWrite(targetDir, newName);
     fullTextSearchIndex.renameDoc(targetDir, oldName, newName);
+    vaultIndex.renameDoc(targetDir, oldName, newName);
     return { success: true };
   } catch (error: unknown) {
     const err = error as Error;
@@ -950,6 +969,7 @@ ipcMain.handle('delete-note', async (_, fileName: string, syncDir?: string) => {
     // Move to the OS Trash (recoverable) rather than an unrecoverable unlink.
     await shell.trashItem(filePath);
     fullTextSearchIndex.deleteDoc(targetDir, fileName);
+    vaultIndex.deleteDoc(targetDir, fileName);
     return { success: true };
   } catch (error: unknown) {
     const err = error as Error;
@@ -984,6 +1004,7 @@ ipcMain.handle('wipe-all-notes', (_, syncDir?: string) => {
     }
 
     fullTextSearchIndex.clearDir(targetDir);
+    vaultIndex.clearDir(targetDir);
     return { success: true };
   } catch (error: unknown) {
     const err = error as Error;
@@ -1246,6 +1267,7 @@ ipcMain.handle('rename-folder', (_, oldName: string, newName: string, syncDir?: 
     if (fs.existsSync(newPath)) throw new Error(`Folder "${newName}" already exists`);
     fs.renameSync(oldPath, newPath);
     fullTextSearchIndex.markDirty(targetDir);
+    void vaultIndex.reconcile(targetDir);
     return { success: true };
   } catch (err) {
     return { success: false, error: (err as Error).message };
@@ -1262,6 +1284,7 @@ ipcMain.handle('delete-folder', (_, folderName: string, syncDir?: string) => {
     // that's already there, then removes the folder.
     const { moved, renamed } = deleteFolderMovingContentToRoot(targetDir, folderName, safeResolve);
     fullTextSearchIndex.markDirty(targetDir);
+    void vaultIndex.reconcile(targetDir);
     return { success: true, data: { moved, renamed } };
   } catch (err) {
     return { success: false, error: (err as Error).message };
@@ -1288,6 +1311,7 @@ ipcMain.handle('move-note', (_, fileName: string, toFolder: string, syncDir?: st
     fs.renameSync(srcPath, destPath);
     const movedRelPath = toFolder ? `${toFolder}/${baseName}` : baseName;
     fullTextSearchIndex.renameDoc(targetDir, fileName, movedRelPath);
+    vaultIndex.renameDoc(targetDir, fileName, movedRelPath);
     return { success: true, data: movedRelPath };
   } catch (err) {
     return { success: false, error: (err as Error).message };
@@ -1530,6 +1554,27 @@ ipcMain.handle('search-notes-fulltext', async (_, query: string, syncDir?: strin
     truncated,
   });
   return { success: true, data: results, truncated };
+});
+
+// ─── Vault index IPC ──────────────────────────────────────────────────────────
+
+ipcMain.handle('vault-index-snapshot', async (_, syncDir?: string) => {
+  return vaultIndex.snapshot(getTargetDir(syncDir));
+});
+
+// Everything the index knows about one note (headings, frontmatter keys, links
+// with alias/heading) — for features beyond the sidebar and backlinks.
+ipcMain.handle('vault-index-note', async (_, name: string, syncDir?: string) => {
+  try {
+    validateFileName(name);
+    const dir = getTargetDir(syncDir);
+    await vaultIndex.ensure(dir);
+    const e = vaultIndex.get(dir, name);
+    if (!e) return { success: false, error: 'Note not indexed' };
+    return { success: true, data: { links: e.links, tags: e.tags, headings: e.headings, frontmatterKeys: e.frontmatterKeys } };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
 });
 
 // ─── Git IPC ──────────────────────────────────────────────────────────────────

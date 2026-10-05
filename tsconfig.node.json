@@ -20,5 +20,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["vite.config.ts", "playwright.config.ts", "e2e/**/*.ts", "electron/git-sync.types-check.ts"]
+  "include": ["vite.config.ts", "playwright.config.ts", "e2e/**/*.ts", "electron/git-sync.types-check.ts", "electron/vault-index.types-check.ts"]
 }

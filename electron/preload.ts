@@ -84,6 +84,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gitLog: (noteName?: string, syncDir?: string) => ipcRenderer.invoke('git-log', noteName, syncDir),
   gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => ipcRenderer.invoke('git-create-pr', params),
   setVaultConfig: (config: { trashRetentionDays?: number }, syncDir?: string) => ipcRenderer.invoke('set-vault-config', config, syncDir),
+  getVaultIndexSnapshot: (syncDir?: string) => ipcRenderer.invoke('vault-index-snapshot', syncDir),
+  getVaultIndexNote: (name: string, syncDir?: string) => ipcRenderer.invoke('vault-index-note', name, syncDir),
+  onVaultIndexDelta: (cb: (delta: unknown) => void) => {
+    const listener = (_e: unknown, delta: unknown) => cb(delta);
+    ipcRenderer.on('vault-index-delta', listener);
+    return () => ipcRenderer.removeListener('vault-index-delta', listener);
+  },
   gitSyncNow: (syncDir?: string) => ipcRenderer.invoke('git-sync-now', syncDir),
   gitSyncState: (syncDir?: string) => ipcRenderer.invoke('git-sync-state', syncDir),
   gitSyncResolve: (resolutions: unknown[], syncDir?: string) => ipcRenderer.invoke('git-sync-resolve', resolutions, syncDir),

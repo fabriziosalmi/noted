@@ -1,6 +1,7 @@
 export {};
 
 import type { GitSyncState, GitConflictResolution } from './lib/gitSyncTypes';
+import type { VaultIndexSnapshot, VaultIndexDelta, VaultIndexNote } from './lib/vaultIndexTypes';
 
 interface NoteFileBase {
   name: string;
@@ -72,6 +73,9 @@ declare global {
       gitLog: (noteName?: string, syncDir?: string) => Promise<GitResult<GitLogEntry[]>>;
       gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => Promise<GitResult<PrData>>;
       setVaultConfig: (config: { trashRetentionDays?: number }, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
+      getVaultIndexSnapshot: (syncDir?: string) => Promise<VaultIndexSnapshot>;
+      getVaultIndexNote: (name: string, syncDir?: string) => Promise<{ success: boolean; data?: VaultIndexNote; error?: string }>;
+      onVaultIndexDelta: (cb: (delta: VaultIndexDelta) => void) => () => void;
       gitSyncNow: (syncDir?: string) => Promise<GitSyncState>;
       gitSyncState: (syncDir?: string) => Promise<GitSyncState>;
       gitSyncResolve: (resolutions: GitConflictResolution[], syncDir?: string) => Promise<GitResult<GitSyncState>>;

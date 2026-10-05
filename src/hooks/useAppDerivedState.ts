@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { backlinksOf } from '../lib/backlinks';
 import type { AppDerivedStateArgs, AppDerivedStateResult } from './contracts';
 
 export function useAppDerivedState({
@@ -17,16 +18,10 @@ export function useAppDerivedState({
       : notes
   ), [activeTagFilter, notes, tagIndex]);
 
-  const backlinks = useMemo(() => (
-    activeNoteName
-      ? Object.entries(noteLinksIndex)
-          .filter(([noteName, links]) => noteName !== activeNoteName && links.some((l) => {
-            const normalized = l.endsWith('.md') ? l : `${l}.md`;
-            return normalized === activeNoteName || l === activeNoteName.replace('.md', '');
-          }))
-          .map(([noteName]) => noteName)
-      : []
-  ), [activeNoteName, noteLinksIndex]);
+  const backlinks = useMemo(
+    () => (activeNoteName ? backlinksOf(noteLinksIndex, activeNoteName) : []),
+    [activeNoteName, noteLinksIndex],
+  );
 
   const allNoteNames = useMemo(
     () => notes.map((n) => n.name.replace('.md', '')),
