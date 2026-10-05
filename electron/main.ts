@@ -25,6 +25,7 @@ import { DEFAULT_ATTACHMENTS_FOLDER } from '../shared/vault/attachments.js';
 import { logEvent, newRequestId } from './structured-log.js';
 import { checkForUpdates, scheduleStartupUpdateCheck } from './updater.js';
 import { installStdioEpipeGuard } from './stdio-guard.js';
+import { resolveAppVersion } from './app-version.js';
 
 // First thing: a closed stdout pipe (Finder/DMG launch) must never kill the
 // main process with EPIPE — see stdio-guard.ts.
@@ -592,7 +593,11 @@ app.on('will-quit', () => {
 
 // Example IPC handler for the magical stuff
 ipcMain.handle('ping', () => 'pong');
-ipcMain.handle('get-app-version', () => app.getVersion());
+ipcMain.handle('get-app-version', () => resolveAppVersion({
+  isPackaged: app.isPackaged,
+  electronReported: app.getVersion(),
+  packageJsonPath: path.join(__dirname, '../package.json'),
+}));
 
 registerCloudDetectorHandlers(blessVaultRoot);
 registerImporterHandlers(fullTextSearchIndex, getTargetDir);
