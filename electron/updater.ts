@@ -103,7 +103,7 @@ function safeUpdaterLog(level: LogLevel, message: unknown): void {
   }
 }
 
-function wireListeners(getWindow: () => BrowserWindow | undefined): void {
+function wireListeners(getWindow: () => BrowserWindow | null | undefined): void {
   if (wiredUp) return;
   wiredUp = true;
 
@@ -185,7 +185,7 @@ function wireListeners(getWindow: () => BrowserWindow | undefined): void {
  * message (manual) or a no-op (automatic) rather than throwing.
  */
 export async function checkForUpdates(
-  getWindow: () => BrowserWindow | undefined,
+  getWindow: () => BrowserWindow | null | undefined,
   manual = false,
 ): Promise<void> {
   if (!app.isPackaged) {
@@ -246,7 +246,7 @@ function reportManualDialog(title: string, message: string): void {
 }
 
 /** Kick off the one-shot startup check, well after the window has settled. */
-export function scheduleStartupUpdateCheck(getWindow: () => BrowserWindow | undefined): void {
+export function scheduleStartupUpdateCheck(getWindow: () => BrowserWindow | null | undefined): void {
   if (!app.isPackaged) return;
   setTimeout(() => {
     void checkForUpdates(getWindow, false);

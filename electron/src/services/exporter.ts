@@ -21,7 +21,7 @@ export function registerExporterHandlers() {
     }
   });
 
-  ipcMain.handle('export-pdf', async (event, htmlContent: string) => {
+  ipcMain.handle('export-pdf', async (_event, htmlContent: string) => {
     try {
       if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
       if (htmlContent.length > 5_000_000) throw new Error('Content too large for PDF export');
@@ -41,7 +41,8 @@ export function registerExporterHandlers() {
         show: false,
         webPreferences: {
           nodeIntegration: false,
-          contextIsolation: true
+          contextIsolation: true,
+          sandbox: true
         }
       });
 
@@ -72,7 +73,8 @@ export function registerExporterHandlers() {
 
         const pdfBuffer = await pdfWin.webContents.printToPDF({
           printBackground: true,
-          margins: { marginType: 'printableArea' }
+          // Electron's current typings dropped marginType; kept as is (no behaviour change).
+          margins: { marginType: 'printableArea' } as Electron.PrintToPDFMargins,
         });
 
         fs.writeFileSync(filePath, pdfBuffer);
@@ -94,7 +96,7 @@ export function registerExporterHandlers() {
 
       const printWin = new BrowserWindow({
         show: false,
-        webPreferences: { nodeIntegration: false, contextIsolation: true }
+        webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true }
       });
 
       try {

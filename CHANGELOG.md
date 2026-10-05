@@ -6,6 +6,21 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Internal: the main process is split into modules.** `electron/main.ts` went
+  from 1,900 lines to a 130-line bootstrap; IPC handlers now live in
+  `electron/ipc/` by area and shared state in `electron/core/`. No behaviour
+  change: a new test pins every IPC channel, and the whole `electron/` folder is
+  now type-checked in strict mode. The two PDF/print export windows now set
+  `sandbox: true` explicitly (it was already the default).
+- **Internal: translations are JSON files, loaded on demand.** Each language is
+  `src/locales/<lang>.json`; English ships with the app and the other five are
+  separate chunks fetched the first time they are needed (the saved language is
+  loaded before the first paint). The main renderer bundle shrinks by about 160 KB
+  (46 KB gzipped). The locale-parity test now also checks for empty values and
+  that every translation keeps the `{placeholders}` of the English text.
+
 ### Fixed
 
 - **The version in the sidebar showed Electron's, not Noted's, when run from source**
@@ -136,12 +151,6 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **Internal: translations are JSON files, loaded on demand.** Each language is
-  `src/locales/<lang>.json`; English ships with the app and the other five are
-  separate chunks fetched the first time they are needed (the saved language is
-  loaded before the first paint). The main renderer bundle shrinks by about 160 KB
-  (46 KB gzipped). The locale-parity test now also checks for empty values and
-  that every translation keeps the `{placeholders}` of the English text.
 - Autosave no longer rescans the whole vault.
 
 ## [1.3.2] - 2026-08-03
