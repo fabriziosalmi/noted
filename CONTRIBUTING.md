@@ -47,7 +47,8 @@ A few expectations that trip people up:
 - **Every string the user can see must be translated.** UI strings go through
   `t(...)` and must exist in all locales; a locale-parity test
   (`src/lib/i18n.completeness.test.ts`) fails the build otherwise. Add your key to
-  every file under the locales, not just English.
+  every `src/locales/<lang>.json` (English is the source of the key list and the
+  fallback; the other languages load on demand), keeping any `{placeholders}`.
 - **Nothing platform-specific may be hardcoded.** Code that reads paths or OS
   behaviour should take the platform as a parameter so it stays testable on the
   Linux CI runner — see `electron/src/services/cloud-detector.ts` for the pattern.

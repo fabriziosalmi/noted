@@ -17,11 +17,17 @@ import '@fontsource/playfair-display/600-italic.css'
 import './index.css'
 import App from './App.tsx'
 import { ConfirmProvider } from './components/ConfirmProvider'
+import { useStore } from './store/useStore'
+import { ensureLocale } from './lib/locales'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ConfirmProvider>
-      <App />
-    </ConfirmProvider>
-  </StrictMode>,
-)
+// Load the saved language before the first paint, so a user who chose another
+// language never sees the English fallback flash by.
+void ensureLocale(useStore.getState().settings.language).then(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <ConfirmProvider>
+        <App />
+      </ConfirmProvider>
+    </StrictMode>,
+  )
+})

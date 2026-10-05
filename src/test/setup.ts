@@ -1,5 +1,9 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
+import { ensureAllLocales } from '../lib/locales';
+
+// Tests translate into any language synchronously; production loads them lazily.
+await ensureAllLocales();
 
 // Mock localStorage for Zustand persist middleware
 const localStorageMock = (function () {
