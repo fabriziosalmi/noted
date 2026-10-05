@@ -17,6 +17,8 @@ export function useAppActions({
   renameFolder,
   deleteFolder,
   moveNote,
+  confirm,
+  attachmentsFolder,
 }: AppActionsArgs) {
   const handleCreateNote = useCallback(async (opts?: { folder?: string; title?: string }) => {
     try {
@@ -57,12 +59,37 @@ export function useAppActions({
   }, [updateSettings, fetchNotes]);
 
   const handleDeleteNote = useCallback(async (fileName: string) => {
+    const api = getElectronApi();
+    const syncDir = syncDirectory || undefined;
+    // Asked BEFORE deleting, while the note is still there to say what it uses.
+    let orphans: string[] = [];
+    try {
+      const r = await api?.listOrphanAttachments?.(fileName, attachmentsFolder, syncDir);
+      if (r?.success && r.data) orphans = r.data;
+    } catch { /* offering the cleanup is optional */ }
+
     try {
       await deleteNote(fileName);
     } catch (err: unknown) {
       toast((err as Error).message, 'error');
+      return;
     }
-  }, [deleteNote, toast]);
+
+    if (orphans.length > 0 && confirm && api?.deleteAttachments) {
+      const yes = await confirm({
+        message: t('orphanAttachmentsConfirm').replace('{n}', String(orphans.length)),
+        confirmLabel: t('orphanAttachmentsYes'),
+        cancelLabel: t('orphanAttachmentsNo'),
+        danger: true,
+      });
+      if (yes) {
+        const r = await api.deleteAttachments(orphans, attachmentsFolder, syncDir).catch(() => null);
+        if (r?.success && r.data && r.data.deleted.length > 0) {
+          toast(t('orphanAttachmentsDeleted').replace('{n}', String(r.data.deleted.length)), 'success');
+        }
+      }
+    }
+  }, [deleteNote, toast, t, confirm, attachmentsFolder, syncDirectory]);
 
   const handleRenameNote = useCallback(async (oldName: string, newName: string) => {
     try {

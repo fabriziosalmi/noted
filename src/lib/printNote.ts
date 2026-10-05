@@ -1,4 +1,5 @@
 import { getElectronApi } from './electronApi';
+import { inlineVaultImages } from './exportContent';
 import type { TranslationKey } from './i18n';
 
 export interface PrintNoteDeps {
@@ -27,7 +28,7 @@ export async function printNoteFromHtml(
     window.print();
     return true;
   }
-  const res = await api.printNote(html, title || t('untitledExportTitle'));
+  const res = await api.printNote(await inlineVaultImages(html), title || t('untitledExportTitle'));
   if (!res.success && res.error) {
     onToast(res.error || t('printError'), 'error');
     return false;

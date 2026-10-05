@@ -72,6 +72,12 @@ declare global {
       gitPushBranch: (branch: string, remoteUrl: string, syncDir?: string) => Promise<GitResult>;
       gitLog: (noteName?: string, syncDir?: string) => Promise<GitResult<GitLogEntry[]>>;
       gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => Promise<GitResult<PrData>>;
+      saveAttachment: (bytes: Uint8Array, folder?: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+      scanEmbeddedImages: (syncDir?: string) => Promise<{ success: boolean; data?: EmbeddedImagesReport; error?: string }>;
+      migrateEmbeddedImages: (folder?: string, syncDir?: string) => Promise<{ success: boolean; data?: EmbeddedImagesOutcome; error?: string }>;
+      listOrphanAttachments: (noteName: string, folder?: string, syncDir?: string) => Promise<{ success: boolean; data?: string[]; error?: string }>;
+      deleteAttachments: (rels: string[], folder?: string, syncDir?: string) => Promise<{ success: boolean; data?: { deleted: string[]; skipped: string[] }; error?: string }>;
+      inlineVaultImages: (content: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       getVaultIndexSnapshot: (syncDir?: string) => Promise<VaultIndexSnapshot>;
       getVaultIndexNote: (name: string, syncDir?: string) => Promise<{ success: boolean; data?: VaultIndexNote; error?: string }>;
       onVaultIndexDelta: (cb: (delta: VaultIndexDelta) => void) => () => void;
@@ -115,4 +121,18 @@ interface PrData {
   url: string;
   number: number;
   title: string;
+}
+
+interface EmbeddedImagesReport {
+  notes: { name: string; images: number; bytes: number }[];
+  images: number;
+  distinct: number;
+  bytes: number;
+}
+
+interface EmbeddedImagesOutcome {
+  notes: number;
+  images: number;
+  bytes: number;
+  failed: { name: string; error: string }[];
 }

@@ -104,6 +104,8 @@ export interface SettingsState {
   smartTagsEnabled?: boolean;
   // Apple Notes-style: the first line (title) drives the .md filename.
   titleFollowsFilename?: boolean;
+  // Where pasted/dropped images are stored, relative to the vault (one folder level).
+  attachmentsFolder?: string;
 }
 
 export interface FolderInfo {
@@ -337,6 +339,7 @@ export const useStore = create<NoteState>()(
         mcpSsePort: 3000,
         smartTagsEnabled: false,
         titleFollowsFilename: true,
+        attachmentsFolder: 'attachments',
       },
 
       updateSettings: (newSettings) => {

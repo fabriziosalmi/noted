@@ -126,6 +126,8 @@ function App() {
     renameFolder,
     deleteFolder,
     moveNote,
+    confirm,
+    attachmentsFolder: settings.attachmentsFolder,
   });
 
   const handlePrintNote = useCallback(() => {

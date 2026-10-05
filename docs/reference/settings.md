@@ -45,6 +45,10 @@ each feature behaves.
 - **Show hints** — inline onboarding hints (on by default).
 - **Title follows filename** — rename the `.md` file to match the note's title
   (on by default).
+- **Images folder** — where pasted and dropped images are stored inside the vault
+  (default `attachments`; one plain folder name). **Move embedded images out of
+  notes…** converts images that older versions embedded in the note text. See
+  [Images](/guide/editor).
 
 ## Sync
 

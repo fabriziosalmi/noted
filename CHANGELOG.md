@@ -23,6 +23,15 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Pasted and dropped images are no longer stored inside the note as base64.**
+  They are saved to `attachments/` (configurable) under a content-hash name, and
+  the note keeps a relative path, so notes stay small, under the full-text size
+  limit, readable in Git diffs and light for MCP clients. The app serves them
+  through `app://` under the same vault confinement as everything else. Settings →
+  Editor → "Move embedded images out of notes…" migrates existing notes (report
+  first, history snapshot per note). Deleting a note offers to remove the images
+  only it used. PDF/HTML/Word/Markdown exports, printing and gists embed the images
+  again so they stand alone, and "Export vault" now copies attachments too.
 - **Tags, "Same project" and backlinks after a restart or an external edit**:
   links and tags now come from one index of the whole vault in the main process,
   built at startup and kept current by the app's own changes and the file watcher.
@@ -38,6 +47,9 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- The `app://` protocol handler decoded the request path after joining it to the
+  bundle directory, so a percent-encoded slash (`..%2F..%2F`) could escape the
+  bundle. Paths are now resolved first and must stay inside it.
 - **Electron hardening**: `sandbox: true` is now set explicitly on every window,
   and the packaged app ships with the RunAsNode and NODE_OPTIONS fuses off and
   ASAR integrity validation plus load-only-from-ASAR on. The MCP remote-access

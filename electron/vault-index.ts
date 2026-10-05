@@ -20,6 +20,7 @@ import {
   parseWikilinks, extractTags, extractHeadings, extractFrontmatterKeys, linkPointsAt,
   type WikiLink, type Heading,
 } from '../shared/vault/extract.js';
+import { localImageRefs } from '../shared/vault/attachments.js';
 
 export interface NoteEntry {
   name: string;
@@ -29,6 +30,10 @@ export interface NoteEntry {
   tags: string[];
   headings: Heading[];
   frontmatterKeys: string[];
+  /** Vault-relative image files this note refers to. */
+  images: string[];
+  /** False when the note was too large to read: its links/tags/images are unknown, not empty. */
+  parsed: boolean;
   mtimeMs: number;
   size: number;
   /** Bumped on every write to this entry; lets a slow scan tell it was overtaken. */
@@ -84,7 +89,7 @@ interface DirState {
 
 const toView = (e: NoteEntry): NoteView => ({ links: e.linkTargets, tags: e.tags });
 
-export function buildEntry(name: string, raw: string, mtimeMs: number, size: number, gen = 0): NoteEntry {
+export function buildEntry(name: string, raw: string, mtimeMs: number, size: number, gen = 0, parsed = true): NoteEntry {
   const links = parseWikilinks(raw);
   return {
     name,
@@ -93,6 +98,8 @@ export function buildEntry(name: string, raw: string, mtimeMs: number, size: num
     tags: extractTags(raw),
     headings: extractHeadings(raw),
     frontmatterKeys: extractFrontmatterKeys(raw),
+    images: localImageRefs(raw),
+    parsed,
     mtimeMs,
     size,
     gen,
@@ -183,6 +190,21 @@ export class VaultIndex {
     return out.sort();
   }
 
+  /** Notes that refer to this vault-relative image file (parsed notes only; see unparsedNotes). */
+  notesReferencingImage(dir: string, rel: string): string[] {
+    const st = this.byDir.get(this.key(dir));
+    if (!st) return [];
+    const out: string[] = [];
+    for (const [n, e] of st.notes) if (e.images.includes(rel)) out.push(n);
+    return out.sort();
+  }
+
+  /** Notes too large to have been read: anything they refer to is unknown to the index. */
+  unparsedNotes(dir: string): string[] {
+    const st = this.byDir.get(this.key(dir));
+    return st ? [...st.notes.values()].filter(e => !e.parsed).map(e => e.name).sort() : [];
+  }
+
   /** tag -> note names, as the sidebar filter wants it. */
   tagIndex(dir: string): Record<string, string[]> {
     const st = this.byDir.get(this.key(dir));
@@ -267,7 +289,7 @@ export class VaultIndex {
     // A save/rename that landed while we were reading is newer than what we read.
     const now = st.notes.get(name);
     if (now && now.gen > genAtRead) return;
-    st.notes.set(name, buildEntry(name, raw, stat.mtimeMs, stat.size, ++this.gen));
+    st.notes.set(name, buildEntry(name, raw, stat.mtimeMs, stat.size, ++this.gen, stat.size <= this.maxParseBytes));
     this.queue(st, name, 'upsert');
   }
 
@@ -340,7 +362,7 @@ export class VaultIndex {
         // Something wrote this note while we were scanning: that is newer.
         const existing = st.notes.get(f.name);
         if (existing && existing.gen > genAtStart) return;
-        st.notes.set(f.name, buildEntry(f.name, raw, stat.mtimeMs, stat.size, ++this.gen));
+        st.notes.set(f.name, buildEntry(f.name, raw, stat.mtimeMs, stat.size, ++this.gen, stat.size <= this.maxParseBytes));
       } catch { /* vanished or unreadable: skip */ }
     });
   }

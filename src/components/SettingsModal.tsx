@@ -14,6 +14,7 @@ import { useI18n, type TranslationKey } from '../lib/i18n';
 import { getElectronApi } from '../lib/electronApi';
 import { importWorkflowReducer, initialImportWorkflowState, isImportWorkflowBusy } from '../lib/importWorkflow';
 import { useTablist } from '../lib/useTablist';
+import { AttachmentsSettings } from './AttachmentsSettings';
 
 type SettingsTab = 'ai' | 'appearance' | 'editor' | 'sync' | 'mcp' | 'git' | 'import';
 
@@ -54,6 +55,7 @@ interface Settings {
   embeddingModel?: string;
   mcpSseEnabled?: boolean;
   mcpSsePort?: number;
+  attachmentsFolder?: string;
   smartTagsEnabled?: boolean;
 }
 
@@ -907,6 +909,12 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                 ]}
                 value={settings.aiGhostMode ?? 'manual'}
                 onChange={v => onUpdate({ aiGhostMode: v as Settings['aiGhostMode'] })}
+              />
+
+              <AttachmentsSettings
+                folder={settings.attachmentsFolder}
+                syncDirectory={settings.syncDirectory}
+                onChangeFolder={name => onUpdate({ attachmentsFolder: name })}
               />
 
               <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
