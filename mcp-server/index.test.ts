@@ -158,6 +158,8 @@ const {
   handleUpdateNote,
   handleSearchNotes,
   handleDeleteNote,
+  handleRestoreNote,
+  handleListTrash,
   __resetSearchIndex,
   handleCreateAgentWorkflow,
   handleAppendAgentEvent,
@@ -661,18 +663,66 @@ describe('MCP Tool Handlers', () => {
     });
   });
 
-  describe('handleDeleteNote', () => {
-    it('deletes existing note', async () => {
+  describe('handleDeleteNote (moves to the trash)', () => {
+    const trashed = () => [...mockFiles.keys()].filter(k => k.includes('/.noted/trash/'));
+
+    it('moves the note into .noted/trash instead of erasing it', async () => {
       mockFiles.set('/mockdir/delete-me.md', { content: 'Delete me', mtime: new Date(), size: 9 });
-      const res = handleDeleteNote({ name: 'delete-me.md' });
-      await expect(res).resolves.toEqual({
-        content: [{ type: 'text', text: 'Note deleted: delete-me.md' }]
-      });
+      const res = await handleDeleteNote({ name: 'delete-me.md' });
+      expect(res.content[0].text).toMatch(/^Note moved to trash: delete-me\.md \(kept for 30 days\)\. Restore it with restore_note/);
       expect(mockFiles.has('/mockdir/delete-me.md')).toBe(false);
+      expect(trashed()).toHaveLength(1);
+      expect(mockFiles.get(trashed()[0])!.content).toBe('Delete me'); // content survives
     });
 
     it('throws if note not found', async () => {
       await expect(handleDeleteNote({ name: 'nonexistent.md' })).rejects.toThrow('Note not found');
+    });
+
+    it('lists the trash and restores a note with restore_note', async () => {
+      mockFiles.set('/mockdir/back.md', { content: 'Bring me back', mtime: new Date(), size: 13 });
+      await handleDeleteNote({ name: 'back.md' });
+      const listed = await handleListTrash();
+      expect(listed.content[0].text).toMatch(/1 note\(s\) in the trash[\s\S]*back\.md — deleted .* — id \d{4}-/);
+      const res = await handleRestoreNote({ name: 'back.md' });
+      expect(res.content[0].text).toMatch(/^Note restored: back\.md/);
+      expect(mockFiles.get('/mockdir/back.md')!.content).toBe('Bring me back');
+      expect(trashed()).toHaveLength(0);
+    });
+
+    it('refuses to restore over an existing note, and reports a missing one', async () => {
+      mockFiles.set('/mockdir/dup.md', { content: 'v1', mtime: new Date(), size: 2 });
+      await handleDeleteNote({ name: 'dup.md' });
+      mockFiles.set('/mockdir/dup.md', { content: 'v2 written since', mtime: new Date(), size: 16 });
+      await expect(handleRestoreNote({ name: 'dup.md' })).rejects.toThrow(/already exists/);
+      expect(mockFiles.get('/mockdir/dup.md')!.content).toBe('v2 written since');
+      await expect(handleRestoreNote({ name: 'never-existed.md' })).rejects.toThrow(/not in the trash/);
+    });
+
+    it('validates the restore arguments like every other note path', async () => {
+      await expect(handleRestoreNote({ name: '../etc/passwd.md' })).rejects.toThrow();
+      await expect(handleRestoreNote({ name: 'a.md', id: 5 })).rejects.toThrow('id must be a string');
+    });
+
+    it('reads the retention window from the vault config the app writes, and 0 means keep forever', async () => {
+      mockFiles.set('/mockdir/a.md', { content: 'x', mtime: new Date(), size: 1 });
+      mockFiles.set('/mockdir/.noted/config.json', { content: JSON.stringify({ trashRetentionDays: 7 }), mtime: new Date(), size: 30 });
+      expect((await handleDeleteNote({ name: 'a.md' })).content[0].text).toContain('kept for 7 days');
+      mockFiles.set('/mockdir/b.md', { content: 'x', mtime: new Date(), size: 1 });
+      mockFiles.set('/mockdir/.noted/config.json', { content: JSON.stringify({ trashRetentionDays: 0 }), mtime: new Date(), size: 30 });
+      expect((await handleDeleteNote({ name: 'b.md' })).content[0].text).toContain('kept until removed by hand');
+    });
+
+    it('ignores a corrupt vault config and falls back to 30 days', async () => {
+      mockFiles.set('/mockdir/c.md', { content: 'x', mtime: new Date(), size: 1 });
+      mockFiles.set('/mockdir/.noted/config.json', { content: '{oops', mtime: new Date(), size: 5 });
+      expect((await handleDeleteNote({ name: 'c.md' })).content[0].text).toContain('kept for 30 days');
+    });
+
+    it('says an empty trash is empty', async () => {
+      for (const k of trashed()) mockFiles.delete(k);
+      const res = await handleListTrash();
+      expect(res.content[0].text).toBe('The trash is empty.');
     });
   });
 

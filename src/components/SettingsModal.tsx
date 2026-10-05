@@ -54,6 +54,7 @@ interface Settings {
   embeddingModel?: string;
   mcpSseEnabled?: boolean;
   mcpSsePort?: number;
+  mcpTrashRetentionDays?: number;
   smartTagsEnabled?: boolean;
 }
 
@@ -296,6 +297,26 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath, settings, onUpda
         <div className="pt-1 space-y-1">
           <p className="text-[11px] font-medium text-gray-600 dark:text-gray-300">{t('mcpVaultPath')}</p>
           <CopyBlock value={vaultPath} kind="vault-path" copiedCmd={copiedCmd} copyText={copyText} label={t('copy')} />
+        </div>
+
+        {/* Trash for notes an assistant deletes through MCP */}
+        <div className="pt-2 border-t border-gray-200/40 dark:border-gray-700/40 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-medium text-gray-700 dark:text-gray-200">{t('mcpTrashRetentionLabel')}</p>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 leading-tight">{t('mcpTrashRetentionHelp')}</p>
+          </div>
+          <input
+            type="number"
+            min="0"
+            max="3650"
+            aria-label={t('mcpTrashRetentionLabel')}
+            value={settings.mcpTrashRetentionDays ?? 30}
+            onChange={(e) => {
+              const days = parseInt(e.target.value, 10);
+              if (Number.isInteger(days) && days >= 0 && days <= 3650) onUpdate({ mcpTrashRetentionDays: days });
+            }}
+            className="w-20 px-2 py-1 text-xs text-right border border-gray-300/40 dark:border-gray-600/40 rounded bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+          />
         </div>
       </div>
 

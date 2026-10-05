@@ -137,6 +137,14 @@ export function useAppLifecycle({
     };
   }, [gitEnabled, enableAutoCommit, autoCommitInterval, syncDirectory]);
 
+  // Share the MCP trash retention with the vault (the MCP server may be run by another program)
+  const mcpTrashRetentionDays = useStore((state) => state.settings.mcpTrashRetentionDays);
+  useEffect(() => {
+    const api = getElectronApi();
+    if (!api?.setVaultConfig || mcpTrashRetentionDays === undefined) return;
+    void api.setVaultConfig({ trashRetentionDays: mcpTrashRetentionDays }, syncDirectory || undefined).catch(() => undefined);
+  }, [mcpTrashRetentionDays, syncDirectory]);
+
   // Sync MCP SSE configuration to Electron
   const mcpSseEnabled = useStore((state) => state.settings.mcpSseEnabled);
   const mcpSsePort = useStore((state) => state.settings.mcpSsePort);

@@ -51,12 +51,26 @@ you need to reach it through a tunnel.
 | `create_note` | Create a note (Markdown or HTML); fails if it exists | `name`, `content` |
 | `update_note` | Overwrite a note, or append to it | `name`, `content`, `append` (optional) |
 | `search_notes` | Full-text (BM25) search with excerpts | `query`, `max_results` (optional, default 10, max 50) |
-| `delete_note` | Delete a note | `name` |
+| `delete_note` | Move a note to the trash | `name` |
+| `list_trash` | List trashed notes, newest first, with deletion ids | — |
+| `restore_note` | Put a trashed note back at its original path | `name`, `id` (optional) |
 
-::: warning `delete_note` is permanent
-Unlike deleting inside the app — which moves the note to the system Trash —
-the MCP `delete_note` tool removes the file directly. It cannot be undone from
-the Trash.
+::: tip `delete_note` is recoverable
+Deleting inside the app moves a note to the system Trash. An MCP server runs
+headless and cannot reach it, so `delete_note` moves the file to
+`<vault>/.noted/trash/<time>/<original path>` instead. Use `list_trash` to see
+what is there and `restore_note` to bring a note back; without `id` it restores
+the most recent deletion of that name, and it refuses to overwrite a note that
+exists again. Each deletion is kept separately.
+
+Trashed notes are removed for good after **30 days** by default. Change this in
+**Settings → MCP → Keep deleted notes for**, where `0` keeps them until you remove
+them by hand. The app writes the value to `<vault>/.noted/config.json`, which the
+MCP server reads, so it applies to assistants that launch the server themselves
+over stdio too. (`--trash-retention-days N` or the
+`NOTED_MCP_TRASH_RETENTION_DAYS` environment variable override it.)
+
+The `.noted/` folder is never listed, searched or committed by Git sync.
 :::
 
 Note names are validated the same way as in the app: `.md` files only, at most

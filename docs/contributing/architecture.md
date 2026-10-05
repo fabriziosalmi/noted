@@ -72,8 +72,9 @@ Notes are files in a **vault** folder. The vault location resolves from the
 - **History.** Each save can snapshot the note under `.noted_history/`, capped at
   20 versions per note.
 - **Trash on delete.** Deleting in the app moves the file to the system Trash.
-  (The MCP `delete_note` tool deletes directly — see
-  [MCP server](/reference/mcp-server#note-tools).)
+  The MCP `delete_note` tool, which cannot reach it, moves the file to
+  `.noted/trash/` instead, with `restore_note` and a retention window — see
+  [MCP server](/reference/mcp-server#note-tools).
 - **External-change watcher.** The vault is watched; a foreign change to an open
   note warns the user instead of silently overwriting it.
 
