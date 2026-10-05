@@ -165,6 +165,26 @@ describe('plain cycles', () => {
     expect(git(s.remote, 'log', '-1', '--format=%s')).toMatch(/^sync: /);
   });
 
+  it('never syncs the app\'s history snapshots, in-flight temp files or OS litter', async () => {
+    const s = scenario();
+    fs.mkdirSync(path.join(s.a, '.noted_history', 'one.md'), { recursive: true });
+    write(path.join(s.a, '.noted_history', 'one.md'), '2026-10-05.html', '<p>old draft</p>');
+    write(s.a, 'one.md.123.abcdef.tmp', 'half-written');
+    write(s.a, '.DS_Store', 'x');
+    write(s.a, 'real.md', '<p>real note</p>\n');
+    const st = await syncNow(s.a);
+    expect(st.phase).toBe('idle');
+    const tracked = git(s.remote, 'ls-tree', '-r', '--name-only', 'main').split('\n');
+    expect(tracked).toContain('real.md');
+    expect(tracked.filter(f => f.startsWith('.noted_history') || f.endsWith('.tmp') || f === '.DS_Store')).toEqual([]);
+    // The user's own repository content is untouched: no .gitignore was added or edited.
+    expect(tracked).not.toContain('.gitignore');
+    // Idempotent: a second cycle adds each pattern only once.
+    await syncNow(s.a);
+    const exclude = fs.readFileSync(path.join(s.a, '.git', 'info', 'exclude'), 'utf8');
+    expect(exclude.match(/\.noted_history\//g)).toHaveLength(1);
+  });
+
   it('works with no git identity configured anywhere (falls back to a local one)', async () => {
     const s = scenario();
     expect(() => git(s.a, 'config', 'user.email')).toThrow(); // truly none
