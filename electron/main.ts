@@ -1,9 +1,7 @@
-import { app, BrowserWindow, Menu, ipcMain, dialog, safeStorage, globalShortcut, nativeTheme, protocol, shell, session } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, dialog, safeStorage, globalShortcut, nativeTheme, protocol, shell, session, utilityProcess } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import { spawn } from 'node:child_process';
-import type { ChildProcess } from 'node:child_process';
 import { validateFileName, validateFolderName, stripUnsafeHtml, isAppOwnVaultEvent } from './ipc-utils.js';
 import { deleteFolderMovingContentToRoot } from './vault-ops.js';
 import { registerCloudDetectorHandlers } from './src/services/cloud-detector.js';
@@ -295,6 +293,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
 
@@ -336,6 +335,7 @@ function openCaptureWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
   captureWin.on('closed', () => { captureWin = null; });
@@ -560,7 +560,7 @@ function getMcpServerPathInternal(): string {
   return candidate;
 }
 
-let mcpSseChild: ChildProcess | null = null;
+let mcpSseChild: Electron.UtilityProcess | null = null;
 let currentMcpPort: number | null = null;
 let currentMcpSyncDir: string | null = null;
 
@@ -570,7 +570,7 @@ function stopMcpSseServer() {
       port: currentMcpPort ?? undefined,
       syncDir: currentMcpSyncDir ?? undefined,
     });
-    mcpSseChild.kill('SIGTERM');
+    mcpSseChild.kill();
     mcpSseChild = null;
     currentMcpPort = null;
     currentMcpSyncDir = null;
@@ -611,11 +611,10 @@ function startMcpSseServer(port: number, syncDir?: string) {
   logEvent('info', 'mcp_sse_starting', { reqId, port, notesDir: targetDir });
 
   try {
-    // Run the bundled Electron binary as Node (ELECTRON_RUN_AS_NODE) rather than a
-    // PATH `node`: a packaged app on a clean Windows/Linux machine can't assume
-    // Node is installed, so `spawn('node', …)` would ENOENT there.
-    mcpSseChild = spawn(process.execPath, [
-      mcpPath,
+    // utilityProcess runs the script on the bundled Electron's own Node, so a
+    // packaged app on a clean machine needs no `node` on PATH, and it works with
+    // the RunAsNode fuse turned off (ELECTRON_RUN_AS_NODE would be ignored).
+    mcpSseChild = utilityProcess.fork(mcpPath, [
       '--transport',
       'sse',
       '--port',
@@ -623,10 +622,11 @@ function startMcpSseServer(port: number, syncDir?: string) {
       '--notes-dir',
       targetDir
     ], {
+      serviceName: 'noted-mcp-sse',
       // Pass the auth token via the environment, not argv — argv is readable by
       // any same-user process via the process list.
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', NOTED_MCP_AUTH_TOKEN: getMcpSseToken() },
-      stdio: ['ignore', 'pipe', 'pipe']
+      env: { ...process.env, NOTED_MCP_AUTH_TOKEN: getMcpSseToken() },
+      stdio: 'pipe'
     });
 
     currentMcpPort = port;
@@ -644,15 +644,12 @@ function startMcpSseServer(port: number, syncDir?: string) {
       logEvent('error', 'mcp_sse_child_stderr', { reqId, message });
     });
 
-    mcpSseChild.on('close', code => {
+    const child = mcpSseChild;
+    child.on('exit', code => {
       logEvent('info', 'mcp_sse_child_exited', { reqId, code: code ?? null });
-      if (mcpSseChild) {
-        mcpSseChild = null;
-      }
-    });
-
-    mcpSseChild.on('error', err => {
-      logEvent('error', 'mcp_sse_child_spawn_error', { reqId, error: err.message });
+      // Only clear the slot if it still holds *this* child; a restart may have
+      // already replaced it.
+      if (mcpSseChild === child) mcpSseChild = null;
     });
   } catch (err) {
     logEvent('error', 'mcp_sse_spawn_failed', { reqId, error: (err as Error).message });

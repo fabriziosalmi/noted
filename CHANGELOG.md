@@ -6,6 +6,14 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **Electron hardening**: `sandbox: true` is now set explicitly on every window,
+  and the packaged app ships with the RunAsNode and NODE_OPTIONS fuses off and
+  ASAR integrity validation plus load-only-from-ASAR on. The MCP remote-access
+  server now runs as an Electron `utilityProcess` instead of a child spawned with
+  `ELECTRON_RUN_AS_NODE`, which the RunAsNode fuse disables.
+
 ## [1.3.6] - 2026-09-29
 
 ### Fixed
