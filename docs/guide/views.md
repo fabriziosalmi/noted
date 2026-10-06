@@ -29,6 +29,23 @@ The gear at the top right of a view opens its settings:
 Click a column header to sort by it: ascending, then descending, then not at all. Numbers sort by size, text without
 caring about case (`item 9` comes before `item 10`), and notes with no value for the property always come last.
 
+## Editing in the table
+
+A cell is the property in the note's file, so changing a cell changes the note. Double-click a cell, or move to it and press
+**Enter**, to edit it: **Enter** (or clicking away) keeps the change, **Esc** drops it. A checkbox toggles with one click.
+What you type is read for the property's type: a number field takes a number, a list takes comma-separated items, and an
+empty cell removes the property from the note.
+
+Only the one property is rewritten, in the note's own text: its comments, quoting style, order and spacing, and everything
+else in the file, stay exactly as they were. A property that was quoted stays quoted; a list written `[a, b]` stays on
+one line and one written as a dash list stays that way. The version before each change is kept in the note's history.
+
+If the note was changed somewhere else since you last looked (by a sync, another program, or by hand), the cell is not
+written: it shows the value the file has now, and says so. Notes whose properties the app cannot edit faithfully (broken
+YAML, a property with an anchor or a nested mapping) are left alone and the change is refused with a message.
+
+The note's name and modified date are not editable here.
+
 ## Filtering and sorting
 
 The funnel button opens **Filter & sort**; the number on it counts the filters and sort keys in use.

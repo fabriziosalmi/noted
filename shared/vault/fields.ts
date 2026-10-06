@@ -107,3 +107,11 @@ export function fieldsFromFrontmatter(block: string | null): Record<string, Fiel
   if (!block) return {};
   return fastFields(block) ?? fieldsViaLibrary(block);
 }
+
+/** Is this (from an untrusted caller) a value a field can hold: a bounded scalar, or a bounded list of them? */
+export function isFieldValue(value: unknown): value is FieldValue {
+  const one = (v: unknown): boolean =>
+    v === null || typeof v === 'boolean' || (typeof v === 'number' && Number.isFinite(v)) || (typeof v === 'string' && v.length <= MAX_FIELD_TEXT);
+  if (Array.isArray(value)) return value.length <= MAX_LIST_ITEMS && value.every(one);
+  return one(value);
+}

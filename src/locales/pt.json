@@ -846,5 +846,8 @@
   "filterOp_is-true": "está marcado",
   "filterOp_is-false": "não está marcado",
   "filterOp_has": "tem",
-  "filterOp_not-has": "não tem"
+  "filterOp_not-has": "não tem",
+  "viewEditHint": "Duplo clique ou Enter para editar",
+  "viewEditConflict": "Esta propriedade foi alterada noutro lado; mostra-se o valor atual.",
+  "viewEditFailed": "Não foi possível alterar a propriedade: {error}"
 }

@@ -846,5 +846,8 @@
   "filterOp_is-true": "está marcado",
   "filterOp_is-false": "no está marcado",
   "filterOp_has": "tiene",
-  "filterOp_not-has": "no tiene"
+  "filterOp_not-has": "no tiene",
+  "viewEditHint": "Doble clic o Intro para editar",
+  "viewEditConflict": "Esta propiedad se cambió en otro sitio; se muestra el valor actual.",
+  "viewEditFailed": "No se pudo cambiar la propiedad: {error}"
 }

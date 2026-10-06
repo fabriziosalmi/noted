@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
-import { ArrowDown, ArrowUp, Check } from 'lucide-react';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import { useViewRows } from '../hooks/useViewRows';
 import { useFieldSchema } from '../hooks/useFieldSchema';
-import { cellFor, cellText } from '../lib/viewCells';
+import { cellFor } from '../lib/viewCells';
+import { ViewCell } from './ViewCell';
 import { MODIFIED_FIELD, NAME_FIELD, cycleSort, valueOf } from '../../shared/views/query';
 import type { View } from '../../shared/views/model';
+import type { FieldValue } from '../../shared/vault/fields';
 
 /** With no columns chosen yet, a view shows the fields most notes have. */
 const DEFAULT_COLUMNS = 6;
@@ -15,7 +17,12 @@ const DEFAULT_COLUMNS = 6;
  * A view as a table: one row per note, the note's name first (it opens the note), then the chosen frontmatter fields.
  * Read-only here; clicking a header sorts.
  */
-export function ViewTable({ view, onOpenNote }: { view: View; onOpenNote: (name: string) => void }) {
+export function ViewTable({ view, onOpenNote, onNotice }: {
+  view: View;
+  onOpenNote: (name: string) => void;
+  /** Where to say that a change did not go through. */
+  onNotice?: (message: string, variant?: 'success' | 'error') => void;
+}) {
   const { t } = useI18n();
   const rows = useViewRows(view);
   const schema = useFieldSchema();
@@ -26,7 +33,15 @@ export function ViewTable({ view, onOpenNote }: { view: View; onOpenNote: (name:
     () => (view.columns.length > 0 ? view.columns : schema.slice(0, DEFAULT_COLUMNS).map(f => f.name)),
     [view.columns, schema],
   );
+  const setProperty = useStore(st => st.setNoteProperty);
+  const optionsOf = useMemo(() => new Map(schema.map(f => [f.name, f.options.map(o => o.value)] as const)), [schema]);
   const typeOf = useMemo(() => new Map(schema.map(f => [f.name, f.type] as const)), [schema]);
+
+  const commit = async (name: string, field: string, value: FieldValue | undefined) => {
+    const result = await setProperty(name, field, value);
+    if (result.ok) return;
+    onNotice?.(result.conflict ? t('viewEditConflict') : t('viewEditFailed').replace('{error}', result.error), 'error');
+  };
 
   const label = (field: string): string => {
     if (field === NAME_FIELD) return t('viewNameColumn');
@@ -80,22 +95,17 @@ export function ViewTable({ view, onOpenNote }: { view: View; onOpenNote: (name:
                 if (field === MODIFIED_FIELD) {
                   return <td key={field} className="px-3 py-1.5 text-gray-500 whitespace-nowrap">{new Date(row.modified).toLocaleDateString()}</td>;
                 }
-                const cell = cellFor(valueOf(row, field), typeOf.get(field) ?? 'text');
+                const type = typeOf.get(field) ?? 'text';
+                const cell = cellFor(valueOf(row, field), type);
                 return (
-                  <td key={field} data-field={field} className={`px-3 py-1.5 ${cell.kind === 'text' && cell.align === 'right' ? 'text-right tabular-nums' : ''}`}>
-                    {cell.kind === 'text' && cell.text}
-                    {cell.kind === 'check' && (
-                      <span role="img" aria-label={cell.checked ? '✓' : ''} className={`inline-flex w-4 h-4 items-center justify-center rounded border ${cell.checked ? 'bg-[var(--accent)] border-[var(--accent)] text-white' : 'border-gray-300 dark:border-gray-600'}`}>
-                        {cell.checked && <Check size={11} aria-hidden="true" />}
-                      </span>
-                    )}
-                    {cell.kind === 'chips' && (
-                      <span className="inline-flex flex-wrap gap-1" title={cellText(cell)}>
-                        {cell.items.map(item => (
-                          <span key={item} className="px-1.5 py-0.5 rounded-full text-xs bg-[var(--accent-light)] text-[var(--accent)]">{item}</span>
-                        ))}
-                      </span>
-                    )}
+                  <td key={field} className={`px-3 py-1.5 ${cell.kind === 'text' && cell.align === 'right' ? 'text-right tabular-nums' : ''}`}>
+                    <ViewCell
+                      field={field}
+                      value={row.fields[field]}
+                      type={type}
+                      options={optionsOf.get(field) ?? []}
+                      onCommit={value => { void commit(row.name, field, value); }}
+                    />
                   </td>
                 );
               })}

@@ -846,5 +846,8 @@
   "filterOp_is-true": "ist angehakt",
   "filterOp_is-false": "ist nicht angehakt",
   "filterOp_has": "hat",
-  "filterOp_not-has": "hat nicht"
+  "filterOp_not-has": "hat nicht",
+  "viewEditHint": "Doppelklick oder Eingabetaste zum Bearbeiten",
+  "viewEditConflict": "Diese Eigenschaft wurde anderswo geändert; der aktuelle Wert wird angezeigt.",
+  "viewEditFailed": "Die Eigenschaft konnte nicht geändert werden: {error}"
 }

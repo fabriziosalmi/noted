@@ -6,6 +6,9 @@ import { writeVaultConfig, isValidRetentionDays } from '../../shared/vault-confi
 import { previewRewrite } from '../link-rewrite';
 import { readVaultFormat } from '../../shared/vault/formatFile';
 import { readViews, writeViews } from '../../shared/views/file';
+import { setProperty } from '../note-properties';
+import { isFieldValue, type FieldValue } from '../../shared/vault/fields';
+import { MAX_FIELD_CHARS } from '../../shared/views/model';
 import { isObsidianVault } from '../../shared/vault/obsidian';
 import { logEvent, newRequestId } from '../structured-log';
 import { assertNotMigrating } from '../core/migrating';
@@ -146,6 +149,27 @@ export function registerVaultHandlers(): void {
     try {
       assertNotMigrating();
       return { success: true, data: writeViews(getTargetDir(syncDir), views) };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  // One property of one note, changed in the file (a cell of a view, a card moved to another column). `expect` makes it
+  // compare-and-set: it is written only if the property still holds what the caller last saw.
+  ipcMain.handle('set-note-property', async (_, name: unknown, key: unknown, value: unknown, expect: unknown, syncDir?: string) => {
+    try {
+      assertNotMigrating();
+      if (typeof name !== 'string' || typeof key !== 'string' || key.length === 0 || key.length > MAX_FIELD_CHARS) throw new Error('Invalid property');
+      validateFileName(name);
+      if (value !== undefined && !isFieldValue(value)) throw new Error('Invalid property value');
+      const wanted = expect as { value?: unknown } | undefined;
+      if (wanted !== undefined && wanted !== null && wanted.value !== undefined && !isFieldValue(wanted.value)) throw new Error('Invalid property value');
+      const dir = getTargetDir(syncDir);
+      const out = await setProperty(
+        { ...linkRewriteDeps(dir), format: readVaultFormat(dir) },
+        name, key, value, wanted ? { value: wanted.value as FieldValue | undefined } : undefined,
+      );
+      return out.ok ? { success: true, data: { changed: out.changed, fields: out.fields } } : { success: false, error: out.error, conflict: out.conflict, fields: out.fields };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

@@ -50,7 +50,7 @@ test('views: make a table view, point it at a folder, choose columns, open a not
   const alpha = table.locator('tr[data-row="Projects/Alpha.md"]');
   await expect(alpha.locator('[data-field="status"]')).toHaveText('open');
   await expect(alpha.locator('[data-field="votes"]')).toHaveText('3');
-  await expect(alpha.getByRole('img', { name: '✓' })).toBeVisible();
+  await expect(alpha.getByRole('checkbox', { name: 'done' })).toBeChecked();
 
   // Sort by votes: a click, then another
   await table.getByRole('button', { name: 'Sort by votes' }).click();
@@ -131,4 +131,57 @@ test('views: filter and sort from the panel, the count follows, and nothing is h
   await expect.poll(() => {
     try { return JSON.stringify((JSON.parse(fs.readFileSync(viewsFile, 'utf8')) as { views: { filters: unknown; sort: unknown }[] }).views.map(v => [v.filters, v.sort])); } catch { return ''; }
   }, { timeout: 10_000 }).toBe(JSON.stringify([[[], [{ field: 'votes', dir: 'desc' }]]]));
+});
+
+test('views: editing a cell changes that property in the note file and nothing else, and the table follows edits made elsewhere', async ({ noted }) => {
+  for (const [name] of SEED_NOTES) fs.rmSync(path.join(noted.vault, name), { force: true });
+  fs.writeFileSync(path.join(noted.vault, '.noted-vault.json'), '{"format":"markdown"}\n');
+  const original = '---\n# who owns it\nstatus: "open"   # keep this\nvotes: 3\ntags: [q4, ops]\ndone: true\n---\n# Alpha\n\nfirst  text   with spacing\n';
+  fs.mkdirSync(path.join(noted.vault, 'Projects'));
+  fs.writeFileSync(path.join(noted.vault, 'Projects', 'Alpha.md'), original);
+  fs.writeFileSync(path.join(noted.vault, 'Projects', 'Beta.md'), '---\nstatus: draft\nvotes: 12\n---\n# Beta\n');
+  // A view made by hand (or by a sync) is picked up as it is
+  fs.writeFileSync(path.join(noted.vault, '.noted-views.json'), JSON.stringify({ version: 1, views: [{
+    id: 'v-hand', name: 'Grid', layout: 'table', source: { kind: 'folder', folder: 'Projects' }, filters: [], sort: [{ field: '$name', dir: 'asc' }], columns: ['status', 'votes', 'tags', 'done'],
+  }] }));
+  const { win, vault } = await noted.relaunch();
+  const file = path.join(vault, 'Projects', 'Alpha.md');
+  await win.getByTestId('views-section').getByRole('button', { name: 'Grid', exact: true }).click({ timeout: 15_000 });
+  const alpha = win.locator('tr[data-row="Projects/Alpha.md"]');
+  await expect(alpha.locator('[data-field="status"]')).toHaveText('open', { timeout: 15_000 });
+
+  const edit = async (field: string, text: string) => {
+    await alpha.locator(`[data-field="${field}"]`).dblclick();
+    const input = win.getByLabel(field, { exact: true }).and(win.locator('input'));
+    await input.fill(text);
+    await input.press('Enter');
+  };
+
+  await edit('status', 'closed');
+  await expect.poll(() => fs.readFileSync(file, 'utf8'), { timeout: 15_000 }).toBe(original.replace('"open"   # keep this', '"closed"   # keep this'));
+  await expect(alpha.locator('[data-field="status"]')).toHaveText('closed');
+
+  await edit('votes', '5');
+  await expect.poll(() => fs.readFileSync(file, 'utf8'), { timeout: 15_000 }).toContain('votes: 5\n');
+  await edit('tags', 'q4, ops, new');
+  await expect.poll(() => fs.readFileSync(file, 'utf8'), { timeout: 15_000 }).toContain('tags: [q4, ops, new]\n');
+  await alpha.getByRole('checkbox', { name: 'done' }).click();
+  await expect.poll(() => fs.readFileSync(file, 'utf8'), { timeout: 15_000 }).toContain('done: false\n');
+
+  // Everything else in the file is what it was, byte for byte
+  expect(fs.readFileSync(file, 'utf8')).toBe(
+    '---\n# who owns it\nstatus: "closed"   # keep this\nvotes: 5\ntags: [q4, ops, new]\ndone: false\n---\n# Alpha\n\nfirst  text   with spacing\n',
+  );
+
+  // A cleared cell removes the property
+  await edit('votes', '');
+  await expect.poll(() => fs.readFileSync(file, 'utf8'), { timeout: 15_000 }).not.toContain('votes');
+
+  // Every change kept the version before it
+  await expect.poll(() => fs.existsSync(path.join(vault, '.noted_history', 'Projects', 'Alpha.md')), { timeout: 10_000 }).toBe(true);
+
+  // An edit made outside the app shows in the table
+  const beta = win.locator('tr[data-row="Projects/Beta.md"]');
+  fs.writeFileSync(path.join(vault, 'Projects', 'Beta.md'), '---\nstatus: draft\nvotes: 99\n---\n# Beta\n');
+  await expect(beta.locator('[data-field="votes"]')).toHaveText('99', { timeout: 20_000 });
 });

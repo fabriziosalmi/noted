@@ -29,3 +29,25 @@ export function cellText(cell: Cell): string {
     case 'chips': return cell.items.join(', ');
   }
 }
+
+/** The text an editor starts with for a value: lists as comma-separated items. */
+export function editorText(value: FieldValue | undefined): string {
+  if (value === undefined || value === null) return '';
+  if (Array.isArray(value)) return value.filter(v => v !== null).join(', ');
+  return String(value);
+}
+
+/**
+ * What a cell's editor holds, as the value to write. Empty clears the property (`undefined`); a number field takes a number
+ * when the text is one (and keeps the text when it is not, rather than lose it); a list is its comma-separated items.
+ */
+export function parseCellInput(text: string, type: FieldType): FieldValue | undefined {
+  const trimmed = text.trim();
+  if (trimmed === '') return undefined;
+  if (type === 'number' && Number.isFinite(Number(trimmed))) return Number(trimmed);
+  if (type === 'list') {
+    const items = trimmed.split(',').map(i => i.trim()).filter(Boolean);
+    return items.length > 0 ? items : undefined;
+  }
+  return trimmed;
+}

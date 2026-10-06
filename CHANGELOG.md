@@ -8,6 +8,12 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Edit a property in a view's table** (#23, Views): double-click a cell (or press Enter on it) and the property changes in the
+  note's file; a checkbox toggles with a click; empty removes the property; numbers and lists are read as such. Only that one
+  property is rewritten, in the note's own text: comments, quoting, order, spacing and every other byte stay exactly as they were
+  (a property test over thousands of random edits pins it), and the version before is kept in the note's history. If the file has
+  another value than the one shown, nothing is written and the cell shows the current value. Broken YAML or a property it cannot
+  edit faithfully (an anchor, a nested mapping) is refused, never rewritten. Works in Markdown and HTML vaults.
 - **Filter and sort for views** (#22, Views): a Filter & sort panel on every view. Filters offer the tests that fit the property's type
   (text, number, date, choice, checkbox, list) with the property's own values to pick from; a filter with no value yet hides nothing;
   several sort keys, each ascending or descending. The count on the view follows as you edit, and everything is saved in the view.

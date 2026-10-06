@@ -9,7 +9,11 @@ import { ViewQueryEditor } from './ViewQueryEditor';
 import type { View } from '../../shared/views/model';
 
 /** A saved view in the main area: its name, how many notes it shows, its settings, and the table. */
-export function ViewPage({ view, onOpenNote }: { view: View; onOpenNote: (name: string) => void }) {
+export function ViewPage({ view, onOpenNote, onNotice }: {
+  view: View;
+  onOpenNote: (name: string) => void;
+  onNotice?: (message: string, variant?: 'success' | 'error') => void;
+}) {
   const { t } = useI18n();
   const rows = useViewRows(view);
   const [configuring, setConfiguring] = useState(false);
@@ -49,7 +53,7 @@ export function ViewPage({ view, onOpenNote }: { view: View; onOpenNote: (name: 
       </header>
       {querying && <ViewQueryEditor view={view} />}
       {configuring && <ViewSettings view={view} />}
-      <ViewTable view={view} onOpenNote={onOpenNote} />
+      <ViewTable view={view} onOpenNote={onOpenNote} onNotice={onNotice} />
     </section>
   );
 }

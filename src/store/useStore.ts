@@ -222,6 +222,11 @@ interface NoteState {
   updateView: (id: string, patch: Partial<Omit<View, 'id'>>) => Promise<void>;
   deleteView: (id: string) => Promise<void>;
   duplicateView: (id: string, name: string) => Promise<View | null>;
+  /**
+   * Change one property of one note in its file (`undefined` removes it). The cell shows the new value at once; it is then
+   * settled on what the file holds: after a conflict (the file had another value), that value; after a failure, the old one.
+   */
+  setNoteProperty: (name: string, key: string, value: FieldValue | undefined) => Promise<PropertyChange>;
   vaultIndexSync: { vault: string; seq: number } | null;
   applyVaultIndexSnapshot: (snapshot: VaultIndexSnapshot) => void;
   applyVaultIndexDelta: (delta: VaultIndexDelta) => void;
@@ -326,6 +331,9 @@ export function _resetLinkRewriteForTest(): void {
   if (linkRewriteTimer) clearTimeout(linkRewriteTimer);
   linkRewriteTimer = null;
 }
+
+/** What came of changing a property: done, or why not (`conflict`: the file held another value than the one shown). */
+export type PropertyChange = { ok: true } | { ok: false; conflict?: boolean; error: string };
 
 type StoreGet = () => NoteState;
 type StoreSet = (partial: Partial<NoteState>) => void;
@@ -886,6 +894,29 @@ export const useStore = create<NoteState>()(
     if (!source || !trimmed) return null;
     const copy: View = { ...structuredClone(source), id: newViewId(), name: trimmed };
     return (await commitViews(set, get, [...get().views, copy])) ? copy : null;
+  },
+
+  setNoteProperty: async (name, key, value) => {
+    const api = getElectronApi();
+    if (!api?.setNoteProperty) return { ok: false, error: 'unavailable' };
+    const before = get().frontmatterIndex[name] ?? {};
+    const next = { ...before };
+    if (value === undefined) delete next[key];
+    else next[key] = value;
+    const put = (fields: Record<string, FieldValue>) => set(state => {
+      const frontmatterIndex = { ...state.frontmatterIndex };
+      if (Object.keys(fields).length > 0) frontmatterIndex[name] = fields;
+      else delete frontmatterIndex[name];
+      return { frontmatterIndex };
+    });
+    put(next);
+    const res = await api.setNoteProperty(name, key, value, { value: before[key] }, get().settings.syncDirectory || undefined).catch(() => null);
+    if (res?.success && res.data) {
+      put(res.data.fields);
+      return { ok: true };
+    }
+    put(res?.fields ?? before);
+    return { ok: false, conflict: res?.conflict === true, error: res?.error ?? 'failed' };
   },
 
   settleHeadingRename: async change => {
