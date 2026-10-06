@@ -216,6 +216,10 @@ interface NoteState {
   activeViewId: string | null;
   openView: (id: string) => void;
   closeView: () => void;
+  /** The vault-wide Tasks page shown in the main area instead of the open note. */
+  tasksOpen: boolean;
+  openTasks: () => void;
+  closeTasks: () => void;
   /** Replace the views with what the vault's file holds (on opening a vault, and when asked to look again). */
   loadViews: () => Promise<void>;
   createView: (name: string, patch?: Partial<Omit<View, 'id' | 'name'>>) => Promise<View | null>;
@@ -418,8 +422,11 @@ export const useStore = create<NoteState>()(
       frontmatterIndex: {},
       views: [],
       activeViewId: null,
-      openView: id => set(state => (state.views.some(v => v.id === id) ? { activeViewId: id } : state)),
+      openView: id => set(state => (state.views.some(v => v.id === id) ? { activeViewId: id, tasksOpen: false } : state)),
       closeView: () => set({ activeViewId: null }),
+      tasksOpen: false,
+      openTasks: () => set({ tasksOpen: true, activeViewId: null }),
+      closeTasks: () => set({ tasksOpen: false }),
       tagIndex: {},
       vaultIndexSync: null,
       noteFolders: [],
@@ -612,6 +619,7 @@ export const useStore = create<NoteState>()(
           lastOpenedNote: fileName,
           pendingSelfRename: null,
           activeViewId: null,
+          tasksOpen: false,
         });
       }
     }

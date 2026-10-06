@@ -27,6 +27,8 @@ import { localImageRefs } from '../shared/vault/attachments.js';
 import { readVaultFormat, vaultMarkerPath } from '../shared/vault/formatFile.js';
 import type { NoteFormat } from '../shared/vault/format.js';
 import type { FieldValue } from '../shared/vault/fields.js';
+import { extractTasks, withoutTaskLines, type Task } from '../shared/tasks/parse.js';
+import type { NoteTask } from '../shared/tasks/query.js';
 
 export interface NoteEntry {
   name: string;
@@ -40,6 +42,10 @@ export interface NoteEntry {
   aliases: string[];
   /** The frontmatter as typed fields: what a view's columns, filters and sorts read. */
   fields: Record<string, FieldValue>;
+  /** The note's `- [ ]` tasks (Markdown vaults only; an HTML vault's tasks are not read). */
+  tasks: Task[];
+  /** The tags the note carries apart from its tasks (what a task inherits). */
+  taskNoteTags: string[];
   /** Vault-relative image files this note refers to. */
   images: string[];
   /** False when the note was too large to read: its links/tags/images are unknown, not empty. */
@@ -118,6 +124,13 @@ function currentFormat(st: DirState): NoteFormat {
 
 const toView = (e: NoteEntry): NoteView => ({ links: e.linkTargets, tags: e.tags, aliases: e.aliases, fields: e.fields });
 
+/** The tasks of a note and the tags its tasks inherit (Markdown vaults only; an HTML vault's tasks are not read). */
+function taskFields(raw: string, format: NoteFormat | undefined): { tasks: Task[]; taskNoteTags: string[] } {
+  if (format !== 'markdown') return { tasks: [], taskNoteTags: [] };
+  const tasks = extractTasks(raw);
+  return { tasks, taskNoteTags: tasks.length > 0 ? extractTags(withoutTaskLines(raw, tasks), format) : [] };
+}
+
 export function buildEntry(name: string, raw: string, mtimeMs: number, size: number, gen = 0, parsed = true, vaultFormat?: NoteFormat): NoteEntry {
   // Only a Markdown vault is certain about its notes; an HTML vault can still hold older plain-Markdown notes, so those are sniffed.
   const format = vaultFormat === 'markdown' ? vaultFormat : undefined;
@@ -131,6 +144,7 @@ export function buildEntry(name: string, raw: string, mtimeMs: number, size: num
     frontmatterKeys: extractFrontmatterKeys(raw, format),
     aliases: extractAliases(raw, format),
     fields: extractFields(raw, format),
+    ...taskFields(raw, format),
     images: localImageRefs(raw),
     parsed,
     mtimeMs,
@@ -222,6 +236,17 @@ export class VaultIndex {
     const out: string[] = [];
     for (const [n, e] of st.notes) if (e.linkTargets.some(t => wanted.has(base(t)))) out.push(n);
     return out.sort();
+  }
+
+  /** Every task of every note, for the Tasks view and `list_tasks`. */
+  tasks(dir: string): NoteTask[] {
+    const st = this.byDir.get(this.key(dir));
+    if (!st) return [];
+    const out: NoteTask[] = [];
+    for (const [name, e] of st.notes) {
+      for (const t of e.tasks) out.push({ ...t, note: name, noteTags: e.taskNoteTags });
+    }
+    return out;
   }
 
   /** Note name -> its aliases, for the notes that have any. */

@@ -7,6 +7,7 @@ import { getMarkdownFromHtml } from '../../lib/htmlToMarkdown';
 import { Sidebar } from '../Sidebar';
 import { NoteEditor } from '../NoteEditor';
 import { ViewPage } from '../ViewPage';
+import { TasksPage } from '../TasksPage';
 import { useStore } from '../../store/useStore';
 import { AiChat } from '../AiChat';
 import { TextAnalytics } from '../TextAnalytics';
@@ -82,7 +83,8 @@ export function AppChrome({
 
   // A saved view takes the main area; the open note stays loaded behind it, so nothing in it is lost or reloaded.
   const activeView = useStore(s => s.views.find(v => v.id === s.activeViewId) ?? null);
-  const shown = activeView?.name ?? activeNoteName?.replace('.md', '');
+  const tasksOpen = useStore(s => s.tasksOpen);
+  const shown = activeView?.name ?? (tasksOpen ? t('tasksTitle') : activeNoteName?.replace('.md', ''));
   const windowTitle = shown ? `Noted — ${shown}` : 'Noted';
 
   // The Agent tab is dev-facing scaffolding; show it only when the open note is
@@ -202,7 +204,8 @@ export function AppChrome({
 
           <Panel id="editor-center" order={2} minSize={30} role="main" className="editor-canvas bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
             {activeView && <ViewPage view={activeView} onOpenNote={onOpenNote} onNotice={onToast} />}
-            {activeNoteName && !activeView && (
+            {tasksOpen && !activeView && <TasksPage onOpenNote={onOpenNote} onNotice={onToast} />}
+            {activeNoteName && !activeView && !tasksOpen && (
               <EditorToolbar
                 editor={activeEditor}
                 showToolbar={settings.showToolbar}
@@ -231,7 +234,7 @@ export function AppChrome({
               />
             )}
 
-            <div className={`flex-1 overflow-y-auto relative scroll-fade-bottom ${focusClass} ${typewriterClass} ${activeView ? 'hidden' : ''}`}>
+            <div className={`flex-1 overflow-y-auto relative scroll-fade-bottom ${focusClass} ${typewriterClass} ${activeView || tasksOpen ? 'hidden' : ''}`}>
               <div className={`mx-auto px-12 py-10 ${
                 settings.editorWidth === 'narrow' ? 'max-w-[560px]' :
                 settings.editorWidth === 'wide' ? 'max-w-5xl' :

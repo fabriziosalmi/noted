@@ -7,6 +7,8 @@ import { previewRewrite } from '../link-rewrite';
 import { readVaultFormat } from '../../shared/vault/formatFile';
 import { readViews, writeViews } from '../../shared/views/file';
 import { setProperty } from '../note-properties';
+import { toggleTask } from '../note-tasks';
+import { queryTasks, localDay, type TaskFilter } from '../../shared/tasks/query';
 import { isFieldValue, type FieldValue } from '../../shared/vault/fields';
 import { MAX_FIELD_CHARS } from '../../shared/views/model';
 import { isObsidianVault } from '../../shared/vault/obsidian';
@@ -17,6 +19,20 @@ import { getTargetDir, blessVaultRoot, isBlessedRoot, setActiveVaultDir } from '
 import { fullTextSearchIndex, vaultIndex } from '../core/services';
 import { startVaultWatch } from '../core/watcher';
 import { rewriteLinks, parseRenames, linkRewriteDeps, rewriteHeadingLinksIn, previewHeadingLinks, parseHeadingChange } from '../core/rewrite';
+
+const MAX_LISTED_TASKS = 2000;
+
+/** The filter a renderer sent, kept to what it may contain (untrusted). */
+function parseTaskFilter(input: unknown): TaskFilter {
+  const f = (input ?? {}) as Record<string, unknown>;
+  const text = (v: unknown, max = 200): string | undefined => (typeof v === 'string' && v.length <= max && v !== '' ? v : undefined);
+  const day = (v: unknown): string | undefined => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
+  const status = f.status === 'done' || f.status === 'all' ? f.status : 'open';
+  return {
+    status, folder: text(f.folder), tag: text(f.tag), text: text(f.text),
+    dueFrom: day(f.dueFrom), dueTo: day(f.dueTo), overdue: f.overdue === true || undefined, noDue: f.noDue === true || undefined,
+  };
+}
 
 export function registerVaultHandlers(): void {
   // The renderer's configured vault directory, mirrored in main so windows that
@@ -149,6 +165,33 @@ export function registerVaultHandlers(): void {
     try {
       assertNotMigrating();
       return { success: true, data: writeViews(getTargetDir(syncDir), views) };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  // Tasks across the vault (`- [ ]` items of Markdown notes), filtered, and one of them ticked in its note.
+  ipcMain.handle('list-tasks', async (_, filter: unknown, syncDir?: string) => {
+    try {
+      const dir = getTargetDir(syncDir);
+      await vaultIndex.ensure(dir);
+      await vaultIndex.reconcile(dir);
+      const f = parseTaskFilter(filter);
+      const all = queryTasks(vaultIndex.tasks(dir), f, localDay(new Date()));
+      return { success: true, data: { tasks: all.slice(0, MAX_LISTED_TASKS), total: all.length, format: readVaultFormat(dir) } };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('toggle-task', async (_, name: unknown, line: unknown, text: unknown, done: unknown, syncDir?: string) => {
+    try {
+      assertNotMigrating();
+      if (typeof name !== 'string' || !Number.isInteger(line) || (line as number) < 1 || typeof text !== 'string' || typeof done !== 'boolean') throw new Error('Invalid task');
+      validateFileName(name);
+      const dir = getTargetDir(syncDir);
+      const out = await toggleTask({ ...linkRewriteDeps(dir), format: readVaultFormat(dir) }, name, line as number, text, done);
+      return out.ok ? { success: true, data: { changed: out.changed } } : { success: false, error: out.error };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

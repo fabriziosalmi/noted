@@ -8,6 +8,11 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Tasks across the vault** (#71): a **Tasks** page (top of the sidebar's Views section) lists every `- [ ]` / `- [x]` item of your
+  Markdown notes, soonest due first (`📅 2026-10-10`, `due:: 2026-10-10`). Filter by status, due date (overdue, today, next 7 days,
+  none), folder, tag and text; the list follows the notes live. Tick a task and it is ticked in its note (one character, the rest of
+  the file untouched, version kept in history; refused if the line is no longer that task). The MCP server gets `list_tasks` with the
+  same filters, returning each task's note and line.
 - **MCP `edit_note` and optimistic concurrency** (#81): agents can change part of a note without overwriting it. `read_note` now returns an
   `etag` (a fingerprint of the stored text); `edit_note` needs it back (or the modified time) and, when the note has changed since,
   writes nothing and returns the current note with its new etag so the edit can be redone on it. Operations: replace exact text (unique
