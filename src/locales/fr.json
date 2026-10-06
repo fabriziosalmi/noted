@@ -793,5 +793,11 @@
   "connMentionCount": "{n} mentions",
   "embedLoading": "Chargement…",
   "embedMissing": "Introuvable : {name}",
-  "embedOpenAria": "Intégré depuis {name} : l’ouvrir"
+  "embedOpenAria": "Intégré depuis {name} : l’ouvrir",
+  "viewNameColumn": "Nom",
+  "viewModifiedColumn": "Modifiée",
+  "viewLoading": "Indexation de vos notes…",
+  "viewNoRows": "Aucune note ne correspond à cette vue.",
+  "viewSortBy": "Trier par {field}",
+  "viewRowCount": "{n} notes"
 }

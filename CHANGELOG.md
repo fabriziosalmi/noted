@@ -8,6 +8,12 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The table view and the query behind it** (#21, Views): a view's rows are the notes of its source (all notes, a folder at any depth,
+  or a tag), kept if they pass every filter (equals, contains, empty, greater/less, before/after a date, checked, list contains; a note
+  with no value fails a positive test and passes a negative one; an unfinished filter lets everything through), ordered by any number
+  of keys (numbers by size, text without caring about case, `item 9` before `item 10`, notes with no value always last). Shown as a
+  table: the note's name first (it opens the note), then the chosen fields, typed cells (numbers aligned right, checkboxes, list items
+  as chips), a click on a header sorts. Not reachable from the sidebar yet; the Views section comes next.
 - **Field types for views** (#20, Views): from the frontmatter alone the app works out which fields exist and what each is: text,
   number, date (`2026-10-06`, with a real month and day), true/false, a list, or a choice (a few different words, or many that repeat),
   with the values in use and how many notes use each, most used first. Notes that disagree about a field (numbers and words, a date

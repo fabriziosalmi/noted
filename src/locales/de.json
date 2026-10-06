@@ -793,5 +793,11 @@
   "connMentionCount": "{n} Erwähnungen",
   "embedLoading": "Wird geladen…",
   "embedMissing": "Nicht gefunden: {name}",
-  "embedOpenAria": "Eingebettet aus {name}: öffnen"
+  "embedOpenAria": "Eingebettet aus {name}: öffnen",
+  "viewNameColumn": "Name",
+  "viewModifiedColumn": "Geändert",
+  "viewLoading": "Notizen werden indiziert…",
+  "viewNoRows": "Keine Notiz passt zu dieser Ansicht.",
+  "viewSortBy": "Nach {field} sortieren",
+  "viewRowCount": "{n} Notizen"
 }
