@@ -16,6 +16,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Markdown (HTML it sends is converted), appending leaves the existing text untouched, agent workflows keep their metadata in
   a `json` code block, and writes wait while the app is converting.
 
+- **`read_note` returns structured content** (MCP): the parsed YAML frontmatter, the raw frontmatter block, and the body, with a
+  `schemaVersion` (2). In a Markdown vault the note is returned once, as Markdown, instead of as plain text plus HTML, which is
+  far fewer tokens for an agent. HTML vaults keep the previous text layout; the new fields are additive.
+
 ### Changed
 
 - **Internal: converting a vault between HTML and Markdown** (#60, second part): a dry-run report per note, a verified zip

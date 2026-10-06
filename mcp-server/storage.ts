@@ -5,7 +5,9 @@
 // A client may still send HTML to a Markdown vault (the previous contract, kept for one minor version);
 // it is sanitized and converted. Markdown sent to an HTML vault goes through `marked` as before.
 import { convertHtmlNote } from '../shared/markdown/migrate.js';
+import { parse as parseYaml } from 'yaml';
 import { normalizeMarkdown, splitFrontmatter } from '../shared/markdown/codec.js';
+import { extractHtmlFrontmatterComment } from '../shared/markdown/frontmatter.js';
 import type { DomEnv } from '../shared/markdown/html.js';
 import { markdownToPlainText } from '../shared/search/textExtract.js';
 import type { NoteFormat } from '../shared/vault/format.js';
@@ -45,4 +47,59 @@ export async function appendStored(existing: string, addition: string, format: N
 /** Plain text of a stored note, for search and for reading. */
 export function storedToText(stored: string, format: NoteFormat, deps: Pick<StorageDeps, 'htmlToText'>): string {
   return format === 'html' ? deps.htmlToText(stored) : markdownToPlainText(stored);
+}
+
+/** Version of what `read_note` returns as structured content. Additive changes keep it; a breaking one bumps it. */
+export const READ_NOTE_SCHEMA_VERSION = 2;
+
+export interface ReadNoteResult {
+  schemaVersion: number;
+  name: string;
+  format: NoteFormat;
+  /** The note's YAML frontmatter, parsed; null when there is none (or it is not a mapping, see `frontmatterError`). */
+  frontmatter: Record<string, unknown> | null;
+  /** The frontmatter block exactly as stored, delimiters included; null when there is none. */
+  frontmatterRaw: string | null;
+  frontmatterError?: string;
+  /** The note without its frontmatter: Markdown in a Markdown vault, HTML in an HTML one. */
+  body: string;
+  modified: string;
+  sizeBytes: number;
+}
+
+/** Parse the YAML between the `---` lines of a frontmatter block. Never throws: a bad block is reported, not fatal. */
+export function parseFrontmatterBlock(block: string): { data: Record<string, unknown> | null; error?: string } {
+  const inner = block.replace(/^---[ \t]*\r?\n/, '').replace(/(?:^|\r?\n)---[ \t]*\r?\n?$/, '');
+  try {
+    const value: unknown = parseYaml(inner, { maxAliasCount: 100 });
+    if (value === null || value === undefined) return { data: {} };
+    if (typeof value !== 'object' || Array.isArray(value)) return { data: null, error: 'frontmatter is not a mapping' };
+    return { data: value as Record<string, unknown> };
+  } catch (err) {
+    return { data: null, error: (err as Error).message.split('\n')[0] };
+  }
+}
+
+const splitMarkdown = (stored: string): { frontmatter: string | null; body: string } => splitFrontmatter(stored);
+
+/** A stored note split into frontmatter and body, for an agent that wants to read or edit them separately. */
+export function describeStored(
+  stored: string,
+  format: NoteFormat,
+  meta: { name: string; modified: Date; sizeBytes: number },
+): ReadNoteResult {
+  const split = format === 'markdown' ? splitMarkdown(stored) : extractHtmlFrontmatterComment(stored);
+  const raw = split.frontmatter || null;
+  const parsed: { data: Record<string, unknown> | null; error?: string } = raw ? parseFrontmatterBlock(raw) : { data: null };
+  return {
+    schemaVersion: READ_NOTE_SCHEMA_VERSION,
+    name: meta.name,
+    format,
+    frontmatter: parsed.data,
+    frontmatterRaw: raw,
+    ...(parsed.error ? { frontmatterError: parsed.error } : {}),
+    body: split.body.replace(/^\r?\n/, ''),
+    modified: meta.modified.toISOString(),
+    sizeBytes: meta.sizeBytes,
+  };
 }

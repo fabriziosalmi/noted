@@ -262,3 +262,13 @@ the editor or to storage: that is the migration (#60). What building it taught, 
   vaults not yet converted, and goes away for good with HTML-vault support, not before.
 - No YAML library was added: nothing needs the frontmatter parsed, and a comment-preserving round trip is exactly what leaving it unparsed gives.
 
+## Implementation notes (#63, MCP end to end)
+
+- **`read_note` schema 2** (`mcp-server/storage.ts`, `describeStored`): `structuredContent` with `schemaVersion`, `format`, parsed `frontmatter`,
+  `frontmatterRaw`, `body`. Parsing uses the `yaml` package, in the MCP bundle only (a dev dependency, bundled like `marked`); it is read-only, so
+  writing frontmatter still means writing the exact bytes. A block that does not parse is reported (`frontmatterError`) and handed over raw.
+- **Compatibility.** Vaults that existed before this had HTML, so the only "old clients" are HTML-vault clients: their text layout is untouched
+  and the new fields are additive. Markdown vaults are new, so their text result was free to be compact: Markdown once, not plain text plus markup.
+  HTML sent to `create_note`/`update_note` is still accepted and converted.
+- **Round trip.** `frontmatterRaw + body` is what `update_note` accepts back, and a test checks it leaves the note byte for byte as it was.
+

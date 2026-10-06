@@ -54,7 +54,7 @@ import { readVaultConfig } from '../shared/vault-config.js';
 import { isMigrationLocked, readVaultFormat } from '../shared/vault/formatFile.js';
 import type { NoteFormat } from '../shared/vault/format.js';
 import type { DomEnv } from '../shared/markdown/html.js';
-import { appendStored, storedToText, toStored, type StorageDeps } from './storage';
+import { appendStored, describeStored, storedToText, toStored, type StorageDeps } from './storage';
 
 // ─── Notes-directory resolution ───────────────────────────────────────────────
 
@@ -763,8 +763,9 @@ const TOOLS: Tool[] = [
   {
     name: TOOL_NAME.READ_NOTE,
     description:
-      'Read the full content of a note. Returns both the plain-text version (for easy reading) ' +
-      'and the raw HTML stored on disk.',
+      'Read a note. In a Markdown vault: its parsed frontmatter and its Markdown body. In an HTML vault: ' +
+      'the plain text and the raw HTML stored on disk. Either way structuredContent holds ' +
+      '{ schemaVersion, name, format, frontmatter, frontmatterRaw, body, modified, sizeBytes }.',
     inputSchema: {
       type: 'object',
       required: ['name'],
@@ -780,8 +781,8 @@ const TOOLS: Tool[] = [
   {
     name: TOOL_NAME.CREATE_NOTE,
     description:
-      'Create a new note in Noted. Content can be Markdown or HTML — Markdown is automatically ' +
-      'converted to HTML for correct rendering in the editor. ' +
+      'Create a new note in Noted. Send Markdown (a leading YAML frontmatter block is kept as written). ' +
+      'The server stores it in the vault\'s own format; HTML is still accepted and converted. ' +
       'Fails if a note with the same name already exists (use update_note to edit an existing note).',
     inputSchema: {
       type: 'object',
@@ -793,7 +794,7 @@ const TOOLS: Tool[] = [
         },
         content: {
           type: 'string',
-          description: 'Note body in Markdown or HTML',
+          description: 'Note body in Markdown (HTML is still accepted)',
         },
       },
       additionalProperties: false,
@@ -815,7 +816,7 @@ const TOOLS: Tool[] = [
         },
         content: {
           type: 'string',
-          description: 'New content in Markdown or HTML',
+          description: 'New content in Markdown (HTML is still accepted)',
         },
         append: {
           type: 'boolean',
@@ -1090,22 +1091,27 @@ export async function handleReadNote(args: Record<string, unknown>) {
   }
   const stored = fs.readFileSync(filePath, 'utf8');
   const format = vaultFormat();
-  const plain = noteText(stored, format);
   const stat = fs.statSync(filePath);
+  const note = describeStored(stored, format, { name: name as string, modified: stat.mtime, sizeBytes: stat.size });
+  const heading = [
+    `# ${(name as string).replace('.md', '')}`,
+    `Modified: ${formatLocal(stat.mtime, true)} — ${(stat.size / 1024).toFixed(1)} KB`,
+    '',
+  ];
+  // A Markdown vault: the note is already compact text, so it is returned once, split into the parsed
+  // frontmatter and the Markdown body. An HTML vault keeps the layout clients were written against.
+  const lines = format === 'markdown'
+    ? [
+        ...heading,
+        ...(note.frontmatter ? ['## Frontmatter', JSON.stringify(note.frontmatter, null, 2), ''] : []),
+        ...(note.frontmatterError ? [`## Frontmatter (not parsed: ${note.frontmatterError})`, note.frontmatterRaw ?? '', ''] : []),
+        '## Markdown',
+        note.body,
+      ]
+    : [...heading, '## Content (plain text)', noteText(stored, format), '', '## Raw HTML', stored];
   return {
-    content: [{
-      type: 'text',
-      text: [
-        `# ${(name as string).replace('.md', '')}`,
-        `Modified: ${formatLocal(stat.mtime, true)} — ${(stat.size / 1024).toFixed(1)} KB`,
-        '',
-        '## Content (plain text)',
-        plain,
-        '',
-        format === 'markdown' ? '## Markdown' : '## Raw HTML',
-        stored,
-      ].join('\n'),
-    }],
+    content: [{ type: 'text', text: lines.join('\n') }],
+    structuredContent: { ...note },
   };
 }
 

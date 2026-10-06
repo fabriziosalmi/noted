@@ -47,13 +47,53 @@ describe('a Markdown vault', () => {
     expect(stored).toBe('# Title\n\nsome **bold**\n');
   });
 
-  it('read_note shows the Markdown, labelled as such, and its plain text', async () => {
+  it('read_note shows the Markdown, labelled as such', async () => {
     await mcp.handleCreateNote({ name: 'a.md', content: '# Plan\n\nsee [the doc](x.md) **now**' });
     const out = text(await mcp.handleReadNote({ name: 'a.md' }));
     expect(out).toContain('## Markdown');
     expect(out).not.toContain('## Raw HTML');
     expect(out).toContain('Plan');
-    expect(out).toContain('see the doc now');
+    expect(out).toContain('see [the doc](x.md) **now**');
+  });
+
+  it('read_note returns the parsed frontmatter and the Markdown body, once, with a versioned structured result', async () => {
+    fs.writeFileSync(path.join(dir, 'a.md'), '---\ntitle: Plan\ntags: [x, y]\nnested:\n  k: 1\n# a comment\n---\n\n# Plan\n\nbody **here**\n');
+    const res = await mcp.handleReadNote({ name: 'a.md' }) as { content: { text: string }[]; structuredContent: Record<string, unknown> };
+    expect(res.structuredContent).toMatchObject({
+      schemaVersion: 2,
+      name: 'a.md',
+      format: 'markdown',
+      frontmatter: { title: 'Plan', tags: ['x', 'y'], nested: { k: 1 } },
+      body: '# Plan\n\nbody **here**\n',
+    });
+    expect(res.structuredContent.frontmatterRaw).toBe('---\ntitle: Plan\ntags: [x, y]\nnested:\n  k: 1\n# a comment\n---\n');
+    const out = res.content[0].text;
+    expect(out).toContain('## Frontmatter');
+    expect(out).toContain('"title": "Plan"');
+    expect(out.match(/body \*\*here\*\*/g)).toHaveLength(1); // not repeated as "plain text" as well
+    expect(out).not.toContain('title: Plan'); // the YAML text is not sent twice either
+  });
+
+  it('read_note on a note with no frontmatter, empty frontmatter and broken frontmatter', async () => {
+    fs.writeFileSync(path.join(dir, 'none.md'), '# Just text\n');
+    fs.writeFileSync(path.join(dir, 'empty.md'), '---\n---\n\n# E\n');
+    fs.writeFileSync(path.join(dir, 'bad.md'), '---\nkey: [unclosed\n---\n\n# B\n');
+    const read = async (n: string) => (await mcp.handleReadNote({ name: n }) as { structuredContent: Record<string, unknown>; content: { text: string }[] });
+    expect((await read('none.md')).structuredContent).toMatchObject({ frontmatter: null, frontmatterRaw: null, body: '# Just text\n' });
+    expect((await read('empty.md')).structuredContent).toMatchObject({ frontmatter: {}, body: '# E\n' });
+    const bad = await read('bad.md');
+    expect(bad.structuredContent.frontmatter).toBeNull();
+    expect(bad.structuredContent.frontmatterError).toBeTruthy();
+    expect(bad.structuredContent.frontmatterRaw).toBe('---\nkey: [unclosed\n---\n'); // still handed over, so an agent can fix it
+    expect(bad.structuredContent.body).toBe('# B\n');
+    expect(bad.content[0].text).toContain('not parsed');
+  });
+
+  it('what read_note gives back is what update_note accepts: frontmatter and body round trip', async () => {
+    fs.writeFileSync(path.join(dir, 'a.md'), '---\ntitle:   Plan\n---\n\n# Plan\n\ntext\n');
+    const got = await mcp.handleReadNote({ name: 'a.md' }) as { structuredContent: { frontmatterRaw: string; body: string } };
+    await mcp.handleUpdateNote({ name: 'a.md', content: got.structuredContent.frontmatterRaw + '\n' + got.structuredContent.body });
+    expect(read('a.md')).toBe('---\ntitle:   Plan\n---\n\n# Plan\n\ntext\n');
   });
 
   it('update_note replaces; with append it leaves the existing text byte for byte and adds a rule', async () => {
@@ -116,6 +156,13 @@ describe('an HTML vault (unchanged)', () => {
     await mcp.handleCreateNote({ name: 'a.md', content: '# Plan\n\n**bold**' });
     expect(read('a.md')).toContain('<h1>Plan</h1>');
     expect(text(await mcp.handleReadNote({ name: 'a.md' }))).toContain('## Raw HTML');
+  });
+
+  it('read_note keeps the layout clients were written against, and adds a versioned structured result', async () => {
+    fs.writeFileSync(path.join(dir, 'a.md'), '<!--noted-frontmatter:' + encodeURIComponent('---\ntitle: Old\n---') + '-->\n<h1>Old</h1><p>text</p>');
+    const res = await mcp.handleReadNote({ name: 'a.md' }) as { content: { text: string }[]; structuredContent: Record<string, unknown> };
+    expect(res.content[0].text).toMatch(/## Content \(plain text\)\n[\s\S]*Old[\s\S]*## Raw HTML\n<!--noted-frontmatter:/);
+    expect(res.structuredContent).toMatchObject({ schemaVersion: 2, format: 'html', frontmatter: { title: 'Old' }, body: '<h1>Old</h1><p>text</p>' });
   });
 
   it('append adds a rule and the new HTML', async () => {
