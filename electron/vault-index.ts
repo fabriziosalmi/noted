@@ -17,7 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  parseWikilinks, extractTags, extractHeadings, extractFrontmatterKeys, extractAliases,
+  parseWikilinks, extractTags, extractHeadings, extractFrontmatterKeys, extractAliases, extractFields,
   type WikiLink, type Heading,
 } from '../shared/vault/extract.js';
 import { buildLinkResolver, linkPointsAtNote } from '../shared/vault/resolve.js';
@@ -26,6 +26,7 @@ import { walkVault } from '../shared/vault/walk.js';
 import { localImageRefs } from '../shared/vault/attachments.js';
 import { readVaultFormat, vaultMarkerPath } from '../shared/vault/formatFile.js';
 import type { NoteFormat } from '../shared/vault/format.js';
+import type { FieldValue } from '../shared/vault/fields.js';
 
 export interface NoteEntry {
   name: string;
@@ -37,6 +38,8 @@ export interface NoteEntry {
   frontmatterKeys: string[];
   /** Other names the note answers to (frontmatter `aliases:`). */
   aliases: string[];
+  /** The frontmatter as typed fields: what a view's columns, filters and sorts read. */
+  fields: Record<string, FieldValue>;
   /** Vault-relative image files this note refers to. */
   images: string[];
   /** False when the note was too large to read: its links/tags/images are unknown, not empty. */
@@ -53,6 +56,8 @@ export interface NoteView {
   tags: string[];
   /** Other names the note answers to, so a `[[link]]` or Quick Open by one of them finds it. */
   aliases: string[];
+  /** The frontmatter as typed fields. */
+  fields: Record<string, FieldValue>;
 }
 
 export interface IndexSnapshot {
@@ -111,7 +116,7 @@ function currentFormat(st: DirState): NoteFormat {
   return st.format;
 }
 
-const toView = (e: NoteEntry): NoteView => ({ links: e.linkTargets, tags: e.tags, aliases: e.aliases });
+const toView = (e: NoteEntry): NoteView => ({ links: e.linkTargets, tags: e.tags, aliases: e.aliases, fields: e.fields });
 
 export function buildEntry(name: string, raw: string, mtimeMs: number, size: number, gen = 0, parsed = true, vaultFormat?: NoteFormat): NoteEntry {
   // Only a Markdown vault is certain about its notes; an HTML vault can still hold older plain-Markdown notes, so those are sniffed.
@@ -125,6 +130,7 @@ export function buildEntry(name: string, raw: string, mtimeMs: number, size: num
     headings: extractHeadings(raw, format),
     frontmatterKeys: extractFrontmatterKeys(raw, format),
     aliases: extractAliases(raw, format),
+    fields: extractFields(raw, format),
     images: localImageRefs(raw),
     parsed,
     mtimeMs,

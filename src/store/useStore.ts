@@ -11,6 +11,7 @@ import type { VaultIndexSnapshot, VaultIndexDelta } from '../lib/vaultIndexTypes
 import { readLinkUpdateMode, foldRename, isNoopRename, type PendingRename } from '../lib/linkUpdate';
 import { getLinkUpdateUi } from '../lib/linkUpdateUi';
 import type { HeadingChange } from '../types';
+import type { FieldValue } from '../../shared/vault/fields';
 import { slugifyTitle } from '../lib/noteTitle';
 import { translate } from '../lib/i18n';
 import { getElectronApi } from '../lib/electronApi';
@@ -205,6 +206,8 @@ interface NoteState {
   noteLinksIndex: Record<string, string[]>;
   /** Note name -> its aliases (frontmatter `aliases:`), only for the notes that have any. */
   noteAliasesIndex: Record<string, string[]>;
+  /** Note name -> its frontmatter as typed fields (the rows of a view), only for the notes that have any. */
+  frontmatterIndex: Record<string, Record<string, FieldValue>>;
   tagIndex: Record<string, string[]>;
   vaultIndexSync: { vault: string; seq: number } | null;
   applyVaultIndexSnapshot: (snapshot: VaultIndexSnapshot) => void;
@@ -371,6 +374,7 @@ export const useStore = create<NoteState>()(
       customTemplates: [],
       noteLinksIndex: {},
       noteAliasesIndex: {},
+      frontmatterIndex: {},
       tagIndex: {},
       vaultIndexSync: null,
       noteFolders: [],
@@ -576,7 +580,9 @@ export const useStore = create<NoteState>()(
     }
     const noteAliasesIndex: Record<string, string[]> = {};
     for (const [name, v] of Object.entries(snapshot.notes)) if (v.aliases?.length) noteAliasesIndex[name] = v.aliases;
-    set({ noteLinksIndex, noteAliasesIndex, tagIndex, vaultIndexSync: { vault: snapshot.vault, seq: snapshot.seq } });
+    const frontmatterIndex: Record<string, Record<string, FieldValue>> = {};
+    for (const [name, v] of Object.entries(snapshot.notes)) if (v.fields && Object.keys(v.fields).length) frontmatterIndex[name] = v.fields;
+    set({ noteLinksIndex, noteAliasesIndex, frontmatterIndex, tagIndex, vaultIndexSync: { vault: snapshot.vault, seq: snapshot.seq } });
   },
 
   applyVaultIndexDelta: (delta: VaultIndexDelta) => {
@@ -594,6 +600,12 @@ export const useStore = create<NoteState>()(
         if (v.aliases?.length) noteAliasesIndex[n] = v.aliases;
         else delete noteAliasesIndex[n];
       }
+      const frontmatterIndex = { ...state.frontmatterIndex };
+      for (const n of delta.removals) delete frontmatterIndex[n];
+      for (const [n, v] of Object.entries(delta.upserts)) {
+        if (v.fields && Object.keys(v.fields).length) frontmatterIndex[n] = v.fields;
+        else delete frontmatterIndex[n];
+      }
       // Drop the changed notes from every tag, then add back their current tags.
       const tagIndex: Record<string, string[]> = {};
       for (const [tag, names] of Object.entries(state.tagIndex)) {
@@ -601,7 +613,7 @@ export const useStore = create<NoteState>()(
         if (kept.length) tagIndex[tag] = kept;
       }
       for (const [n, v] of Object.entries(delta.upserts)) for (const t of v.tags) (tagIndex[t] ??= []).push(n);
-      return { noteLinksIndex, noteAliasesIndex, tagIndex, vaultIndexSync: { vault: sync.vault, seq: delta.seq } };
+      return { noteLinksIndex, noteAliasesIndex, frontmatterIndex, tagIndex, vaultIndexSync: { vault: sync.vault, seq: delta.seq } };
     });
   },
 
@@ -1071,6 +1083,7 @@ export const useStore = create<NoteState>()(
       customTemplates: [],
       noteLinksIndex: {},
       noteAliasesIndex: {},
+      frontmatterIndex: {},
       tagIndex: {},
       noteFolders: [],
       lastOpenedNote: null,

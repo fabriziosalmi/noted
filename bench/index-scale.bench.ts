@@ -19,7 +19,7 @@ const percentile = (sorted: number[], p: number): number => sorted[Math.min(sort
 let dir: string;
 beforeAll(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'noted-bench-'));
-  generateVault(dir, { count: NOTES, seed: 7, bodyWords: 350 });
+  generateVault(dir, { count: NOTES, seed: 7, bodyWords: 350, frontmatterRate: 1 });
 });
 afterAll(() => { fs.rmSync(dir, { recursive: true, force: true }); });
 

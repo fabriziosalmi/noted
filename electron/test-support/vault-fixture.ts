@@ -35,8 +35,9 @@ export interface GeneratedVault {
   danglingBaseline: string[];
 }
 
-export function generateVault(dir: string, opts: { count?: number; seed?: number; bodyWords?: number } = {}): GeneratedVault {
+export function generateVault(dir: string, opts: { count?: number; seed?: number; bodyWords?: number; frontmatterRate?: number } = {}): GeneratedVault {
   const count = opts.count ?? 500;
+  const frontmatterRate = opts.frontmatterRate ?? 0.05; // 1 = every note has a properties block, as in a vault used with Views
   const bodyWords = opts.bodyWords ?? 0; // extra running text per note, to make notes a realistic size
   const rand = rng(opts.seed ?? 1);
   const pick = <T>(a: T[]) => a[Math.floor(rand() * a.length)];
@@ -72,7 +73,9 @@ export function generateVault(dir: string, opts: { count?: number; seed?: number
     const links = Array.from({ length: Math.floor(rand() * 5) }, () => linkText(pick(names)));
     if (rand() < 0.1) links.push(`[[${NEVER}]]`);
     const tags = Array.from({ length: Math.floor(rand() * 3) }, () => pick(TAGS));
-    const front = rand() < 0.05 ? `<!--noted-frontmatter:${encodeURIComponent('---\ntitle: x\nstatus: draft\n---')}-->` : '';
+    const front = rand() < frontmatterRate
+      ? `<!--noted-frontmatter:${encodeURIComponent(`---\ntitle: x\nstatus: ${pick(['draft', 'open', 'done'])}\npriority: ${Math.floor(rand() * 5)}\ndue: 2026-10-${10 + Math.floor(rand() * 18)}\ndone: ${rand() < 0.5}\ntags: [${pick(WORDS)}, ${pick(WORDS)}]\n---`)}-->`
+      : '';
     const html = `${front}<h1>${escapeHtml(bare(name).split('/').pop()!)}</h1><h2>Details</h2><p>${pick(WORDS)} ${pick(WORDS)} ${links.join(' ')} ${tags.join(' ')}</p><p>${pick(WORDS)} ${pick(WORDS)} ${pick(WORDS)}.</p>${bodyWords ? `<p>${Array.from({ length: bodyWords }, () => pick(WORDS)).join(' ')}.</p>` : ''}`;
     fs.writeFileSync(file, html, 'utf8');
   }

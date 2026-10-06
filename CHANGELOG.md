@@ -6,6 +6,14 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Frontmatter field index** (#18, foundation of Views): the vault index now keeps each note's frontmatter as typed fields
+  (text, number, true/false, empty, lists; a date stays the text it was written as) and the app holds them for the whole vault,
+  kept current as notes are saved, renamed, deleted or changed on disk. Nothing to see yet: the table and board views build on it.
+  Plain `key: value` blocks are read directly (indexing 10,000 notes with properties costs no measurable time), anything else by the
+  YAML library, and a property test pins that both give the same answer.
+
 ## [1.5.0] - 2026-10-06
 
 ### Added

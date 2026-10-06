@@ -3,12 +3,16 @@
  * keeps the producing side; `electron/vault-index.types-check.ts` makes the
  * compiler prove the two stay equal.
  */
+import type { FieldValue } from '../../shared/vault/fields';
+
 export interface VaultIndexNoteView {
   /** Distinct [[link]] targets, without alias/heading/".md". */
   links: string[];
   tags: string[];
   /** Other names the note answers to (frontmatter `aliases:`). */
   aliases: string[];
+  /** The frontmatter as typed fields (scalars and lists of scalars). */
+  fields: Record<string, FieldValue>;
 }
 
 export interface VaultIndexSnapshot {
