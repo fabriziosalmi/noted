@@ -26,6 +26,12 @@ link rendered as `[[Note name]]`.
   `![[photo.png|300]]` sets the width). An embed is a read-only view: it is never saved into the note, so the
   file keeps only the `![[...]]` you wrote. Click it to open the note it comes from, at that place. An embed of
   something that is not there says *Not found*. Embeds inside an embedded note are shown as written, not expanded.
+- **Renaming a heading.** When you rename a heading and move on (the caret leaves it, the editor loses focus, or you
+  open another note), the `[[Note#Old heading]]` links in other notes, by the note's name or one of its aliases, are
+  updated to the new text; an alias after the `|` is kept. It follows the same **Update links when renaming** setting
+  as renaming a note (*Always*, *Ask*, *Never*), and each changed note keeps a history snapshot, so it can be undone.
+  Links inside the note itself are not touched, and nothing is done when a heading was added or removed at the same
+  time, because which heading became which cannot be told.
 - **Aliases.** A note can have other names, in its frontmatter (the Obsidian way):
 
   ```yaml

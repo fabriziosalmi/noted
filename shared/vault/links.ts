@@ -24,7 +24,7 @@ export interface RewriteResult {
   changed: number;
 }
 
-const escapeText = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+export const escapeText = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const escapeAttr = (s: string) => escapeText(s).replace(/"/g, '&quot;');
 const bare = (name: string) => name.replace(/\.md$/i, '');
 
@@ -79,7 +79,7 @@ function newTargetFor(target: string, plan: RewritePlan, source?: string): strin
 }
 
 /** Parse the inside of `[[...]]` into target / heading / alias (all entity-decoded). */
-function splitInner(inner: string): { target: string; heading?: string; alias?: string } | null {
+export function splitInner(inner: string): { target: string; heading?: string; alias?: string } | null {
   const decoded = decodeEntities(inner);
   const pipe = decoded.indexOf('|');
   const head = (pipe === -1 ? decoded : decoded.slice(0, pipe)).trim();

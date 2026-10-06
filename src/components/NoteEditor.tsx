@@ -18,6 +18,8 @@ import { WikilinkMark, createWikilinkHighlightPlugin } from '../lib/WikilinkExte
 import { WikilinkSuggestion } from './WikilinkSuggestion';
 import { parseWikilinkText } from '../../shared/vault/wikilink';
 import { scrollToAnchor } from '../lib/anchors';
+import { extractOutline } from '../lib/outline';
+import { diffHeadings } from '../lib/headingRename';
 import { EmbedExtension, setEmbedContext } from '../lib/EmbedExtension';
 import { TagSuggestion } from './TagSuggestion';
 import { BacklinksPanel } from './BacklinksPanel';
@@ -334,6 +336,22 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       .catch((err: unknown) => { onNoticeRef.current?.((err as Error).message, 'error'); });
   }, []);
 
+  // A heading renamed here leaves [[Note#Old heading]] links elsewhere pointing at nothing: when the caret leaves the
+  // heading (or the editor loses focus, or another note opens) its links are offered the new text.
+  const headingBaselineRef = useRef<{ note: string; headings: string[] } | null>(null);
+  const headingEditedRef = useRef(false);
+  const settleHeadingRenames = useCallback((ed: Editor) => {
+    const base = headingBaselineRef.current;
+    if (!base || !headingEditedRef.current) return;
+    headingEditedRef.current = false;
+    const headings = extractOutline(ed.state.doc).map(item => item.text);
+    const renames = diffHeadings(base.headings, headings);
+    headingBaselineRef.current = { note: base.note, headings };
+    if (renames && renames.length > 0) {
+      void useStore.getState().settleHeadingRename({ note: base.note, oldHeadings: base.headings, renames });
+    }
+  }, []);
+
   const editor = useEditor({
     extensions: [
       // What a note can contain is defined once, in shared/markdown/schema.ts, so the editor, the Markdown
@@ -370,6 +388,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     editable: !useStore.getState().vaultConverting,
     parseOptions: parseOptionsFor(currentFormat()),
     onUpdate: ({ editor }) => {
+      if (editor.state.selection.$from.parent.type.name === 'heading') headingEditedRef.current = true;
       const html = editor.getHTML();
       debouncedSave(html);
       scheduleTitleSync(html);
@@ -394,6 +413,10 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     onCreate: ({ editor }) => {
       updateWordCount(editor.getText());
     },
+    onSelectionUpdate: ({ editor }) => {
+      if (editor.state.selection.$from.parent.type.name !== 'heading') settleHeadingRenames(editor);
+    },
+    onBlur: ({ editor }) => settleHeadingRenames(editor),
     editorProps: {
       attributes: { class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none' },
       handleKeyDown: (_view, event) => {
@@ -490,16 +513,20 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
         // Retarget any pending save to the new name so a later flush doesn't
         // resurrect the old (now-renamed) file.
         if (pendingSaveRef.current) pendingSaveRef.current.name = activeNoteName;
+        if (headingBaselineRef.current) headingBaselineRef.current.note = activeNoteName;
         prevNoteNameRef.current = activeNoteName;
         useStore.getState().clearPendingSelfRename();
         return;
       }
-      // A real switch: drain the outgoing note's pending autosave to disk first,
+      // A real switch: settle a heading renamed in the outgoing note, and drain its pending autosave to disk first,
       // so its last <debounce edits are never dropped.
+      settleHeadingRenames(editor);
       flushPending();
       prevNoteNameRef.current = activeNoteName;
       editor.commands.setContent(activeNoteContent, { parseOptions: parseOptionsFor(currentFormat()) });
       baselineHtmlRef.current = editor.getHTML();
+      headingBaselineRef.current = activeNoteName ? { note: activeNoteName, headings: extractOutline(editor.state.doc).map(item => item.text) } : null;
+      headingEditedRef.current = false;
       updateWordCount(editor.getText());
       // Baseline the title tracker to the loaded note so body edits don't
       // trigger a rename; only an actual title change will.
@@ -515,7 +542,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
         editor.commands.focus('start');
       }, 0);
     }
-  }, [activeNoteName, activeNoteContent, editor, updateWordCount, flushPending]);
+  }, [activeNoteName, activeNoteContent, editor, updateWordCount, flushPending, settleHeadingRenames]);
 
   // The open note changed on disk behind the editor (a git sync pulled it, an MCP
   // client wrote it). Autosave would otherwise overwrite that change with the
@@ -574,6 +601,9 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       const { from, to } = editor.state.selection;
       editor.commands.setContent(plan.disk.content, { emitUpdate: false, parseOptions: parseOptionsFor(currentFormat()) });
       baselineHtmlRef.current = editor.getHTML();
+      // The headings that arrived from elsewhere are the new starting point, not a rename.
+      headingBaselineRef.current = { note: name, headings: extractOutline(editor.state.doc).map(item => item.text) };
+      headingEditedRef.current = false;
       const max = editor.state.doc.content.size;
       editor.commands.setTextSelection({ from: Math.min(from, max), to: Math.min(to, max) });
       updateWordCount(editor.getText());

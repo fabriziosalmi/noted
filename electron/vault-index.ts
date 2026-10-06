@@ -219,6 +219,11 @@ export class VaultIndex {
   }
 
   /** Note name -> its aliases, for the notes that have any. */
+  aliases(dir: string): Record<string, string[]> {
+    const st = this.byDir.get(this.key(dir));
+    return st ? this.aliasMap(st) : {};
+  }
+
   private aliasMap(st: DirState): Record<string, string[]> {
     const out: Record<string, string[]> = {};
     for (const [name, e] of st.notes) if (e.aliases.length > 0) out[name] = e.aliases;

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { validateFileName } from '../ipc-utils';
-import { applyRewrite, type RewriteDeps, type RewriteOutcome } from '../link-rewrite';
+import { applyRewrite, applyHeadingRewrite, previewHeadingRewrite, type HeadingChange, type RewriteDeps, type RewriteOutcome } from '../link-rewrite';
 import type { NoteRename } from '../../shared/vault/links';
 import type { MigrationDeps } from '../attachments';
 import { DEFAULT_ATTACHMENTS_FOLDER } from '../../shared/vault/attachments';
@@ -45,6 +45,38 @@ export async function rewriteLinks(targetDir: string, renames: NoteRename[]): Pr
   if (out.failed.length > 0) logEvent('warn', 'link_rewrite_partial', { failed: out.failed.length, first: out.failed[0].error });
   logEvent('info', 'link_rewrite', { renames: renames.length, notes: out.notes.length, links: out.links });
   return { notes: out.notes.length, links: out.links, failed: out.failed.length };
+}
+
+export async function rewriteHeadingLinksIn(targetDir: string, change: HeadingChange): Promise<LinkUpdateResult> {
+  const out: RewriteOutcome = await applyHeadingRewrite(targetDir, change, linkRewriteDeps(targetDir));
+  if (out.failed.length > 0) logEvent('warn', 'heading_link_rewrite_partial', { failed: out.failed.length, first: out.failed[0].error });
+  logEvent('info', 'heading_link_rewrite', { renames: change.renames.length, notes: out.notes.length, links: out.links });
+  return { notes: out.notes.length, links: out.links, failed: out.failed.length };
+}
+
+export const previewHeadingLinks = (targetDir: string, change: HeadingChange): Promise<{ notes: number; links: number }> =>
+  previewHeadingRewrite(targetDir, change, linkRewriteDeps(targetDir));
+
+const MAX_HEADINGS = 2000;
+const MAX_HEADING_CHARS = 500;
+
+/** Validate a renderer-supplied heading change (untrusted). */
+export function parseHeadingChange(input: unknown): HeadingChange {
+  const { note, oldHeadings, renames } = (input ?? {}) as { note?: unknown; oldHeadings?: unknown; renames?: unknown };
+  if (typeof note !== 'string') throw new Error('Invalid heading change');
+  validateFileName(note);
+  const text = (v: unknown): v is string => typeof v === 'string' && v.length <= MAX_HEADING_CHARS;
+  if (!Array.isArray(oldHeadings) || oldHeadings.length > MAX_HEADINGS || !oldHeadings.every(text)) throw new Error('Invalid heading change');
+  if (!Array.isArray(renames) || renames.length > MAX_HEADINGS) throw new Error('Invalid heading change');
+  return {
+    note,
+    oldHeadings,
+    renames: renames.map(r => {
+      const { index, to } = (r ?? {}) as { index?: unknown; to?: unknown };
+      if (!Number.isInteger(index) || (index as number) < 0 || (index as number) >= oldHeadings.length || !text(to)) throw new Error('Invalid heading rename');
+      return { index: index as number, to };
+    }),
+  };
 }
 
 /** Validate a renderer-supplied rename list (untrusted). */
