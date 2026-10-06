@@ -84,3 +84,51 @@ test('views: make a table view, point it at a folder, choose columns, open a not
   await expect.poll(() => fs.existsSync(viewsFile), { timeout: 10_000 }).toBe(false);
   for (const name of Object.keys(NOTES)) expect(fs.existsSync(path.join(vault, name))).toBe(true);
 });
+
+test('views: filter and sort from the panel, the count follows, and nothing is hidden by an unfinished filter', async ({ noted }) => {
+  for (const [name] of SEED_NOTES) fs.rmSync(path.join(noted.vault, name), { force: true });
+  fs.writeFileSync(path.join(noted.vault, '.noted-vault.json'), '{"format":"markdown"}\n');
+  for (const [name, text] of Object.entries(NOTES)) {
+    fs.mkdirSync(path.dirname(path.join(noted.vault, name)), { recursive: true });
+    fs.writeFileSync(path.join(noted.vault, name), text);
+  }
+  const { win, vault } = await noted.relaunch();
+  await expect(win.getByTestId('views-section')).toBeVisible({ timeout: 15_000 });
+  await win.getByRole('button', { name: 'New view' }).click();
+  await win.getByRole('dialog').getByRole('textbox').fill('Open work');
+  await win.getByRole('dialog').getByRole('button', { name: 'Confirm' }).click();
+  const count = win.getByTestId('view-count');
+  await expect(count).toHaveText('3 notes', { timeout: 15_000 });
+
+  await win.getByRole('button', { name: 'Filter & sort' }).click();
+  const query = win.getByTestId('view-query');
+
+  // A new filter has no value yet, so it hides nothing
+  await query.getByRole('button', { name: 'Add filter' }).click();
+  await expect(count).toHaveText('3 notes');
+  await expect(win.getByTestId('view-query-count')).toHaveText('1');
+  const filter = query.locator('[data-filter="0"]');
+  await expect(filter.getByLabel('Field')).toHaveValue('status');
+  await filter.getByLabel('Value').selectOption('open');
+  await expect(count).toHaveText('1 notes');
+  await expect(win.getByTestId('view-table').locator('tbody tr')).toHaveAttribute('data-row', 'Projects/Alpha.md');
+
+  // "is not" keeps the notes that are not open, including the one with no status at all
+  await filter.getByRole('combobox').nth(1).selectOption('not-equals');
+  await expect(count).toHaveText('2 notes');
+
+  // Sort by votes, biggest first: the note with no votes stays last
+  await filter.getByRole('button', { name: 'Remove' }).click();
+  await expect(count).toHaveText('3 notes');
+  await query.getByRole('button', { name: 'Add sort' }).click();
+  const sort = query.locator('[data-sort="0"]');
+  await sort.getByLabel('Field').selectOption('votes');
+  await sort.getByRole('combobox').nth(1).selectOption('desc');
+  await expect.poll(async () => win.getByTestId('view-table').locator('tbody tr').evaluateAll(rows => rows.map(r => r.getAttribute('data-row'))))
+    .toEqual(['Projects/Beta.md', 'Projects/Alpha.md', 'Journal.md']);
+
+  const viewsFile = path.join(vault, '.noted-views.json');
+  await expect.poll(() => {
+    try { return JSON.stringify((JSON.parse(fs.readFileSync(viewsFile, 'utf8')) as { views: { filters: unknown; sort: unknown }[] }).views.map(v => [v.filters, v.sort])); } catch { return ''; }
+  }, { timeout: 10_000 }).toBe(JSON.stringify([[[], [{ field: 'votes', dir: 'desc' }]]]));
+});

@@ -8,6 +8,9 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Filter and sort for views** (#22, Views): a Filter & sort panel on every view. Filters offer the tests that fit the property's type
+  (text, number, date, choice, checkbox, list) with the property's own values to pick from; a filter with no value yet hides nothing;
+  several sort keys, each ascending or descending. The count on the view follows as you edit, and everything is saved in the view.
 - **A Views section in the sidebar** (#26, Views): make a view, open it in place of the note (the note stays loaded behind it),
   rename, duplicate or delete it (deleting never touches a note), choose its source (all notes, a folder, a tag) and its columns, sort
   by clicking a header. Views are saved in `.noted-views.json`. The board layout and the filter builder follow. New docs page: Views.
