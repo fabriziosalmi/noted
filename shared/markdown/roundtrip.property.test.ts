@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import { ALPHABET, RUNS, documentArb } from './test-arbitraries';
+import { ALPHABET, RUNS, documentArb, withWikilinkMarks } from './test-arbitraries';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { parseMarkdownBody } from './parser';
 import { serializeMarkdownBody } from './serializer';
@@ -23,7 +23,7 @@ describe('Markdown round trip (generated documents)', () => {
       fc.property(documentArb, (doc) => {
         const md = serializeMarkdownBody(doc);
         const back = parseMarkdownBody(md);
-        expect(json(back), `markdown was:\n${md}`).toBe(json(doc));
+        expect(json(back), `markdown was:\n${md}`).toBe(json(withWikilinkMarks(doc)));
       }),
       { numRuns: RUNS },
     );

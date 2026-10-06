@@ -2,6 +2,7 @@ import { ipcMain, shell } from 'electron';
 import { validateFileName } from '../ipc-utils';
 import { saveAttachment, scanEmbeddedImages, migrateEmbeddedImages, listOrphanAttachments, deleteAttachments, inlineVaultImages, AttachmentError } from '../attachments';
 import { logEvent } from '../structured-log';
+import { assertNotMigrating } from '../core/migrating';
 import { getTargetDir } from '../core/paths';
 import { attachmentsFolderOf, vaultNoteDeps } from '../core/rewrite';
 
@@ -33,6 +34,7 @@ export function registerAttachmentsHandlers(): void {
 
   ipcMain.handle('migrate-embedded-images', async (_, folder?: string, syncDir?: string) => {
     try {
+      assertNotMigrating();
       const dir = getTargetDir(syncDir);
       const out = await migrateEmbeddedImages(dir, attachmentsFolderOf(folder), vaultNoteDeps(dir));
       logEvent('info', 'embedded_images_migrated', { notes: out.notes, images: out.images, failed: out.failed.length });

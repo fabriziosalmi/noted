@@ -7,6 +7,7 @@ import { documentSchema } from '../../shared/markdown/schema';
 import { parseNote, serializeNote } from '../../shared/markdown/codec';
 import { docToHtml, htmlToDoc } from '../../shared/markdown/html';
 import { extractHtmlFrontmatterComment, prependFrontmatterComment } from '../../shared/markdown/frontmatter';
+import { isLegacyHtml } from '../../shared/markdown/migrate';
 import type { NoteFormat } from '../../shared/vault/format';
 
 export type { NoteFormat };
@@ -18,6 +19,14 @@ export function diskToWire(raw: string, format: NoteFormat): string {
   if (format !== 'markdown') return raw;
   const { frontmatter, doc } = parseNote(raw);
   return prependFrontmatterComment(docToHtml(doc, dom()), frontmatter || null);
+}
+
+/**
+ * A version-history snapshot as the app works with it. Snapshots keep the text a note had when they were taken, so
+ * in a vault converted to Markdown the older ones are still HTML (the note as it was before the conversion).
+ */
+export function snapshotToWire(raw: string, format: NoteFormat): string {
+  return format === 'markdown' && isLegacyHtml(raw) ? raw : diskToWire(raw, format);
 }
 
 /** What goes into the file for a note the app holds as HTML with a frontmatter comment. */

@@ -10,3 +10,14 @@ export const INLINE_MATH = /\$(?=[^\s$])((?:\\.|[^$\\\n])+?)(?<=\S)\$(?!\d)/;
 
 /** `%%a comment%%` */
 export const COMMENT = /%%(.+?)%%/;
+
+/**
+ * `[[Note]]`, `[[Note#Heading|alias]]`, `![[embed]]`, as the parser reads them. The text is a link whether or not
+ * the editor has marked it (typing `[[Note]]` is how most links are made), so the serializer must write it as it is.
+ */
+export const WIKILINK = /!?\[\[[^\][\n]+\]\]/g;
+
+/** The note a wikilink's inside text points at ("Note" in "Note#Heading|alias"), or null when there is none. */
+export function wikilinkTarget(inner: string): string | null {
+  return /^[^#|^]+/.exec(inner)?.[0].trim() || null;
+}

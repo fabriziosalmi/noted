@@ -1,4 +1,4 @@
-import { diskToWire, vaultFormatOf, wireToDisk } from './noteIo';
+import { diskToWire, snapshotToWire, vaultFormatOf, wireToDisk } from './noteIo';
 
 export type RendererElectronApi = Window['electronAPI'];
 
@@ -17,17 +17,17 @@ function withNoteFormat(api: RendererElectronApi): RendererElectronApi {
 
   // Looked up on `api` at call time, not copied: the preload object (and the mocks that stand in for it
   // in tests) may have members replaced after this wrapper was made.
-  const readConverted = (name: 'readNote' | 'readNoteSnapshot', syncDirIndex: number) =>
+  const readConverted = (name: 'readNote' | 'readNoteSnapshot', syncDirIndex: number, toWire: typeof diskToWire) =>
     async (...args: unknown[]): Promise<Reply> => {
       const res = await (api[name] as unknown as (...a: unknown[]) => Promise<Reply>)(...args);
       if (!res.success || typeof res.data !== 'string') return res;
       const format = await vaultFormatOf(api, args[syncDirIndex] as string | undefined);
-      return format === 'markdown' ? { ...res, data: diskToWire(res.data, format) } : res;
+      return format === 'markdown' ? { ...res, data: toWire(res.data, format) } : res;
     };
 
   const overrides: Record<string, unknown> = {
-    readNote: readConverted('readNote', 1),
-    readNoteSnapshot: readConverted('readNoteSnapshot', 2),
+    readNote: readConverted('readNote', 1, diskToWire),
+    readNoteSnapshot: readConverted('readNoteSnapshot', 2, snapshotToWire),
     saveNote: async (fileName: string, content: string, syncDir?: string) => {
       const format = await vaultFormatOf(api, syncDir);
       return api.saveNote(fileName, format === 'markdown' ? wireToDisk(content, format) : content, syncDir);

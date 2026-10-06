@@ -85,6 +85,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gitPushBranch: (branch: string, remoteUrl: string, syncDir?: string) => ipcRenderer.invoke('git-push-branch', branch, remoteUrl, syncDir),
   gitLog: (noteName?: string, syncDir?: string) => ipcRenderer.invoke('git-log', noteName, syncDir),
   gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => ipcRenderer.invoke('git-create-pr', params),
+  migrationPlan: (direction: 'to-markdown' | 'to-html', syncDir?: string) => ipcRenderer.invoke('migration-plan', direction, syncDir),
+  migrationApply: (opts: { allowLossy?: boolean }, syncDir?: string) => ipcRenderer.invoke('migration-apply', opts, syncDir),
+  migrationRevert: (syncDir?: string) => ipcRenderer.invoke('migration-revert', syncDir),
+  onMigrationProgress: (cb: (p: unknown) => void) => {
+    const listener = (_e: unknown, p: unknown) => cb(p);
+    ipcRenderer.on('migration-progress', listener);
+    return () => ipcRenderer.removeListener('migration-progress', listener);
+  },
+  onVaultFormatChanged: (cb: () => void) => {
+    const listener = () => cb();
+    ipcRenderer.on('vault-format-changed', listener);
+    return () => ipcRenderer.removeListener('vault-format-changed', listener);
+  },
   getVaultFormat: (syncDir?: string) => ipcRenderer.invoke('get-vault-format', syncDir),
   setVaultConfig: (config: { trashRetentionDays?: number }, syncDir?: string) => ipcRenderer.invoke('set-vault-config', config, syncDir),
   saveAttachment: (bytes: Uint8Array, folder?: string, syncDir?: string) => ipcRenderer.invoke('save-attachment', bytes, folder, syncDir),

@@ -3,7 +3,7 @@
 // "\" hard breaks, tables without column padding.
 import { MarkdownSerializer, type MarkdownSerializerState } from 'prosemirror-markdown';
 import { Fragment, type Mark, type Node as PMNode } from '@tiptap/pm/model';
-import { COMMENT, HIGHLIGHT, INLINE_MATH } from './syntax';
+import { COMMENT, HIGHLIGHT, INLINE_MATH, WIKILINK, wikilinkTarget } from './syntax';
 
 type State = MarkdownSerializerState & { inAutolink?: boolean; out: string; atBlockStart: boolean };
 
@@ -42,6 +42,9 @@ function pairsIn(block: PMNode): Pairs {
   }
   return found;
 }
+
+/** First of the private-use characters that stand in for the wikilinks of a line while it is escaped. */
+const LINK_BASE = 0xE100;
 
 /** Marks a character that must be written escaped; resolved to a backslash after the CommonMark escaper has run. */
 const ESC = '\uE000';
@@ -232,8 +235,16 @@ const nodes: ConstructorParameters<typeof MarkdownSerializer>[0] = {
       if (atLineStart) line = line.replace(/^[ \t]+/, '');
       if (i < lines.length - 1) line = line.replace(/[ \t]+$/, '');
       state.write();
+      // [[Note]] is a link whether or not it is marked (it is how most links are made): written as it is.
+      const links: string[] = [];
+      const guarded = line.replace(WIKILINK, (m) => {
+        if (!wikilinkTarget(m.replace(/^!?\[\[|\]\]$/g, '')) || links.length >= 4000) return m;
+        links.push(m);
+        return String.fromCharCode(LINK_BASE + links.length - 1);
+      });
       let escaped = state
-        .esc(markSyntax(line, parent, atLineStart, hasMark(node, 'highlight')), atLineStart)
+        .esc(markSyntax(guarded, parent, atLineStart, hasMark(node, 'highlight')), atLineStart)
+        .replace(/[\uE100-\uF0FF]/g, (c) => links[c.charCodeAt(0) - LINK_BASE] ?? c)
         .replace(new RegExp(`${ESC}(.)`, 'gs'), '\\$1')
         .replace(new RegExp(UNDERSCORE, 'g'), '\\_')
         .replace(/\u00A0/g, '&nbsp;');

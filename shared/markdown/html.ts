@@ -16,8 +16,14 @@ export function docToHtml(doc: PMNode, env: Pick<DomEnv, 'document'>): string {
   return holder.innerHTML;
 }
 
-export function htmlToDoc(html: string, schema: Schema, env: Pick<DomEnv, 'DOMParser'>): PMNode {
+export function htmlToDoc(
+  html: string,
+  schema: Schema,
+  env: Pick<DomEnv, 'DOMParser'>,
+  // A Markdown note's whitespace is content ("a  b", a line break inside a paragraph): keep it ('full', the default).
+  // Legacy HTML is read the way the editor read it, collapsing runs of whitespace: pass false.
+  preserveWhitespace: boolean | 'full' = 'full',
+): PMNode {
   const body = new env.DOMParser().parseFromString(`<body>${html}</body>`, 'text/html').body;
-  // Whitespace is content in a Markdown note ("a  b", and a line break inside a paragraph): keep it.
-  return PMDOMParser.fromSchema(schema).parse(body, { preserveWhitespace: 'full' });
+  return PMDOMParser.fromSchema(schema).parse(body, { preserveWhitespace });
 }

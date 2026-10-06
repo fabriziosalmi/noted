@@ -7,7 +7,7 @@ import type { StateBlock, StateCore } from 'markdown-it';
 import { MarkdownParser, type ParseSpec } from 'prosemirror-markdown';
 import type { Node as PMNode, Schema } from '@tiptap/pm/model';
 import { documentSchema } from './schema';
-import { COMMENT, HIGHLIGHT, INLINE_MATH } from './syntax';
+import { COMMENT, HIGHLIGHT, INLINE_MATH, wikilinkTarget } from './syntax';
 
 const anchored = (re: RegExp): RegExp => new RegExp(`^(?:${re.source})`);
 const HIGHLIGHT_AT = anchored(HIGHLIGHT);
@@ -34,9 +34,9 @@ function createMarkdownIt(): InstanceType<typeof MarkdownIt> {
     if (end === -1 || end + 2 > state.posMax) return false; // never read past the range being tokenized
     const inner = src.slice(start + 2, end);
     if (!inner || /[\n[\]]/.test(inner)) return false;
+    const target = wikilinkTarget(inner);
+    if (!target) return false;
     if (!silent) {
-      const target = /^[^#|^]+/.exec(inner)?.[0].trim();
-      if (!target) return false;
       state.push('wikilink_open', 'span', 1).meta = { target, embed };
       const text = state.push('text', '', 0);
       text.content = src.slice(pos, end + 2);
@@ -128,7 +128,7 @@ function createMarkdownIt(): InstanceType<typeof MarkdownIt> {
       else break;
     }
     const tok = state.push('html_block', '', 0);
-    tok.content = state.getLines(start, last + 1, 0, false);
+    tok.content = state.getLines(start, last + 1, state.blkIndent, false);
     tok.map = [start, last + 1];
     state.line = last + 1;
     return true;
@@ -142,7 +142,7 @@ function createMarkdownIt(): InstanceType<typeof MarkdownIt> {
       const ok = reference(state, start, end, silent);
       if (ok && !silent) {
         const tok = state.push('html_block', '', 0);
-        tok.content = state.getLines(start, state.line, 0, false).replace(/\n+$/, '');
+        tok.content = state.getLines(start, state.line, state.blkIndent, false).replace(/\n+$/, '');
         tok.map = [start, state.line];
       }
       return ok;

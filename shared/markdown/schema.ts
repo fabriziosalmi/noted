@@ -6,11 +6,11 @@
 // is added here without a Markdown parser and serializer entry.
 import { getSchema, Mark, Node, mergeAttributes, type AnyExtension } from '@tiptap/core';
 import type { Node as PMNode, Schema } from '@tiptap/pm/model';
-import StarterKit from '@tiptap/starter-kit';
-import CodeBlock from '@tiptap/extension-code-block';
+import { StarterKit } from '@tiptap/starter-kit';
+import { CodeBlock } from '@tiptap/extension-code-block';
 import { BulletList, OrderedList } from '@tiptap/extension-list';
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table';
-import Image from '@tiptap/extension-image';
+import { Image } from '@tiptap/extension-image';
 import { Mathematics } from '@tiptap/extension-mathematics';
 import { TaskList } from '@tiptap/extension-task-list';
 import { TaskItem } from '@tiptap/extension-task-item';
@@ -79,7 +79,9 @@ export function withCodeInfo<T extends AnyExtension>(extension: T): T {
  */
 export const WikilinkMark = Mark.create({
   name: 'wikilink',
-  priority: 1000,
+  // Innermost of the text marks, so a link inside bold or italic is written once inside it ("**[[a]]b**"),
+  // not by closing and reopening the bold around it ("**[[a]]****b**" reads back as asterisks).
+  priority: 1,
   keepOnSplit: false,
   inclusive: false,
   addAttributes() {
