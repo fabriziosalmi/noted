@@ -8,19 +8,7 @@ import { setMigrating } from '../core/migrating';
 import { withRepoLock } from '../repo-lock';
 import { logEvent, newRequestId } from '../structured-log';
 import { migrateToHtml, migrateToMarkdown, planMigration, type MigrationDeps, type MigrationProgress, type MigrationResult } from '../migration';
-import type { DomEnv } from '../../shared/markdown/html';
-
-let domEnv: DomEnv | null = null;
-
-/** A DOM for parsing legacy HTML, made once and only when a conversion is asked for (jsdom is slow to load). */
-async function dom(): Promise<DomEnv> {
-  if (!domEnv) {
-    const { JSDOM } = await import('jsdom');
-    const { window } = new JSDOM('<!doctype html><html><body></body></html>');
-    domEnv = { document: window.document, DOMParser: window.DOMParser as unknown as typeof DOMParser };
-  }
-  return domEnv;
-}
+import { dom } from '../core/dom';
 
 async function depsFor(dir: string): Promise<MigrationDeps> {
   return {

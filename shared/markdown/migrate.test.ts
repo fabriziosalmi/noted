@@ -6,7 +6,7 @@ import { Link } from '@tiptap/extension-link';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { createLowlight, common } from 'lowlight';
 import { documentExtensions, withCodeInfo } from './schema';
-import { convertHtmlNote, convertMarkdownNoteToHtml, isLegacyHtml } from './migrate';
+import { convertHtmlNote, convertMarkdownNoteToHtml, isLegacyHtml, readableVersions } from './migrate';
 import { normalizeMarkdown, parseNote } from './codec';
 import { GOLDEN } from './golden';
 import { diskToWire } from '../../src/lib/noteIo';
@@ -130,5 +130,34 @@ describe('convertMarkdownNoteToHtml (the way back)', () => {
       if (!expected.trim()) continue;
       expect(convertHtmlNote(convertMarkdownNoteToHtml(markdown, env), env).text, id).toBe(expected);
     }
+  }, 60_000); // about 5 s on its own, which is the default limit; it must not depend on how busy the machine is
+});
+
+describe('readableVersions (diffs in the Git panel)', () => {
+  const oldHtml = '<h1>Plan</h1><p>We ship <strong>Friday</strong>.</p>';
+
+  it('an HTML vault: both versions become Markdown, so only the words differ', () => {
+    const out = readableVersions(oldHtml, '<h1>Plan</h1><p>We ship <strong>Monday</strong>.</p>', 'html', env);
+    expect(out).toEqual({ before: '# Plan\n\nWe ship **Friday**.\n', after: '# Plan\n\nWe ship **Monday**.\n' });
+  });
+
+  it('a vault converted since: the old HTML version is shown as Markdown next to the new Markdown one', () => {
+    const out = readableVersions(oldHtml, '# Plan\n\nWe ship **Monday**.\n', 'markdown', env);
+    expect(out.before).toBe('# Plan\n\nWe ship **Friday**.\n');
+    expect(out.after).toBe('# Plan\n\nWe ship **Monday**.\n');
+  });
+
+  it('a Markdown note that starts with an HTML block is not misread as the old format', () => {
+    const md = '<p>Intro in HTML</p>\n\n# Title\n';
+    expect(readableVersions(md, md + 'more\n', 'markdown', env)).toEqual({ before: md, after: md + 'more\n' });
+  });
+
+  it('a new or deleted note has an empty side', () => {
+    expect(readableVersions(null, '# New\n', 'markdown', env)).toEqual({ before: '', after: '# New\n' });
+    expect(readableVersions('# Gone\n', null, 'markdown', env)).toEqual({ before: '# Gone\n', after: '' });
+  });
+
+  it('plain Markdown in an HTML vault (older notes) is left alone', () => {
+    expect(readableVersions('# A\n\ntext\n', '# A\n\nmore\n', 'html', env)).toEqual({ before: '# A\n\ntext\n', after: '# A\n\nmore\n' });
   });
 });

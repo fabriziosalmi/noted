@@ -22,6 +22,16 @@ export interface GitResult<T = undefined> {
   error?: string;
 }
 
+export type GitChangeState = 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked';
+
+/** One changed note: whether the change is in the index (staged), in the working tree (unstaged), or both. */
+export interface GitFileChange {
+  path: string;
+  state: GitChangeState;
+  staged: boolean;
+  unstaged: boolean;
+}
+
 export interface GitStatusData {
   initialized: boolean;
   branch: string;
@@ -29,6 +39,15 @@ export interface GitStatusData {
   ahead: number;            // commits ahead of remote
   stagedFiles: string[];
   modifiedFiles: string[];
+  /** The changed notes (.md files outside hidden folders), one entry each; the lists above include every file. */
+  files: GitFileChange[];
+}
+
+/** The two versions of a note a diff compares: the last commit's (null if it is new) and the file on disk (null if deleted). */
+export interface GitFileVersions {
+  before: string | null;
+  after: string | null;
+  state: GitChangeState;
 }
 
 export interface GitLogEntry {
@@ -167,12 +186,29 @@ export async function initRepo(dir: string): Promise<GitResult> {
   }
 }
 
+/** A note file: `.md`, not inside a hidden folder (the history and trash folders hold copies, not notes). */
+function isNotePath(file: string): boolean {
+  return file.toLowerCase().endsWith('.md') && !file.split('/').some(part => part.startsWith('.'));
+}
+
+/** Git's two-letter status code (index, working tree) as a change a person understands. */
+export function classify(file: string, index: string, workingDir: string): GitFileChange {
+  const untracked = index === '?' && workingDir === '?';
+  const deleted = index === 'D' || workingDir === 'D';
+  const state: GitChangeState = untracked ? 'untracked'
+    : deleted ? 'deleted'
+    : index === 'A' ? 'added'
+    : index === 'R' ? 'renamed'
+    : 'modified';
+  return { path: file, state, staged: !untracked && index !== ' ', unstaged: untracked || workingDir !== ' ' };
+}
+
 /** Returns the current git status of the notes directory. */
 export async function getStatus(dir: string): Promise<GitResult<GitStatusData>> {
   try {
     const initialized = fs.existsSync(path.join(dir, '.git'));
     if (!initialized) {
-      return { success: true, data: { initialized: false, branch: '', dirty: false, ahead: 0, stagedFiles: [], modifiedFiles: [] } };
+      return { success: true, data: { initialized: false, branch: '', dirty: false, ahead: 0, stagedFiles: [], modifiedFiles: [], files: [] } };
     }
     const g = git(dir);
     const status = await g.status();
@@ -185,12 +221,13 @@ export async function getStatus(dir: string): Promise<GitResult<GitStatusData>> 
         ahead: status.ahead,
         stagedFiles: status.staged,
         modifiedFiles: [...status.modified, ...status.not_added],
+        files: status.files.filter(f => isNotePath(f.path)).map(f => classify(f.path, f.index, f.working_dir)),
       },
     };
   } catch (err) {
     const errMsg = (err as Error).message;
     if (errMsg.includes('not a git repository')) {
-      return { success: true, data: { initialized: false, branch: '', dirty: false, ahead: 0, stagedFiles: [], modifiedFiles: [] } };
+      return { success: true, data: { initialized: false, branch: '', dirty: false, ahead: 0, stagedFiles: [], modifiedFiles: [], files: [] } };
     }
     return { success: false, error: sanitizeGitError(errMsg) };
   }
@@ -402,4 +439,91 @@ export async function createGitHubPr(params: {
   } catch (err) {
     return { success: false, error: sanitizeGitError((err as Error).message) };
   }
+}
+
+
+// ─── Per-note changes: diff, stage, unstage, commit what is staged ────────────
+
+const MAX_DIFF_BYTES = 2 * 1024 * 1024;
+
+function assertNoteFile(file: string): void {
+  if (typeof file !== 'string' || !isNotePath(file) || file.includes('..') || path.isAbsolute(file) || file.split('/').length > 2) {
+    throw new Error('Not a note file');
+  }
+}
+
+/** What a note was at the last commit, and what it is now. Never throws: failure is a result. */
+export async function getFileVersions(dir: string, file: string): Promise<GitResult<GitFileVersions>> {
+  try {
+    assertNoteFile(file);
+    // not `git()`: that one trims output, which would eat the note's final newline
+    const g = simpleGit(dir, { binary: 'git', maxConcurrentProcesses: 1, trimmed: false });
+    const status = await g.status();
+    const entry = status.files.find(f => f.path === file);
+    if (!entry) return { success: false, error: 'This note has no changes' };
+
+    let before: string | null = null;
+    try { before = await g.raw(['show', `HEAD:${file}`]); } catch { /* new note, or no commit yet */ }
+    let after: string | null = null;
+    const abs = path.join(dir, file);
+    if (fs.existsSync(abs)) {
+      if (fs.statSync(abs).size > MAX_DIFF_BYTES) return { success: false, error: 'This note is too large to compare' };
+      after = fs.readFileSync(abs, 'utf8');
+    }
+    if ((before?.length ?? 0) > MAX_DIFF_BYTES) return { success: false, error: 'This note is too large to compare' };
+    return { success: true, data: { before, after, state: classify(file, entry.index, entry.working_dir).state } };
+  } catch (err) {
+    return { success: false, error: sanitizeGitError((err as Error).message) };
+  }
+}
+
+/** Put changes to these notes in the index (a new, changed or deleted note alike). */
+export async function stageFiles(dir: string, files: string[]): Promise<GitResult> {
+  return withRepoLock(dir, async () => {
+    try {
+      files.forEach(assertNoteFile);
+      if (files.length === 0) return { success: true };
+      await git(dir).raw(['add', '-A', '--', ...files]);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: sanitizeGitError((err as Error).message) };
+    }
+  });
+}
+
+/** Take these notes out of the index again; their changes stay in the working tree. */
+export async function unstageFiles(dir: string, files: string[]): Promise<GitResult> {
+  return withRepoLock(dir, async () => {
+    try {
+      files.forEach(assertNoteFile);
+      if (files.length === 0) return { success: true };
+      const g = git(dir);
+      try {
+        await g.raw(['reset', '-q', 'HEAD', '--', ...files]);
+      } catch {
+        // no commit yet: there is no HEAD to reset to, so drop them from the index directly
+        await g.raw(['rm', '--cached', '-q', '-r', '--', ...files]);
+      }
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: sanitizeGitError((err as Error).message) };
+    }
+  });
+}
+
+/** Commit exactly what is in the index; refuses when nothing is. */
+export async function commitStaged(dir: string, message: string): Promise<GitResult<{ hash: string }>> {
+  return withRepoLock(dir, async () => {
+    try {
+      const msg = message.trim();
+      if (!msg) throw new Error('Commit message required');
+      validateCommitMessage(msg);
+      const g = git(dir);
+      if ((await g.status()).staged.length === 0) throw new Error('Nothing is staged');
+      const result = await g.commit(msg);
+      return { success: true, data: { hash: result.commit } };
+    } catch (err) {
+      return { success: false, error: sanitizeGitError((err as Error).message) };
+    }
+  });
 }

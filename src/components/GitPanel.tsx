@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useReducer, useRef } from 'react';
 import { GitBranch, GitCommit, Upload, GitPullRequest, RefreshCw, X, Check, AlertCircle, Loader2, ExternalLink } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import type { GitFileChange } from '../types';
 import { useI18n } from '../lib/i18n';
 import { useGitSyncStore } from '../store/gitSyncStore';
 import { useNow } from '../hooks/useNow';
 import { GitConflictModal } from './GitConflictModal';
+import { NoteDiffDialog } from './NoteDiffDialog';
 import { readSyncPrefs, summarizeSync, SYNC_INTERVAL_MIN, SYNC_IDLE_SEC } from '../lib/gitSyncPolicy';
 import { syncStatusText } from '../lib/gitSyncText';
 import { gitWorkflowReducer, initialGitWorkflowState, isGitWorkflowBusy, type GitWorkflowStage } from '../lib/gitWorkflow';
@@ -25,7 +27,10 @@ interface LocalGitStatus {
   ahead: number;
   stagedFiles: string[];
   modifiedFiles: string[];
+  files: GitFileChange[];
 }
+
+const MAX_LISTED_CHANGES = 200;
 
 export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
   const { t, language } = useI18n();
@@ -43,6 +48,9 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
 
   // Commit form
   const [commitMsg, setCommitMsg] = useState('');
+
+  // Per-note changes: which one is being compared
+  const [diffPath, setDiffPath] = useState<string | null>(null);
 
   // Background sync
   const syncState = useGitSyncStore(st => st.state);
@@ -199,6 +207,36 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
     updateSettings({ gitGhToken: '' }); // never persist in store
   };
 
+  const changes = status?.files ?? [];
+  const stagedChanges = changes.filter(f => f.staged);
+  const diffFile = changes.find(f => f.path === diffPath) ?? null;
+
+  const handleStage = async (file: GitFileChange) => {
+    const res = await window.electronAPI.gitStage([file.path], syncDir);
+    if (!res.success) showError(res.error ?? t('gitStageError'));
+    await refreshStatus();
+  };
+
+  const handleUnstage = async (file: GitFileChange) => {
+    const res = await window.electronAPI.gitUnstage([file.path], syncDir);
+    if (!res.success) showError(res.error ?? t('gitStageError'));
+    await refreshStatus();
+  };
+
+  const handleCommitStaged = async () => {
+    if (isGitWorkflowBusy(workflow.stage) || stagedChanges.length === 0) return;
+    const names = stagedChanges.map(f => f.path.replace(/\.md$/, ''));
+    const message = commitMsg.trim() || `docs: update ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` +${names.length - 3}` : ''}`;
+    const res = await window.electronAPI.gitCommitStaged(message, syncDir);
+    if (res.success) {
+      setCommitMsg('');
+      showSuccess(t('gitCommitted'));
+    } else {
+      showError(res.error ?? t('gitCommitError'));
+    }
+    await refreshStatus();
+  };
+
   // ── Render ───────────────────────────────────────────────────────────────────
 
   const busy = isGitWorkflowBusy(workflow.stage);
@@ -305,17 +343,51 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
                     <span className="ml-auto text-gray-400">↑{status.ahead}</span>
                   )}
                 </div>
-                {status.modifiedFiles.length > 0 && (
-                  <div className="mt-1 text-[10px] text-gray-400 font-mono space-y-0.5 max-h-16 overflow-y-auto">
-                    {status.modifiedFiles.slice(0, 5).map((f: string) => (
-                      <div key={f} className="truncate">M {f}</div>
-                    ))}
-                    {status.modifiedFiles.length > 5 && <div>{t('gitMoreFiles').replace('{count}', String(status.modifiedFiles.length - 5))}</div>}
-                  </div>
-                )}
               </div>
             )}
           </section>
+
+          {/* Changed notes: compare each with its last version, and choose what the next commit holds */}
+          {status?.initialized && changes.length > 0 && (
+            <section>
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('gitChangesSection')}</p>
+              <ul className="space-y-1 max-h-48 overflow-y-auto" data-testid="git-changes">
+                {changes.slice(0, MAX_LISTED_CHANGES).map(f => (
+                  <li key={f.path} className="flex items-center gap-1.5 text-xs" data-path={f.path}>
+                    <span
+                      className="w-4 shrink-0 text-center font-mono text-gray-400"
+                      title={t(f.state === 'untracked' || f.state === 'added' ? 'gitStateNew' : f.state === 'deleted' ? 'gitStateDeleted' : f.state === 'renamed' ? 'gitStateRenamed' : 'gitStateModified')}
+                    >
+                      {f.state === 'untracked' || f.state === 'added' ? 'A' : f.state === 'deleted' ? 'D' : f.state === 'renamed' ? 'R' : 'M'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setDiffPath(f.path)}
+                      className="flex-1 min-w-0 truncate text-left text-gray-700 dark:text-gray-300 hover:text-[var(--accent)]"
+                      title={t('gitViewDiff')}
+                    >
+                      {f.path.replace(/\.md$/, '')}
+                    </button>
+                    {f.staged && <span className="text-[10px] text-emerald-600 dark:text-emerald-400">{t('gitStaged')}</span>}
+                    {f.unstaged && (
+                      <button type="button" onClick={() => { void handleStage(f); }} className="text-[10px] px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
+                        {t('gitStageFile')}
+                      </button>
+                    )}
+                    {f.staged && (
+                      <button type="button" onClick={() => { void handleUnstage(f); }} className="text-[10px] px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
+                        {t('gitUnstageFile')}
+                      </button>
+                    )}
+                  </li>
+                ))}
+                {changes.length > MAX_LISTED_CHANGES && (
+                  <li className="text-[10px] text-gray-400">{t('gitMoreFiles').replace('{count}', String(changes.length - MAX_LISTED_CHANGES))}</li>
+                )}
+              </ul>
+            </section>
+          )}
+
 
           {/* Commit section */}
           {status?.initialized && (
@@ -331,6 +403,16 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
                 disabled={busy}
               />
               <div className="flex gap-2">
+                {stagedChanges.length > 0 && (
+                  <button
+                    onClick={() => { void handleCommitStaged(); }}
+                    disabled={busy}
+                    className="btn-primary flex-1 flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg"
+                  >
+                    <GitCommit size={11} />
+                    {t('gitCommitStaged').replace('{n}', String(stagedChanges.length))}
+                  </button>
+                )}
                 {activeNoteName && (
                   <button
                     onClick={handleCommitNote}
@@ -535,6 +617,15 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
         </div>
       </div>
       {showConflicts && <GitConflictModal syncDir={syncDir} onClose={() => setShowConflicts(false)} />}
+      {diffFile && (
+        <NoteDiffDialog
+          file={diffFile}
+          syncDir={syncDir}
+          onStage={f => { void handleStage(f); }}
+          onUnstage={f => { void handleUnstage(f); }}
+          onClose={() => setDiffPath(null)}
+        />
+      )}
     </div>
   );
 }

@@ -7,6 +7,9 @@ import * as gitSync from '../git-sync';
 import { logEvent, newRequestId } from '../structured-log';
 import { getTargetDir, getActiveVaultDir } from '../core/paths';
 import { getMainWindow } from '../core/windows';
+import { dom } from '../core/dom';
+import { readVaultFormat } from '../../shared/vault/formatFile';
+import { readableVersions } from '../../shared/markdown/migrate';
 
 export function registerGitHandlers(): void {
   // ─── Git IPC ──────────────────────────────────────────────────────────────────
@@ -32,6 +35,40 @@ export function registerGitHandlers(): void {
     if (!message || typeof message !== 'string') return { success: false, error: 'Commit message required' };
     const dir = getTargetDir(syncDir);
     return gitOps.commitAll(dir, message);
+  });
+
+  // ─── Per-note changes (#64): a diff a person can read, stage / unstage, commit what is staged ──────────────
+
+  const noteFiles = (value: unknown): string[] => {
+    if (!Array.isArray(value) || value.length > 500) throw new Error('Invalid file list');
+    return value.map(v => { validateFileName(v); return v as string; });
+  };
+
+  ipcMain.handle('git-file-diff', async (_, noteName: unknown, syncDir?: string) => {
+    try {
+      validateFileName(noteName);
+      const dir = getTargetDir(syncDir);
+      const res = await gitOps.getFileVersions(dir, noteName as string);
+      if (!res.success || !res.data) return res;
+      // Both sides as Markdown, so a note stored as HTML (older vaults, or the commit before a conversion) still diffs as words.
+      const shown = readableVersions(res.data.before, res.data.after, readVaultFormat(dir), await dom());
+      return { success: true, data: { ...shown, state: res.data.state, isNew: res.data.before === null, isDeleted: res.data.after === null } };
+    } catch (err) {
+      return { success: false, error: sanitizeGitError((err as Error).message) };
+    }
+  });
+
+  ipcMain.handle('git-stage', async (_, files: unknown, syncDir?: string) => {
+    try { return await gitOps.stageFiles(getTargetDir(syncDir), noteFiles(files)); } catch (err) { return { success: false, error: (err as Error).message }; }
+  });
+
+  ipcMain.handle('git-unstage', async (_, files: unknown, syncDir?: string) => {
+    try { return await gitOps.unstageFiles(getTargetDir(syncDir), noteFiles(files)); } catch (err) { return { success: false, error: (err as Error).message }; }
+  });
+
+  ipcMain.handle('git-commit-staged', async (_, message: unknown, syncDir?: string) => {
+    if (typeof message !== 'string' || !message.trim()) return { success: false, error: 'Commit message required' };
+    return gitOps.commitStaged(getTargetDir(syncDir), message);
   });
 
   // ─── Git background sync ──────────────────────────────────────────────────────

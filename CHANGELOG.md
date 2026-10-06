@@ -8,6 +8,9 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Compare a changed note with its last version, and stage notes one by one** (Git panel → Changed notes). The comparison reads as text:
+  changed lines with context, and the words that changed highlighted inside a rewritten line; notes stored as HTML are shown as Markdown so only
+  the text differs. **Stage** / **Unstage** per note, and **Commit staged** commits exactly those.
 - **Open an Obsidian vault where it is.** Point Noted at the folder (Settings → Sync → Choose custom folder): it is read as Markdown,
   `.obsidian/` and `.trash/` are ignored, nothing is rewritten, renamed or added by opening notes, and only a note you edit is written.
   Links resolve the way Obsidian resolves them (`[[Plan]]` finds `Work/Plan.md`, case does not matter), for backlinks, following a link and

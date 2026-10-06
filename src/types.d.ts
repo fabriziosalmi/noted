@@ -70,6 +70,10 @@ declare global {
       gitInit: (syncDir?: string) => Promise<GitResult>;
       gitCommitNote: (noteName: string, message?: string, syncDir?: string) => Promise<GitResult<{ hash: string }>>;
       gitCommitAll: (message: string, syncDir?: string) => Promise<GitResult<{ hash: string }>>;
+      gitFileDiff: (noteName: string, syncDir?: string) => Promise<GitResult<GitFileDiff>>;
+      gitStage: (files: string[], syncDir?: string) => Promise<GitResult>;
+      gitUnstage: (files: string[], syncDir?: string) => Promise<GitResult>;
+      gitCommitStaged: (message: string, syncDir?: string) => Promise<GitResult<{ hash: string }>>;
       gitPreparePrBranch: (noteName: string, commitMessage?: string, syncDir?: string) => Promise<GitResult<{ branch: string; hash: string }>>;
       gitPushBranch: (branch: string, remoteUrl: string, syncDir?: string) => Promise<GitResult>;
       gitLog: (noteName?: string, syncDir?: string) => Promise<GitResult<GitLogEntry[]>>;
@@ -120,6 +124,23 @@ interface GitStatusData {
   ahead: number;
   stagedFiles: string[];
   modifiedFiles: string[];
+  files: GitFileChange[];
+}
+
+export interface GitFileChange {
+  path: string;
+  state: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked';
+  staged: boolean;
+  unstaged: boolean;
+}
+
+/** A changed note's two versions as Markdown (empty text on the side that does not exist). */
+export interface GitFileDiff {
+  before: string;
+  after: string;
+  state: GitFileChange['state'];
+  isNew: boolean;
+  isDeleted: boolean;
 }
 
 interface GitLogEntry {
