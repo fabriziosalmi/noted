@@ -65,7 +65,7 @@ const test = base.extend<{ gv: GitVault }>({
       console.warn(`[app-log tail] ${testInfo.title}\n${appLog.slice(-3000)}`);
     }
     await current.app.close().catch(() => undefined);
-    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }); // Windows holds a profile file open for a moment
   },
 });
 

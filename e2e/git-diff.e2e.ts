@@ -40,7 +40,7 @@ const test = base.extend<{ repo: Repo }>({
     await launch(vault, profile, l => { current = l; }, gitEnv);
     await use({ noted: current, git, vault });
     await current.app.close().catch(() => undefined);
-    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }); // Windows holds a profile file open for a moment
   },
 });
 
