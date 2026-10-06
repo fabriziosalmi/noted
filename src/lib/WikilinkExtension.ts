@@ -1,4 +1,5 @@
-import { Mark, mergeAttributes } from '@tiptap/core';
+import { mergeAttributes } from '@tiptap/core';
+import { WikilinkMark as BaseWikilinkMark } from '../../shared/markdown/schema';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { translate } from './i18n';
@@ -12,22 +13,9 @@ declare module '@tiptap/core' {
   }
 }
 
-export const WikilinkMark = Mark.create({
-  name: 'wikilink',
-  priority: 1000,
-  keepOnSplit: false,
-  inclusive: false,
-
-  addAttributes() {
-    return {
-      target: { default: null },
-    };
-  },
-
-  parseHTML() {
-    return [{ tag: 'span[data-wikilink]' }];
-  },
-
+// The mark itself (name, attributes, how it parses) is defined once, with the rest of the document model, in
+// shared/markdown/schema.ts; this adds what only the editor needs: the accessible label and the commands.
+export const WikilinkMark = BaseWikilinkMark.extend({
   renderHTML({ HTMLAttributes }) {
     const target = HTMLAttributes.target as string;
     const openLabel = translate('openNoteAria', useStore.getState().settings.language).replace('{target}', target);

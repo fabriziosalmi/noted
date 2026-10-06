@@ -572,6 +572,47 @@ body {
 .dark .ProseMirror .wikilink { color: #bf5af2; background: rgba(191, 90, 242, 0.12); }
 .dark .ProseMirror .wikilink:hover { background: rgba(191, 90, 242, 0.22); }
 
+/* ─── Markdown-only constructs (callouts, raw Markdown, comments) ───────── */
+.ProseMirror div[data-callout] {
+  margin: 0.8em 0;
+  padding: 0.5em 0.9em 0.6em;
+  border-left: 3px solid #5856d6;
+  border-radius: 6px;
+  background: rgba(88, 86, 214, 0.07);
+}
+.ProseMirror div[data-callout]::before {
+  content: attr(data-label);
+  display: block;
+  font-weight: 600;
+  font-size: 0.85em;
+  letter-spacing: 0.01em;
+  margin-bottom: 0.2em;
+  color: #5856d6;
+}
+.ProseMirror div[data-callout] > :last-child { margin-bottom: 0; }
+.ProseMirror div[data-callout="warning"], .ProseMirror div[data-callout="caution"], .ProseMirror div[data-callout="danger"], .ProseMirror div[data-callout="error"] { border-left-color: #d9480f; background: rgba(217, 72, 15, 0.08); }
+.ProseMirror div[data-callout="warning"]::before, .ProseMirror div[data-callout="caution"]::before, .ProseMirror div[data-callout="danger"]::before, .ProseMirror div[data-callout="error"]::before { color: #d9480f; }
+.ProseMirror div[data-callout="tip"], .ProseMirror div[data-callout="success"], .ProseMirror div[data-callout="check"] { border-left-color: #2f9e44; background: rgba(47, 158, 68, 0.08); }
+.ProseMirror div[data-callout="tip"]::before, .ProseMirror div[data-callout="success"]::before, .ProseMirror div[data-callout="check"]::before { color: #2f9e44; }
+.dark .ProseMirror div[data-callout]::before { color: #bf5af2; }
+.dark .ProseMirror div[data-callout] { border-left-color: #bf5af2; background: rgba(191, 90, 242, 0.1); }
+
+/* Markdown the editor cannot show as rich text is kept as written, in a plain box. */
+.ProseMirror pre[data-raw-block] {
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  opacity: 0.85;
+}
+.ProseMirror span[data-raw-inline] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+  background: rgba(127, 127, 127, 0.14);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+.ProseMirror span[data-obsidian-comment] { opacity: 0.55; font-style: italic; }
+
 /* ─── Images ─────────────────────────────────────────────────────────── */
 .ProseMirror img {
   max-width: 100%;

@@ -1,6 +1,8 @@
 import { ipcMain } from 'electron';
 import crypto from 'node:crypto';
 import { stripUnsafeHtml } from '../ipc-utils';
+import { readVaultFormat } from '../../shared/vault/formatFile';
+import { plainTextToMarkdown } from '../../shared/markdown/codec';
 import { getTargetDir, safeResolve, getActiveVaultDir } from '../core/paths';
 import { fullTextSearchIndex, vaultIndex } from '../core/services';
 import { markAppWrite } from '../core/app-writes';
@@ -17,10 +19,12 @@ export function registerCaptureHandlers(): void {
       // overwrite each other.
       const rand = crypto.randomBytes(2).toString('hex');
       const fileName = `Capture_${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}_${rand}.md`;
-      const sanitizedText = stripUnsafeHtml(text);
-      const content = `<p>${sanitizedText.replace(/\n/g, '</p><p>')}</p>`;
       // Honor the user's configured vault (not just the default dir).
       const targetDir = getTargetDir(getActiveVaultDir() || undefined);
+      // Written in the vault's own format (see shared/vault/format.ts).
+      const content = readVaultFormat(targetDir) === 'markdown'
+        ? plainTextToMarkdown(text)
+        : `<p>${stripUnsafeHtml(text).replace(/\n/g, '</p><p>')}</p>`;
       await writeFileDurable(safeResolve(targetDir, fileName), content);
       markAppWrite(targetDir, fileName);
       fullTextSearchIndex.upsertFromRaw(targetDir, fileName, content);

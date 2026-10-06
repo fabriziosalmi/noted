@@ -148,8 +148,9 @@ on paste (through the existing sanitizer) and what Markdown cannot express is ra
 ## Migration and rollback
 
 1. **Serializer module and golden suite** (#59), behind no user-visible change.
-2. **Dual read.** The app opens HTML and Markdown notes; the vault carries `format` in `.noted/config.json`
-   (`html` today, `markdown` after migration), so the format is a property of the vault, not a guess per file. A Markdown
+2. **Dual read.** The app opens HTML and Markdown notes; the vault carries its `format` in `.noted-vault.json` at the vault
+   root (`html` when absent, `markdown` after migration), so the format is a property of the vault, not a guess per file. It is
+   a file *in* the vault, unlike `.noted/config.json`, so that Git sync or a cloud folder carries it to the other devices. A Markdown
    vault opened from outside (Obsidian, #62) is `markdown` from the start and is never rewritten on open.
 3. **Migration** (#60): dry-run report per note (convertible / partly / kept raw), backup first (a git commit if the vault is a
    repository, else a zip in `.noted/backups/`), idempotent and resumable, each rewritten note gets a history snapshot.
@@ -195,3 +196,19 @@ the editor or to storage: that is the migration (#60). What building it taught, 
    remembered per vault, and "not now" keeps the vault on HTML with dual read. A vault opened from outside is never rewritten on open.
 4. **A CodeMirror source mode is not part of this decision.** It can be added on top of the same document later;
    it is tracked separately if wanted.
+
+## Implementation notes (#60, first part: reading and writing Markdown vaults)
+
+- **The renderer keeps speaking HTML.** Inside the app a note is HTML plus a frontmatter comment; only the three calls that
+  carry a note's text (`readNote`, `readNoteSnapshot`, `saveNote`) convert, in `src/lib/noteIo.ts`, behind `getElectronApi()`. So
+  the store, the editor, the exports and the AI features did not change, and an HTML vault runs the preload's own functions.
+  The wire format becomes Markdown (or document JSON) only when there is a reason to touch all of those.
+- **The editor is built from the codec's document model** (`documentExtensions`, with a few editor-only overrides), and a test
+  fails if the two schemas ever differ. Its HTML carries what Markdown has and HTML did not (`data-tight`, `data-align`, callouts, raw
+  blocks, a code fence's whole info string) so a note survives the trip document -> HTML -> editor -> HTML -> Markdown.
+- **Comparing notes needs one print.** The editor and the file print the same note differently, so the "did it change on disk?"
+  check compares each side after a trip through the file (`canonicalWire`); otherwise every autosave looks like an outside change.
+- **Guarded by:** every golden note through a real editor (`noteIo.test.ts`), generated documents through HTML
+  (`html.property.test.ts`), and `e2e/markdown-vault.e2e.ts` on the real app (open, edit, external change, new note, search, rename with links).
+- **Not reachable yet:** nothing sets the marker, so no user vault is affected. The migration (dry run, backup, resume) and the
+  MCP server and importers writing Markdown follow, and only then does Settings offer the migration.

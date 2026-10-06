@@ -7,29 +7,19 @@ import type { NoteRename } from '../../shared/vault/links';
 import { getTargetDir, safeResolve } from '../core/paths';
 import { fullTextSearchIndex, vaultIndex } from '../core/services';
 import { rewriteLinks } from '../core/rewrite';
+import { notePreview } from '../../shared/search/textExtract';
 
 // ─── Multi-folder / notebooks ─────────────────────────────────────────────────
 
 // Read a short body preview (Apple Notes-style) from the first few KB of a
-// note, skipping the frontmatter comment and the title heading.
+// note, skipping the frontmatter and the title heading (HTML or Markdown note).
 async function readNotePreview(filePath: string): Promise<string> {
   try {
     const fh = await fs.promises.open(filePath, 'r');
     try {
       const buf = Buffer.alloc(4096);
       const { bytesRead } = await fh.read(buf, 0, 4096, 0);
-      const stripped = buf.toString('utf8', 0, bytesRead)
-        .replace(/^\s*<!--noted-frontmatter:[\s\S]*?-->/i, '')  // frontmatter comment
-        .replace(/^\s*#{1,6}\s+[^\n]*\n?/, '')                   // leading markdown heading
-        .replace(/<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/i, '');        // leading HTML heading (the title)
-      return stripped
-        .replace(/<\/(p|div|li|h[1-6])>|<br\s*\/?>/gi, ' ')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 120);
+      return notePreview(buf.toString('utf8', 0, bytesRead));
     } finally {
       await fh.close();
     }

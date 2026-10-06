@@ -27,7 +27,10 @@ describe('WikilinkExtension structural behavior', () => {
     const parseRules = extension.config.parseHTML();
     const rendered = extension.config.renderHTML({ HTMLAttributes: { target: 'Note-X' } });
 
-    expect(attrs).toEqual({ target: { default: null } });
+    // `target` is the link; `embed` (![[...]]) is how the Markdown codec marks an embed (shared/markdown/schema.ts).
+    expect(Object.keys(attrs)).toEqual(['target', 'embed']);
+    expect(attrs.target).toEqual({ default: null });
+    expect((attrs.embed as { default: unknown }).default).toBe(false);
     expect(parseRules).toEqual([{ tag: 'span[data-wikilink]' }]);
     expect(rendered[0]).toBe('span');
     expect(rendered[2]).toBe(0);

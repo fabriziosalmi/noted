@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { marked } from 'marked';
+import { vaultFormatOf } from '../lib/noteIo';
 import { convertTaskListsToTiptap } from '../lib/listUtils';
 import type { NoteTemplate } from '../lib/templates';
 import { otherVersionName } from '../lib/externalChange';
@@ -449,6 +450,9 @@ export const useStore = create<NoteState>()(
     const api = getElectronApi();
     if (api) {
       const syncDir = get().settings.syncDirectory || undefined;
+      // Learn the vault's note format now (not awaited: listing the notes must not wait for it), so the
+      // first note read or saved finds it already asked.
+      void vaultFormatOf(api, syncDir);
       const treeRes = await api.getNotesTree?.(syncDir);
       if (treeRes?.success && treeRes.data) {
         const { rootNotes, folders } = treeRes.data as { rootNotes: NoteFile[]; folders: FolderInfo[] };
