@@ -15,7 +15,7 @@ test('properties: edit by type, add a typed property, follow a link property tha
   const file = path.join(vault, 'Task.md');
   const editor = win.locator('[contenteditable="true"]').first();
 
-  await win.getByRole('button', { name: /^Task/ }).first().click();
+  await win.getByRole('button', { name: /^Task(?!s)/ }).first().click();
   await expect(editor.locator('h1')).toHaveText('Task');
   await win.getByRole('button', { name: 'Toggle right panel' }).click();
   await win.getByRole('tab', { name: 'Properties' }).click();
@@ -60,5 +60,5 @@ test('properties: edit by type, add a typed property, follow a link property tha
   await panel.locator('[data-property="parent"]').getByRole('button', { name: 'Home' }).click();
   await expect(editor.locator('h1')).toHaveText('Home');
   await win.getByRole('tab', { name: 'Connections' }).click();
-  await expect(win.getByRole('button', { name: /^Task/ }).last()).toBeVisible({ timeout: 15_000 });
+  await expect(win.getByRole('button', { name: /^Task(?!s)/ }).last()).toBeVisible({ timeout: 15_000 });
 });
