@@ -48,9 +48,13 @@ test.describe('Noted desktop app', () => {
   test('renaming a note renames the file on disk', async ({ noted }) => {
     const { win, readVault } = noted;
     await win.keyboard.press(`${MOD}+KeyN`);
-    await expect(win.locator('[contenteditable="true"]').first()).toBeVisible();
+    const editor = win.locator('[contenteditable="true"]').first();
+    await expect(editor).toBeVisible();
     // A new note opens with focus in its (empty) title heading; clicking would
-    // move the caret into the body. The title -> filename sync is debounced.
+    // move the caret into the body. Typing before that focus lands loses the first
+    // characters ("elta rename check", seen on a slow Windows runner), so wait for it.
+    // The title -> filename sync is debounced.
+    await expect(editor).toBeFocused();
     await win.keyboard.type('Delta rename check');
     await expect
       .poll(() => Object.keys(readVault()).some(f => f.startsWith('Delta rename check')), { timeout: 15_000 })
