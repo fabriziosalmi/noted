@@ -10,6 +10,7 @@ import { otherVersionName } from '../lib/externalChange';
 import type { VaultIndexSnapshot, VaultIndexDelta } from '../lib/vaultIndexTypes';
 import { readLinkUpdateMode, foldRename, isNoopRename, type PendingRename } from '../lib/linkUpdate';
 import { getLinkUpdateUi } from '../lib/linkUpdateUi';
+import type { HeadingChange } from '../types';
 import { slugifyTitle } from '../lib/noteTitle';
 import { translate } from '../lib/i18n';
 import { getElectronApi } from '../lib/electronApi';
@@ -258,6 +259,8 @@ interface NoteState {
   setPendingAnchor: (anchor: { note: string; heading?: string; block?: string } | null) => void;
   // Apply the link rewrite for title-driven renames that were held back (see queueLinkRewrite).
   flushPendingLinkRewrite: (opts?: { quiet?: boolean }) => Promise<void>;
+  /** A heading of the open note was renamed: move the [[Note#Heading]] links that point at it (Always / Ask / Never). */
+  settleHeadingRename: (change: HeadingChange) => Promise<void>;
   announce: (message: string) => void;
   applyAgentAction: (
     action: AgentUiAction,
@@ -801,6 +804,24 @@ export const useStore = create<NoteState>()(
     pendingLinkRewrite = null;
     if (linkRewriteTimer) { clearTimeout(linkRewriteTimer); linkRewriteTimer = null; }
     if (pending) await settleLinkRewrite(get, pending, opts?.quiet);
+  },
+
+  settleHeadingRename: async change => {
+    const api = getElectronApi();
+    const mode = readLinkUpdateMode(get().settings.linkUpdateMode);
+    if (!api?.rewriteHeadingLinks || mode === 'never' || change.renames.length === 0) return;
+    const syncDir = get().settings.syncDirectory || undefined;
+    if (mode === 'ask') {
+      const ui = getLinkUpdateUi();
+      if (!ui) return;
+      const preview = await api.previewHeadingRewrite(change, syncDir);
+      if (!preview.success || !preview.data || preview.data.notes === 0) return;
+      const first = change.renames[0];
+      const label = `${bareName(change.note)}#${change.oldHeadings[first.index]}`;
+      if (!(await ui.confirm({ name: label, notes: preview.data.notes, links: preview.data.links }))) return;
+    }
+    const res = await api.rewriteHeadingLinks(change, syncDir);
+    if (res.success) reportLinkUpdate(res.data);
   },
 
   clearPendingSelfRename: () => set({ pendingSelfRename: null }),

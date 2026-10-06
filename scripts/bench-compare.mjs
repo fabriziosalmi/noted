@@ -14,6 +14,9 @@ const BUDGETS = {
   searchP95Ms: { max: 50, label: 'search p95' },
   rssGrowthMB: { max: 400, label: 'memory growth' },
 };
+// A shared CI runner is slower than a laptop and noisy (the same code measured 0.7 s and 1.4 s on two runs), so CI
+// loosens the absolute budgets (BENCH_BUDGET_SCALE=2); the comparison with the base, on the same machine, stays at 20%.
+const BUDGET_SCALE = Number(process.env.BENCH_BUDGET_SCALE ?? 1);
 const TOLERANCE = 0.2;
 const NOISE_FLOOR = { vaultIndexColdMs: 50, fullTextColdMs: 50, searchP95Ms: 5, rssGrowthMB: 20 };
 
@@ -27,10 +30,11 @@ const failures = [];
 
 for (const [key, { max, label }] of Object.entries(BUDGETS)) {
   const value = head[key];
-  const verdict = value > max ? 'OVER BUDGET' : 'ok';
+  const limit = max * BUDGET_SCALE;
+  const verdict = value > limit ? 'OVER BUDGET' : 'ok';
   const against = base ? `  (base ${base[key]})` : '';
-  console.log(`${label.padEnd(28)} ${String(value).padStart(8)}  budget ${max}${against}  ${verdict}`);
-  if (value > max) failures.push(`${label}: ${value} is over the budget of ${max}`);
+  console.log(`${label.padEnd(28)} ${String(value).padStart(8)}  budget ${limit}${against}  ${verdict}`);
+  if (value > limit) failures.push(`${label}: ${value} is over the budget of ${limit}`);
   if (base && base[key] > 0 && value - base[key] > NOISE_FLOOR[key] && value > base[key] * (1 + TOLERANCE)) {
     failures.push(`${label}: ${value} against ${base[key]} before, more than ${TOLERANCE * 100}% slower`);
   }

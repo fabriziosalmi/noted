@@ -220,3 +220,44 @@ describe('title-driven rename (held back, applied once)', () => {
     expect(api.rewriteLinks).not.toHaveBeenCalled();
   });
 });
+
+describe('a heading renamed', () => {
+  const change = { note: 'Plan.md', oldHeadings: ['Plan', 'Risks'], renames: [{ index: 1, to: 'Threats' }] };
+  beforeEach(() => {
+    api.previewHeadingRewrite = vi.fn().mockResolvedValue({ success: true, data: { notes: 2, links: 3 } });
+    api.rewriteHeadingLinks = vi.fn().mockResolvedValue({ success: true, data: { notes: 2, links: 3, failed: 0 } });
+    window.electronAPI = { ...original, ...api } as unknown as typeof window.electronAPI;
+  });
+
+  it('Always: rewrites the links and reports the result, without asking', async () => {
+    await useStore.getState().settleHeadingRename(change);
+    expect(api.rewriteHeadingLinks).toHaveBeenCalledWith(change, undefined);
+    expect(api.previewHeadingRewrite).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith({ notes: 2, links: 3, failed: 0 });
+  });
+
+  it('Never: leaves the links alone', async () => {
+    mode('never');
+    await useStore.getState().settleHeadingRename(change);
+    expect(api.rewriteHeadingLinks).not.toHaveBeenCalled();
+  });
+
+  it('Ask: names the heading, gives the real counts, and follows the answer', async () => {
+    mode('ask');
+    await useStore.getState().settleHeadingRename(change);
+    expect(confirm).toHaveBeenCalledWith({ name: 'Plan#Risks', notes: 2, links: 3 });
+    expect(api.rewriteHeadingLinks).toHaveBeenCalledTimes(1);
+
+    confirm.mockResolvedValue(false);
+    await useStore.getState().settleHeadingRename(change);
+    expect(api.rewriteHeadingLinks).toHaveBeenCalledTimes(1);
+  });
+
+  it('Ask: says nothing when no link points at the heading', async () => {
+    mode('ask');
+    api.previewHeadingRewrite.mockResolvedValue({ success: true, data: { notes: 0, links: 0 } });
+    await useStore.getState().settleHeadingRename(change);
+    expect(confirm).not.toHaveBeenCalled();
+    expect(api.rewriteHeadingLinks).not.toHaveBeenCalled();
+  });
+});

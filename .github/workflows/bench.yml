@@ -1,7 +1,7 @@
 name: Bench
 
 # How the vault index and the full-text search scale (bench/index-scale.bench.ts): a 10,000-note vault must index in
-# under 2 s and answer a search in under 50 ms. On a pull request the same benchmark also runs against the code the
+# under 2 s and answer a search in under 50 ms (budgets doubled on the shared CI runner). On a pull request the same benchmark also runs against the code the
 # change started from, on the same machine, and a measure that got more than 20% slower fails the check.
 on:
   push:
@@ -47,4 +47,6 @@ jobs:
           cd ../base && node bench-run.mjs "$GITHUB_WORKSPACE/bench/results-base.json" 3
 
       - name: Judge
+        env:
+          BENCH_BUDGET_SCALE: 2 # shared runners are slower and noisier than a laptop; the comparison with the base stays at 20%
         run: node scripts/bench-compare.mjs bench/results.json bench/results-base.json

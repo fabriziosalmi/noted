@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { VaultIndex } from './vault-index';
-import { applyRewrite, planRewrite, previewRewrite, type RewriteDeps } from './link-rewrite';
+import { applyRewrite, planRewrite, previewRewrite, applyHeadingRewrite, previewHeadingRewrite, type RewriteDeps } from './link-rewrite';
 import { parseWikilinks } from '../shared/vault/extract';
 import { buildLinkResolver } from '../shared/vault/resolve';
 
@@ -203,5 +203,39 @@ describe('invariant: renames never create a dangling link', () => {
     }
     // and the links to the never-existing note were never touched
     expect(allNotes().every(n => read(n).includes('[[Never existed]]'))).toBe(true);
+  });
+});
+
+describe('a heading renamed', () => {
+  const change = { note: 'Plan.md', oldHeadings: ['Plan', 'Risks', 'Budget'], renames: [{ index: 1, to: 'Threats' }] };
+
+  it('moves the links to it, by name or by alias, in the notes that hold them, and snapshots each one first', async () => {
+    write('Plan.md', '---\naliases: [Roadmap]\n---\n# Plan\n\n## Risks\n\n## Budget\n');
+    write('A.md', 'see [[Plan#Risks]] and [[Roadmap#Risks|here]] and ![[Plan#Risks]]\n');
+    write('Work/B.md', '[[Plan#Budget]] [[Plan#Risks]]\n');
+    write('Other.md', '[[Other#Risks]] [[Plan]]\n');
+    await index.ensure(dir);
+
+    expect(await previewHeadingRewrite(dir, change, deps)).toEqual({ notes: 2, links: 4 });
+    const out = await applyHeadingRewrite(dir, change, deps);
+    expect(out).toEqual({ notes: ['A.md', 'Work/B.md'], links: 4, failed: [] });
+    expect(read('A.md')).toBe('see [[Plan#Threats]] and [[Roadmap#Threats|here]] and ![[Plan#Threats]]\n');
+    expect(read('Work/B.md')).toBe('[[Plan#Budget]] [[Plan#Threats]]\n');
+    expect(read('Other.md')).toBe('[[Other#Risks]] [[Plan]]\n');
+    expect(snapshots.map(s => s.name)).toEqual(['A.md', 'Work/B.md']);
+    expect(snapshots[0].previous).toContain('[[Plan#Risks]]');
+  });
+
+  it('leaves the note being edited alone: its own file is the editor\'s to write', async () => {
+    write('Plan.md', '# Plan\n\n## Risks\n\nsee [[Plan#Risks]]\n');
+    await index.ensure(dir);
+    expect(await applyHeadingRewrite(dir, change, deps)).toEqual({ notes: [], links: 0, failed: [] });
+    expect(read('Plan.md')).toContain('[[Plan#Risks]]');
+  });
+
+  it('does nothing when nothing points at the heading', async () => {
+    write('A.md', '[[Plan#Budget]]\n');
+    await index.ensure(dir);
+    expect(await previewHeadingRewrite(dir, change, deps)).toEqual({ notes: 0, links: 0 });
   });
 });

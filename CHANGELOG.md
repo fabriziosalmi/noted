@@ -8,6 +8,9 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Renaming a heading updates the links to it** (#67, part 3): when a heading is renamed and the caret moves on, the
+  `[[Note#Old heading]]` links in other notes (by name or alias, alias text kept) follow to the new text, under the same Always /
+  Ask / Never setting as a note rename, each changed note with a history snapshot. Together with parts 1 and 2 this closes #67.
 - **Embeds** (#67, part 2): `![[Note]]`, `![[Note#Heading]]`, `![[Note#^block-id]]` and `![[image.png|300]]` show what they point at,
   in place under the line, read-only (never saved into the note); a click opens the source at that place. A missing target says
   so. The embedded HTML is sanitized, and an embed inside an embedded note is not expanded, so a note that embeds itself cannot loop.

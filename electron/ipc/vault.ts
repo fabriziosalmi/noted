@@ -12,7 +12,7 @@ import { tr } from '../core/language';
 import { getTargetDir, blessVaultRoot, isBlessedRoot, setActiveVaultDir } from '../core/paths';
 import { fullTextSearchIndex, vaultIndex } from '../core/services';
 import { startVaultWatch } from '../core/watcher';
-import { rewriteLinks, parseRenames, linkRewriteDeps } from '../core/rewrite';
+import { rewriteLinks, parseRenames, linkRewriteDeps, rewriteHeadingLinksIn, previewHeadingLinks, parseHeadingChange } from '../core/rewrite';
 
 export function registerVaultHandlers(): void {
   // The renderer's configured vault directory, mirrored in main so windows that
@@ -127,6 +127,28 @@ export function registerVaultHandlers(): void {
       const dir = getTargetDir(syncDir);
       await vaultIndex.ensure(dir);
       return { success: true, data: await previewRewrite(dir, parseRenames(renames), linkRewriteDeps(dir)) };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  // A heading renamed: how many notes/links point at it (for "Ask"), and the rewrite itself.
+  ipcMain.handle('preview-heading-rewrite', async (_, change: unknown, syncDir?: string) => {
+    try {
+      const dir = getTargetDir(syncDir);
+      await vaultIndex.ensure(dir);
+      return { success: true, data: await previewHeadingLinks(dir, parseHeadingChange(change)) };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('rewrite-heading-links', async (_, change: unknown, syncDir?: string) => {
+    try {
+      assertNotMigrating();
+      const dir = getTargetDir(syncDir);
+      await vaultIndex.ensure(dir);
+      return { success: true, data: await rewriteHeadingLinksIn(dir, parseHeadingChange(change)) };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

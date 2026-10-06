@@ -57,6 +57,8 @@ declare global {
       deleteFolder: (name: string, syncDir?: string, opts?: LinkUpdateOptions) => Promise<{ success: boolean; data?: { moved: number; renamed: string[] }; links?: LinkUpdateResult; error?: string }>;
       moveNote: (fileName: string, toFolder: string, syncDir?: string, opts?: LinkUpdateOptions) => Promise<{ success: boolean; data?: string; links?: LinkUpdateResult; error?: string }>;
       previewLinkRewrite: (renames: { from: string; to: string }[], syncDir?: string) => Promise<{ success: boolean; data?: { notes: number; links: number }; error?: string }>;
+      previewHeadingRewrite: (change: HeadingChange, syncDir?: string) => Promise<{ success: boolean; data?: { notes: number; links: number }; error?: string }>;
+      rewriteHeadingLinks: (change: HeadingChange, syncDir?: string) => Promise<{ success: boolean; data?: LinkUpdateResult; error?: string }>;
       rewriteLinks: (renames: { from: string; to: string }[], syncDir?: string) => Promise<{ success: boolean; data?: LinkUpdateResult; error?: string }>;
       setNoteTitle: (noteName: string) => Promise<void>;
       safeStorageStatus: () => Promise<{ encrypted: boolean }>;
@@ -162,6 +164,13 @@ interface PrData {
 /** Ask the main process to also rewrite [[links]] that point at what is being renamed or moved. */
 interface LinkUpdateOptions {
   updateLinks?: boolean;
+}
+
+/** Headings of a note that were renamed: where they were, and what they are now. */
+export interface HeadingChange {
+  note: string;
+  oldHeadings: string[];
+  renames: { index: number; to: string }[];
 }
 
 interface LinkUpdateResult {

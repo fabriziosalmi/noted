@@ -9,10 +9,12 @@
  */
 
 import { prepareRewrite, rewriteWikilinks, type NoteRename } from '../shared/vault/links.js';
+import { buildLinkResolver } from '../shared/vault/resolve.js';
+import { rewriteHeadingLinks, type HeadingRename } from '../shared/vault/headingLinks.js';
 import type { VaultIndex } from './vault-index.js';
 
 export interface RewriteDeps {
-  vaultIndex: Pick<VaultIndex, 'reconcile' | 'names' | 'possibleLinkers'>;
+  vaultIndex: Pick<VaultIndex, 'reconcile' | 'names' | 'possibleLinkers' | 'aliases'>;
   readNote: (name: string) => Promise<string>;
   /** Store the PREVIOUS content in the note's history, unconditionally. */
   snapshotBefore: (name: string, previousContent: string) => Promise<void>;
@@ -74,5 +76,56 @@ export async function applyRewrite(dir: string, renames: NoteRename[], deps: Rew
 /** Counts for a confirmation prompt: how many notes and links would change. */
 export async function previewRewrite(dir: string, renames: NoteRename[], deps: RewriteDeps): Promise<{ notes: number; links: number }> {
   const plan = await planRewrite(dir, renames, deps);
+  return { notes: plan.length, links: plan.reduce((n, p) => n + p.links, 0) };
+}
+
+// ── a heading renamed ─────────────────────────────────────────────────────────
+
+export interface HeadingChange {
+  /** The note whose headings changed, with ".md". */
+  note: string;
+  /** Its headings before, in order. */
+  oldHeadings: string[];
+  renames: HeadingRename[];
+}
+
+/** Which notes would change when headings of `change.note` are renamed, without touching anything. */
+export async function planHeadingRewrite(dir: string, change: HeadingChange, deps: RewriteDeps): Promise<PlannedNote[]> {
+  if (change.renames.length === 0) return [];
+  await deps.vaultIndex.reconcile(dir);
+  const aliases = deps.vaultIndex.aliases(dir);
+  const resolver = buildLinkResolver(deps.vaultIndex.names(dir), aliases);
+  // Notes that link to this one by name or by any alias it has.
+  const candidates = deps.vaultIndex.possibleLinkers(dir, [change.note, ...(aliases[change.note] ?? [])]);
+  const plan = { note: change.note, oldHeadings: change.oldHeadings, renames: change.renames, resolver };
+
+  const out: PlannedNote[] = [];
+  for (const name of candidates) {
+    if (name === change.note) continue; // the note being edited: its own file is the editor's to write
+    let previous: string;
+    try { previous = await deps.readNote(name); } catch { continue; }
+    const { content, changed } = rewriteHeadingLinks(previous, plan, name);
+    if (changed > 0) out.push({ name, links: changed, content, previous });
+  }
+  return out;
+}
+
+export async function applyHeadingRewrite(dir: string, change: HeadingChange, deps: RewriteDeps): Promise<RewriteOutcome> {
+  const out: RewriteOutcome = { notes: [], links: 0, failed: [] };
+  for (const item of await planHeadingRewrite(dir, change, deps)) {
+    try {
+      await deps.snapshotBefore(item.name, item.previous);
+      await deps.writeNote(item.name, item.content);
+      out.notes.push(item.name);
+      out.links += item.links;
+    } catch (err) {
+      out.failed.push({ name: item.name, error: (err as Error).message });
+    }
+  }
+  return out;
+}
+
+export async function previewHeadingRewrite(dir: string, change: HeadingChange, deps: RewriteDeps): Promise<{ notes: number; links: number }> {
+  const plan = await planHeadingRewrite(dir, change, deps);
   return { notes: plan.length, links: plan.reduce((n, p) => n + p.links, 0) };
 }
