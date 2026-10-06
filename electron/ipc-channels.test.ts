@@ -128,6 +128,7 @@ describe('IPC channels', () => {
     'search-notes-fulltext',
     'select-sync-folder',
     'set-active-vault-dir',
+    'set-language',
     'set-llm-hosts',
     'set-note-title',
     'set-vault-config',

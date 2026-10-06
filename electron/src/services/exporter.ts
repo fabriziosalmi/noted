@@ -2,13 +2,14 @@ import { BrowserWindow, ipcMain, dialog } from 'electron';
 import fs from 'node:fs';
 import { stripUnsafeHtml } from '../../ipc-utils.js';
 import { logEvent } from '../../structured-log.js';
+import { tr } from '../../core/language.js';
 
 export function registerExporterHandlers() {
   ipcMain.handle('export-markdown', async (_, markdownContent: string) => {
     try {
       if (typeof markdownContent !== 'string') throw new Error('Content must be a string');
       const { filePath } = await dialog.showSaveDialog({
-        title: 'Export as Markdown',
+        title: tr('dlgExportMarkdown'),
         defaultPath: 'Note.md',
         filters: [{ name: 'Markdown', extensions: ['md'] }],
       });
@@ -27,7 +28,7 @@ export function registerExporterHandlers() {
       if (htmlContent.length > 5_000_000) throw new Error('Content too large for PDF export');
       // Show save dialog
       const { filePath } = await dialog.showSaveDialog({
-        title: 'Export as PDF',
+        title: tr('dlgExportPdf'),
         defaultPath: 'Note.pdf',
         filters: [{ name: 'PDF', extensions: ['pdf'] }]
       });
@@ -154,7 +155,7 @@ export function registerExporterHandlers() {
     try {
       if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
       const { filePath } = await dialog.showSaveDialog({
-        title: 'Export as HTML',
+        title: tr('dlgExportHtml'),
         defaultPath: `${noteTitle || 'Note'}.html`,
         filters: [{ name: 'HTML', extensions: ['html'] }],
       });
@@ -191,9 +192,9 @@ export function registerExporterHandlers() {
     try {
       if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
       const { filePath } = await dialog.showSaveDialog({
-        title: 'Export as DOCX',
+        title: tr('dlgExportDocx'),
         defaultPath: `${noteTitle || 'Note'}.docx`,
-        filters: [{ name: 'Word Document', extensions: ['docx'] }],
+        filters: [{ name: tr('dlgFilterWord'), extensions: ['docx'] }],
       });
       if (!filePath) return { success: false, error: 'Export cancelled' };
 

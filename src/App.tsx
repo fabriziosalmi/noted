@@ -11,6 +11,7 @@ import { useAppLifecycle } from './hooks/useAppLifecycle';
 import { useGitSync } from './hooks/useGitSync';
 import { useVaultIndex } from './hooks/useVaultIndex';
 import { useVaultFormatSync } from './hooks/useVaultFormatSync';
+import { useLanguageSync } from './hooks/useLanguageSync';
 import { registerLinkUpdateUi } from './lib/linkUpdateUi';
 import { useGitSyncStore } from './store/gitSyncStore';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
@@ -94,6 +95,7 @@ function App() {
   // Links and tags come from the main-process VaultIndex (snapshot + deltas).
   useVaultIndex(settings.syncDirectory || undefined);
   useVaultFormatSync();
+  useLanguageSync();
 
   useAppLifecycle({
     accentColor: settings.accentColor,

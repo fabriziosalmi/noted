@@ -12,6 +12,7 @@ import { startVaultWatch } from './core/watcher';
 import { createWindow, openCaptureWindow, getMainWindow, registerThemeForwarding } from './core/windows';
 import { registerAppProtocol, installContentSecurityPolicy } from './core/protocol';
 import { buildAppMenu } from './menu';
+import { initLanguage, onLanguageChange } from './core/language';
 import { stopMcpSseServer, registerMcpHandlers } from './ipc/mcp';
 import { registerAppHandlers } from './ipc/app';
 import { registerAttachmentsHandlers } from './ipc/attachments';
@@ -70,12 +71,14 @@ app.on('activate', () => {
   }
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   registerAppProtocol();
   installContentSecurityPolicy();
   initNotesDir();
+  await initLanguage(); // before anything is shown: the menu and the dialogs speak the language of the last run
   createWindow();
   buildAppMenu();
+  onLanguageChange(() => buildAppMenu());
   startVaultWatch();
   // Ctrl+Shift+Space is collision-prone on Windows/Linux (IMEs, other apps); if
   // another process owns it, registration fails silently — surface it in the log.

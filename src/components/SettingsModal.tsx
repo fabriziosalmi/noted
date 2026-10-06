@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Modal } from './Modal';
+import { claudeDesktopConfigPath, revealLabelKey } from '../lib/platform';
 import { useConfirm } from './ConfirmProvider';
 import { useStore } from '../store/useStore';
 import type { LLMProvider } from '../store/useStore';
@@ -288,10 +289,10 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath, settings, onUpda
                   void api?.revealInFinder?.(serverPath);
                 }}
                 className="text-[11px] inline-flex items-center gap-1 text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors"
-                title={t('mcpRevealInFinder')}
+                title={t(revealLabelKey())}
               >
                 <ExternalLink size={11} />
-                {t('mcpRevealInFinder')}
+                {t(revealLabelKey())}
               </button>
             )}
           </div>
@@ -416,7 +417,7 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath, settings, onUpda
 
         <div className="pt-1 border-t border-gray-200/40 dark:border-gray-700/40">
           <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-200 mt-2">{t('mcpClientClaudeDesktop')}</p>
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">{t('mcpClientClaudeDesktopHint')}</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">{t('mcpClientClaudeDesktopHint').replace('{path}', claudeDesktopConfigPath())}</p>
           <div className="flex flex-col gap-2">
             <CopyBlock value={claudeDesktopJson} kind="cfg-claude-desktop" copiedCmd={copiedCmd} copyText={copyText} label={t('copy')} />
             <div className="flex items-center gap-2">

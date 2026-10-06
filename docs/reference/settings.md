@@ -30,7 +30,10 @@ each feature behaves.
 - **Editor background** — the writing pane's background: theme default, a preset,
   or a custom color.
 - **Language** — English, Italiano, Español, Português, Français, or Deutsch. The
-  default is English; there is no automatic detection from your system locale.
+  default is English; there is no automatic detection from your system locale. It
+  applies to the whole app: the menu bar, the update dialogs and the file dialogs
+  change with it. (The standard Edit and Window menus, and the system's own Open
+  and Save panels, follow your operating system's language instead.)
 
 ## Editor
 
