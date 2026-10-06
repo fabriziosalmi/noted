@@ -62,6 +62,14 @@ one, and checks that the preload and the main process agree on all of them.
 sandbox. `tsc -b` type-checks the whole folder under strict mode
 (`tsconfig.electron.json`).
 
+## The Markdown codec
+
+`shared/markdown/` converts between Markdown text and the editor's ProseMirror document, with no DOM, so the app, the
+MCP server and the importers can share it ([ADR 0001](/contributing/adr/0001-markdown-canonical-format)). `schema.ts` is
+the document model, `parser.ts` and `serializer.ts` are the two directions, and `codec.ts` adds the frontmatter split
+(kept byte for byte). It is guarded by a golden corpus, generated round-trip tests, and a test that fails when a node or
+mark has no parser or serializer entry. It is not connected to storage yet.
+
 ## The `app://` protocol
 
 In production the renderer is served from a privileged custom protocol,

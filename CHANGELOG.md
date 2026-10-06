@@ -6,6 +6,14 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Internal: the Markdown codec** (`shared/markdown/`, #59), the converter between Markdown text and the editor's
+  document chosen in ADR 0001. Not connected to the app yet, so notes are still stored as before. It covers
+  CommonMark, GFM tables and task lists, fenced code, wikilinks and embeds, highlights, math, callouts, comments and
+  raw HTML/footnotes, keeps frontmatter byte for byte, and is checked by 237 golden cases and by generated
+  documents (100,000 per run) that must read back identical. A 1 MB note converts in about half a second.
+
 ## [1.4.0] - 2026-10-05
 
 ### Added
