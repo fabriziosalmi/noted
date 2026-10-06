@@ -8,6 +8,9 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Aliases** (#68): a note's frontmatter `aliases:` (Obsidian's) are other names it answers to. `[[Start]]` opens the note that has
+  that alias and counts as one of its backlinks, and Quick Open matches aliases and shows the one that matched. A note's own name
+  always wins over an alias.
 - **Nested folders** (#65): folders to any depth (16 levels), shown as a tree in the sidebar: indented under their parent, collapsing hides
   everything under a folder, a search keeps the folders above a match. **New folder inside** a folder, and **drag a folder onto another**
   (or onto the empty list) to move it with everything in it; the links to the notes in it follow. Notes in deep folders of an Obsidian

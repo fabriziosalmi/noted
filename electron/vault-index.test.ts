@@ -36,8 +36,8 @@ describe('initial scan', () => {
     write('Work/.git/F.md', '[[A]] #nope');             // a hidden folder at depth is not
     const snap = await index.snapshot(dir);
     expect(Object.keys(snap.notes).sort()).toEqual(['A.md', 'B.md', 'Work/C.md', 'Work/deeper/E.md']);
-    expect(snap.notes['A.md']).toEqual({ links: ['B', 'Work/C'], tags: ['#idea'] });
-    expect(snap.notes['Work/C.md']).toEqual({ links: ['A'], tags: ['#project/aurora'] });
+    expect(snap.notes['A.md']).toEqual({ links: ['B', 'Work/C'], tags: ['#idea'], aliases: [] });
+    expect(snap.notes['Work/C.md']).toEqual({ links: ['A'], tags: ['#project/aurora'], aliases: [] });
     const b = index.get(dir, 'B.md')!;
     expect(b.headings).toEqual([{ level: 1, text: 'Bee' }]);
     expect(b.frontmatterKeys).toEqual(['title', 'status']);
@@ -79,8 +79,8 @@ describe('initial scan', () => {
     write('Big.md', `[[A]] #t ${'x'.repeat(500)}`);
     write('Small.md', '[[A]] #t');
     const snap = await index.snapshot(dir);
-    expect(snap.notes['Big.md']).toEqual({ links: [], tags: [] });
-    expect(snap.notes['Small.md']).toEqual({ links: ['A'], tags: ['#t'] });
+    expect(snap.notes['Big.md']).toEqual({ links: [], tags: [], aliases: [] });
+    expect(snap.notes['Small.md']).toEqual({ links: ['A'], tags: ['#t'], aliases: [] });
   });
 
   it('honours the name validator', async () => {
@@ -99,7 +99,7 @@ describe('incremental updates (the app\'s own writes)', () => {
     expect(index.get(dir, 'A.md')!.linkTargets).toEqual(['C']);
     expect(index.tagIndex(dir)['#one']).toBeUndefined();
     expect(deltas).toHaveLength(1);
-    expect(deltas[0].upserts).toEqual({ 'A.md': { links: ['C'], tags: ['#two'] } });
+    expect(deltas[0].upserts).toEqual({ 'A.md': { links: ['C'], tags: ['#two'], aliases: [] } });
     expect(deltas[0].removals).toEqual([]);
   });
 
@@ -308,3 +308,47 @@ describe('a Markdown vault (ADR 0001)', () => {
     expect(index.get(dir, 'B.md')!.headings).toEqual([{ level: 1, text: 'Beta' }]);
   });
 });
+
+describe('aliases', () => {
+  const markdownVault = () => fs.writeFileSync(path.join(dir, '.noted-vault.json'), JSON.stringify({ format: 'markdown' }));
+
+  it('indexes a note\'s aliases from its frontmatter, in a Markdown vault and in an HTML one', async () => {
+    markdownVault();
+    write('Home.md', '---\naliases: [Start, Landing page]\n---\n# Home\n');
+    write('Plain.md', '# no aliases\n');
+    await index.ensure(dir);
+    expect(index.get(dir, 'Home.md')!.aliases).toEqual(['Start', 'Landing page']);
+    expect(index.get(dir, 'Plain.md')!.aliases).toEqual([]);
+    expect((await index.snapshot(dir)).notes['Home.md'].aliases).toEqual(['Start', 'Landing page']);
+  });
+
+  it('reads them from the frontmatter comment of a note written by earlier versions', async () => {
+    const front = encodeURIComponent('---\naliases:\n  - Old name\n---');
+    write('Legacy.md', `<!--noted-frontmatter:${front}-->\n<h1>Legacy</h1>`);
+    await index.ensure(dir);
+    expect(index.get(dir, 'Legacy.md')!.aliases).toEqual(['Old name']);
+  });
+
+  it('a [[link]] by an alias is a backlink of the note that has it, and a change of aliases is in the delta', async () => {
+    write('Target.md', '---\naliases: [Goal]\n---\n# Target\n');
+    write('Source.md', 'see [[Goal]] and [[goal]]');
+    write('Other.md', 'see [[Nothing]]');
+    await index.ensure(dir);
+    expect(index.backlinks(dir, 'Target.md')).toEqual(['Source.md']);
+    deltas.length = 0;
+    index.upsertFromRaw(dir, 'Target.md', '---\naliases: [Aim]\n---\n# Target\n');
+    await index.flushNow(dir);
+    expect(deltas[0].upserts['Target.md'].aliases).toEqual(['Aim']);
+    expect(index.backlinks(dir, 'Target.md')).toEqual([]); // [[Goal]] no longer names it
+  });
+
+  it('a name beats an alias: [[Home]] is the note called Home, whoever has "Home" as an alias', async () => {
+    write('Home.md', '# Home');
+    write('Elsewhere.md', '---\naliases: [Home]\n---\n# Elsewhere');
+    write('Source.md', '[[Home]]');
+    await index.ensure(dir);
+    expect(index.backlinks(dir, 'Home.md')).toEqual(['Source.md']);
+    expect(index.backlinks(dir, 'Elsewhere.md')).toEqual([]);
+  });
+});
+

@@ -69,3 +69,20 @@ describe('vault index in the store', () => {
     expect(s().noteLinksIndex).toEqual({ 'Z.md': [] });
   });
 });
+
+describe('aliases in the store', () => {
+  beforeEach(() => useStore.setState({ noteAliasesIndex: {} }));
+
+  it('keeps the aliases of the notes that have any, from a snapshot and through deltas', () => {
+    s().applyVaultIndexSnapshot(snap(1, {
+      'A.md': { links: [], tags: [], aliases: ['Start'] },
+      'B.md': { links: [], tags: [], aliases: [] },
+    }));
+    expect(s().noteAliasesIndex).toEqual({ 'A.md': ['Start'] });
+    s().applyVaultIndexDelta(delta(2, { 'B.md': { links: [], tags: [], aliases: ['Beta'] }, 'A.md': { links: [], tags: [], aliases: [] } }));
+    expect(s().noteAliasesIndex).toEqual({ 'B.md': ['Beta'] });
+    s().applyVaultIndexDelta(delta(3, {}, ['B.md']));
+    expect(s().noteAliasesIndex).toEqual({});
+  });
+});
+

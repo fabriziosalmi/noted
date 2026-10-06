@@ -784,5 +784,6 @@
   "mcpRevealInExplorer": "Mostrar en el Explorador",
   "mcpRevealInFileManager": "Mostrar en el gestor de archivos",
   "newSubfolder": "Nueva carpeta dentro",
-  "subfolderNamePlaceholder": "Nueva carpeta en {parent}"
+  "subfolderNamePlaceholder": "Nueva carpeta en {parent}",
+  "aliasMatch": "también «{alias}»"
 }

@@ -87,6 +87,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   const llmApiKey = useStore(s => s.settings.llmApiKey);
   const llmModel = useStore(s => s.settings.llmModel);
   const createTitledNote = useStore(s => s.createTitledNote);
+  const noteAliases = useStore(s => s.noteAliasesIndex);
 
   // Follow a [[wikilink]]: open the note if it exists, otherwise create it (and
   // open it) — clicking a dead link used to be a silent no-op.
@@ -94,10 +95,10 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     const stem = rawName.replace(/\.md$/i, '');
     if (!stem) return;
     // Obsidian's rules (case-insensitive; a bare name finds the note in any folder), from the note holding the link.
-    const target = buildLinkResolver(allNoteNames.map(n => `${n}.md`)).resolve(stem, activeNoteName ?? undefined);
+    const target = buildLinkResolver(allNoteNames.map(n => `${n}.md`), noteAliases).resolve(stem, activeNoteName ?? undefined);
     if (target) onSelectNote?.(target);
     else void createTitledNote(stem);
-  }, [allNoteNames, activeNoteName, onSelectNote, createTitledNote]);
+  }, [allNoteNames, noteAliases, activeNoteName, onSelectNote, createTitledNote]);
   const onboardingDismissed = useStore(s => s.settings.onboardingDismissed ?? false);
   const shortcutsSeen = useStore(s => s.settings.shortcutsSeen ?? false);
   const aiGhostMode = useStore(s => s.settings.aiGhostMode ?? 'manual');

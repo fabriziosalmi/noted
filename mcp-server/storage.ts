@@ -5,9 +5,9 @@
 // A client may still send HTML to a Markdown vault (the previous contract, kept for one minor version);
 // it is sanitized and converted. Markdown sent to an HTML vault goes through `marked` as before.
 import { convertHtmlNote } from '../shared/markdown/migrate.js';
-import { parse as parseYaml } from 'yaml';
 import { normalizeMarkdown, splitFrontmatter } from '../shared/markdown/codec.js';
 import { extractHtmlFrontmatterComment } from '../shared/markdown/frontmatter.js';
+import { parseFrontmatterBlock } from '../shared/markdown/yamlFrontmatter.js';
 import type { DomEnv } from '../shared/markdown/html.js';
 import { markdownToPlainText } from '../shared/search/textExtract.js';
 import type { NoteFormat } from '../shared/vault/format.js';
@@ -65,19 +65,6 @@ export interface ReadNoteResult {
   body: string;
   modified: string;
   sizeBytes: number;
-}
-
-/** Parse the YAML between the `---` lines of a frontmatter block. Never throws: a bad block is reported, not fatal. */
-export function parseFrontmatterBlock(block: string): { data: Record<string, unknown> | null; error?: string } {
-  const inner = block.replace(/^---[ \t]*\r?\n/, '').replace(/(?:^|\r?\n)---[ \t]*\r?\n?$/, '');
-  try {
-    const value: unknown = parseYaml(inner, { maxAliasCount: 100 });
-    if (value === null || value === undefined) return { data: {} };
-    if (typeof value !== 'object' || Array.isArray(value)) return { data: null, error: 'frontmatter is not a mapping' };
-    return { data: value as Record<string, unknown> };
-  } catch (err) {
-    return { data: null, error: (err as Error).message.split('\n')[0] };
-  }
 }
 
 const splitMarkdown = (stored: string): { frontmatter: string | null; body: string } => splitFrontmatter(stored);

@@ -12,6 +12,7 @@
 
 import { extractHtmlFrontmatterComment, extractMarkdownFrontmatter } from '../markdown/frontmatter.js';
 import type { NoteFormat } from './format.js';
+import { aliasesFromFrontmatter } from './aliases.js';
 
 export interface WikiLink {
   /** Note the link points at, without alias/heading/".md": "Folder/Note". */
@@ -128,4 +129,9 @@ export function extractFrontmatterKeys(raw: string, format?: NoteFormat): string
 export function linkPointsAt(target: string, noteName: string): boolean {
   const norm = (s: string) => s.replace(/\.md$/i, '').toLowerCase();
   return norm(target) === norm(noteName);
+}
+
+/** The note's aliases (frontmatter `aliases:`), the other names `[[links]]` and Quick Open know it by. */
+export function extractAliases(raw: string, format?: NoteFormat): string[] {
+  return aliasesFromFrontmatter(bodyAndFrontmatter(raw, format).frontmatter);
 }

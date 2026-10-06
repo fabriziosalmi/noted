@@ -37,4 +37,18 @@ describe('backlinksOf', () => {
     expect(backlinksOf(vault, 'Work/Plan.md')).toEqual(['Work/Notes.md']);
     expect(backlinksOf(vault, 'Life/Plan.md')).toEqual(['Home.md']);
   });
+
+  it('a link to an alias is a link to the note that has it', () => {
+    const vault = { 'Home.md': ['Start', 'Nothing'], 'Page.md': [], 'Other.md': ['start'] };
+    expect(backlinksOf(vault, 'Page.md', {})).toEqual([]);
+    expect(backlinksOf(vault, 'Page.md', { 'Page.md': ['Start'] })).toEqual(['Home.md', 'Other.md']);
+  });
+
+  it('a name beats an alias, so the note with that name keeps its backlinks', () => {
+    const vault = { 'Home.md': ['Plan'], 'Plan.md': [], 'Other.md': [] };
+    const aliases = { 'Other.md': ['Plan'] };
+    expect(backlinksOf(vault, 'Plan.md', aliases)).toEqual(['Home.md']);
+    expect(backlinksOf(vault, 'Other.md', aliases)).toEqual([]);
+  });
 });
+

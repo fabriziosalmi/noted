@@ -15,6 +15,18 @@ link rendered as `[[Note name]]`.
   keyboard.
 - A link can carry an alias and a heading: `[[Note|shown text]]`,
   `[[Note#Heading]]`, or both. They all count as links to `Note`.
+- **Aliases.** A note can have other names, in its frontmatter (the Obsidian way):
+
+  ```yaml
+  ---
+  aliases: [Start, Landing page]
+  ---
+  ```
+
+  `[[Start]]` then opens that note, counts as one of its backlinks, and Quick Open finds the note by
+  it. A link that names a note (or its path) always wins over an alias; if two notes share an alias,
+  the one in the same folder as the note holding the link is used, then the one with the shortest path.
+  `alias:` works too, and so does a list written over several lines.
 
 ### Renaming and moving notes
 

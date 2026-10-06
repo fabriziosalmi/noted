@@ -202,6 +202,8 @@ interface NoteState {
   pinnedNotes: string[];
   // Derived from the main-process VaultIndex (snapshot + deltas); never persisted.
   noteLinksIndex: Record<string, string[]>;
+  /** Note name -> its aliases (frontmatter `aliases:`), only for the notes that have any. */
+  noteAliasesIndex: Record<string, string[]>;
   tagIndex: Record<string, string[]>;
   vaultIndexSync: { vault: string; seq: number } | null;
   applyVaultIndexSnapshot: (snapshot: VaultIndexSnapshot) => void;
@@ -362,6 +364,7 @@ export const useStore = create<NoteState>()(
       pinnedNotes: [],
       customTemplates: [],
       noteLinksIndex: {},
+      noteAliasesIndex: {},
       tagIndex: {},
       vaultIndexSync: null,
       noteFolders: [],
@@ -564,7 +567,9 @@ export const useStore = create<NoteState>()(
       noteLinksIndex[name] = v.links;
       for (const t of v.tags) (tagIndex[t] ??= []).push(name);
     }
-    set({ noteLinksIndex, tagIndex, vaultIndexSync: { vault: snapshot.vault, seq: snapshot.seq } });
+    const noteAliasesIndex: Record<string, string[]> = {};
+    for (const [name, v] of Object.entries(snapshot.notes)) if (v.aliases?.length) noteAliasesIndex[name] = v.aliases;
+    set({ noteLinksIndex, noteAliasesIndex, tagIndex, vaultIndexSync: { vault: snapshot.vault, seq: snapshot.seq } });
   },
 
   applyVaultIndexDelta: (delta: VaultIndexDelta) => {
@@ -576,6 +581,12 @@ export const useStore = create<NoteState>()(
       const noteLinksIndex = { ...state.noteLinksIndex };
       for (const n of delta.removals) delete noteLinksIndex[n];
       for (const [n, v] of Object.entries(delta.upserts)) noteLinksIndex[n] = v.links;
+      const noteAliasesIndex = { ...state.noteAliasesIndex };
+      for (const n of delta.removals) delete noteAliasesIndex[n];
+      for (const [n, v] of Object.entries(delta.upserts)) {
+        if (v.aliases?.length) noteAliasesIndex[n] = v.aliases;
+        else delete noteAliasesIndex[n];
+      }
       // Drop the changed notes from every tag, then add back their current tags.
       const tagIndex: Record<string, string[]> = {};
       for (const [tag, names] of Object.entries(state.tagIndex)) {
@@ -583,7 +594,7 @@ export const useStore = create<NoteState>()(
         if (kept.length) tagIndex[tag] = kept;
       }
       for (const [n, v] of Object.entries(delta.upserts)) for (const t of v.tags) (tagIndex[t] ??= []).push(n);
-      return { noteLinksIndex, tagIndex, vaultIndexSync: { vault: sync.vault, seq: delta.seq } };
+      return { noteLinksIndex, noteAliasesIndex, tagIndex, vaultIndexSync: { vault: sync.vault, seq: delta.seq } };
     });
   },
 
@@ -1033,6 +1044,7 @@ export const useStore = create<NoteState>()(
       pinnedNotes: [],
       customTemplates: [],
       noteLinksIndex: {},
+      noteAliasesIndex: {},
       tagIndex: {},
       noteFolders: [],
       lastOpenedNote: null,

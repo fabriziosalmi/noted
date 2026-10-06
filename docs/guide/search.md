@@ -8,7 +8,8 @@ a full-text search across the whole vault.
 Press <kbd>⌘K</kbd> to open the switcher.
 
 - With an empty query, it lists your 20 most recently modified notes.
-- As you type, it fuzzy-matches note **names** first, then appends **full-text
+- As you type, it fuzzy-matches note **names** and their **aliases** (the `aliases:` of a note's
+  frontmatter; the alias that matched is shown beside the name) first, then appends **full-text
   content** matches below them, so a note whose body (but not title) mentions
   your query still shows up.
 - Type `/` to switch to commands: **New note**, **Daily note**, **Settings**,

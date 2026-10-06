@@ -17,7 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  parseWikilinks, extractTags, extractHeadings, extractFrontmatterKeys,
+  parseWikilinks, extractTags, extractHeadings, extractFrontmatterKeys, extractAliases,
   type WikiLink, type Heading,
 } from '../shared/vault/extract.js';
 import { buildLinkResolver, linkPointsAtNote } from '../shared/vault/resolve.js';
@@ -35,6 +35,8 @@ export interface NoteEntry {
   tags: string[];
   headings: Heading[];
   frontmatterKeys: string[];
+  /** Other names the note answers to (frontmatter `aliases:`). */
+  aliases: string[];
   /** Vault-relative image files this note refers to. */
   images: string[];
   /** False when the note was too large to read: its links/tags/images are unknown, not empty. */
@@ -49,6 +51,8 @@ export interface NoteEntry {
 export interface NoteView {
   links: string[];
   tags: string[];
+  /** Other names the note answers to, so a `[[link]]` or Quick Open by one of them finds it. */
+  aliases: string[];
 }
 
 export interface IndexSnapshot {
@@ -107,7 +111,7 @@ function currentFormat(st: DirState): NoteFormat {
   return st.format;
 }
 
-const toView = (e: NoteEntry): NoteView => ({ links: e.linkTargets, tags: e.tags });
+const toView = (e: NoteEntry): NoteView => ({ links: e.linkTargets, tags: e.tags, aliases: e.aliases });
 
 export function buildEntry(name: string, raw: string, mtimeMs: number, size: number, gen = 0, parsed = true, vaultFormat?: NoteFormat): NoteEntry {
   // Only a Markdown vault is certain about its notes; an HTML vault can still hold older plain-Markdown notes, so those are sniffed.
@@ -120,6 +124,7 @@ export function buildEntry(name: string, raw: string, mtimeMs: number, size: num
     tags: extractTags(raw, format),
     headings: extractHeadings(raw, format),
     frontmatterKeys: extractFrontmatterKeys(raw, format),
+    aliases: extractAliases(raw, format),
     images: localImageRefs(raw),
     parsed,
     mtimeMs,
@@ -213,11 +218,18 @@ export class VaultIndex {
     return out.sort();
   }
 
+  /** Note name -> its aliases, for the notes that have any. */
+  private aliasMap(st: DirState): Record<string, string[]> {
+    const out: Record<string, string[]> = {};
+    for (const [name, e] of st.notes) if (e.aliases.length > 0) out[name] = e.aliases;
+    return out;
+  }
+
   /** Notes whose [[links]] point at `name` (excluding itself). */
   backlinks(dir: string, name: string): string[] {
     const st = this.byDir.get(this.key(dir));
     if (!st) return [];
-    const resolver = buildLinkResolver(st.notes.keys());
+    const resolver = buildLinkResolver(st.notes.keys(), this.aliasMap(st));
     const out: string[] = [];
     for (const [n, e] of st.notes) {
       if (n !== name && e.linkTargets.some(t => linkPointsAtNote(resolver, t, name, n))) out.push(n);

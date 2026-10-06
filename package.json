@@ -76,6 +76,7 @@
     "react-resizable-panels": "^2.1.9",
     "simple-git": "^3.36.0",
     "turndown": "^7.2.4",
+    "yaml": "^2.9.1",
     "zustand": "^5.0.13"
   },
   "devDependencies": {
@@ -115,8 +116,7 @@
     "vite": "^8.3.1",
     "vite-plugin-electron": "^0.29.1",
     "vite-plugin-electron-renderer": "^0.14.7",
-    "vitest": "^5.0.1",
-    "yaml": "^2.9.1"
+    "vitest": "^5.0.1"
   },
   "main": "dist-electron/main.cjs",
   "build": {

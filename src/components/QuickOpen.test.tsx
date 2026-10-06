@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QuickOpen } from './QuickOpen';
-import type { NoteFile } from '../store/useStore';
+import { useStore, type NoteFile } from '../store/useStore';
 
 const now = Date.now();
 const mk = (name: string, mtimeMs: number): NoteFile => ({
@@ -18,7 +18,10 @@ describe('QuickOpen', () => {
     });
   });
 
-  afterEach(() => { delete (window as { electronAPI?: unknown }).electronAPI; });
+  afterEach(() => {
+    delete (window as { electronAPI?: unknown }).electronAPI;
+    useStore.setState({ noteAliasesIndex: {} });
+  });
 
   it('finds notes by content via full-text, not just by filename', async () => {
     const searchNotesFulltext = vi.fn().mockResolvedValue({
@@ -352,6 +355,26 @@ describe('QuickOpen', () => {
     fireEvent.keyDown(window, { key: 'Enter' });
     expect(onSelect).toHaveBeenCalledWith('target-note.md');
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('matches a note by one of its aliases, and says which one', async () => {
+    useStore.setState({ noteAliasesIndex: { 'Home.md': ['Landing page'] } });
+    render(<QuickOpen notes={[mk('Home.md', now), mk('Other.md', now - 1000)]} onSelect={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText(/open note/i), { target: { value: 'landing' } });
+    const rows = await waitFor(() => {
+      const found = screen.getAllByRole('button').filter(el => el.getAttribute('data-idx') !== null);
+      expect(found.some(r => r.textContent?.includes('Home'))).toBe(true);
+      return found;
+    });
+    expect(rows.find(r => r.textContent?.includes('Home'))!.textContent).toContain('also known as "Landing page"');
+    expect(rows.some(r => r.textContent?.includes('Other'))).toBe(false);
+  });
+
+  it('says nothing about aliases when the name itself matched', () => {
+    useStore.setState({ noteAliasesIndex: { 'Home.md': ['Landing page'] } });
+    render(<QuickOpen notes={[mk('Home.md', now)]} onSelect={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText(/open note/i), { target: { value: 'home' } });
+    expect(screen.queryByTestId('quick-open-alias')).toBeNull();
   });
 });
 
