@@ -14,10 +14,10 @@ const NOTES: Record<string, string> = {
   'Work/Q4/Deep/Deep note.md': '# Deep note\n\nfar down\n',
 };
 
-async function vault(noted: Parameters<Parameters<typeof test>[2]>[0]['noted']) {
+async function vault(noted: Parameters<Parameters<typeof test>[2]>[0]['noted'], extra: Record<string, string> = {}) {
   for (const [name] of SEED_NOTES) fs.rmSync(path.join(noted.vault, name), { force: true });
   fs.writeFileSync(path.join(noted.vault, '.noted-vault.json'), '{"format":"markdown"}\n');
-  for (const [name, text] of Object.entries(NOTES)) {
+  for (const [name, text] of Object.entries({ ...NOTES, ...extra })) {
     fs.mkdirSync(path.dirname(path.join(noted.vault, name)), { recursive: true });
     fs.writeFileSync(path.join(noted.vault, name), text);
   }
@@ -106,11 +106,8 @@ test.describe('nested folders', () => {
   });
 
   test('dragging a folder onto another moves it there, with its notes, and onto the list brings it to the top', async ({ noted }) => {
-    const { vault: root } = await vault(noted);
-    fs.mkdirSync(path.join(root, 'Life'), { recursive: true });
-    fs.writeFileSync(path.join(root, 'Life/Garden.md'), '# Garden\n\ngreen\n');
-    const again = await noted.relaunch();
-    const w = again.win;
+    // one launch only: a second one on the same profile is where Windows keeps a file open for a while at teardown
+    const { win: w, vault: root } = await vault(noted, { 'Life/Garden.md': '# Garden\n\ngreen\n' });
     await expect(w.getByText('Life', { exact: true })).toBeVisible({ timeout: 20_000 });
     const box = (label: string) => w.getByText(label, { exact: true }).locator('xpath=ancestor::*[@draggable="true"][1]');
 
