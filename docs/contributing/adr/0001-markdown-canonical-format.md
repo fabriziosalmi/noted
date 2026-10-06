@@ -272,3 +272,21 @@ the editor or to storage: that is the migration (#60). What building it taught, 
   HTML sent to `create_note`/`update_note` is still accepted and converted.
 - **Round trip.** `frontmatterRaw + body` is what `update_note` accepts back, and a test checks it leaves the note byte for byte as it was.
 
+## Implementation notes (#62, Obsidian vaults in place)
+
+- **Detection writes nothing.** `readVaultFormat` answers `markdown` for a folder with no marker file and a `.obsidian/` folder, so an Obsidian
+  vault is opened without a marker being created (a marker still wins, and an unreadable marker is still HTML). Dot-folders were already
+  skipped by every walker (list, index, search, conversion), which covers `.obsidian/` and `.trash/`.
+- **Opening a note must not save it.** The editor emits an update of what it just loaded, and the autosave used to write it back: harmless for
+  Noted's own files (same text, new mtime, a history snapshot), not for a vault that belongs to another app. A save, a flush and the quit
+  flush now skip content equal to what was loaded or last saved. `e2e/obsidian-vault.e2e.ts` hashes every file and its mtime before and
+  after opening four notes; it failed before this fix.
+- **Opening must not create files either.** `writeVaultConfig` no longer creates `.noted/config.json` to say what the defaults already say.
+- **Link resolution is one pure module** (`shared/vault/resolve.ts`): case-insensitive, bare name or path suffix, ties broken by the note's own
+  folder, then depth, then length, then alphabetically (so listing order never matters). The index's backlinks, the renderer's, link following and
+  the rename rewrite all use it. The rewrite decides against the vault *before* the rename (it works whether or not the files were already
+  renamed), leaves a link alone when it still finds the note, keeps a bare name bare, and writes a path as a path.
+- **Obsidian's attachment folder** is honoured in the main process when it is one fixed folder at the root; the renderer's setting is the fallback.
+- **Not done: nesting.** The model is still the vault root plus one folder level (#65). Deeper notes are neither listed nor touched, and the
+  user guide says so.
+

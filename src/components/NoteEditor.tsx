@@ -29,6 +29,7 @@ import { attachImage } from '../lib/imageAttach';
 import { canonicalWire, peekVaultFormat } from '../lib/noteIo';
 import { getElectronApi } from '../lib/electronApi';
 import { setPendingSaveFlusher } from '../lib/pendingSave';
+import { buildLinkResolver } from '../../shared/vault/resolve';
 import { suggestProject, type ProjectSuggestion } from '../lib/projectSuggestion';
 import { usePrompt } from './ConfirmProvider';
 import { ProjectSuggestionHint } from './ProjectSuggestionHint';
@@ -92,9 +93,11 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   const followWikilink = useCallback((rawName: string) => {
     const stem = rawName.replace(/\.md$/i, '');
     if (!stem) return;
-    if (allNoteNames.includes(stem)) onSelectNote?.(`${stem}.md`);
+    // Obsidian's rules (case-insensitive; a bare name finds the note in any folder), from the note holding the link.
+    const target = buildLinkResolver(allNoteNames.map(n => `${n}.md`)).resolve(stem, activeNoteName ?? undefined);
+    if (target) onSelectNote?.(target);
     else void createTitledNote(stem);
-  }, [allNoteNames, onSelectNote, createTitledNote]);
+  }, [allNoteNames, activeNoteName, onSelectNote, createTitledNote]);
   const onboardingDismissed = useStore(s => s.settings.onboardingDismissed ?? false);
   const shortcutsSeen = useStore(s => s.settings.shortcutsSeen ?? false);
   const aiGhostMode = useStore(s => s.settings.aiGhostMode ?? 'manual');
@@ -143,12 +146,18 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     return () => { mountedRef.current = false; };
   }, []);
 
+  // Opening a note makes the editor emit an update of what it just loaded: that is not an edit, and saving it
+  // would rewrite a file the user did not touch (new modification time, a history snapshot, and, in a vault another
+  // app shares, someone else's formatting replaced by ours).
+  const isUnchanged = (content: string): boolean => content === baselineHtmlRef.current;
+
   // Drain the pending autosave immediately to its captured note (durability).
   const flushPending = useCallback((): Promise<void> => {
     const pending = pendingSaveRef.current;
     if (!pending) return Promise.resolve();
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
     pendingSaveRef.current = null;
+    if (pending.content === baselineHtmlRef.current) return Promise.resolve();
     return useStore.getState().flushNoteToDisk(pending.name, pending.content, pending.frontmatter);
   }, []);
 
@@ -187,6 +196,11 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     pendingSaveRef.current = { name: st.activeNoteName ?? '', content, frontmatter: st.activeNoteFrontmatter };
     setSaveStatus('saving');
     saveTimerRef.current = setTimeout(async () => {
+      if (isUnchanged(content)) {
+        pendingSaveRef.current = null;
+        if (mountedRef.current) setSaveStatus('idle');
+        return;
+      }
       try {
         await saveActiveNote(content);
         pendingSaveRef.current = null;
@@ -545,7 +559,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     const api = getElectronApi();
     if (!api?.onFlushBeforeQuit) return;
     return api.onFlushBeforeQuit(() => {
-      const pending = pendingSaveRef.current;
+      const pending = pendingSaveRef.current && pendingSaveRef.current.content !== baselineHtmlRef.current ? pendingSaveRef.current : null;
       pendingSaveRef.current = null;
       // After the note is on disk: settle a held-back link rewrite (never prompting
       // — nobody is there to answer), so quitting right after a retitle does not

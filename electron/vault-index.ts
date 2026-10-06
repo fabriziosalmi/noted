@@ -17,9 +17,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  parseWikilinks, extractTags, extractHeadings, extractFrontmatterKeys, linkPointsAt,
+  parseWikilinks, extractTags, extractHeadings, extractFrontmatterKeys,
   type WikiLink, type Heading,
 } from '../shared/vault/extract.js';
+import { buildLinkResolver, linkPointsAtNote } from '../shared/vault/resolve.js';
 import { localImageRefs } from '../shared/vault/attachments.js';
 import { readVaultFormat, vaultMarkerPath } from '../shared/vault/formatFile.js';
 import type { NoteFormat } from '../shared/vault/format.js';
@@ -198,13 +199,28 @@ export class VaultIndex {
     return this.byDir.get(this.key(dir))?.notes.get(name);
   }
 
+  /**
+   * Notes with a link that could point at one of these notes, judged by name alone (Obsidian lets `[[Plan]]`
+   * mean `Work/Plan.md`, so the last path segment is what has to match). A superset: the rewrite decides.
+   */
+  possibleLinkers(dir: string, names: string[]): string[] {
+    const st = this.byDir.get(this.key(dir));
+    if (!st) return [];
+    const base = (s: string) => s.replace(/\.md$/i, '').toLowerCase().split('/').pop() ?? '';
+    const wanted = new Set(names.map(base));
+    const out: string[] = [];
+    for (const [n, e] of st.notes) if (e.linkTargets.some(t => wanted.has(base(t)))) out.push(n);
+    return out.sort();
+  }
+
   /** Notes whose [[links]] point at `name` (excluding itself). */
   backlinks(dir: string, name: string): string[] {
     const st = this.byDir.get(this.key(dir));
     if (!st) return [];
+    const resolver = buildLinkResolver(st.notes.keys());
     const out: string[] = [];
     for (const [n, e] of st.notes) {
-      if (n !== name && e.linkTargets.some(t => linkPointsAt(t, name))) out.push(n);
+      if (n !== name && e.linkTargets.some(t => linkPointsAtNote(resolver, t, name, n))) out.push(n);
     }
     return out.sort();
   }

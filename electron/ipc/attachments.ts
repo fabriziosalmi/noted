@@ -4,7 +4,7 @@ import { saveAttachment, scanEmbeddedImages, migrateEmbeddedImages, listOrphanAt
 import { logEvent } from '../structured-log';
 import { assertNotMigrating } from '../core/migrating';
 import { getTargetDir } from '../core/paths';
-import { attachmentsFolderOf, vaultNoteDeps } from '../core/rewrite';
+import { attachmentsFolderFor, vaultNoteDeps } from '../core/rewrite';
 
 // ─── Image attachments ────────────────────────────────────────────────────────
 
@@ -15,7 +15,8 @@ export function registerAttachmentsHandlers(): void {
   ipcMain.handle('save-attachment', (_, bytes: unknown, folder?: string, syncDir?: string) => {
     try {
       if (!(bytes instanceof Uint8Array)) throw new AttachmentError('Image data must be binary');
-      const saved = saveAttachment(getTargetDir(syncDir), attachmentsFolderOf(folder), bytes);
+      const dir = getTargetDir(syncDir);
+      const saved = saveAttachment(dir, attachmentsFolderFor(dir, folder), bytes);
       return { success: true, data: saved.rel };
     } catch (err) {
       return toApiError(err);
@@ -36,7 +37,7 @@ export function registerAttachmentsHandlers(): void {
     try {
       assertNotMigrating();
       const dir = getTargetDir(syncDir);
-      const out = await migrateEmbeddedImages(dir, attachmentsFolderOf(folder), vaultNoteDeps(dir));
+      const out = await migrateEmbeddedImages(dir, attachmentsFolderFor(dir, folder), vaultNoteDeps(dir));
       logEvent('info', 'embedded_images_migrated', { notes: out.notes, images: out.images, failed: out.failed.length });
       return { success: true, data: out };
     } catch (err) {
@@ -49,7 +50,7 @@ export function registerAttachmentsHandlers(): void {
     try {
       validateFileName(noteName);
       const dir = getTargetDir(syncDir);
-      return { success: true, data: await listOrphanAttachments(dir, attachmentsFolderOf(folder), noteName, vaultNoteDeps(dir)) };
+      return { success: true, data: await listOrphanAttachments(dir, attachmentsFolderFor(dir, folder), noteName, vaultNoteDeps(dir)) };
     } catch (err) {
       return toApiError(err);
     }
@@ -59,7 +60,7 @@ export function registerAttachmentsHandlers(): void {
     try {
       if (!Array.isArray(rels) || rels.length > 500 || rels.some(r => typeof r !== 'string')) throw new AttachmentError('Invalid attachment list');
       const dir = getTargetDir(syncDir);
-      return { success: true, data: await deleteAttachments(dir, attachmentsFolderOf(folder), rels as string[], vaultNoteDeps(dir), (file) => shell.trashItem(file)) };
+      return { success: true, data: await deleteAttachments(dir, attachmentsFolderFor(dir, folder), rels as string[], vaultNoteDeps(dir), (file) => shell.trashItem(file)) };
     } catch (err) {
       return toApiError(err);
     }

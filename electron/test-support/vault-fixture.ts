@@ -7,7 +7,8 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseWikilinks, extractTags, linkPointsAt } from '../../shared/vault/extract';
+import { parseWikilinks, extractTags } from '../../shared/vault/extract';
+import { buildLinkResolver } from '../../shared/vault/resolve';
 
 export function rng(seed: number): () => number {
   let s = seed >>> 0;
@@ -105,10 +106,11 @@ export function coldScan(dir: string): Record<string, ColdNote> {
 /** "note -> target" for every [[link]] that points at no existing note. */
 export function danglingLinks(dir: string): string[] {
   const notes = listNotes(dir);
+  const resolver = buildLinkResolver(notes); // the same rule the app uses (Obsidian's)
   const out: string[] = [];
   for (const n of notes) {
     for (const l of parseWikilinks(fs.readFileSync(path.join(dir, n), 'utf8'))) {
-      if (!notes.some(m => linkPointsAt(l.target, m))) out.push(`${n} -> ${l.target}`);
+      if (resolver.resolve(l.target, n) === null) out.push(`${n} -> ${l.target}`);
     }
   }
   return out.sort();

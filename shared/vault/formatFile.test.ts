@@ -37,3 +37,27 @@ describe('vault format marker', () => {
     expect(() => writeVaultFormat(vault(), 'rtf' as never)).toThrow(/Unknown note format/);
   });
 });
+
+describe('an Obsidian vault opened in place (#62)', () => {
+  it('is Markdown without anything being written into it', () => {
+    const d = vault();
+    fs.mkdirSync(path.join(d, '.obsidian'));
+    expect(readVaultFormat(d)).toBe('markdown');
+    expect(fs.readdirSync(d)).toEqual(['.obsidian']); // reading it left no marker, no folder
+  });
+
+  it('a marker still wins, and a marker that cannot be read is not mistaken for "no marker"', () => {
+    const d = vault();
+    fs.mkdirSync(path.join(d, '.obsidian'));
+    writeVaultFormat(d, 'html');
+    expect(readVaultFormat(d)).toBe('html');
+    fs.writeFileSync(vaultMarkerPath(d), 'not json');
+    expect(readVaultFormat(d)).toBe('html');
+  });
+
+  it('a plain folder with an .obsidian file (not a folder) is not an Obsidian vault', () => {
+    const d = vault();
+    fs.writeFileSync(path.join(d, '.obsidian'), 'x');
+    expect(readVaultFormat(d)).toBe('html');
+  });
+});

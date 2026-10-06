@@ -8,11 +8,11 @@
  * write, history snapshot and index/search updates, and tests can use a temp dir.
  */
 
-import { rewriteWikilinks, type NoteRename } from '../shared/vault/links.js';
+import { prepareRewrite, rewriteWikilinks, type NoteRename } from '../shared/vault/links.js';
 import type { VaultIndex } from './vault-index.js';
 
 export interface RewriteDeps {
-  vaultIndex: Pick<VaultIndex, 'reconcile' | 'backlinks'>;
+  vaultIndex: Pick<VaultIndex, 'reconcile' | 'names' | 'possibleLinkers'>;
   readNote: (name: string) => Promise<string>;
   /** Store the PREVIOUS content in the note's history, unconditionally. */
   snapshotBefore: (name: string, previousContent: string) => Promise<void>;
@@ -41,14 +41,15 @@ export async function planRewrite(dir: string, renames: NoteRename[], deps: Rewr
   if (renames.length === 0) return [];
   // The index is debounced behind the watcher; make sure it reflects the disk now.
   await deps.vaultIndex.reconcile(dir);
-  const candidates = new Set<string>();
-  for (const r of renames) for (const n of deps.vaultIndex.backlinks(dir, r.from)) candidates.add(n);
+  // Who a link pointed at is decided against the vault as it was before the rename (the files may already be renamed).
+  const rewrite = prepareRewrite(renames, deps.vaultIndex.names(dir));
+  const candidates = deps.vaultIndex.possibleLinkers(dir, renames.flatMap(r => [r.from, r.to]));
 
   const plan: PlannedNote[] = [];
-  for (const name of [...candidates].sort()) {
+  for (const name of candidates) {
     let previous: string;
     try { previous = await deps.readNote(name); } catch { continue; }
-    const { content, changed } = rewriteWikilinks(previous, renames);
+    const { content, changed } = rewriteWikilinks(previous, renames, rewrite, name);
     if (changed > 0) plan.push({ name, links: changed, content, previous });
   }
   return plan;

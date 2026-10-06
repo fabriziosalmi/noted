@@ -21,6 +21,15 @@ describe('vault config', () => {
     expect(fs.readdirSync(path.join(dir, '.noted'))).toEqual(['config.json']);
   });
 
+  it('writes nothing for a vault whose config would only say what the defaults say', () => {
+    expect(writeVaultConfig(dir, { trashRetentionDays: 30 })).toEqual({ trashRetentionDays: 30 });
+    expect(writeVaultConfig(dir, {})).toEqual({});
+    expect(fs.readdirSync(dir)).toEqual([]); // the folder was not even created
+    writeVaultConfig(dir, { trashRetentionDays: 7 });
+    writeVaultConfig(dir, { trashRetentionDays: 30 }); // but a change back to the default, once there is a file, is kept
+    expect(readVaultConfig(dir).trashRetentionDays).toBe(30);
+  });
+
   it('merges instead of replacing, and 0 (keep forever) is a real value', () => {
     writeVaultConfig(dir, { trashRetentionDays: 7 });
     writeVaultConfig(dir, {});

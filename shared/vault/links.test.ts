@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { rewriteWikilinks } from './links';
+import { prepareRewrite, rewriteWikilinks } from './links';
 import { parseWikilinks } from './extract';
 
 const R = (from: string, to: string) => ({ from, to });
@@ -74,3 +74,35 @@ describe('rewriteWikilinks', () => {
     expect(targets).toEqual(['New', 'New', 'New']);
   });
 });
+
+describe('rewriteWikilinks with the whole vault known (Obsidian resolution)', () => {
+  const vault = ['Home.md', 'Work/Plan.md', 'Work/Notes.md', 'Life/Plan.md', 'Life/Garden.md'];
+  const rename = [R('Work/Plan.md', 'Work/Roadmap.md')];
+  // `names` may be the vault before or after the rename on disk: both give the same plan
+  const plans = [prepareRewrite(rename, vault), prepareRewrite(rename, vault.map(n => (n === 'Work/Plan.md' ? 'Work/Roadmap.md' : n)))];
+
+  it.each([0, 1])('keeps heading and alias, keeps a bare name bare (plan %i)', (i) => {
+    const out = rewriteWikilinks('[[Plan#Goals|the goals]] [[work/plan]]', rename, plans[i], 'Work/Notes.md');
+    expect(out.content).toBe('[[Roadmap#Goals|the goals]] [[Work/Roadmap]]');
+    expect(out.changed).toBe(2);
+  });
+
+  it.each([0, 1])('a link that meant another note of the same name is left alone (plan %i)', (i) => {
+    // from Life/Garden.md, "Plan" is the neighbour Life/Plan.md
+    expect(rewriteWikilinks('[[Plan]]', rename, plans[i], 'Life/Garden.md')).toEqual({ content: '[[Plan]]', changed: 0 });
+  });
+
+  it('the note holding the link may itself be the one renamed', () => {
+    const r = [R('Work/Notes.md', 'Work/Plan2.md')];
+    const plan = prepareRewrite(r, vault.map(n => (n === 'Work/Notes.md' ? 'Work/Plan2.md' : n)));
+    // Plan2.md links to "Plan": before the rename that was Work/Plan.md (next to Work/Notes.md); it still is
+    expect(rewriteWikilinks('[[Plan]] [[Notes]]', r, plan, 'Work/Plan2.md')).toEqual({ content: '[[Plan]] [[Plan2]]', changed: 1 });
+  });
+
+  it('rewrites the editor attribute the same way', () => {
+    const raw = '<span data-wikilink="Work/Plan" class="wikilink">[[Work/Plan]]</span>';
+    const out = rewriteWikilinks(raw, rename, plans[0], 'Home.md');
+    expect(out.content).toBe('<span data-wikilink="Work/Roadmap" class="wikilink">[[Work/Roadmap]]</span>');
+  });
+});
+
