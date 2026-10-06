@@ -28,6 +28,7 @@ import { planExternalChange } from '../lib/externalChange';
 import { attachImage } from '../lib/imageAttach';
 import { canonicalWire, peekVaultFormat } from '../lib/noteIo';
 import { getElectronApi } from '../lib/electronApi';
+import { setPendingSaveFlusher } from '../lib/pendingSave';
 import { suggestProject, type ProjectSuggestion } from '../lib/projectSuggestion';
 import { usePrompt } from './ConfirmProvider';
 import { ProjectSuggestionHint } from './ProjectSuggestionHint';
@@ -99,6 +100,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   const aiGhostMode = useStore(s => s.settings.aiGhostMode ?? 'manual');
   const smartTagsEnabled = useStore(s => s.settings.smartTagsEnabled ?? false);
   const updateSettings = useStore(s => s.updateSettings);
+  const vaultConverting = useStore(s => s.vaultConverting);
   const tagIndex = useStore(s => s.tagIndex);
   const allNotes = useStore(s => s.notes);
   const addNotesToProject = useStore(s => s.addNotesToProject);
@@ -142,13 +144,22 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   }, []);
 
   // Drain the pending autosave immediately to its captured note (durability).
-  const flushPending = useCallback(() => {
+  const flushPending = useCallback((): Promise<void> => {
     const pending = pendingSaveRef.current;
-    if (!pending) return;
+    if (!pending) return Promise.resolve();
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
     pendingSaveRef.current = null;
-    void useStore.getState().flushNoteToDisk(pending.name, pending.content, pending.frontmatter);
+    return useStore.getState().flushNoteToDisk(pending.name, pending.content, pending.frontmatter);
   }, []);
+
+  // Let a vault-wide rewrite (the format conversion) wait for what is typed but not yet saved.
+  useEffect(() => {
+    setPendingSaveFlusher(async () => {
+      await flushPending();
+      await useStore.getState().flushPendingLinkRewrite({ quiet: true }).catch(() => undefined);
+    });
+    return () => setPendingSaveFlusher(null);
+  }, [flushPending]);
 
   const flushSave = useCallback(async (content: string) => {
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
@@ -300,6 +311,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       GhostTextExtension,
     ],
     content: activeNoteContent,
+    editable: !useStore.getState().vaultConverting,
     parseOptions: parseOptionsFor(currentFormat()),
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
@@ -510,6 +522,11 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       notice?.(tr('noteReloadedFromDisk'), 'success');
     })();
   }, [externalChange, editor, activeNoteName, updateWordCount]);
+
+  // Nothing may be typed while every note is being rewritten: it would be saved in the old format, or refused.
+  useEffect(() => {
+    if (editor && editor.isEditable === vaultConverting) editor.setEditable(!vaultConverting);
+  }, [editor, vaultConverting]);
 
   // Flush a pending autosave when the window is closing / the editor unmounts,
   // so edits within the debounce window aren't lost on quit or note-close.

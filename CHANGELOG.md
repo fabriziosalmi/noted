@@ -6,6 +6,16 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Convert your vault to Markdown** (Settings → Editor → Note format). Notes made by earlier versions are HTML inside `.md`
+  files; this turns each into ordinary Markdown that Obsidian, VS Code and Git diffs read well. It shows a report first and
+  changes nothing until you confirm, makes a zip copy of every note and keeps each note's old text in its history, rewrites the
+  notes one by one (any failure puts everything back), and can be undone with **Convert back to HTML**. Nothing converts by itself.
+- **The MCP server and the importers follow the vault's format.** In a Markdown vault an assistant's notes are stored as
+  Markdown (HTML it sends is converted), appending leaves the existing text untouched, agent workflows keep their metadata in
+  a `json` code block, and writes wait while the app is converting.
+
 ### Changed
 
 - **Internal: converting a vault between HTML and Markdown** (#60, second part): a dry-run report per note, a verified zip

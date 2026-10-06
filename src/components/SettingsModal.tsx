@@ -15,6 +15,7 @@ import { getElectronApi } from '../lib/electronApi';
 import { importWorkflowReducer, initialImportWorkflowState, isImportWorkflowBusy } from '../lib/importWorkflow';
 import { useTablist } from '../lib/useTablist';
 import { AttachmentsSettings } from './AttachmentsSettings';
+import { NoteFormatSettings } from './NoteFormatSettings';
 
 type SettingsTab = 'ai' | 'appearance' | 'editor' | 'sync' | 'mcp' | 'git' | 'import';
 
@@ -950,6 +951,8 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                 syncDirectory={settings.syncDirectory}
                 onChangeFolder={name => onUpdate({ attachmentsFolder: name })}
               />
+
+              <NoteFormatSettings syncDirectory={settings.syncDirectory} />
 
               <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
                 <SegRow label={t('showToolbar')} value={!!settings.showToolbar} onChange={() => onUpdate({ showToolbar: !settings.showToolbar })} />

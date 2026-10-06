@@ -233,6 +233,10 @@ interface NoteState {
   // Settings
   settings: SettingsState;
 
+  /** The vault is being converted between note formats: the open note is read-only until it is done. */
+  vaultConverting: boolean;
+  setVaultConverting: (converting: boolean) => void;
+
   // Actions
   fetchNotes: () => Promise<void>;
   createNote: (fileName: string, initialContent?: string) => Promise<void>;
@@ -349,6 +353,8 @@ export const useStore = create<NoteState>()(
       activeNoteName: null,
       activeNoteContent: '',
       activeNoteFrontmatter: null,
+      vaultConverting: false,
+      setVaultConverting: (converting) => set({ vaultConverting: converting }),
       isLoading: false,
       pinnedNotes: [],
       customTemplates: [],

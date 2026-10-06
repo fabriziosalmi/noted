@@ -228,5 +228,27 @@ the editor or to storage: that is the migration (#60). What building it taught, 
   links, tags and headings of every note before and after.
 - **Bundling.** The main process is bundled as Node-mode CommonJS, where a default import of a TipTap package is not its extension:
   the codec uses named imports, and `electron/bundle-interop.test.ts` bundles it the way the build does and runs it.
-- **Not yet reachable from Settings.** The handlers exist (`migration-plan`, `migration-apply`, `migration-revert`) and the real app is
-  tested through them (`e2e/markdown-migration.e2e.ts`); the screen, and MCP and the importers writing Markdown, are the last part.
+- **Reachable from Settings in the last part** (below); the handlers (`migration-plan`, `migration-apply`, `migration-revert`) are also
+  tested directly on the real app (`e2e/markdown-migration.e2e.ts`).
+
+## Implementation notes (#60, last part: everything that writes notes follows the vault)
+
+- **The vault's marker is the single source of truth**, for the app, the index, the MCP server and the importers. A Markdown vault never
+  sniffs a note's first character: a Markdown note may legitimately start with `<` (an HTML block, a `<kbd>`). An HTML vault still
+  sniffs, because it can hold older plain-Markdown notes. `VaultIndex` re-reads the marker when its mtime changes, so a conversion, or
+  a Git pull of a converted vault, is noticed without a restart; YAML frontmatter is never searched for tags.
+- **MCP** (`mcp-server/storage.ts`): create/update write normalized Markdown in a Markdown vault; HTML a client still sends (the previous
+  contract, kept one minor version) is sanitized and converted; `append` leaves the existing bytes alone (it may be a hand-written note)
+  and normalizes only the addition. Agent metadata lives in a fenced `json` block (`shared/agent/metadataBlock.ts` reads and writes both
+  forms; the renderer still hands it HTML). Writes refuse while `.noted/migration.lock` is fresh, so a client cannot write a note in the old
+  format behind the conversion. The bundle is exercised end to end (real `dist` build, jsdom for the HTML path).
+- **Importers.** Importing a folder copies the files as they are (they are Markdown; a Markdown vault reads them natively and nothing is
+  rewritten on the way in). Apple Notes, which are converted from HTML by Turndown, are normalized through the codec in a Markdown vault.
+  Both refuse during a conversion.
+- **Settings → Editor → Note format** (`NoteFormatSettings.tsx`): current format, then a report dialog (counts, every non-exact note with
+  its finding, a checkbox for notes that would lose text, no way forward when a note fails), progress per phase, and the result with the
+  backup's location. Before anything starts the editor drains its pending autosave (`lib/pendingSave.ts`; a test removes the call and
+  fails) and the open note is read-only until the conversion ends or is cancelled. "Convert back to HTML" is the same dialog.
+- **Prompting.** ADR decision 3 said a migration is offered, never done on its own. The offer is the Settings entry; Noted does not
+  interrupt a user who has not opened Settings. An automatic first-run suggestion can be added later without touching the engine.
+

@@ -47,13 +47,22 @@ you need to reach it through a tunnel.
 | Tool | Purpose | Parameters |
 | --- | --- | --- |
 | `list_notes` | List notes, newest first | `folder` (optional) |
-| `read_note` | Return a note's plain text and raw HTML | `name` |
-| `create_note` | Create a note (Markdown or HTML); fails if it exists | `name`, `content` |
+| `read_note` | Return a note's plain text and its stored text (Markdown in a Markdown vault, HTML in an HTML one) | `name` |
+| `create_note` | Create a note (send Markdown; HTML is still accepted and converted); fails if it exists | `name`, `content` |
 | `update_note` | Overwrite a note, or append to it | `name`, `content`, `append` (optional) |
 | `search_notes` | Full-text (BM25) search with excerpts | `query`, `max_results` (optional, default 10, max 50) |
 | `delete_note` | Move a note to the trash | `name` |
 | `list_trash` | List trashed notes, newest first, with deletion ids | — |
 | `restore_note` | Put a trashed note back at its original path | `name`, `id` (optional) |
+
+::: tip The vault decides the format
+The server stores notes the way the vault does. In a vault converted to Markdown
+(**Settings → Editor → Note format**), `create_note` and `update_note` write Markdown, and with
+`append` the existing text is left exactly as it is: only the new part is added, after a
+horizontal rule. HTML sent by a client is sanitized and converted. Agent workflow notes keep
+their metadata in a fenced `json` block. While the app is converting a vault, write tools
+answer that the vault is busy; try again in a minute.
+:::
 
 ::: tip `delete_note` is recoverable
 Deleting inside the app moves a note to the system Trash. An MCP server runs

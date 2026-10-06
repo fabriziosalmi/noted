@@ -6,7 +6,7 @@ import { test, expect, SEED_NOTES } from './fixtures';
 const MOD = 'ControlOrMeta';
 
 // Converting a vault written by earlier versions (HTML in .md files) to Markdown and back, on the real app.
-// There is no button for it yet: these tests drive the same IPC the Settings screen will use.
+// These tests drive the IPC directly; the Settings screen on top of it is in markdown-conversion-ui.e2e.ts.
 const FRONTMATTER = encodeURIComponent('---\ntitle: Hub\nstatus: draft\n---');
 const LEGACY: [string, string][] = [
   ['Hub.md', `<!--noted-frontmatter:${FRONTMATTER}-->\n<h1>Hub</h1><p>Talks to [[Spoke]] and <span data-wikilink="Satellite" class="wikilink" role="link">[[Satellite|the sat]]</span> #alpha</p><ul data-type="taskList"><li data-checked="false" data-type="taskItem"><label><input type="checkbox"><span></span></label><div><p>first task</p></div></li></ul>`],
