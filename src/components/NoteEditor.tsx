@@ -16,9 +16,11 @@ import { askLLM } from '../lib/llm';
 import { useStore } from '../store/useStore';
 import { WikilinkMark, createWikilinkHighlightPlugin } from '../lib/WikilinkExtension';
 import { WikilinkSuggestion } from './WikilinkSuggestion';
+import { parseWikilinkText } from '../../shared/vault/wikilink';
+import { scrollToAnchor } from '../lib/anchors';
 import { TagSuggestion } from './TagSuggestion';
 import { BacklinksPanel } from './BacklinksPanel';
-import { Extension } from '@tiptap/core';
+import { Extension, getMarkRange } from '@tiptap/core';
 import { CodeBlockView } from './CodeBlockView';
 import { SlashCommands } from './SlashCommands';
 import { SmartTagSuggestion } from './SmartTagSuggestion';
@@ -89,16 +91,35 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   const createTitledNote = useStore(s => s.createTitledNote);
   const noteAliases = useStore(s => s.noteAliasesIndex);
 
-  // Follow a [[wikilink]]: open the note if it exists, otherwise create it (and
-  // open it) — clicking a dead link used to be a silent no-op.
-  const followWikilink = useCallback((rawName: string) => {
-    const stem = rawName.replace(/\.md$/i, '');
+  // One resolver for the vault as it is now: the link rules are Obsidian's (case-insensitive; a bare name finds the
+  // note in any folder; aliases), from the note holding the link.
+  const linkResolver = useMemo(
+    () => buildLinkResolver(allNoteNames.map(n => `${n}.md`), noteAliases),
+    [allNoteNames, noteAliases],
+  );
+  const resolveLink = useCallback(
+    (target: string) => linkResolver.resolve(target.replace(/\.md$/i, ''), activeNoteName ?? undefined),
+    [linkResolver, activeNoteName],
+  );
+
+  // Follow a [[wikilink]]: open the note if it exists, otherwise create it (and open it) — clicking a dead link used
+  // to be a silent no-op. `literal` is the link as written, so [[Note#Heading]] lands on the heading, [[Note#^id]] on
+  // the block.
+  const followWikilink = useCallback((rawName: string, literal?: string) => {
+    const parts = literal ? parseWikilinkText(literal) : null;
+    const stem = (parts?.target ?? rawName).replace(/\.md$/i, '');
     if (!stem) return;
-    // Obsidian's rules (case-insensitive; a bare name finds the note in any folder), from the note holding the link.
-    const target = buildLinkResolver(allNoteNames.map(n => `${n}.md`), noteAliases).resolve(stem, activeNoteName ?? undefined);
-    if (target) onSelectNote?.(target);
-    else void createTitledNote(stem);
-  }, [allNoteNames, noteAliases, activeNoteName, onSelectNote, createTitledNote]);
+    const target = resolveLink(stem);
+    const anchor = parts && (parts.heading || parts.block) ? { heading: parts.heading, block: parts.block } : null;
+    if (!target) { void createTitledNote(stem); return; }
+    if (anchor && target === activeNoteName) {
+      const e = editorRef.current;
+      if (e) scrollToAnchor(e, anchor);
+      return;
+    }
+    if (anchor) useStore.getState().setPendingAnchor({ note: target, ...anchor });
+    onSelectNote?.(target);
+  }, [resolveLink, activeNoteName, onSelectNote, createTitledNote]);
   const onboardingDismissed = useStore(s => s.settings.onboardingDismissed ?? false);
   const shortcutsSeen = useStore(s => s.settings.shortcutsSeen ?? false);
   const aiGhostMode = useStore(s => s.settings.aiGhostMode ?? 'manual');
@@ -466,7 +487,13 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       setHintTitle(lastTitleRef.current);
       setDismissedProjects(new Set());
       // Auto-focus editor at start of content when switching notes
-      setTimeout(() => editor.commands.focus('start'), 0);
+      // (or, for a link that named a heading or a block, at that place)
+      const anchor = useStore.getState().pendingAnchor;
+      useStore.getState().setPendingAnchor(null);
+      setTimeout(() => {
+        if (anchor && anchor.note === activeNoteName && scrollToAnchor(editor, anchor)) return;
+        editor.commands.focus('start');
+      }, 0);
     }
   }, [activeNoteName, activeNoteContent, editor, updateWordCount, flushPending]);
 
@@ -746,7 +773,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
           const wl = target.closest('[data-wikilink]');
           if (wl) {
             const name = wl.getAttribute('data-wikilink');
-            if (name) followWikilink(name);
+            if (name) followWikilink(name, wl.textContent ?? undefined);
           }
         }}
         onKeyDown={e => {
@@ -757,7 +784,8 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
           const name = editor.getAttributes('wikilink').target as string | undefined;
           if (name) {
             e.preventDefault();
-            followWikilink(name);
+            const range = getMarkRange(editor.state.doc.resolve(editor.state.selection.from), editor.schema.marks.wikilink);
+            followWikilink(name, range ? editor.state.doc.textBetween(range.from, range.to) : undefined);
           }
         }}
       >
@@ -765,7 +793,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       </div>
 
       {editor && allNoteNames.length > 0 && (
-        <WikilinkSuggestion editor={editor} notes={allNoteNames} />
+        <WikilinkSuggestion editor={editor} notes={allNoteNames} resolve={resolveLink} />
       )}
       {editor && allTags.length > 0 && (
         <TagSuggestion editor={editor} allTags={allTags} />

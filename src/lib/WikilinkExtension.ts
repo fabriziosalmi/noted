@@ -8,7 +8,7 @@ import { useStore } from '../store/useStore';
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     wikilink: {
-      insertWikilink: (noteName: string) => ReturnType;
+      insertWikilink: (noteName: string, fragment?: string) => ReturnType;
     };
   }
 }
@@ -33,12 +33,13 @@ export const WikilinkMark = BaseWikilinkMark.extend({
 
   addCommands() {
     return {
-      insertWikilink: (noteName: string) => ({ chain }) => {
+      // `fragment` is what follows the `#`: a heading's text, or `^id` for a block.
+      insertWikilink: (noteName: string, fragment?: string) => ({ chain }) => {
         return chain()
           .insertContent({
             type: 'text',
             marks: [{ type: this.name, attrs: { target: noteName } }],
-            text: `[[${noteName}]]`,
+            text: `[[${noteName}${fragment ? `#${fragment}` : ''}]]`,
           })
           .insertContent({ type: 'text', text: ' ' })
           .run();

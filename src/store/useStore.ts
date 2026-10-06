@@ -212,6 +212,8 @@ interface NoteState {
   // Set during a title->filename self-rename so the editor can skip its
   // reload/refocus (the content is already live in the editor).
   pendingSelfRename: string | null;
+  /** Where a followed [[Note#Heading]] link goes once its note has opened; consumed by the editor. */
+  pendingAnchor: { note: string; heading?: string; block?: string } | null;
   // Set when the vault watcher reports that the OPEN note changed on disk behind
   // the editor's back. The editor reacts to it (see lib/externalChange.ts).
   externalChange: { name: string; seq: number } | null;
@@ -253,6 +255,7 @@ interface NoteState {
   renameNote: (oldName: string, newName: string, opts?: { reopen?: boolean }) => Promise<void>;
   syncActiveNoteTitle: (title: string) => Promise<void>;
   clearPendingSelfRename: () => void;
+  setPendingAnchor: (anchor: { note: string; heading?: string; block?: string } | null) => void;
   // Apply the link rewrite for title-driven renames that were held back (see queueLinkRewrite).
   flushPendingLinkRewrite: (opts?: { quiet?: boolean }) => Promise<void>;
   announce: (message: string) => void;
@@ -370,6 +373,7 @@ export const useStore = create<NoteState>()(
       noteFolders: [],
       lastOpenedNote: null,
       pendingSelfRename: null,
+      pendingAnchor: null,
       externalChange: null,
       srAnnouncement: '',
       customNotesOrder: [],
@@ -800,6 +804,7 @@ export const useStore = create<NoteState>()(
   },
 
   clearPendingSelfRename: () => set({ pendingSelfRename: null }),
+  setPendingAnchor: pendingAnchor => set({ pendingAnchor }),
   announce: (message: string) => set({ srAnnouncement: message }),
 
   syncActiveNoteTitle: async (title: string) => {
@@ -1049,6 +1054,7 @@ export const useStore = create<NoteState>()(
       noteFolders: [],
       lastOpenedNote: null,
       pendingSelfRename: null,
+      pendingAnchor: null,
       srAnnouncement: '',
       customNotesOrder: [],
       customFoldersOrder: [],
