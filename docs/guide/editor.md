@@ -106,6 +106,12 @@ menu, and the AI actions bar. Those are covered in
 - **[Organizing notes](/guide/organizing-notes)** — links, tags, projects,
   folders, and daily notes.
 
+## Outline
+
+Open the right panel (**Toggle right panel**) and choose **Outline** to see the open note's headings as a list,
+indented by level. Click one to jump to it. The heading you are in is highlighted, following the cursor when you
+move it and the page when you scroll. Empty headings (the title of a brand-new note) are not listed.
+
 ## Note format
 
 Noted stores each note as one `.md` file. Which language is inside it is a property of the

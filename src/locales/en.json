@@ -785,5 +785,7 @@
   "mcpRevealInFileManager": "Show in file manager",
   "newSubfolder": "New folder inside",
   "subfolderNamePlaceholder": "New folder in {parent}",
-  "aliasMatch": "also known as \"{alias}\""
+  "aliasMatch": "also known as \"{alias}\"",
+  "outlineTab": "Outline",
+  "outlineEmpty": "This note has no headings yet."
 }

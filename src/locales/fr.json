@@ -785,5 +785,7 @@
   "mcpRevealInFileManager": "Afficher dans le gestionnaire de fichiers",
   "newSubfolder": "Nouveau dossier dedans",
   "subfolderNamePlaceholder": "Nouveau dossier dans {parent}",
-  "aliasMatch": "aussi « {alias} »"
+  "aliasMatch": "aussi « {alias} »",
+  "outlineTab": "Plan",
+  "outlineEmpty": "Cette note n'a pas encore de titres."
 }

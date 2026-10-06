@@ -9,6 +9,7 @@ import { NoteEditor } from '../NoteEditor';
 import { AiChat } from '../AiChat';
 import { TextAnalytics } from '../TextAnalytics';
 import { ConnectionsPanel } from '../ConnectionsPanel';
+import { OutlinePanel } from '../OutlinePanel';
 import { AgentPanel } from '../AgentPanel';
 import { NoteAdvisorBadge } from '../NoteAdvisor';
 import { EditorToolbar } from '../EditorToolbar';
@@ -17,8 +18,17 @@ import { ErrorBoundary } from '../ErrorBoundary';
 import { Tooltip } from '../Tooltip';
 import { ShareMenu } from '../ShareMenu';
 import { useTablist } from '../../lib/useTablist';
+import type { TranslationKey } from '../../lib/i18n';
 
-const RIGHT_TABS = ['ai', 'agent', 'analytics', 'graph'] as const;
+const RIGHT_TABS = ['ai', 'agent', 'analytics', 'graph', 'outline'] as const;
+
+const TAB_LABEL: Record<(typeof RIGHT_TABS)[number], TranslationKey> = {
+  ai: 'aiAssistant',
+  agent: 'agentTab',
+  analytics: 'analyticsPanel',
+  graph: 'connectionsTab',
+  outline: 'outlineTab',
+};
 
 export function AppChrome({
   t,
@@ -257,7 +267,7 @@ export function AppChrome({
                             : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
                         }`}
                       >
-                        {tab === 'ai' ? t('aiAssistant') : tab === 'agent' ? t('agentTab') : tab === 'analytics' ? t('analyticsPanel') : t('connectionsTab')}
+                        {t(TAB_LABEL[tab])}
                       </button>
                     ))}
                   </div>
@@ -278,6 +288,7 @@ export function AppChrome({
                     {/* 'graph' tab key retained for state/persistence compatibility;
                         the old global graph is retired in favour of a readable
                         per-note Connections view (project siblings + backlinks). */}
+                    {rightTab === 'outline' && <OutlinePanel editor={activeEditor} />}
                     {rightTab === 'graph' && (
                       <ConnectionsPanel onOpenNote={onOpenNote} />
                     )}
