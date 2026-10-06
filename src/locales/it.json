@@ -100,7 +100,7 @@
   "deleteTemplate": "Elimina modello",
   "showLess": "Mostra meno",
   "deleteFolder": "Elimina cartella",
-  "deleteFolderConfirm": "Eliminare cartella \"{name}\"? Le note verranno spostate nella root.",
+  "deleteFolderConfirm": "Eliminare la cartella \"{name}\"? Tutto ciò che contiene sale di un livello.",
   "deleteNoteConfirm": "Eliminare \"{name}\"? Verrà spostata nel Cestino.",
   "emptyFolder": "Vuota — trascina una nota qui",
   "noNotesWithTag": "Nessuna nota con {tag}",

@@ -83,6 +83,20 @@ describe('useStore', () => {
     expect(state.customNotesOrder[0]).toBe('instant.md');
   });
 
+  it('shows a note created several folders deep at once, with the folders above it', async () => {
+    window.electronAPI.saveNote = vi.fn().mockResolvedValue({ success: true });
+    window.electronAPI.readNote = vi.fn().mockResolvedValue({ success: true, data: '<h1>New</h1>' });
+    window.electronAPI.getNotesTree = vi.fn().mockResolvedValue({ success: true, data: { rootNotes: [], folders: [] } });
+
+    await useStore.getState().createNote('Work/Q4/Deep/instant.md', '<h1>New</h1>');
+
+    const state = useStore.getState();
+    expect(state.notes.map(note => note.name)).toContain('Work/Q4/Deep/instant.md');
+    expect(state.noteFolders.map(f => f.name).sort()).toEqual(['Work', 'Work/Q4', 'Work/Q4/Deep']);
+    expect(state.noteFolders.find(f => f.name === 'Work/Q4/Deep')!.notes.map(n => n.name)).toEqual(['Work/Q4/Deep/instant.md']);
+    expect(state.noteFolders.find(f => f.name === 'Work')!.notes).toEqual([]);
+  });
+
   it('shows a newly created folder note immediately even if refresh returns stale data', async () => {
     window.electronAPI.saveNote = vi.fn().mockResolvedValue({ success: true });
     window.electronAPI.readNote = vi.fn().mockResolvedValue({ success: true, data: '<h1>New</h1>' });

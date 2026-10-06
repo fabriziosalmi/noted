@@ -110,7 +110,7 @@
   "deleteTemplate": "Delete template",
   "showLess": "Show less",
   "deleteFolder": "Delete folder",
-  "deleteFolderConfirm": "Delete folder \"{name}\"? Notes will be moved to root.",
+  "deleteFolderConfirm": "Delete folder \"{name}\"? Everything in it moves up one level.",
   "deleteNoteConfirm": "Delete \"{name}\"? It will be moved to the Trash.",
   "emptyFolder": "Empty — drag a note here",
   "noNotesWithTag": "No notes with {tag}",

@@ -1,3 +1,4 @@
+import { dirnameOf } from '../../shared/vault/paths';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, FileText, Loader2, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -171,7 +172,7 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
                   </span>
                   {r.relPath.includes('/') && (
                     <span className="text-[10px] text-gray-400 dark:text-gray-500 shrink-0 font-normal">
-                      {r.relPath.split('/')[0]}
+                      {dirnameOf(r.relPath)}
                     </span>
                   )}
                 </div>

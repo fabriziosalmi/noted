@@ -37,7 +37,7 @@
   "folderNamePlaceholder": "Nom du dossier...",
   "newNoteHere": "Nouvelle note ici",
   "deleteFolder": "Supprimer le dossier",
-  "deleteFolderConfirm": "Supprimer le dossier « {name} » ? Les notes seront déplacées à la racine.",
+  "deleteFolderConfirm": "Supprimer le dossier « {name} » ? Tout son contenu remonte d'un niveau.",
   "emptyFolder": "Vide — faites glisser une note ici",
   "noNotesWithTag": "Aucune note avec {tag}",
   "noNotesFound": "Aucune note trouvée",

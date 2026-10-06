@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { marked } from 'marked';
 import { peekVaultShared, vaultFormatOf } from '../lib/noteIo';
+import { dirnameOf } from '../../shared/vault/paths';
+import { movesForDissolve, renamesForFolderMove } from '../../shared/vault/folderOps';
 import { convertTaskListsToTiptap } from '../lib/listUtils';
 import type { NoteTemplate } from '../lib/templates';
 import { otherVersionName } from '../lib/externalChange';
@@ -144,19 +146,20 @@ function upsertOptimisticNote(
     return { notes: nextNotes, noteFolders };
   }
 
-  const [folderName] = note.name.split('/');
-  let foundFolder = false;
-  const nextFolders = noteFolders.map(folder => {
+  // The note's own folder, and every folder above it (the tree is built from the list of folders: "A/B" needs "A").
+  const folderName = dirnameOf(note.name);
+  const ancestors: string[] = [];
+  for (let at = folderName.indexOf('/'); at !== -1; at = folderName.indexOf('/', at + 1)) ancestors.push(folderName.slice(0, at));
+  let nextFolders = noteFolders.map(folder => {
     if (folder.name !== folderName) return folder;
-    foundFolder = true;
     return {
       ...folder,
       notes: [note, ...folder.notes.filter(n => n.name !== note.name)],
     };
   });
-
-  if (!foundFolder) {
-    nextFolders.push({ name: folderName, notes: [note] });
+  if (!nextFolders.some(f => f.name === folderName)) nextFolders = [...nextFolders, { name: folderName, notes: [note] }];
+  for (const ancestor of ancestors) {
+    if (!nextFolders.some(f => f.name === ancestor)) nextFolders = [...nextFolders, { name: ancestor, notes: [] }];
   }
 
   return { notes: nextNotes, noteFolders: nextFolders };
@@ -933,15 +936,16 @@ export const useStore = create<NoteState>()(
   renameFolder: async (oldName: string, newName: string) => {
     const api = getElectronApi();
     if (!api) return;
-    const inFolder = get().noteFolders.find(f => f.name === oldName)?.notes ?? [];
-    const folderRenames = inFolder.map(n => ({ from: n.name, to: `${newName}/${n.name.slice(oldName.length + 1)}` }));
+    // Every note under the folder, at any depth: they all change name, and the links to them can follow.
+    const folderRenames = renamesForFolderMove(get().notes.map(n => n.name), oldName, newName);
     const updateLinks = await wantLinkUpdate(get, folderRenames, oldName);
     const res = await api.renameFolder(oldName, newName, get().settings.syncDirectory || undefined, { updateLinks });
     if (!res.success) throw new Error(res.error ?? translate('errRenameFolder', get().settings.language));
     reportLinkUpdate(res.links);
     
     const currentFoldersOrder = get().customFoldersOrder || [];
-    const newFoldersOrder = currentFoldersOrder.map(f => f === oldName ? newName : f);
+    // The folder and the folders under it keep their place in the custom order, under their new names.
+    const newFoldersOrder = currentFoldersOrder.map(f => (f === oldName ? newName : f.startsWith(`${oldName}/`) ? `${newName}/${f.slice(oldName.length + 1)}` : f));
     
     const currentNotesOrder = get().customNotesOrder || [];
     const newNotesOrder = currentNotesOrder.map(n => {
@@ -967,19 +971,22 @@ export const useStore = create<NoteState>()(
   deleteFolder: async (name: string) => {
     const api = getElectronApi();
     if (!api) return [];
-    // Notes move to the vault root; (the preview assumes the plain file name, the
-    // main process uses the real, collision-free one when it rewrites).
-    const leaving = get().noteFolders.find(f => f.name === name)?.notes ?? [];
-    const rootMoves = leaving.map(n => ({ from: n.name, to: n.name.slice(name.length + 1) }));
-    const updateLinks = await wantLinkUpdate(get, rootMoves, name);
+    // Everything in the folder moves up one level, to the folder above it or the vault root (the preview assumes the
+    // plain names, the main process uses the real, collision-free ones when it rewrites).
+    const upMoves = movesForDissolve(get().notes.map(n => n.name), name);
+    const updateLinks = await wantLinkUpdate(get, upMoves, name);
     const res = await api.deleteFolder(name, get().settings.syncDirectory || undefined, { updateLinks });
     if (!res.success) throw new Error(res.error ?? translate('errDeleteFolder', get().settings.language));
     reportLinkUpdate(res.links);
 
     const currentFoldersOrder = get().customFoldersOrder || [];
     const currentNotesOrder = get().customNotesOrder || [];
+    // The folder is gone, and the folders that were under it are now one level up.
+    const parent = dirnameOf(name);
     set({
-      customFoldersOrder: currentFoldersOrder.filter(f => f !== name),
+      customFoldersOrder: currentFoldersOrder
+        .filter(f => f !== name)
+        .map(f => (f.startsWith(`${name}/`) ? `${parent ? `${parent}/` : ''}${f.slice(name.length + 1)}` : f)),
       customNotesOrder: currentNotesOrder.filter(n => !n.startsWith(`${name}/`)),
     });
 

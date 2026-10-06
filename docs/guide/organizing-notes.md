@@ -1,7 +1,7 @@
 # Organizing notes
 
 Noted keeps structure lightweight: links between notes, tags, a project
-namespace, one level of folders, and a few generators (daily notes, templates).
+namespace, nested folders, and a few generators (daily notes, templates).
 Everything is derived from the note files themselves.
 
 ## Wikilinks
@@ -75,12 +75,17 @@ in the connections panel and under the sidebar's tag filter.
 
 ## Folders
 
-The sidebar supports one level of subfolders:
+Folders can be nested to any depth (up to 16 levels). For now the sidebar lists each folder by its
+full path (`Work/Q4`), with the notes directly in it; a tree is coming. You can:
 
 - Drag notes between folders and the root, and reorder notes and folders (which
   switches sorting to **Custom**).
-- Double-click a folder header to rename it; each folder has its own "new note
-  here" and delete actions.
+- Double-click a folder header to rename it (it keeps its parent; the notes under it, at any depth,
+  move with it and the links to them follow); each folder has its own "new note here" and delete actions.
+- **Deleting a folder keeps what is in it**: its notes, files and sub-folders move up one level, into
+  the folder above (the top level for a top-level folder). A name that is taken there is not overwritten:
+  the incoming one is renamed (`Note (Q4).md`). A folder holding a hidden item that is not just system
+  litter (a `.git` folder, say) is refused before anything moves.
 - **Pin** a note (star) to keep it at the top.
 - Cycle the sort order between **Date**, **Name**, **Size**, and **Custom**.
 
@@ -148,8 +153,7 @@ A note is written only when you edit it, and then only that note.
   Noted does (see [Note format](/guide/editor#note-format)). Frontmatter is never reformatted.
 - Noted keeps what it needs (a note's earlier versions) in hidden folders inside the vault; Obsidian ignores them.
 
-::: warning Folders deeper than one level
-Noted shows notes at the vault's top level and one folder down. Notes in deeper folders are not listed
-yet (nested folders are planned). They are not touched either.
-:::
+Folders of an Obsidian vault keep their structure when you import them (a tree too deep to keep is
+flattened into one folder named after its path), and `.obsidian/`, `.trash/` and every other hidden
+folder are ignored.
 

@@ -313,4 +313,58 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /settings/i }));
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
   });
+
+  describe('notes and folders at depth', () => {
+    const deepNote = makeNote('Work/Q4/Goals.md', 1000);
+    const deepFolders = [{ name: 'Work/Q4', notes: [deepNote] }];
+
+    it('renames a note in a nested folder inside that folder, not in the top-level one', async () => {
+      const onRenameNote = vi.fn().mockResolvedValue(undefined);
+      render(<Sidebar {...defaults} notes={[deepNote]} noteFolders={deepFolders} onRenameNote={onRenameNote} />);
+      fireEvent.doubleClick(screen.getByText('Goals'));
+      const input = screen.getByDisplayValue('Goals');
+      fireEvent.change(input, { target: { value: 'Targets' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      await waitFor(() => expect(onRenameNote).toHaveBeenCalledWith('Work/Q4/Goals.md', 'Work/Q4/Targets.md'));
+    });
+
+    it('names the note, not "Q4/Goals", when asking to delete it', async () => {
+      const onDeleteNote = vi.fn();
+      render(<Sidebar {...defaults} notes={[deepNote]} noteFolders={deepFolders} onDeleteNote={onDeleteNote} />);
+      const row = screen.getByText('Goals').closest('[draggable="true"]') as HTMLElement;
+      fireEvent.mouseEnter(row);
+      fireEvent.click(within(row.parentElement as HTMLElement).getByLabelText('Delete note'));
+      const dialog = await screen.findByRole('dialog');
+      expect(dialog.textContent).toContain('"Goals"');
+      expect(dialog.textContent).not.toContain('Q4/Goals');
+    });
+
+    it('renames a nested folder keeping its parent: the field holds its own name, the call gets the whole path', async () => {
+      const onRenameFolder = vi.fn().mockResolvedValue(undefined);
+      render(<Sidebar {...defaults} notes={[deepNote]} noteFolders={deepFolders} onRenameFolder={onRenameFolder} />);
+      fireEvent.doubleClick(screen.getByText('Work/Q4'));
+      const input = screen.getByDisplayValue('Q4');
+      fireEvent.change(input, { target: { value: 'Q5' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      await waitFor(() => expect(onRenameFolder).toHaveBeenCalledWith('Work/Q4', 'Work/Q5'));
+    });
+
+    it('does not move a note dropped on the folder it is already in, however deep', async () => {
+      const onMoveNote = vi.fn().mockResolvedValue(undefined);
+      render(<Sidebar {...defaults} notes={[deepNote]} noteFolders={deepFolders} onMoveNote={onMoveNote} />);
+      const folderContainer = screen.getByText('Work/Q4').closest('[draggable="true"]')?.parentElement as HTMLElement;
+      fireEvent.drop(folderContainer, { dataTransfer: { getData: () => 'Work/Q4/Goals.md' } });
+      await Promise.resolve();
+      expect(onMoveNote).not.toHaveBeenCalled();
+    });
+
+    it('moves a note from a nested folder to the root, and from the root into a nested folder', async () => {
+      const onMoveNote = vi.fn().mockResolvedValue(undefined);
+      const rootNote = makeNote('root.md', 2000);
+      render(<Sidebar {...defaults} notes={[rootNote, deepNote]} noteFolders={deepFolders} onMoveNote={onMoveNote} />);
+      const folderContainer = screen.getByText('Work/Q4').closest('[draggable="true"]')?.parentElement as HTMLElement;
+      fireEvent.drop(folderContainer, { dataTransfer: { getData: () => 'root.md' } });
+      await waitFor(() => expect(onMoveNote).toHaveBeenCalledWith('root.md', 'Work/Q4'));
+    });
+  });
 });

@@ -9,6 +9,8 @@ import { generateVault, coldScan, danglingTargets, listNotes, rng } from '../ele
 // IPC calls the UI makes.
 
 interface Api {
+  renameFolder: (a: string, b: string, d?: string, o?: { updateLinks?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  deleteFolder: (a: string, d?: string, o?: { updateLinks?: boolean }) => Promise<{ success: boolean; error?: string; data?: { moved: number } }>;
   renameNote: (a: string, b: string, d?: string, o?: { updateLinks?: boolean }) => Promise<{ success: boolean; error?: string }>;
   moveNote: (f: string, to: string, d?: string, o?: { updateLinks?: boolean }) => Promise<{ success: boolean; data?: string; error?: string }>;
   getVaultIndexSnapshot: (d?: string) => Promise<{ notes: Record<string, { links: string[]; tags: string[] }> }>;
@@ -51,20 +53,35 @@ test.describe('vault integrity on a 500-note vault (real app)', () => {
     for (let i = 0; i < 15; i++) {
       const from = notes[Math.floor(rand() * notes.length)];
       if (!fs.existsSync(path.join(vault, from))) continue;
-      const folder = from.includes('/') ? from.split('/')[0] + '/' : '';
+      const folder = from.includes('/') ? from.slice(0, from.lastIndexOf('/') + 1) : ''; // stay in the note's own folder, at any depth
       const to = `${folder}Renamed ${i} & co.md`;
       const res = await app.win.evaluate(([a, b]) => (window as unknown as { electronAPI: Api }).electronAPI.renameNote(a, b, undefined, { updateLinks: true }), [from, to]);
       expect(res.success, res.error).toBe(true);
     }
     for (let i = 0; i < 10; i++) {
       const from = listNotes(vault)[Math.floor(rand() * 400)];
-      const to = ['Projects', 'Archive', 'Ideas'][i % 3];
-      if (from.startsWith(`${to}/`)) continue;
+      const to = ['Projects', 'Archive', 'Ideas', 'Projects/Aurora/Specs', 'Archive/2025/Q4'][i % 5];
+      if (from.slice(0, from.lastIndexOf('/')) === to) continue;
       const res = await app.win.evaluate(([a, b]) => (window as unknown as { electronAPI: Api }).electronAPI.moveNote(a, b, undefined, { updateLinks: true }), [from, to]);
       expect(res.success, res.error).toBe(true);
     }
     expectNoNewDangling('after renames and moves');
     await expectSameAsColdScan('after renames and moves');
+
+    // Folders, at any depth: rename one, move one under another, dissolve one. Every note under them changes name,
+    // and the links to them must follow.
+    const folderOp = <T,>(fn: (api: Api) => Promise<T>) => app.win.evaluate(`(${fn.toString()})(window.electronAPI)`) as Promise<T>;
+    const renamed = await folderOp(api => api.renameFolder('Projects/Aurora', 'Projects/Borealis', undefined, { updateLinks: true }));
+    expect(renamed.success, renamed.error).toBe(true);
+    const moved = await folderOp(api => api.renameFolder('Archive/2025', 'Ideas/2025', undefined, { updateLinks: true }));
+    expect(moved.success, moved.error).toBe(true);
+    const dissolved = await folderOp(api => api.deleteFolder('Meetings', undefined, { updateLinks: true }));
+    expect(dissolved.success, dissolved.error).toBe(true);
+    expect(fs.existsSync(path.join(vault, 'Meetings'))).toBe(false);
+    expect(fs.existsSync(path.join(vault, 'Projects/Aurora'))).toBe(false);
+    expect(listNotes(vault).some(n => n.startsWith('Ideas/2025/Q4/'))).toBe(true);
+    expectNoNewDangling('after folder operations');
+    await expectSameAsColdScan('after folder operations');
 
     // Edits made outside the app.
     const names = listNotes(vault);

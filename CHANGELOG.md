@@ -43,6 +43,12 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Folders at any depth, and folder operations that keep what is in them** (#65, second part). The sidebar lists every folder by its path,
+  empty ones too. Renaming a folder moves the notes under it at any depth and the links to them follow, and a folder can be moved under
+  another. **Deleting a folder now moves everything in it up one level** (into the folder above, the top level for a top-level folder)
+  instead of flattening it to the top; files that are not notes are moved too instead of being destroyed; a folder holding a hidden item
+  that is not system litter is refused; and if a move fails half way, what already moved is put back. Imported folders keep their structure.
+  A tree is the next part.
 - **Internal: notes can sit in folders at any depth** (#65, first part: the foundations). One path rule now covers the app, the MCP server and Git
   (`.md`, up to 16 levels, nothing hidden, no traversal), one vault walk lists notes for the index, the search and the MCP server, and the
   MCP `list_notes`, `create_note`, trash and restore work at any depth. The sidebar still shows one level until the next parts land.

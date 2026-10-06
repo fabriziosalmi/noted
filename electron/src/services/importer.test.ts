@@ -51,16 +51,44 @@ describe('importVaultRecursive', () => {
     expect(fs.existsSync(path.join(dest, 'e.exe'))).toBe(false);
   });
 
-  it('flattens nested folders to one level and strips reserved characters', () => {
+  it('keeps the folder structure, and strips reserved characters from each name', () => {
     // Nested two levels, with reserved chars ($ and ;) in the folder names.
     write(src, path.join('Level$One', 'Sub;Two', 'note.md'));
+    write(src, path.join('Level$One', 'top.md'));
 
     const count = importVaultRecursive(src, src, dest);
 
-    expect(count).toBe(1);
-    // "Level$One/Sub;Two" -> slashes to '-', then reserved chars removed -> "LevelOne-SubTwo"
-    expect(fs.existsSync(path.join(dest, 'LevelOne-SubTwo', 'note.md'))).toBe(true);
+    expect(count).toBe(2);
+    expect(fs.existsSync(path.join(dest, 'LevelOne', 'SubTwo', 'note.md'))).toBe(true);
+    expect(fs.existsSync(path.join(dest, 'LevelOne', 'top.md'))).toBe(true);
     expect(fs.existsSync(path.join(dest, 'Level$One'))).toBe(false);
+    expect(fs.existsSync(path.join(dest, 'LevelOne-SubTwo'))).toBe(false);
+  });
+
+  it('flattens a tree the vault would not accept as it is (too deep, or a name that cannot be made valid)', () => {
+    write(src, path.join(...Array.from({ length: 18 }, (_, i) => `d${i}`), 'deep.md'));
+    write(src, path.join('con', 'device.md'));
+    importVaultRecursive(src, src, dest);
+    const names = fs.readdirSync(dest).sort();
+    expect(names).toHaveLength(2);
+    expect(names).toContain('Imported'); // "con" is a device name no folder can have on Windows: no valid name to flatten into
+    expect(names.find(n => n !== 'Imported')).toMatch(/^d0-d1-d2-/);
+    expect(fs.existsSync(path.join(dest, 'Imported', 'device.md'))).toBe(true);
+  });
+
+  it('does not copy a link: it would read whatever the link points at', () => {
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'noted-imp-outside-'));
+    fs.writeFileSync(path.join(outside, 'secret.txt'), 'private');
+    try {
+      fs.symlinkSync(path.join(outside, 'secret.txt'), path.join(src, 'leak.md'));
+    } catch {
+      return; // cannot create links here (Windows without the privilege)
+    }
+    write(src, 'real.md');
+    const count = importVaultRecursive(src, src, dest);
+    expect(count).toBe(1);
+    expect(fs.existsSync(path.join(dest, 'leak.md'))).toBe(false);
+    fs.rmSync(outside, { recursive: true, force: true });
   });
 
   it('skips hidden folders and hidden files', () => {
