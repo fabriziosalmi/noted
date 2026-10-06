@@ -787,5 +787,8 @@
   "subfolderNamePlaceholder": "Nueva carpeta en {parent}",
   "aliasMatch": "también «{alias}»",
   "outlineTab": "Esquema",
-  "outlineEmpty": "Esta nota todavía no tiene encabezados."
+  "outlineEmpty": "Esta nota todavía no tiene encabezados.",
+  "connMentions": "Menciones sin enlace",
+  "connMentionLink": "Enlazar",
+  "connMentionCount": "{n} menciones"
 }

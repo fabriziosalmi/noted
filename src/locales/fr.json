@@ -787,5 +787,8 @@
   "subfolderNamePlaceholder": "Nouveau dossier dans {parent}",
   "aliasMatch": "aussi « {alias} »",
   "outlineTab": "Plan",
-  "outlineEmpty": "Cette note n'a pas encore de titres."
+  "outlineEmpty": "Cette note n'a pas encore de titres.",
+  "connMentions": "Mentions sans lien",
+  "connMentionLink": "Lier",
+  "connMentionCount": "{n} mentions"
 }

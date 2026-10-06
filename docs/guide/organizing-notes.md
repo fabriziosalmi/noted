@@ -55,11 +55,18 @@ Backlinks are computed automatically from the links in your vault.
 ## The connections panel
 
 Open the **Connections** tab in the right panel to see how the current note
-relates to the rest of your vault, in three sections:
+relates to the rest of your vault, in four sections:
 
 - **Same project** — notes that share a `#project/<name>` tag with this one.
 - **Linked from** — backlinks.
 - **Links to** — the wikilinks this note points at.
+- **Unlinked mentions** — notes that write this note's title (or one of its
+  [aliases](#wikilinks)) as plain text without linking to it, each with the line of context
+  it appears in. **Link** turns the first mention in that note into a `[[link]]` (written as
+  `[[Title|the words used]]` when they differ from the title); the note then moves up to
+  **Linked from**. Names inside code, links, URLs, tags, math and front matter are not mentions,
+  and a note's earlier text is kept in its version history. Names shorter than three characters
+  are ignored.
 
 When a note has no connections yet, the panel invites you to add a `[[wikilink]]`
 or a `#project/name` tag.

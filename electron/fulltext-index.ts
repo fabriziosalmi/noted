@@ -154,6 +154,24 @@ export class FullTextSearchReadModel {
   }
 
   /**
+   * Notes whose text may contain one of these names, best matches first (BM25 over the in-memory index, so no
+   * file is read). A superset of the notes that really contain the phrase: the caller checks.
+   */
+  async notesMatching(
+    dir: string,
+    phrases: readonly string[],
+    validateFileName: (name: string) => void,
+    limit = 200,
+  ): Promise<string[]> {
+    const state = await this.ensureFresh(normalizeDir(dir), validateFileName);
+    const best = new Map<string, number>();
+    for (const phrase of phrases) {
+      for (const hit of state.index.search(phrase, { limit })) best.set(hit.id, Math.max(best.get(hit.id) ?? 0, hit.score));
+    }
+    return [...best.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([id]) => id);
+  }
+
+  /**
    * The best-matching notes for a question, from the whole vault (BM25 over the
    * in-memory index), with their text. The caller re-ranks this short list.
    */
