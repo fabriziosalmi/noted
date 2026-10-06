@@ -4,6 +4,7 @@
 //
 // A client may still send HTML to a Markdown vault (the previous contract, kept for one minor version);
 // it is sanitized and converted. Markdown sent to an HTML vault goes through `marked` as before.
+import { createHash } from 'node:crypto';
 import { convertHtmlNote } from '../shared/markdown/migrate.js';
 import { normalizeMarkdown, splitFrontmatter } from '../shared/markdown/codec.js';
 import { extractHtmlFrontmatterComment } from '../shared/markdown/frontmatter.js';
@@ -49,6 +50,14 @@ export function storedToText(stored: string, format: NoteFormat, deps: Pick<Stor
   return format === 'html' ? deps.htmlToText(stored) : markdownToPlainText(stored);
 }
 
+/**
+ * A fingerprint of a note's stored text, for optimistic concurrency: an edit says which version it was made against, and is
+ * refused if the note has changed since. Content, not a timestamp: a touch or a sync that rewrites the same text is no change.
+ */
+export function etagOf(stored: string): string {
+  return createHash('sha256').update(stored, 'utf8').digest('hex').slice(0, 16);
+}
+
 /** Version of what `read_note` returns as structured content. Additive changes keep it; a breaking one bumps it. */
 export const READ_NOTE_SCHEMA_VERSION = 2;
 
@@ -63,6 +72,8 @@ export interface ReadNoteResult {
   frontmatterError?: string;
   /** The note without its frontmatter: Markdown in a Markdown vault, HTML in an HTML one. */
   body: string;
+  /** Fingerprint of the stored text: pass it back as `expected_etag` to edit_note / update_note. */
+  etag: string;
   modified: string;
   sizeBytes: number;
 }
@@ -86,6 +97,7 @@ export function describeStored(
     frontmatterRaw: raw,
     ...(parsed.error ? { frontmatterError: parsed.error } : {}),
     body: split.body.replace(/^\r?\n/, ''),
+    etag: etagOf(stored),
     modified: meta.modified.toISOString(),
     sizeBytes: meta.sizeBytes,
   };

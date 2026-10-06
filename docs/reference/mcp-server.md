@@ -49,7 +49,8 @@ you need to reach it through a tunnel.
 | `list_notes` | List notes, newest first | `folder` (optional) |
 | `read_note` | Read a note: parsed frontmatter and Markdown body (Markdown vault), or plain text and raw HTML (HTML vault); also returns a versioned `structuredContent` | `name` |
 | `create_note` | Create a note (send Markdown; HTML is still accepted and converted); fails if it exists | `name`, `content` |
-| `update_note` | Overwrite a note, or append to it | `name`, `content`, `append` (optional) |
+| `update_note` | Overwrite a note, or append to it | `name`, `content`, `append` (optional), `expected_etag` (optional) |
+| `edit_note` | Change part of a note: replace exact text, or replace / append to the section under a heading; refused if the note changed since it was read | `name`, `operation`, `expected_etag` (or `expected_modified`), and `old_text`/`new_text`/`replace_all` or `heading`/`content`/`occurrence`/`whole` |
 | `search_notes` | Full-text (BM25) search with excerpts | `query`, `max_results` (optional, default 10, max 50) |
 | `delete_note` | Move a note to the trash | `name` |
 | `list_trash` | List trashed notes, newest first, with deletion ids | — |
@@ -67,6 +68,7 @@ Every result carries `structuredContent` (schema version **2**):
 | `frontmatterRaw` | The frontmatter block exactly as stored, delimiters included. |
 | `frontmatterError` | Present when the block could not be parsed; the raw text is still returned so it can be fixed. |
 | `body` | The note without its frontmatter: Markdown, or HTML in an HTML vault. |
+| `etag` | A fingerprint of the stored text. Pass it back as `expected_etag` to `edit_note` (or `update_note`). |
 | `modified`, `sizeBytes` | Last change (ISO 8601) and size. |
 
 In a Markdown vault the text result holds the parsed frontmatter and the Markdown body once each
@@ -74,6 +76,31 @@ In a Markdown vault the text result holds the parsed frontmatter and the Markdow
 An HTML vault keeps the text layout earlier clients were written against (plain text, then raw HTML),
 so existing clients keep working; the new fields are additive. HTML sent to `create_note` and
 `update_note` is still accepted for at least one more minor version.
+
+### Editing without overwriting each other
+
+`update_note` replaces a whole note, so an agent that read a note a minute ago can erase what you typed since. `edit_note`
+is made to avoid that:
+
+1. `read_note` returns an **`etag`** (a fingerprint of the text, not a timestamp, so a sync that rewrites the same text is no change).
+2. `edit_note` must be given it as `expected_etag` (or the `modified` time as `expected_modified`). If the note is no longer that
+   version, **nothing is written**; the result is an error that carries the current note and its new etag, so the agent can redo the
+   edit on what is there now.
+3. On success it returns the new etag, ready for the next edit.
+
+Operations:
+
+- **`replace`**: `old_text` is found exactly (case, spaces and line breaks count) and swapped for `new_text`. It must match in
+  exactly one place, or `replace_all` must be set; otherwise it is refused and says how many places matched. An empty `new_text`
+  deletes.
+- **`replace_section`**: replaces the text under a heading (`Risks` for any level, `## Risks` for that level). Its sub-sections are
+  kept unless `whole` is true. When several headings read the same, say which with `occurrence`.
+- **`append_to_section`**: adds `content` at the end of that section, after a blank line.
+
+The rest of the note is left byte for byte as it was (the note is not re-parsed or re-formatted), and an edit that would leave
+the YAML frontmatter unreadable is refused. Section operations need a Markdown vault. A note that is open in the app when it is
+edited is reloaded by the app, or, if you have unsaved typing in it, kept beside the other version, as for any change made from
+outside. `update_note` accepts `expected_etag` too, to get the same protection for a whole-note rewrite.
 
 ::: tip The vault decides the format
 The server stores notes the way the vault does. In a vault converted to Markdown

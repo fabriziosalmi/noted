@@ -56,7 +56,10 @@ import { checkFolderPath, checkNotePath } from '../shared/vault/paths.js';
 import { walkVaultSync } from '../shared/vault/walk.js';
 import type { NoteFormat } from '../shared/vault/format.js';
 import type { DomEnv } from '../shared/markdown/html.js';
-import { appendStored, describeStored, storedToText, toStored, type StorageDeps } from './storage';
+import { appendStored, describeStored, etagOf, storedToText, toStored, type StorageDeps } from './storage';
+import { appendToSectionBody, findSection, replaceSectionBody } from '../shared/markdown/sections.js';
+import { parseFrontmatterBlock } from '../shared/markdown/yamlFrontmatter.js';
+import { extractMarkdownFrontmatter as splitFront } from '../shared/markdown/frontmatter.js';
 
 // ─── Notes-directory resolution ───────────────────────────────────────────────
 
@@ -396,6 +399,7 @@ const TOOL_NAME = {
   READ_NOTE: 'read_note',
   CREATE_NOTE: 'create_note',
   UPDATE_NOTE: 'update_note',
+  EDIT_NOTE: 'edit_note',
   SEARCH_NOTES: 'search_notes',
   DELETE_NOTE: 'delete_note',
   RESTORE_NOTE: 'restore_note',
@@ -772,7 +776,8 @@ const TOOLS: Tool[] = [
     description:
       'Update an existing note. By default replaces the entire content. ' +
       'Set append=true to add new content at the end of the note without touching the existing text. ' +
-      'Fails if the note does not exist.',
+      'Pass expected_etag (from read_note) so the update is refused, and the current note returned, if the note was changed ' +
+      'since you read it. To change part of a note, prefer edit_note. Fails if the note does not exist.',
     inputSchema: {
       type: 'object',
       required: ['name', 'content'],
@@ -789,6 +794,39 @@ const TOOLS: Tool[] = [
           type: 'boolean',
           description: 'If true, append content at the end instead of overwriting (default: false)',
         },
+        expected_etag: {
+          type: 'string',
+          description: 'The etag from read_note. When given, the update only happens if the note still has that etag.',
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: TOOL_NAME.EDIT_NOTE,
+    description:
+      'Change part of an existing note without rewriting it, so that edits by a person and by you cannot overwrite each other. ' +
+      'Read the note first (read_note) and pass its etag as expected_etag (or its modified time as expected_modified): if the ' +
+      'note has changed since, nothing is written and the current content is returned so you can redo the edit on it. ' +
+      'operation "replace": swap old_text (an exact, case-sensitive match that must be unique, or set replace_all) for new_text. ' +
+      'operation "replace_section": replace the text under a heading ("Risks" or "## Risks"); its sub-sections are kept ' +
+      'unless whole=true. operation "append_to_section": add content at the end of that section. ' +
+      'Section operations need a Markdown vault; the rest of the note is left byte for byte as it was.',
+    inputSchema: {
+      type: 'object',
+      required: ['name', 'operation'],
+      properties: {
+        name: { type: 'string', description: 'Note file name, e.g. "my-note.md"' },
+        operation: { type: 'string', enum: ['replace', 'replace_section', 'append_to_section'] },
+        expected_etag: { type: 'string', description: 'The etag returned by read_note (required unless expected_modified is given).' },
+        expected_modified: { type: 'string', description: 'The modified time returned by read_note (ISO), as an alternative to the etag.' },
+        old_text: { type: 'string', description: 'replace: the exact text to find' },
+        new_text: { type: 'string', description: 'replace: what to put instead (may be empty to delete)' },
+        replace_all: { type: 'boolean', description: 'replace: change every occurrence instead of requiring exactly one' },
+        heading: { type: 'string', description: 'sections: the heading, "Risks" (any level) or "## Risks" (that level)' },
+        content: { type: 'string', description: 'sections: the Markdown to put in, or to add' },
+        occurrence: { type: 'number', description: 'sections: which heading, 1-based, when several have the same text' },
+        whole: { type: 'boolean', description: 'sections: include the sub-sections (default: only the section\'s own text)' },
       },
       additionalProperties: false,
     },
@@ -1062,7 +1100,7 @@ export async function handleReadNote(args: Record<string, unknown>) {
   const note = describeStored(stored, format, { name: name as string, modified: stat.mtime, sizeBytes: stat.size });
   const heading = [
     `# ${(name as string).replace('.md', '')}`,
-    `Modified: ${formatLocal(stat.mtime, true)} — ${(stat.size / 1024).toFixed(1)} KB`,
+    `Modified: ${formatLocal(stat.mtime, true)} — ${(stat.size / 1024).toFixed(1)} KB — etag ${note.etag}`,
     '',
   ];
   // A Markdown vault: the note is already compact text, so it is returned once, split into the parsed
@@ -1099,8 +1137,9 @@ export async function handleCreateNote(args: Record<string, unknown>) {
   return {
     content: [{
       type: 'text',
-      text: `Note created: ${name as string} (${(Buffer.byteLength(stored, 'utf8') / 1024).toFixed(1)} KB)`,
+      text: `Note created: ${name as string} (${(Buffer.byteLength(stored, 'utf8') / 1024).toFixed(1)} KB, etag ${etagOf(stored)})`,
     }],
+    structuredContent: { name, etag: etagOf(stored) },
   };
 }
 
@@ -1116,6 +1155,11 @@ export async function handleUpdateNote(args: Record<string, unknown>) {
   if (!fs.existsSync(filePath)) {
     throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}. Use create_note to create it first.`);
   }
+  if (args.expected_etag !== undefined) {
+    if (typeof args.expected_etag !== 'string') throw new McpError(ErrorCode.InvalidParams, 'expected_etag must be a string');
+    const conflict = conflictIfChanged(name as string, filePath, { etag: args.expected_etag });
+    if (conflict) return conflict;
+  }
   // Appending inserts a horizontal rule before the new content for visual separation
   const final = append
     ? await appendToStored(fs.readFileSync(filePath, 'utf8'), rawContent)
@@ -1126,8 +1170,120 @@ export async function handleUpdateNote(args: Record<string, unknown>) {
   return {
     content: [{
       type: 'text',
-      text: `Note ${action}: ${name as string}`,
+      text: `Note ${action}: ${name as string} (etag ${etagOf(final)})`,
     }],
+    structuredContent: { name, etag: etagOf(final) },
+  };
+}
+
+/** Largest note an edit may produce. */
+const MAX_EDITED_NOTE_BYTES = 5 * 1024 * 1024;
+/** Most of the current note returned with a conflict. */
+const MAX_CONFLICT_CHARS = 100_000;
+
+/**
+ * If the note is no longer the version the caller made its edit against, the result to send back: an error that carries the
+ * current note (so the edit can be redone on it) and its new etag. Null when the note is still that version.
+ */
+function conflictIfChanged(name: string, filePath: string, expected: { etag?: string; modified?: string }) {
+  const stored = fs.readFileSync(filePath, 'utf8');
+  const stat = fs.statSync(filePath);
+  const etag = etagOf(stored);
+  const sameEtag = expected.etag !== undefined && expected.etag.trim().toLowerCase() === etag;
+  const sameTime = expected.modified !== undefined && Number.isFinite(Date.parse(expected.modified)) && Date.parse(expected.modified) === stat.mtime.getTime();
+  if (expected.etag !== undefined ? sameEtag : sameTime) return null;
+  const note = describeStored(stored, vaultFormat(), { name, modified: stat.mtime, sizeBytes: stat.size });
+  const shown = stored.length > MAX_CONFLICT_CHARS ? `${stored.slice(0, MAX_CONFLICT_CHARS)}\n[…truncated: ${stored.length} characters in all]` : stored;
+  return {
+    isError: true,
+    content: [{
+      type: 'text' as const,
+      text: `Conflict: ${name} was changed since you read it (your etag ${expected.etag ?? expected.modified}, now ${etag}). Nothing was written. ` +
+        `Redo the edit against the current content below, with expected_etag ${etag}.\n\n${shown}`,
+    }],
+    structuredContent: { conflict: true, ...note },
+  };
+}
+
+type EditOutcome = { ok: true; stored: string; changes: number } | { ok: false; error: string };
+
+function applyEdit(stored: string, format: NoteFormat, args: Record<string, unknown>): EditOutcome {
+  const operation = args.operation;
+  if (operation === 'replace') {
+    const oldText = args.old_text;
+    const newText = args.new_text;
+    if (typeof oldText !== 'string' || oldText === '') return { ok: false, error: 'old_text must be a non-empty string' };
+    if (typeof newText !== 'string') return { ok: false, error: 'new_text must be a string (empty to delete the text)' };
+    const parts = stored.split(oldText);
+    const count = parts.length - 1;
+    if (count === 0) return { ok: false, error: 'old_text was not found in the note (it must match exactly, including spaces and line breaks)' };
+    if (count > 1 && args.replace_all !== true) {
+      return { ok: false, error: `old_text matches ${count} places; include more of the surrounding text so it is unique, or set replace_all` };
+    }
+    return { ok: true, stored: parts.join(newText), changes: count };
+  }
+  if (operation === 'replace_section' || operation === 'append_to_section') {
+    if (format !== 'markdown') return { ok: false, error: 'section edits need a Markdown vault; use operation "replace" in this vault' };
+    const heading = args.heading;
+    const content = args.content;
+    if (typeof heading !== 'string' || !heading.trim()) return { ok: false, error: 'heading must be a non-empty string' };
+    if (typeof content !== 'string') return { ok: false, error: 'content must be a string' };
+    const occurrence = typeof args.occurrence === 'number' && Number.isInteger(args.occurrence) && args.occurrence > 0 ? args.occurrence : undefined;
+    const found = findSection(stored, heading, occurrence);
+    if (!found.ok) return found;
+    const whole = args.whole === true;
+    const next = operation === 'replace_section'
+      ? replaceSectionBody(stored, found.section, content, whole)
+      : appendToSectionBody(stored, found.section, content, whole);
+    return { ok: true, stored: next, changes: 1 };
+  }
+  return { ok: false, error: 'operation must be "replace", "replace_section" or "append_to_section"' };
+}
+
+/** A note whose frontmatter was readable must still be readable after an edit. */
+function frontmatterBroken(before: string, after: string, format: NoteFormat): boolean {
+  if (format !== 'markdown') return false;
+  const was = splitFront(before).frontmatter;
+  if (!was || parseFrontmatterBlock(was).data === null) return false;
+  const now = splitFront(after).frontmatter;
+  return !now || parseFrontmatterBlock(now).data === null;
+}
+
+export async function handleEditNote(args: Record<string, unknown>) {
+  const name = args.name;
+  validateNoteName(name);
+  const etag = args.expected_etag;
+  const modified = args.expected_modified;
+  if (etag !== undefined && typeof etag !== 'string') throw new McpError(ErrorCode.InvalidParams, 'expected_etag must be a string');
+  if (modified !== undefined && typeof modified !== 'string') throw new McpError(ErrorCode.InvalidParams, 'expected_modified must be a string');
+  if (etag === undefined && modified === undefined) {
+    throw new McpError(ErrorCode.InvalidParams, 'expected_etag is required: read the note with read_note and pass its etag, so the edit cannot overwrite a change made since');
+  }
+  const filePath = safeNotePath(name as string);
+  if (!fs.existsSync(filePath)) {
+    throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}`);
+  }
+  assertNotMigrating();
+  const conflict = conflictIfChanged(name as string, filePath, { etag, modified });
+  if (conflict) return conflict;
+
+  const stored = fs.readFileSync(filePath, 'utf8');
+  const format = vaultFormat();
+  const edit = applyEdit(stored, format, args);
+  if (!edit.ok) throw new McpError(ErrorCode.InvalidParams, edit.error);
+  if (edit.stored === stored) {
+    return { content: [{ type: 'text' as const, text: `No change: ${name as string} already reads that way (etag ${etagOf(stored)})` }], structuredContent: { name, etag: etagOf(stored), changed: false } };
+  }
+  if (Buffer.byteLength(edit.stored, 'utf8') > MAX_EDITED_NOTE_BYTES) throw new McpError(ErrorCode.InvalidParams, 'the edited note would be too large');
+  if (frontmatterBroken(stored, edit.stored, format)) {
+    throw new McpError(ErrorCode.InvalidParams, "the edit would break the note's frontmatter (it must stay valid YAML between its --- lines)");
+  }
+  atomicWrite(filePath, edit.stored);
+  indexUpsert(name as string, edit.stored);
+  const newEtag = etagOf(edit.stored);
+  return {
+    content: [{ type: 'text' as const, text: `Note edited: ${name as string} (${edit.changes} change${edit.changes === 1 ? '' : 's'}, etag ${newEtag})` }],
+    structuredContent: { name, etag: newEtag, changed: true, changes: edit.changes },
   };
 }
 
@@ -1460,6 +1616,7 @@ const TOOL_HANDLERS: Record<ToolName, ToolHandler> = {
   [TOOL_NAME.READ_NOTE]: handleReadNote,
   [TOOL_NAME.CREATE_NOTE]: handleCreateNote,
   [TOOL_NAME.UPDATE_NOTE]: handleUpdateNote,
+  [TOOL_NAME.EDIT_NOTE]: handleEditNote,
   [TOOL_NAME.SEARCH_NOTES]: handleSearchNotes,
   [TOOL_NAME.DELETE_NOTE]: handleDeleteNote,
   [TOOL_NAME.LIST_TRASH]: handleListTrash,
