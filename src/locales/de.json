@@ -785,5 +785,7 @@
   "mcpRevealInFileManager": "Im Dateimanager anzeigen",
   "newSubfolder": "Neuer Ordner darin",
   "subfolderNamePlaceholder": "Neuer Ordner in {parent}",
-  "aliasMatch": "auch bekannt als „{alias}“"
+  "aliasMatch": "auch bekannt als „{alias}“",
+  "outlineTab": "Gliederung",
+  "outlineEmpty": "Diese Notiz hat noch keine Überschriften."
 }

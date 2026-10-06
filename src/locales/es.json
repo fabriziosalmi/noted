@@ -785,5 +785,7 @@
   "mcpRevealInFileManager": "Mostrar en el gestor de archivos",
   "newSubfolder": "Nueva carpeta dentro",
   "subfolderNamePlaceholder": "Nueva carpeta en {parent}",
-  "aliasMatch": "también «{alias}»"
+  "aliasMatch": "también «{alias}»",
+  "outlineTab": "Esquema",
+  "outlineEmpty": "Esta nota todavía no tiene encabezados."
 }

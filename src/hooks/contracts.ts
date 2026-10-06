@@ -73,7 +73,7 @@ export interface AppDerivedStateResult {
 export interface AppPanelsState {
   leftOpen: boolean;
   rightOpen: boolean;
-  rightTab: 'ai' | 'agent' | 'analytics' | 'graph';
+  rightTab: 'ai' | 'agent' | 'analytics' | 'graph' | 'outline';
   isSettingsOpen: boolean;
   isShortcutsOpen: boolean;
   isAdvisorOpen: boolean;
@@ -86,7 +86,7 @@ export interface AppPanelsState {
 }
 
 export interface AppPanelsApi extends AppPanelsState {
-  setRightTab: (tab: 'ai' | 'agent' | 'analytics' | 'graph') => void;
+  setRightTab: (tab: 'ai' | 'agent' | 'analytics' | 'graph' | 'outline') => void;
   setFindOpen: (open: boolean) => void;
   toggleLeftOpen: () => void;
   toggleRightOpen: () => void;
