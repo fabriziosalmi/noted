@@ -787,5 +787,8 @@
   "subfolderNamePlaceholder": "New folder in {parent}",
   "aliasMatch": "also known as \"{alias}\"",
   "outlineTab": "Outline",
-  "outlineEmpty": "This note has no headings yet."
+  "outlineEmpty": "This note has no headings yet.",
+  "connMentions": "Unlinked mentions",
+  "connMentionLink": "Link",
+  "connMentionCount": "{n} mentions"
 }

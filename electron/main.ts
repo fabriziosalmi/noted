@@ -23,6 +23,7 @@ import { registerNotesHandlers } from './ipc/notes';
 import { registerFoldersHandlers } from './ipc/folders';
 import { registerSecretsHandlers } from './ipc/secrets';
 import { registerVaultHandlers } from './ipc/vault';
+import { registerMentionHandlers } from './ipc/mentions';
 import { registerMigrationHandlers } from './ipc/migration';
 
 // First thing: a closed stdout pipe (Finder/DMG launch) must never kill the
@@ -122,6 +123,7 @@ registerCaptureHandlers();
 registerNotesHandlers();
 registerFoldersHandlers();
 registerVaultHandlers();
+registerMentionHandlers();
 registerMigrationHandlers();
 registerAttachmentsHandlers();
 registerGitHandlers();

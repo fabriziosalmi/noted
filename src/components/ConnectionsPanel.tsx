@@ -1,8 +1,45 @@
-import { useMemo } from 'react';
-import { FolderGit2, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FolderGit2, ArrowDownLeft, ArrowUpRight, Link2 } from 'lucide-react';
 import { backlinksOf } from '../lib/backlinks';
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
+import { getElectronApi } from '../lib/electronApi';
+import type { UnlinkedMention } from '../types';
+
+const MENTIONS_DEBOUNCE_MS = 400;
+
+/** Notes that write this note's name as plain text without linking to it, and the one-click way to link them. */
+function useUnlinkedMentions(noteName: string | null, backlinkCount: number) {
+  const syncDir = useStore(s => s.settings.syncDirectory) || undefined;
+  const [items, setItems] = useState<UnlinkedMention[]>([]);
+  const token = useRef(0);
+
+  // Again when the note changes, and when what links to it does (a link made here, or elsewhere).
+  useEffect(() => {
+    const mine = ++token.current;
+    setItems([]);
+    const api = getElectronApi();
+    if (!noteName || !api?.unlinkedMentions) return;
+    const timer = setTimeout(() => {
+      void api.unlinkedMentions(noteName, syncDir).then(res => {
+        if (mine === token.current && res.success) setItems(res.data?.items ?? []);
+      }).catch(() => undefined);
+    }, MENTIONS_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [noteName, syncDir, backlinkCount]);
+
+  const link = useCallback(async (source: string): Promise<boolean> => {
+    const api = getElectronApi();
+    if (!noteName || !api?.linkMention) return false;
+    const res = await api.linkMention(source, noteName, syncDir);
+    if (!res.success) return false;
+    // The note links to this one now, so it is a backlink and no longer an unlinked mention, whatever else it says.
+    setItems(prev => prev.filter(i => i.name !== source));
+    return true;
+  }, [noteName, syncDir]);
+
+  return { items, link };
+}
 
 function Chip({ name, onOpen }: { name: string; onOpen: (n: string) => void }) {
   const bare = name.replace(/\.md$/, '');
@@ -57,11 +94,13 @@ export function ConnectionsPanel({ onOpenNote }: { onOpenNote: (name: string) =>
     return { outgoing, backlinks, projectTags, projectSiblings: [...sib] };
   }, [activeNoteName, noteLinksIndex, noteAliasesIndex, tagIndex]);
 
+  const mentions = useUnlinkedMentions(activeNoteName, backlinks.length);
+
   if (!activeNoteName) {
     return <div className="p-4 text-sm text-gray-400 dark:text-gray-500">{t('connNoActive')}</div>;
   }
 
-  const nothing = !projectTags.length && !backlinks.length && !outgoing.length;
+  const nothing = !projectTags.length && !backlinks.length && !outgoing.length && mentions.items.length === 0;
 
   return (
     <div className="flex-1 overflow-y-auto p-4">
@@ -86,6 +125,36 @@ export function ConnectionsPanel({ onOpenNote }: { onOpenNote: (name: string) =>
         <Section icon={<ArrowUpRight size={12} className="text-gray-400 shrink-0" />} label={t('connOutgoing')}>
           {outgoing.map(n => <Chip key={n} name={n} onOpen={onOpenNote} />)}
         </Section>
+      )}
+
+      {mentions.items.length > 0 && (
+        <div className="mb-5" data-testid="unlinked-mentions">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Link2 size={12} className="text-gray-400 shrink-0" />
+            <span className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider truncate">{t('connMentions')}</span>
+          </div>
+          <ul className="space-y-2">
+            {mentions.items.map(item => (
+              <li key={item.name} className="text-xs" data-mention={item.name}>
+                <div className="flex items-center gap-2">
+                  <Chip name={item.name} onOpen={onOpenNote} />
+                  {item.count > 1 && <span className="text-[10px] text-gray-400">{t('connMentionCount').replace('{n}', String(item.count))}</span>}
+                  <button
+                    type="button"
+                    onClick={() => { void mentions.link(item.name); }}
+                    aria-label={`${t('connMentionLink')}: ${item.name.replace(/\.md$/, '')}`}
+                    className="ml-auto shrink-0 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-[var(--accent)] hover:border-[var(--accent)]"
+                  >
+                    {t('connMentionLink')}
+                  </button>
+                </div>
+                <p className="mt-1 text-gray-500 dark:text-gray-400 leading-snug">
+                  {item.snippet.before}<mark className="bg-transparent text-[var(--accent)] font-medium">{item.snippet.match}</mark>{item.snippet.after}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {nothing && (

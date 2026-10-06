@@ -787,5 +787,8 @@
   "subfolderNamePlaceholder": "Nova pasta em {parent}",
   "aliasMatch": "também «{alias}»",
   "outlineTab": "Estrutura",
-  "outlineEmpty": "Esta nota ainda não tem títulos."
+  "outlineEmpty": "Esta nota ainda não tem títulos.",
+  "connMentions": "Menções sem ligação",
+  "connMentionLink": "Ligar",
+  "connMentionCount": "{n} menções"
 }

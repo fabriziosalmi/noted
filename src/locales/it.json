@@ -787,5 +787,8 @@
   "subfolderNamePlaceholder": "Nuova cartella in {parent}",
   "aliasMatch": "detta anche «{alias}»",
   "outlineTab": "Struttura",
-  "outlineEmpty": "Questa nota non ha ancora titoli."
+  "outlineEmpty": "Questa nota non ha ancora titoli.",
+  "connMentions": "Menzioni senza link",
+  "connMentionLink": "Collega",
+  "connMentionCount": "{n} menzioni"
 }

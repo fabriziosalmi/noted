@@ -8,6 +8,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Unlinked mentions** (#69): the Connections panel lists notes that write this note's title or an alias as plain text without
+  linking to it, with the line they appear in, and **Link** turns the mention into a `[[link]]` in one click (the note's earlier text goes
+  to its history). Code, links, URLs, tags, math and front matter are never mentions. Found through the search index, so no note is read
+  unless it is a candidate.
 - **Outline panel** (#70): the right panel's new **Outline** tab lists the open note's headings, indented by level; click one to jump
   to it. The heading you are in is highlighted, following the cursor and the scroll.
 - **Aliases** (#68): a note's frontmatter `aliases:` (Obsidian's) are other names it answers to. `[[Start]]` opens the note that has

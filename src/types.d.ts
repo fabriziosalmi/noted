@@ -84,6 +84,8 @@ declare global {
       onMigrationProgress: (cb: (p: MigrationProgress) => void) => () => void;
       onVaultFormatChanged: (cb: () => void) => () => void;
       setLanguage: (language: string) => Promise<{ success: boolean }>;
+      unlinkedMentions: (noteName: string, syncDir?: string) => Promise<{ success: boolean; data?: { items: UnlinkedMention[] }; error?: string }>;
+      linkMention: (source: string, target: string, syncDir?: string) => Promise<{ success: boolean; data?: { remaining: number }; error?: string }>;
       getVaultFormat: (
         syncDir?: string,
       ) => Promise<{ success: boolean; data?: 'html' | 'markdown'; shared?: boolean; error?: string }>;
@@ -169,6 +171,12 @@ interface LinkUpdateResult {
 }
 
 /** The plan of a conversion between note formats (electron/migration.ts). */
+export interface UnlinkedMention {
+  name: string;
+  count: number;
+  snippet: { before: string; match: string; after: string };
+}
+
 export interface MigrationReport {
   direction: 'to-markdown' | 'to-html';
   total: number;

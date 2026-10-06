@@ -103,6 +103,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('vault-format-changed', listener);
   },
   setLanguage: (language: string) => ipcRenderer.invoke('set-language', language),
+  unlinkedMentions: (noteName: string, syncDir?: string) => ipcRenderer.invoke('unlinked-mentions', noteName, syncDir),
+  linkMention: (source: string, target: string, syncDir?: string) => ipcRenderer.invoke('link-mention', source, target, syncDir),
   getVaultFormat: (syncDir?: string) => ipcRenderer.invoke('get-vault-format', syncDir),
   setVaultConfig: (config: { trashRetentionDays?: number }, syncDir?: string) => ipcRenderer.invoke('set-vault-config', config, syncDir),
   saveAttachment: (bytes: Uint8Array, folder?: string, syncDir?: string) => ipcRenderer.invoke('save-attachment', bytes, folder, syncDir),

@@ -787,5 +787,8 @@
   "subfolderNamePlaceholder": "Neuer Ordner in {parent}",
   "aliasMatch": "auch bekannt als „{alias}“",
   "outlineTab": "Gliederung",
-  "outlineEmpty": "Diese Notiz hat noch keine Überschriften."
+  "outlineEmpty": "Diese Notiz hat noch keine Überschriften.",
+  "connMentions": "Unverlinkte Erwähnungen",
+  "connMentionLink": "Verlinken",
+  "connMentionCount": "{n} Erwähnungen"
 }
