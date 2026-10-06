@@ -108,3 +108,20 @@ describe('decodeEntities', () => {
     expect(decodeEntities('a &amp; b &lt;c&gt; &quot;d&quot; &#39;e&#39; &copy;')).toBe('a & b <c> "d" \'e\' &copy;');
   });
 });
+
+describe('with the vault format given', () => {
+  it('a Markdown note that starts with "<" is not read as HTML', () => {
+    const md = '<kbd>Ctrl</kbd> + C\n\n# Title\n\n#tag\n';
+    expect(extractHeadings(md)).toEqual([]); // sniffed as HTML: no <h1>
+    expect(extractHeadings(md, 'markdown')).toEqual([{ level: 1, text: 'Title' }]);
+  });
+
+  it('YAML frontmatter is not searched for tags in a Markdown note', () => {
+    const md = '---\nnote: "#hidden"\n---\nbody #shown\n';
+    expect(extractTags(md, 'markdown')).toEqual(['#shown']);
+  });
+
+  it('an HTML note is read as HTML when told so, whatever it starts with', () => {
+    expect(extractHeadings('text<h2>Two</h2>', 'html')).toEqual([{ level: 2, text: 'Two' }]);
+  });
+});

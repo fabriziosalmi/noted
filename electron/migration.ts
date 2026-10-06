@@ -13,7 +13,7 @@ import path from 'node:path';
 import JSZip from 'jszip';
 import type { DomEnv } from '../shared/markdown/html';
 import { convertHtmlNote, convertMarkdownNoteToHtml, isLegacyHtml, type Verdict } from '../shared/markdown/migrate';
-import { readVaultFormat, writeVaultFormat } from '../shared/vault/formatFile';
+import { MIGRATION_LOCK_STALE_MS, migrationLockPath, readVaultFormat, writeVaultFormat } from '../shared/vault/formatFile';
 import type { NoteFormat } from '../shared/vault/format';
 
 export type Direction = 'to-markdown' | 'to-html';
@@ -61,7 +61,6 @@ export type MigrationResult =
   | { ok: false; reason: string; report?: MigrationReport };
 
 const MAX_LISTED = 500;
-const LOCK_STALE_MS = 2 * 60 * 60 * 1000;
 const YIELD_EVERY = 10;
 
 const targetFormat = (d: Direction): NoteFormat => (d === 'to-markdown' ? 'markdown' : 'html');
@@ -194,7 +193,7 @@ async function backup(dir: string, names: string[], deps: MigrationDeps, directi
 // ── lock ───────────────────────────────────────────────────────────────────
 
 function acquireLock(dir: string): () => void {
-  const file = path.join(dir, '.noted', 'migration.lock');
+  const file = migrationLockPath(dir);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const take = (): number => fs.openSync(file, 'wx');
   let fd: number;
@@ -202,7 +201,7 @@ function acquireLock(dir: string): () => void {
     fd = take();
   } catch {
     // Left behind by a run that died: older than any real migration.
-    if (Date.now() - fs.statSync(file).mtimeMs < LOCK_STALE_MS) throw new Error('A conversion is already running on this vault');
+    if (Date.now() - fs.statSync(file).mtimeMs < MIGRATION_LOCK_STALE_MS) throw new Error('A conversion is already running on this vault');
     fs.rmSync(file, { force: true });
     fd = take();
   }

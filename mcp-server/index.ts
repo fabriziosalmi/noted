@@ -51,6 +51,10 @@ import {
 import pkg from '../package.json';
 import { moveToTrash, listTrash, restoreFromTrash, purgeTrash, parseRetentionDays, DEFAULT_RETENTION_DAYS, TrashError } from './trash';
 import { readVaultConfig } from '../shared/vault-config.js';
+import { isMigrationLocked, readVaultFormat } from '../shared/vault/formatFile.js';
+import type { NoteFormat } from '../shared/vault/format.js';
+import type { DomEnv } from '../shared/markdown/html.js';
+import { appendStored, storedToText, toStored, type StorageDeps } from './storage';
 
 // ─── Notes-directory resolution ───────────────────────────────────────────────
 
@@ -270,9 +274,43 @@ export function htmlToText(html: string): string {
     .trim();
 }
 
+// ─── Vault format (ADR 0001) ──────────────────────────────────────────────────
+
+/** How this vault stores its notes: the app and this server both go by the vault's marker file. */
+export function vaultFormat(): NoteFormat {
+  return readVaultFormat(NOTES_DIR);
+}
+
+let domEnv: DomEnv | null = null;
+
+/** A DOM for converting HTML a client sent to a Markdown vault; jsdom is slow to load, so only when needed. */
+async function loadDom(): Promise<DomEnv> {
+  if (!domEnv) {
+    const { JSDOM } = await import('jsdom');
+    const { window } = new JSDOM('<!doctype html><html><body></body></html>');
+    domEnv = { document: window.document, DOMParser: window.DOMParser as unknown as typeof DOMParser };
+  }
+  return domEnv;
+}
+
+const storage: StorageDeps = { toHtml, htmlToText, stripUnsafeHtml, dom: loadDom };
+
+/** What to write for text a client sent, in the vault's format. */
+const toStoredNote = (content: string): Promise<string> => toStored(content, vaultFormat(), storage);
+const appendToStored = (existing: string, addition: string): Promise<string> => appendStored(existing, addition, vaultFormat(), storage);
+const noteText = (stored: string, format: NoteFormat = vaultFormat()): string => storedToText(stored, format, storage);
+
+/** The app is converting the vault between formats: a note written now could be missed or written in the old one. */
+function assertNotMigrating(): void {
+  if (isMigrationLocked(NOTES_DIR)) {
+    throw new McpError(ErrorCode.InternalError, 'The vault is being converted to another note format. Try again in a minute.');
+  }
+}
+
 // ─── Atomic file write ────────────────────────────────────────────────────────
 
 function atomicWrite(filePath: string, content: string): void {
+  assertNotMigrating();
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const tmp = filePath + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
@@ -344,6 +382,7 @@ function ensureSearchIndex(): InvertedIndex {
   const now = Date.now();
   if (searchIndex && now - indexScannedAt < INDEX_STALE_MS) return searchIndex;
   const idx = new InvertedIndex();
+  const format = vaultFormat();
   let totalBytes = 0;
   for (const note of listAllNotes()) {
     if (idx.size >= FT_MAX_FILES) break;
@@ -351,7 +390,7 @@ function ensureSearchIndex(): InvertedIndex {
       const html = fs.readFileSync(safeNotePath(note.name), 'utf8');
       if (html.length > FT_MAX_FILE_BYTES) continue;
       if ((totalBytes += html.length) > FT_MAX_TOTAL_BYTES) break;
-      idx.add({ id: note.name, title: note.name, text: htmlToText(html), mtimeMs: note.mtime.getTime() });
+      idx.add({ id: note.name, title: note.name, text: noteText(html, format), mtimeMs: note.mtime.getTime() });
     } catch { /* skip unreadable */ }
   }
   searchIndex = idx;
@@ -361,7 +400,7 @@ function ensureSearchIndex(): InvertedIndex {
 
 // Keep a live index in sync after a mutation (no-op until the index is built).
 function indexUpsert(name: string, html: string): void {
-  searchIndex?.add({ id: name, title: name, text: htmlToText(html), mtimeMs: Date.now() });
+  searchIndex?.add({ id: name, title: name, text: noteText(html), mtimeMs: Date.now() });
 }
 function indexRemove(name: string): void {
   searchIndex?.remove(name);
@@ -1049,8 +1088,9 @@ export async function handleReadNote(args: Record<string, unknown>) {
   if (!fs.existsSync(filePath)) {
     throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}`);
   }
-  const html = fs.readFileSync(filePath, 'utf8');
-  const plain = htmlToText(html);
+  const stored = fs.readFileSync(filePath, 'utf8');
+  const format = vaultFormat();
+  const plain = noteText(stored, format);
   const stat = fs.statSync(filePath);
   return {
     content: [{
@@ -1062,8 +1102,8 @@ export async function handleReadNote(args: Record<string, unknown>) {
         '## Content (plain text)',
         plain,
         '',
-        '## Raw HTML',
-        html,
+        format === 'markdown' ? '## Markdown' : '## Raw HTML',
+        stored,
       ].join('\n'),
     }],
   };
@@ -1080,13 +1120,13 @@ export async function handleCreateNote(args: Record<string, unknown>) {
   if (fs.existsSync(filePath)) {
     throw new McpError(ErrorCode.InvalidParams, `Note already exists: ${name as string}. Use update_note to edit it.`);
   }
-  const html = toHtml(rawContent);
-  atomicWrite(filePath, html);
-  indexUpsert(name as string, html);
+  const stored = await toStoredNote(rawContent);
+  atomicWrite(filePath, stored);
+  indexUpsert(name as string, stored);
   return {
     content: [{
       type: 'text',
-      text: `Note created: ${name as string} (${(Buffer.byteLength(html, 'utf8') / 1024).toFixed(1)} KB)`,
+      text: `Note created: ${name as string} (${(Buffer.byteLength(stored, 'utf8') / 1024).toFixed(1)} KB)`,
     }],
   };
 }
@@ -1103,17 +1143,12 @@ export async function handleUpdateNote(args: Record<string, unknown>) {
   if (!fs.existsSync(filePath)) {
     throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}. Use create_note to create it first.`);
   }
-  const newHtml = await toHtml(rawContent);
-  let finalHtml: string;
-  if (append) {
-    const existing = fs.readFileSync(filePath, 'utf8');
-    // Insert a horizontal rule before the new content for visual separation
-    finalHtml = existing + '\n<hr>\n' + newHtml;
-  } else {
-    finalHtml = newHtml;
-  }
-  atomicWrite(filePath, finalHtml);
-  indexUpsert(name as string, finalHtml);
+  // Appending inserts a horizontal rule before the new content for visual separation
+  const final = append
+    ? await appendToStored(fs.readFileSync(filePath, 'utf8'), rawContent)
+    : await toStoredNote(rawContent);
+  atomicWrite(filePath, final);
+  indexUpsert(name as string, final);
   const action = append ? 'appended to' : 'updated';
   return {
     content: [{
@@ -1158,6 +1193,7 @@ export async function handleDeleteNote(args: Record<string, unknown>) {
   if (!fs.existsSync(filePath)) {
     throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}`);
   }
+  assertNotMigrating();
   purgeTrash(NOTES_DIR, new Date(), trashRetentionDays());
   const item = moveToTrash(NOTES_DIR, name as string);
   indexRemove(name as string);
@@ -1185,6 +1221,7 @@ export async function handleRestoreNote(args: Record<string, unknown>) {
     throw new McpError(ErrorCode.InvalidParams, 'id must be a string');
   }
   safeNotePath(name as string); // same confinement rules as every other note path
+  assertNotMigrating();
   purgeTrash(NOTES_DIR, new Date(), trashRetentionDays());
   try {
     const item = restoreFromTrash(NOTES_DIR, name as string, id as string | undefined);
@@ -1211,9 +1248,9 @@ export async function handleCreateAgentWorkflow(args: Record<string, unknown>) {
     );
   }
 
-  for (const file of paths) {
-    atomicWrite(file.filePath, toHtml(file.content));
-  }
+  // Converted first: a note that cannot be converted must not leave half a scaffold behind.
+  const stored = await Promise.all(paths.map(file => toStoredNote(file.content)));
+  paths.forEach((file, i) => atomicWrite(file.filePath, stored[i]));
 
   return {
     content: [{
@@ -1264,7 +1301,7 @@ export async function handleAppendAgentEvent(args: Record<string, unknown>) {
     codeBlockJson(event),
   ].join('\n');
   const existing = fs.readFileSync(filePath, 'utf8');
-  atomicWrite(filePath, `${existing}\n<hr>\n${toHtml(eventMd)}`);
+  atomicWrite(filePath, await appendToStored(existing, eventMd));
 
   return {
     content: [{
@@ -1343,15 +1380,15 @@ function runEngine(fn: () => EngineResult): EngineResult {
   }
 }
 
-function persistAgentNote(note: LoadedAgentNote, meta: AgentMetadata, event: unknown): void {
+async function persistAgentNote(note: LoadedAgentNote, meta: AgentMetadata, event: unknown): Promise<void> {
   const rewritten = writeAgentMetadata(note.html, meta);
   if (!rewritten) {
     throw new McpError(ErrorCode.InternalError, `Failed to update Agent Metadata in ${note.name}`);
   }
   const eventMd = [`## Event ${(event as { type: string }).type}`, '', codeBlockJson(event)].join('\n');
-  const finalHtml = `${rewritten}\n<hr>\n${toHtml(eventMd)}`;
-  atomicWrite(note.filePath, finalHtml);
-  indexUpsert(note.name, finalHtml);
+  const final = await appendToStored(rewritten, eventMd);
+  atomicWrite(note.filePath, final);
+  indexUpsert(note.name, final);
 }
 
 // Keep the workflow note's tasks[] mirror consistent after a task transition.
@@ -1402,7 +1439,7 @@ export async function handleAdvanceAgentState(args: Record<string, unknown>) {
   const to = validateNonEmptyString(args.to, 'to');
   const { ctx, workflow } = buildAgentContext(note, args);
   const result = runEngine(() => advance(note.meta, to, ctx));
-  persistAgentNote(note, result.metadata, result.event);
+  await persistAgentNote(note, result.metadata, result.event);
   syncWorkflowMirror(workflow, note, result.metadata.status as string, ctx.now);
   return {
     content: [{
@@ -1416,7 +1453,7 @@ export async function handleApproveAgentGate(args: Record<string, unknown>) {
   const note = loadAgentNote(args.name);
   const { ctx, workflow } = buildAgentContext(note, args);
   const result = runEngine(() => approveGate(note.meta, ctx));
-  persistAgentNote(note, result.metadata, result.event);
+  await persistAgentNote(note, result.metadata, result.event);
   syncWorkflowMirror(workflow, note, result.metadata.status as string, ctx.now);
   return {
     content: [{
@@ -1431,7 +1468,7 @@ export async function handleRejectAgentGate(args: Record<string, unknown>) {
   const { ctx, workflow } = buildAgentContext(note, args);
   const reason = args.reason === undefined ? undefined : validateNonEmptyString(args.reason, 'reason');
   const result = runEngine(() => rejectGate(note.meta, { ...ctx, reason }));
-  persistAgentNote(note, result.metadata, result.event);
+  await persistAgentNote(note, result.metadata, result.event);
   syncWorkflowMirror(workflow, note, result.metadata.status as string, ctx.now);
   return {
     content: [{

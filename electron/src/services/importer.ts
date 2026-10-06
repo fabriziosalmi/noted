@@ -6,6 +6,9 @@ import TurndownService from 'turndown';
 import { formatAppleNoteToMarkdown } from '../../ipc-utils.js';
 import { logEvent, newRequestId } from '../../structured-log.js';
 import type { FullTextSearchReadModel } from '../../fulltext-index.js';
+import { assertNotMigrating } from '../../core/migrating.js';
+import { readVaultFormat } from '../../../shared/vault/formatFile.js';
+import { normalizeMarkdown } from '../../../shared/markdown/codec.js';
 
 export function importVaultRecursive(srcRoot: string, srcDir: string, destRoot: string): number {
   let imported = 0;
@@ -65,6 +68,7 @@ export function registerImporterHandlers(
   ipcMain.handle('import-vault', async (_, targetDir?: string) => {
     const reqId = newRequestId('import-vault');
     try {
+      assertNotMigrating();
       const { filePaths, canceled } = await dialog.showOpenDialog({
         title: 'Import vault (Obsidian / Bear / Markdown folder)',
         properties: ['openDirectory'],
@@ -72,6 +76,7 @@ export function registerImporterHandlers(
       if (canceled || !filePaths.length) return { success: false, error: 'Cancelled' };
       const srcDir = filePaths[0];
       const dest = resolveTargetDir(typeof targetDir === 'string' ? targetDir : undefined);
+      // The notes are copied as they are: they are Markdown already, and a Markdown vault reads them natively.
       const importedCount = importVaultRecursive(srcDir, srcDir, dest);
       fullTextSearchIndex.markDirty(dest);
       logEvent('info', 'import_vault_completed', { reqId, importedCount, destDir: dest });
@@ -85,7 +90,10 @@ export function registerImporterHandlers(
   ipcMain.handle('import-apple-notes', async (_, targetDir?: string) => {
     const reqId = newRequestId('import-apple');
     try {
+      assertNotMigrating();
       const dest = resolveTargetDir(typeof targetDir === 'string' ? targetDir : undefined);
+      // A Markdown vault holds notes the way saving them would write them, so the first edit changes nothing else.
+      const inMarkdownVault = readVaultFormat(dest) === 'markdown';
       
       // Execute JXA script to fetch notes
       const jxaScript = `
@@ -311,7 +319,7 @@ export function registerImporterHandlers(
                 turndown
               );
 
-              fs.writeFileSync(finalDestPath, fm, 'utf-8');
+              fs.writeFileSync(finalDestPath, inMarkdownVault ? normalizeMarkdown(fm) : fm, 'utf-8');
               imported++;
             }
             /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/prefer-for-of */
