@@ -106,6 +106,9 @@ test.describe('nested folders', () => {
   });
 
   test('dragging a folder onto another moves it there, with its notes, and onto the list brings it to the top', async ({ noted }) => {
+    // The macOS hosted runner does not complete a real HTML5 drag (it failed the first attempt in most runs, 1.5 minutes
+    // each, and cost a rerun per pull request); Linux and Windows run it, and a developer's Mac does too.
+    test.skip(Boolean(process.env.CI) && process.platform === 'darwin', 'HTML5 drag-and-drop is not reproducible on the hosted macOS runner');
     // one launch only: a second one on the same profile is where Windows keeps a file open for a while at teardown
     const { win: w, vault: root } = await vault(noted, { 'Life/Garden.md': '# Garden\n\ngreen\n' });
     await expect(w.getByText('Life', { exact: true })).toBeVisible({ timeout: 20_000 });
