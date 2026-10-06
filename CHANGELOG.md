@@ -8,6 +8,9 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Compare a changed note with its last version, and stage notes one by one** (Git panel → Changed notes). The comparison reads as text:
+  changed lines with context, and the words that changed highlighted inside a rewritten line; notes stored as HTML are shown as Markdown so only
+  the text differs. **Stage** / **Unstage** per note, and **Commit staged** commits exactly those.
 - **Open an Obsidian vault where it is.** Point Noted at the folder (Settings → Sync → Choose custom folder): it is read as Markdown,
   `.obsidian/` and `.trash/` are ignored, nothing is rewritten, renamed or added by opening notes, and only a note you edit is written.
   Links resolve the way Obsidian resolves them (`[[Plan]]` finds `Work/Plan.md`, case does not matter), for backlinks, following a link and
@@ -27,6 +30,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Initializing a Git repository failed on a computer with no Git identity** (a fresh machine, or a new user). The fallback identity was never
+  set because its check could not tell "not set" from "set". It is now set when missing, and an identity you already have is left alone.
 - **Opening a note no longer saves it.** The editor used to write back the text it had just loaded, which changed the file's modification
   time and added a history snapshot for a note you had only looked at.
 - **A link by bare name finds the note in a folder** (`[[Plan]]` for `Work/Plan.md`) instead of offering to create a new, empty `Plan`.

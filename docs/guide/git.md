@@ -24,10 +24,23 @@ Open the panel from the badge to see:
 - whether the vault is a repository,
 - the current branch,
 - a clean/dirty indicator and how many commits you are ahead (`↑N`),
-- the first few modified files,
+- the **changed notes**, each with its state (modified, new, deleted),
 - a refresh button.
 
 If the vault is not a repository yet, the panel offers to **initialize** one.
+
+## Comparing and staging notes
+
+Under **Changed notes**, click a note to compare it with the version in your last commit. The
+comparison is shown as Markdown text, so a change reads as the words that changed: the changed
+lines are shown with two lines of context, and inside a rewritten line the words that differ are
+highlighted. A new note is shown as all added, a deleted one as all removed. Notes stored as HTML
+(vaults not yet converted) are shown as Markdown too, so the comparison is about the text and not
+the markup.
+
+Each note has **Stage** and **Unstage**. **Commit staged (n)** then commits exactly the staged notes
+(with your message, or one made from their names) and leaves every other change as it was.
+A note changed again after it was staged shows both buttons; the commit holds the staged version.
 
 ## Committing
 

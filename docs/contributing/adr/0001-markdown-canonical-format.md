@@ -290,3 +290,18 @@ the editor or to storage: that is the migration (#60). What building it taught, 
 - **Not done: nesting.** The model is still the vault root plus one folder level (#65). Deeper notes are neither listed nor touched, and the
   user guide says so.
 
+## Implementation notes (#64, readable diffs in the Git panel)
+
+- **One pure diff module** (`shared/diff/textDiff.ts`): lines by longest common subsequence after trimming the common start and end, then words inside a
+  rewritten line (a deleted run followed by an added run is paired line by line). A change too big for the table (4 M cells) is shown as all removed, all
+  added, which is always correct. Tests rebuild both texts from the rows, for generated input.
+- **Readable even across the conversion.** `readableVersions` turns a version stored in the old HTML format into Markdown before diffing, so the commit before a
+  conversion compares as words with the one after. A Markdown note that merely starts with an HTML block is never taken for the old format (in a Markdown vault
+  an old version is converted only when the current one is not HTML itself).
+- **Stage and unstage per note** are `git add -A -- <file>` and `git reset HEAD -- <file>` (or `rm --cached` before the first commit); **Commit staged** refuses
+  when nothing is staged. All three take the repository lock the sync uses, and every file name is checked as a note in the vault. The list shows notes only
+  (`.md`, outside hidden folders), but the dirty indicator still counts every file.
+- **A trap worth keeping:** the dialog first asked for its comparison in an effect that listed `t` (a new function on every render) as a dependency, so each
+  render cancelled the request and started another, and the dialog stayed on "Comparing…" forever. A component test now fails if the request is made twice.
+- **Not done:** staging parts of a note (hunks), and a diff of two historical versions (the note history keeps its own list).
+

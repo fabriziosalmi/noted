@@ -135,3 +135,32 @@ export function convertMarkdownNoteToHtml(raw: string, env: Pick<DomEnv, 'docume
   const { frontmatter, doc } = parseNote(raw);
   return prependFrontmatterComment(docToHtml(doc, env), frontmatter || null);
 }
+
+// What the editor wrote at the start of a note: the frontmatter comment or a block element. Stricter than
+// `isLegacyHtml`, which is for a vault known to be HTML; this is for guessing about one text on its own.
+const EDITOR_HTML_START = /^\s*(?:<!--noted-frontmatter:|<(?:p|h[1-6]|ul|ol|blockquote|pre|table|hr)(?:[\s>/]))/i;
+
+/**
+ * Two versions of the same note (an old one from Git history and the current one), both as Markdown, so a diff
+ * between them reads as words that changed and not as markup. A version in the old HTML format is converted;
+ * everything else is returned as it is. In a Markdown vault an old version is only converted when the current
+ * one is not HTML itself, so a Markdown note that merely starts with an HTML block is never misread.
+ * Never throws: a version that cannot be converted is shown as stored.
+ */
+export function readableVersions(
+  before: string | null,
+  after: string | null,
+  vaultFormat: 'html' | 'markdown',
+  env: DomEnv,
+): { before: string; after: string } {
+  const toMarkdown = (text: string | null, convert: boolean): string => {
+    if (text === null) return '';
+    if (!convert || !EDITOR_HTML_START.test(text)) return text;
+    try { return convertHtmlNote(text, env).text; } catch { return text; }
+  };
+  const afterIsHtml = after !== null && EDITOR_HTML_START.test(after);
+  return {
+    before: toMarkdown(before, vaultFormat === 'html' || !afterIsHtml),
+    after: toMarkdown(after, vaultFormat === 'html'),
+  };
+}
