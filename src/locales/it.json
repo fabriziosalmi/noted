@@ -782,5 +782,7 @@
   "dlgImportVault": "Importa vault (Obsidian / Bear / cartella Markdown)",
   "errVaultBeingConverted": "Il vault è in conversione verso un altro formato di note. Riprova tra un momento.",
   "mcpRevealInExplorer": "Mostra in Esplora risorse",
-  "mcpRevealInFileManager": "Mostra nel gestore file"
+  "mcpRevealInFileManager": "Mostra nel gestore file",
+  "newSubfolder": "Nuova cartella dentro",
+  "subfolderNamePlaceholder": "Nuova cartella in {parent}"
 }
