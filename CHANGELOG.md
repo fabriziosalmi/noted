@@ -8,6 +8,12 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **MCP `edit_note` and optimistic concurrency** (#81): agents can change part of a note without overwriting it. `read_note` now returns an
+  `etag` (a fingerprint of the stored text); `edit_note` needs it back (or the modified time) and, when the note has changed since,
+  writes nothing and returns the current note with its new etag so the edit can be redone on it. Operations: replace exact text (unique
+  match, or `replace_all`), replace the text under a heading (sub-sections kept unless asked), append to a section. The rest of the note
+  stays byte for byte, and an edit that would break the frontmatter is refused. `update_note` accepts `expected_etag` as well; `create_note`
+  and `update_note` return the new etag.
 - **Views, documented** (#27): the Views page now says how views compare with Notion databases and what they deliberately do not do
   (relations, rollups, formulas, real-time collaboration, declared schemas, other layouts).
 - **Properties panel** (#66): a **Properties** tab in the right panel for the open note: each frontmatter property in the editor for
