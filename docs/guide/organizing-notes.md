@@ -15,6 +15,11 @@ link rendered as `[[Note name]]`.
   keyboard.
 - A link can carry an alias and a heading: `[[Note|shown text]]`,
   `[[Note#Heading]]`, or both. They all count as links to `Note`.
+- **Headings and blocks.** After `[[Note#` the autocomplete lists that note's headings; pick one (or keep typing to
+  narrow them). Following `[[Note#Heading]]` opens the note with the caret on that heading, and the same for a
+  block: put ` ^some-id` at the end of a paragraph or list item and `[[Note#^some-id]]` leads to it. A heading is
+  found whatever its case or spacing (`#risks` finds "Risks"), and `[[Note#Part#Detail]]` means the heading *Detail*
+  under the heading *Part*. If the note has no such heading or block, the link still opens the note.
 - **Aliases.** A note can have other names, in its frontmatter (the Obsidian way):
 
   ```yaml

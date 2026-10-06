@@ -8,6 +8,9 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Heading and block links** (#67, part 1): after `[[Note#` the autocomplete lists the note's headings, and following
+  `[[Note#Heading]]` or `[[Note#^block-id]]` opens the note with the caret on that heading or block, scrolled into view (also
+  within the same note). Headings match whatever the case or spacing, `[[Note#Part#Detail]]` finds the heading under its parent.
 - **Search that scales** (#72): measured on a 10,000-note vault (25 MB) the vault index builds in about 0.3 s, the full-text index in
   about 0.6 s, a search answers in under 10 ms, and the index takes about 75 MB; at 20,000 notes it is still under 1.5 s. The MCP
   server's search index had a far lower ceiling (1,500 notes, 50 MB), which left the oldest notes of a big vault unsearchable by an
