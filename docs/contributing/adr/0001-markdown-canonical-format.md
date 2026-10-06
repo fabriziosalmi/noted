@@ -252,3 +252,13 @@ the editor or to storage: that is the migration (#60). What building it taught, 
 - **Prompting.** ADR decision 3 said a migration is offered, never done on its own. The offer is the Settings entry; Noted does not
   interrupt a user who has not opened Settings. An automatic first-run suggestion can be added later without touching the engine.
 
+## Implementation notes (#61, native YAML frontmatter)
+
+- #61 needed no new code: the codec already keeps the leading `---` block as exact bytes (never parsed, so unknown keys, comments and odd
+  spacing cannot change), a Markdown vault stores it as that block, and the conversion turns the legacy `noted-frontmatter` comment into it.
+  `src/lib/frontmatterNative.test.ts` pins the three acceptance criteria.
+- **The comment is not removed from the app's internal wire.** The editor is fed HTML, so inside the renderer the YAML travels as that
+  comment (`activeNoteFrontmatter` is already held apart from the body). It never reaches a Markdown file. It remains on disk only in
+  vaults not yet converted, and goes away for good with HTML-vault support, not before.
+- No YAML library was added: nothing needs the frontmatter parsed, and a comment-preserving round trip is exactly what leaving it unparsed gives.
+
