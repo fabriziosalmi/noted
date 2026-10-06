@@ -1,6 +1,7 @@
 import { app, Menu, shell } from 'electron';
 import { checkForUpdates } from './updater';
 import { getMainWindow, openCaptureWindow } from './core/windows';
+import { tr } from './core/language';
 
 // A native macOS menu: gives ⌘, Preferences and self-documents the app's
 // shortcuts in the menu bar. Custom items relay to the renderer over IPC (the
@@ -14,9 +15,9 @@ export function buildAppMenu() {
       label: app.name,
       submenu: [
         { role: 'about' as const },
-        { label: 'Check for Updates…', click: () => void checkForUpdates(() => getMainWindow(), true) },
+        { label: tr('menuCheckForUpdates'), click: () => void checkForUpdates(() => getMainWindow(), true) },
         { type: 'separator' as const },
-        { label: 'Preferences…', accelerator: 'Cmd+,', click: () => send('settings') },
+        { label: tr('menuPreferences'), accelerator: 'Cmd+,', click: () => send('settings') },
         { type: 'separator' as const },
         { role: 'services' as const },
         { type: 'separator' as const },
@@ -28,25 +29,25 @@ export function buildAppMenu() {
       ],
     } as Electron.MenuItemConstructorOptions] : []),
     {
-      label: 'File',
+      label: tr('menuFile'),
       submenu: [
-        { label: 'New Note', accelerator: 'CmdOrCtrl+N', click: () => send('new-note') },
-        { label: 'Daily Note', click: () => send('daily') },
-        { label: 'Quick Capture', click: () => openCaptureWindow() },
+        { label: tr('menuNewNote'), accelerator: 'CmdOrCtrl+N', click: () => send('new-note') },
+        { label: tr('menuDailyNote'), click: () => send('daily') },
+        { label: tr('menuQuickCapture'), click: () => openCaptureWindow() },
         { type: 'separator' as const },
-        { label: 'Print…', accelerator: 'CmdOrCtrl+P', click: () => send('print-note') },
+        { label: tr('menuPrint'), accelerator: 'CmdOrCtrl+P', click: () => send('print-note') },
         ...(isMac ? [] : [{ type: 'separator' as const }, { role: 'quit' as const }]),
       ],
     },
     { role: 'editMenu' },
     {
-      label: 'View',
+      label: tr('menuView'),
       submenu: [
-        { label: 'Quick Open', accelerator: 'CmdOrCtrl+K', click: () => send('quick-open') },
-        { label: 'Search All Notes', accelerator: 'CmdOrCtrl+Shift+F', click: () => send('search') },
+        { label: tr('menuQuickOpen'), accelerator: 'CmdOrCtrl+K', click: () => send('quick-open') },
+        { label: tr('menuSearchAll'), accelerator: 'CmdOrCtrl+Shift+F', click: () => send('search') },
         { type: 'separator' as const },
-        { label: 'Focus Mode', accelerator: 'CmdOrCtrl+\\', click: () => send('focus-mode') },
-        { label: 'Keyboard Shortcuts', click: () => send('shortcuts') },
+        { label: tr('menuFocusMode'), accelerator: 'CmdOrCtrl+\\', click: () => send('focus-mode') },
+        { label: tr('menuShortcuts'), click: () => send('shortcuts') },
         { type: 'separator' as const },
         { role: 'togglefullscreen' as const },
         ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' as const }]),
@@ -56,13 +57,13 @@ export function buildAppMenu() {
     {
       role: 'help' as const,
       submenu: [
-        { label: 'Documentation', click: () => void shell.openExternal('https://fabriziosalmi.github.io/noted/') },
-        { label: 'Release Notes', click: () => void shell.openExternal('https://github.com/fabriziosalmi/noted/releases') },
-        { label: 'Report an Issue', click: () => void shell.openExternal('https://github.com/fabriziosalmi/noted/issues/new') },
+        { label: tr('menuDocumentation'), click: () => void shell.openExternal('https://fabriziosalmi.github.io/noted/') },
+        { label: tr('menuReleaseNotes'), click: () => void shell.openExternal('https://github.com/fabriziosalmi/noted/releases') },
+        { label: tr('menuReportIssue'), click: () => void shell.openExternal('https://github.com/fabriziosalmi/noted/issues/new') },
         // On macOS this lives in the app menu, where the platform expects it.
         ...(isMac ? [] : [
           { type: 'separator' as const },
-          { label: 'Check for Updates…', click: () => void checkForUpdates(() => getMainWindow(), true) },
+          { label: tr('menuCheckForUpdates'), click: () => void checkForUpdates(() => getMainWindow(), true) },
         ]),
       ],
     },

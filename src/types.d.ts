@@ -83,6 +83,7 @@ declare global {
       migrationRevert: (syncDir?: string) => Promise<MigrationOutcome>;
       onMigrationProgress: (cb: (p: MigrationProgress) => void) => () => void;
       onVaultFormatChanged: (cb: () => void) => () => void;
+      setLanguage: (language: string) => Promise<{ success: boolean }>;
       getVaultFormat: (
         syncDir?: string,
       ) => Promise<{ success: boolean; data?: 'html' | 'markdown'; shared?: boolean; error?: string }>;

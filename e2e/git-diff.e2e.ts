@@ -44,10 +44,10 @@ const test = base.extend<{ repo: Repo }>({
   },
 });
 
-// Git is switched on first and the notes are changed after the reload: the app rewrites its own stored settings
-// whenever it notices a change on disk, which would undo a setting written in between.
+// Git is switched on in the page's stored settings at the very start of the next load, before the app reads them:
+// writing them into a running app loses to the app writing its own state back a moment later.
 async function enableGit(win: Launched['win']) {
-  await win.evaluate(() => {
+  await win.addInitScript(() => {
     const raw = localStorage.getItem('noted-storage');
     const j = raw ? JSON.parse(raw) : { state: { settings: {} }, version: 0 };
     j.state = j.state || {};

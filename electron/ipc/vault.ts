@@ -8,6 +8,7 @@ import { readVaultFormat } from '../../shared/vault/formatFile';
 import { isObsidianVault } from '../../shared/vault/obsidian';
 import { logEvent, newRequestId } from '../structured-log';
 import { assertNotMigrating } from '../core/migrating';
+import { tr } from '../core/language';
 import { getTargetDir, blessVaultRoot, isBlessedRoot, setActiveVaultDir } from '../core/paths';
 import { fullTextSearchIndex, vaultIndex } from '../core/services';
 import { startVaultWatch } from '../core/watcher';
@@ -72,9 +73,9 @@ export function registerVaultHandlers(): void {
       if (destDir && !isBlessedRoot(destDir)) destDir = '';
       if (!destDir) {
         const { filePaths, canceled } = await dialog.showOpenDialog({
-          title: 'Export vault to folder',
+          title: tr('dlgExportVault'),
           properties: ['openDirectory', 'createDirectory'],
-          buttonLabel: 'Export here',
+          buttonLabel: tr('dlgExportHere'),
         });
         if (canceled || !filePaths.length) return { success: false, canceled: true };
         destDir = filePaths[0];
