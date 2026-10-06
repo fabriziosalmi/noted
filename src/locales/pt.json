@@ -849,5 +849,19 @@
   "filterOp_not-has": "não tem",
   "viewEditHint": "Duplo clique ou Enter para editar",
   "viewEditConflict": "Esta propriedade foi alterada noutro lado; mostra-se o valor atual.",
-  "viewEditFailed": "Não foi possível alterar a propriedade: {error}"
+  "viewEditFailed": "Não foi possível alterar a propriedade: {error}",
+  "viewLayout": "Disposição",
+  "viewLayoutTable": "Tabela",
+  "viewLayoutBoard": "Quadro",
+  "viewGroupBy": "Agrupar por",
+  "viewBoardChoose": "Escolha uma propriedade para agrupar os cartões.",
+  "viewNoValue": "Sem valor",
+  "viewAddColumn": "Adicionar coluna",
+  "viewColumnName": "Nome da coluna",
+  "viewColumnLeft": "Mover a coluna para a esquerda",
+  "viewColumnRight": "Mover a coluna para a direita",
+  "viewColumnKeep": "Manter esta coluna",
+  "viewColumnRemove": "Remover coluna",
+  "viewCardMove": "Mover \"{name}\" para",
+  "viewListNoMove": "Uma nota está em cada coluna da sua lista, por isso os cartões não se movem aqui; altere-os na tabela."
 }

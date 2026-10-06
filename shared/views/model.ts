@@ -14,6 +14,7 @@ export const MAX_NAME_CHARS = 80;
 export const MAX_FILTERS = 20;
 export const MAX_SORTS = 5;
 export const MAX_COLUMNS = 50;
+export const MAX_BOARD_COLUMNS = 50;
 export const MAX_FIELD_CHARS = 200;
 export const MAX_VALUE_CHARS = 500;
 export const MAX_SOURCE_CHARS = 200;
@@ -52,6 +53,8 @@ export interface View {
   sort: ViewSort[];
   /** The field a board's columns are made of. */
   groupBy?: string;
+  /** The board's columns, left to right, by the value of the group field; values not listed follow, then "no value". */
+  boardColumns?: string[];
   /** The fields shown as table columns, in order (the note's name is always the first column). */
   columns: string[];
   layout: ViewLayout;
@@ -108,6 +111,7 @@ export function normalizeView(raw: unknown, takenIds: ReadonlySet<string> = new 
   if (!id || takenIds.has(id)) id = ''; // the caller gives such a view a fresh id
   const columns = [...new Set(list(raw.columns, MAX_COLUMNS, c => text(c, MAX_FIELD_CHARS)))];
   const groupBy = text(raw.groupBy, MAX_FIELD_CHARS) ?? undefined;
+  const boardColumns = [...new Set(list(raw.boardColumns, MAX_BOARD_COLUMNS, c => text(c, MAX_VALUE_CHARS)))];
   return {
     id,
     name,
@@ -115,6 +119,7 @@ export function normalizeView(raw: unknown, takenIds: ReadonlySet<string> = new 
     filters: list(raw.filters, MAX_FILTERS, normalizeFilter),
     sort: list(raw.sort, MAX_SORTS, normalizeSort),
     ...(groupBy ? { groupBy } : {}),
+    ...(boardColumns.length > 0 ? { boardColumns } : {}),
     columns,
     layout: raw.layout === 'board' ? 'board' : 'table',
   };
@@ -147,7 +152,7 @@ export function serializeViews(views: readonly View[]): string {
   // Keys in one fixed order, so the same views are always the same bytes.
   const ordered = views.map(v => ({
     id: v.id, name: v.name, layout: v.layout, source: v.source, filters: v.filters, sort: v.sort,
-    ...(v.groupBy ? { groupBy: v.groupBy } : {}), columns: v.columns,
+    ...(v.groupBy ? { groupBy: v.groupBy } : {}), ...(v.boardColumns?.length ? { boardColumns: v.boardColumns } : {}), columns: v.columns,
   }));
   const file: ViewsFile = { version: VIEWS_FILE_VERSION, views: ordered };
   return `${JSON.stringify(file, null, 2)}\n`;

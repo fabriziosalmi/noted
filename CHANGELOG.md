@@ -8,6 +8,11 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Board view** (#24 and the layout switch of #26, Views): the Table / Board buttons on a view. A board is a column for each value
+  of a property (most used first, "No value" last; the columns you keep come first in your order, can be added, moved and removed when
+  empty) and a card per note; a card opens its note. Dragging a card to another column, or picking the column from the card's menu
+  (keyboard-friendly), rewrites that property in the note, and only that. Moving a card keeps the columns that were showing. Lists
+  (tags) put a note in several columns, so their cards are not movable.
 - **Edit a property in a view's table** (#23, Views): double-click a cell (or press Enter on it) and the property changes in the
   note's file; a checkbox toggles with a click; empty removes the property; numbers and lists are read as such. Only that one
   property is rewritten, in the note's own text: comments, quoting, order, spacing and every other byte stay exactly as they were

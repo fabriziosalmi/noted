@@ -29,6 +29,23 @@ The gear at the top right of a view opens its settings:
 Click a column header to sort by it: ascending, then descending, then not at all. Numbers sort by size, text without
 caring about case (`item 9` comes before `item 10`), and notes with no value for the property always come last.
 
+## The board
+
+The two buttons at the top of a view switch between the **table** and the **board**. A board has a column for each value of a
+property (set with **Group by** in the view's settings, or chosen when the board is first opened), and a card for each note;
+a card shows the note's name and, small, the columns you picked. Click a card to open the note.
+
+**Moving a card changes the property in the note**: drag it to another column, or use the menu on the card (it shows when you
+hover or focus the card, so it works from the keyboard too). Dropping on **No value** removes the property. The cards of a
+column follow the view's sort and filters.
+
+- A column exists for every value the notes have, the most used first. The columns you keep come first, in your order: **Keep
+  this column** (the pin) keeps one, the arrows move it, **Add column** makes one for a value no note has yet, and an empty
+  kept column can be removed. Moving a card keeps all the columns that were showing, so a column you emptied does not vanish.
+- A property that holds a **list** (like tags) puts a note in every column it has, so its cards cannot be moved there; change
+  them from the table.
+- The same safety as the table applies: only that property is rewritten, and a note changed elsewhere is not overwritten.
+
 ## Editing in the table
 
 A cell is the property in the note's file, so changing a cell changes the note. Double-click a cell, or move to it and press

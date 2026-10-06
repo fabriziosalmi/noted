@@ -849,5 +849,19 @@
   "filterOp_not-has": "non ha",
   "viewEditHint": "Doppio clic o Invio per modificare",
   "viewEditConflict": "Questa proprietà è stata cambiata altrove; si vede il valore attuale.",
-  "viewEditFailed": "Impossibile cambiare la proprietà: {error}"
+  "viewEditFailed": "Impossibile cambiare la proprietà: {error}",
+  "viewLayout": "Layout",
+  "viewLayoutTable": "Tabella",
+  "viewLayoutBoard": "Bacheca",
+  "viewGroupBy": "Raggruppa per",
+  "viewBoardChoose": "Scegli una proprietà per raggruppare le schede.",
+  "viewNoValue": "Nessun valore",
+  "viewAddColumn": "Aggiungi colonna",
+  "viewColumnName": "Nome della colonna",
+  "viewColumnLeft": "Sposta la colonna a sinistra",
+  "viewColumnRight": "Sposta la colonna a destra",
+  "viewColumnKeep": "Tieni questa colonna",
+  "viewColumnRemove": "Rimuovi colonna",
+  "viewCardMove": "Sposta \"{name}\" in",
+  "viewListNoMove": "Una nota sta in ogni colonna della sua lista, quindi qui le schede non si spostano; modificale dalla tabella."
 }
