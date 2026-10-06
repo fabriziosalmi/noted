@@ -57,6 +57,9 @@ import { walkVaultSync } from '../shared/vault/walk.js';
 import type { NoteFormat } from '../shared/vault/format.js';
 import type { DomEnv } from '../shared/markdown/html.js';
 import { appendStored, describeStored, etagOf, storedToText, toStored, type StorageDeps } from './storage';
+import { extractTasks, withoutTaskLines } from '../shared/tasks/parse.js';
+import { queryTasks, localDay, type NoteTask, type TaskFilter } from '../shared/tasks/query.js';
+import { extractTags } from '../shared/vault/extract.js';
 import { appendToSectionBody, findSection, replaceSectionBody } from '../shared/markdown/sections.js';
 import { parseFrontmatterBlock } from '../shared/markdown/yamlFrontmatter.js';
 import { extractMarkdownFrontmatter as splitFront } from '../shared/markdown/frontmatter.js';
@@ -400,6 +403,7 @@ const TOOL_NAME = {
   CREATE_NOTE: 'create_note',
   UPDATE_NOTE: 'update_note',
   EDIT_NOTE: 'edit_note',
+  LIST_TASKS: 'list_tasks',
   SEARCH_NOTES: 'search_notes',
   DELETE_NOTE: 'delete_note',
   RESTORE_NOTE: 'restore_note',
@@ -827,6 +831,28 @@ const TOOLS: Tool[] = [
         content: { type: 'string', description: 'sections: the Markdown to put in, or to add' },
         occurrence: { type: 'number', description: 'sections: which heading, 1-based, when several have the same text' },
         whole: { type: 'boolean', description: 'sections: include the sub-sections (default: only the section\'s own text)' },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: TOOL_NAME.LIST_TASKS,
+    description:
+      'List the tasks (the "- [ ]" and "- [x]" items) across the vault, soonest due first, each with its note and line. ' +
+      'Open tasks by default. A due date is written "📅 2026-10-10" or "due:: 2026-10-10". Filter by folder, tag (on the task or ' +
+      'on its note), due range, overdue, no due date, or text. Markdown vaults only. To tick one, use edit_note on its line.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['open', 'done', 'all'], description: 'Default: open' },
+        folder: { type: 'string', description: 'Only notes under this folder (any depth), e.g. "Projects"' },
+        tag: { type: 'string', description: 'Only tasks that have this tag, or whose note has it, e.g. "#urgent"' },
+        due_from: { type: 'string', description: 'Due on or after this day, YYYY-MM-DD' },
+        due_to: { type: 'string', description: 'Due on or before this day, YYYY-MM-DD' },
+        overdue: { type: 'boolean', description: 'Only open tasks due before today' },
+        no_due: { type: 'boolean', description: 'Only tasks with no due date' },
+        text: { type: 'string', description: 'Only tasks whose text contains this (case-insensitive)' },
+        limit: { type: 'number', description: 'Most tasks to return (default 50, max 200)' },
       },
       additionalProperties: false,
     },
@@ -1287,6 +1313,75 @@ export async function handleEditNote(args: Record<string, unknown>) {
   };
 }
 
+interface TaskCacheEntry { mtimeMs: number; size: number; tasks: NoteTask[] }
+const taskCache = new Map<string, TaskCacheEntry>();
+
+/** Every task of the vault, reading again only the notes that changed since the last call. */
+function allTasks(): NoteTask[] {
+  const seen = new Set<string>();
+  const out: NoteTask[] = [];
+  for (const note of listAllNotes()) {
+    seen.add(note.name);
+    const mtimeMs = note.mtime.getTime();
+    let entry = taskCache.get(note.name);
+    if (!entry || entry.mtimeMs !== mtimeMs || entry.size !== note.size) {
+      let tasks: NoteTask[] = [];
+      try {
+        const stored = fs.readFileSync(safeNotePath(note.name), 'utf8');
+        if (stored.length <= 2 * 1024 * 1024) {
+          const found = extractTasks(stored);
+          if (found.length > 0) {
+            const noteTags = extractTags(withoutTaskLines(stored, found), 'markdown');
+            tasks = found.map(t => ({ ...t, note: note.name, noteTags }));
+          }
+        }
+      } catch { /* unreadable: no tasks */ }
+      entry = { mtimeMs, size: note.size, tasks };
+      taskCache.set(note.name, entry);
+    }
+    out.push(...entry.tasks);
+  }
+  for (const name of [...taskCache.keys()]) if (!seen.has(name)) taskCache.delete(name);
+  return out;
+}
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+export async function handleListTasks(args: Record<string, unknown>) {
+  if (vaultFormat() !== 'markdown') {
+    return { content: [{ type: 'text' as const, text: 'Tasks can be listed in a Markdown vault only (Settings → Editor → Note format).' }], isError: true };
+  }
+  const str = (k: string): string | undefined => {
+    const v = args[k];
+    if (v === undefined) return undefined;
+    if (typeof v !== 'string') throw new McpError(ErrorCode.InvalidParams, `${k} must be a string`);
+    return v === '' ? undefined : v;
+  };
+  const day = (k: string): string | undefined => {
+    const v = str(k);
+    if (v !== undefined && !DAY.test(v)) throw new McpError(ErrorCode.InvalidParams, `${k} must be a day like 2026-10-10`);
+    return v;
+  };
+  const status = args.status === undefined ? 'open' : args.status;
+  if (status !== 'open' && status !== 'done' && status !== 'all') throw new McpError(ErrorCode.InvalidParams, 'status must be open, done or all');
+  const filter: TaskFilter = {
+    status, folder: str('folder'), tag: str('tag'), text: str('text'), dueFrom: day('due_from'), dueTo: day('due_to'),
+    overdue: args.overdue === true || undefined, noDue: args.no_due === true || undefined,
+  };
+  const limit = typeof args.limit === 'number' ? Math.min(200, Math.max(1, Math.floor(args.limit))) : 50;
+  const matched = queryTasks(allTasks(), filter, localDay(new Date()));
+  const shown = matched.slice(0, limit);
+  const lines = shown.map(t => `- [${t.done ? 'x' : ' '}] ${t.text}${t.due ? ` (due ${t.due})` : ''} — ${t.note}:${t.line}`);
+  const head = `${matched.length} task${matched.length === 1 ? '' : 's'}${matched.length > shown.length ? `, showing ${shown.length}` : ''}`;
+  return {
+    content: [{ type: 'text' as const, text: matched.length === 0 ? 'No tasks match.' : `${head}:\n\n${lines.join('\n')}` }],
+    structuredContent: {
+      total: matched.length,
+      tasks: shown.map(t => ({ note: t.note, line: t.line, done: t.done, text: t.text, due: t.due ?? null, tags: t.tags })),
+    },
+  };
+}
+
 export async function handleSearchNotes(args: Record<string, unknown>) {
   const query = args.query;
   if (typeof query !== 'string' || !query.trim()) {
@@ -1617,6 +1712,7 @@ const TOOL_HANDLERS: Record<ToolName, ToolHandler> = {
   [TOOL_NAME.CREATE_NOTE]: handleCreateNote,
   [TOOL_NAME.UPDATE_NOTE]: handleUpdateNote,
   [TOOL_NAME.EDIT_NOTE]: handleEditNote,
+  [TOOL_NAME.LIST_TASKS]: handleListTasks,
   [TOOL_NAME.SEARCH_NOTES]: handleSearchNotes,
   [TOOL_NAME.DELETE_NOTE]: handleDeleteNote,
   [TOOL_NAME.LIST_TRASH]: handleListTrash,

@@ -80,6 +80,24 @@ describe('initial scan', () => {
     expect(index.backlinks(dir, 'Other.md')).toEqual(['Task.md']);
   });
 
+  it('lists the tasks of a Markdown vault with their note and its tags, and follows an edit; an HTML vault has none', async () => {
+    write('.noted-vault.json', '{"format":"markdown"}');
+    write('A.md', '# A #work\n\n- [ ] one 📅 2026-10-10\n- [x] two\n');
+    write('Sub/B.md', '- [ ] three\n');
+    write('C.md', 'no tasks here\n');
+    await index.ensure(dir);
+    const tasks = index.tasks(dir).map(t => [t.note, t.line, t.done, t.text, t.due, t.noteTags]);
+    expect(tasks).toEqual([
+      ['A.md', 3, false, 'one', '2026-10-10', ['#work']], ['A.md', 4, true, 'two', undefined, ['#work']], ['Sub/B.md', 1, false, 'three', undefined, []],
+    ]);
+    write('D.md', '#proj\n\n- [ ] with a tag #solo\n- [ ] other\n');
+    index.upsertFromRaw(dir, 'D.md', '#proj\n\n- [ ] with a tag #solo\n- [ ] other\n');
+    const d = index.tasks(dir).filter(t => t.note === 'D.md');
+    expect(d.map(t => [t.text, t.tags, t.noteTags])).toEqual([['with a tag #solo', ['#solo'], ['#proj']], ['other', [], ['#proj']]]); // a task's own tag is not its note's
+    index.upsertFromRaw(dir, 'Sub/B.md', '- [x] three\n- [ ] four\n');
+    expect(index.tasks(dir).filter(t => t.note === 'Sub/B.md').map(t => [t.text, t.done])).toEqual([['three', true], ['four', false]]);
+  });
+
   it('skips an unreadable vault and a missing one without throwing', async () => {
     const snap = await index.snapshot(path.join(dir, 'does-not-exist'));
     expect(snap.notes).toEqual({});

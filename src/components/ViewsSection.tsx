@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Copy, Pencil, Plus, Table2, Trash2 } from 'lucide-react';
+import { CheckSquare, ChevronDown, ChevronRight, Copy, Pencil, Plus, Table2, Trash2 } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import { useConfirm, usePrompt } from './ConfirmProvider';
@@ -15,6 +15,7 @@ export function ViewsSection() {
   const { t } = useI18n();
   const views = useStore(s => s.views);
   const activeViewId = useStore(s => s.activeViewId);
+  const tasksOpen = useStore(s => s.tasksOpen);
   const [open, setOpen] = useState(readOpen);
   const confirm = useConfirm();
   const prompt = usePrompt();
@@ -53,6 +54,15 @@ export function ViewsSection() {
 
   return (
     <div className="px-2 pb-2" data-testid="views-section">
+      <button
+        type="button"
+        onClick={() => useStore.getState().openTasks()}
+        aria-current={tasksOpen ? 'page' : undefined}
+        className={`w-full flex items-center gap-2 px-2 py-1 rounded-md text-sm text-left ${tasksOpen ? 'bg-[var(--accent-light)] text-[var(--accent)] font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-gray-700/40'}`}
+      >
+        <CheckSquare size={13} className="shrink-0 text-gray-400" aria-hidden="true" />
+        {t('tasksTitle')}
+      </button>
       <div className="flex items-center justify-between px-1 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
         <button type="button" onClick={toggle} aria-expanded={open} className="flex items-center gap-1 py-1 hover:text-gray-800 dark:hover:text-gray-200">
           {open ? <ChevronDown size={11} aria-hidden="true" /> : <ChevronRight size={11} aria-hidden="true" />}

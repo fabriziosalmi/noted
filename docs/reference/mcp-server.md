@@ -51,6 +51,7 @@ you need to reach it through a tunnel.
 | `create_note` | Create a note (send Markdown; HTML is still accepted and converted); fails if it exists | `name`, `content` |
 | `update_note` | Overwrite a note, or append to it | `name`, `content`, `append` (optional), `expected_etag` (optional) |
 | `edit_note` | Change part of a note: replace exact text, or replace / append to the section under a heading; refused if the note changed since it was read | `name`, `operation`, `expected_etag` (or `expected_modified`), and `old_text`/`new_text`/`replace_all` or `heading`/`content`/`occurrence`/`whole` |
+| `list_tasks` | The `- [ ]` / `- [x]` tasks across the vault, soonest due first, with note and line (Markdown vaults) | `status`, `folder`, `tag`, `due_from`, `due_to`, `overdue`, `no_due`, `text`, `limit` (all optional) |
 | `search_notes` | Full-text (BM25) search with excerpts | `query`, `max_results` (optional, default 10, max 50) |
 | `delete_note` | Move a note to the trash | `name` |
 | `list_trash` | List trashed notes, newest first, with deletion ids | — |
