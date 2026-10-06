@@ -20,12 +20,9 @@ async function renameRisks(win: Awaited<ReturnType<typeof setup>>['win']) {
   await expect(editor.locator('h1')).toHaveText('Plan');
   await expect(editor).toBeFocused(); // opening a note puts the caret at its start, a moment after it shows
   const heading = editor.getByRole('heading', { name: 'Risks' });
-  // A click to the right of the text puts the caret at the end of the heading (End means something else on a Mac)
-  const box = (await heading.boundingBox())!;
-  await heading.click({ position: { x: box.width - 4, y: box.height / 2 } });
-  for (const _ of 'Risks') await win.keyboard.press('Backspace'); // eslint-disable-line @typescript-eslint/no-unused-vars
+  await heading.selectText(); // the heading's own text, whatever the platform's Home/End/double-click rules
   await win.keyboard.type('Threats');
-  await expect(editor.getByRole('heading', { name: 'Threats' })).toBeVisible();
+  await expect(editor.locator('h2').first()).toHaveText('Threats'); // exactly, not "contains"
   // The caret leaves the heading: the links are settled
   await editor.getByText('money').click();
 }
