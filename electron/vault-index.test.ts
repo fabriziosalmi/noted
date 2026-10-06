@@ -32,15 +32,31 @@ describe('initial scan', () => {
     write('Work/C.md', '<p>[[A#Alpha]] #project/aurora</p>');
     write('Work/readme.txt', '[[A]] #nope');           // not a note
     write('.hidden/D.md', '[[A]] #nope');               // dot directory
-    write('Work/deeper/E.md', '[[A]] #nope');           // only one folder level
+    write('Work/deeper/E.md', '[[A]] #deep');           // any depth is indexed
+    write('Work/.git/F.md', '[[A]] #nope');             // a hidden folder at depth is not
     const snap = await index.snapshot(dir);
-    expect(Object.keys(snap.notes).sort()).toEqual(['A.md', 'B.md', 'Work/C.md']);
+    expect(Object.keys(snap.notes).sort()).toEqual(['A.md', 'B.md', 'Work/C.md', 'Work/deeper/E.md']);
     expect(snap.notes['A.md']).toEqual({ links: ['B', 'Work/C'], tags: ['#idea'] });
     expect(snap.notes['Work/C.md']).toEqual({ links: ['A'], tags: ['#project/aurora'] });
     const b = index.get(dir, 'B.md')!;
     expect(b.headings).toEqual([{ level: 1, text: 'Bee' }]);
     expect(b.frontmatterKeys).toEqual(['title', 'status']);
-    expect(index.tagIndex(dir)).toEqual({ '#idea': ['A.md', 'B.md'], '#other': ['B.md'], '#project/aurora': ['Work/C.md'] });
+    expect(index.tagIndex(dir)).toEqual({ '#deep': ['Work/deeper/E.md'], '#idea': ['A.md', 'B.md'], '#other': ['B.md'], '#project/aurora': ['Work/C.md'] });
+  });
+
+  it('indexes notes nested several folders deep, follows them through the watcher entry points, and finds their backlinks', async () => {
+    write('A.md', '#a');
+    write('x/y/z/Deep.md', '[[A]] #deep');
+    await index.ensure(dir);
+    expect(index.names(dir)).toEqual(['A.md', 'x/y/z/Deep.md']);
+    expect(index.backlinks(dir, 'A.md')).toEqual(['x/y/z/Deep.md']);
+    write('x/y/Another.md', '[[Deep]] #later');
+    await index.touch(dir, 'x/y/Another.md');
+    expect(index.names(dir)).toEqual(['A.md', 'x/y/Another.md', 'x/y/z/Deep.md']);
+    expect(index.backlinks(dir, 'x/y/z/Deep.md')).toEqual(['x/y/Another.md']); // [[Deep]] finds it by name
+    fs.rmSync(path.join(dir, 'x/y/z/Deep.md'));
+    await index.touch(dir, 'x/y/z/Deep.md');
+    expect(index.names(dir)).toEqual(['A.md', 'x/y/Another.md']);
   });
 
   it('computes backlinks from alias and heading links, case-insensitively', async () => {
@@ -198,11 +214,11 @@ describe('external changes (watcher / bulk operations)', () => {
 });
 
 describe('bookkeeping files are never indexed', () => {
-  it('ignores hidden folders, deeper paths and non-notes in every entry point', async () => {
+  it('ignores hidden folders at any depth, names no note may have, and non-notes in every entry point', async () => {
     write('A.md', '#a');
     await index.ensure(dir);
     deltas.length = 0;
-    for (const name of ['.noted/trash/2026-x/old.md', '.noted_history/A.md/s.md', 'a/b/c.md', '.hidden.md', 'notes.txt']) {
+    for (const name of ['.noted/trash/2026-x/old.md', '.noted_history/A.md/s.md', 'a/.b/c.md', 'a/b/.hidden.md', '.hidden.md', 'notes.txt', 'a/b:c/d.md']) {
       write(name, '[[A]] #nope', new Date(Date.now() + 5000));
       index.upsertFromRaw(dir, name, '#nope');
       await index.touch(dir, name);

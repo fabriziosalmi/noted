@@ -52,6 +52,8 @@ import pkg from '../package.json';
 import { moveToTrash, listTrash, restoreFromTrash, purgeTrash, parseRetentionDays, DEFAULT_RETENTION_DAYS, TrashError } from './trash';
 import { readVaultConfig } from '../shared/vault-config.js';
 import { isMigrationLocked, readVaultFormat } from '../shared/vault/formatFile.js';
+import { checkFolderPath, checkNotePath } from '../shared/vault/paths.js';
+import { walkVaultSync } from '../shared/vault/walk.js';
 import type { NoteFormat } from '../shared/vault/format.js';
 import type { DomEnv } from '../shared/markdown/html.js';
 import { appendStored, describeStored, storedToText, toStored, type StorageDeps } from './storage';
@@ -125,44 +127,16 @@ export function trashRetentionDays(): number {
 
 // ─── Path security ────────────────────────────────────────────────────────────
 
-/** Validates a note name and throws McpError (InvalidParams) on failure. */
+/** Validates a note name and throws McpError (InvalidParams) on failure. Any depth; the rules are shared/vault/paths.ts's. */
 export function validateNoteName(name: unknown): asserts name is string {
-  if (typeof name !== 'string' || !name.trim()) {
-    throw new McpError(ErrorCode.InvalidParams, 'Note name must be a non-empty string');
-  }
-  if (!name.endsWith('.md')) {
-    throw new McpError(ErrorCode.InvalidParams, 'Note name must end with .md');
-  }
-  if (name.includes('..')) {
-    throw new McpError(ErrorCode.InvalidParams, 'Note name must not contain ".."');
-  }
-  if (path.isAbsolute(name)) {
-    throw new McpError(ErrorCode.InvalidParams, 'Note name must not be an absolute path');
-  }
-  const segments = name.split('/');
-  if (segments.length > 2) {
-    throw new McpError(ErrorCode.InvalidParams, 'Only one level of subfolder is allowed (e.g. "folder/note.md")');
-  }
-  for (const seg of segments) {
-    const base = seg.endsWith('.md') ? seg.slice(0, -3) : seg;
-    if (!base.trim()) {
-      throw new McpError(ErrorCode.InvalidParams, `Invalid segment "${seg}": segment cannot be empty or whitespace only`);
-    }
-    // eslint-disable-next-line no-control-regex
-    if (/[\x00-\x1F\x7F\\/:*?"<>|;`$]/.test(base)) {
-      throw new McpError(
-        ErrorCode.InvalidParams,
-        `Invalid segment "${seg}": contains reserved characters (\\ / : * ? " < > | ; \` $)`,
-      );
-    }
-    // Windows: reserved device names and trailing dot/space are unwritable.
-    if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(base)) {
-      throw new McpError(ErrorCode.InvalidParams, `Invalid segment "${seg}": reserved device name`);
-    }
-    if (/[. ]$/.test(base)) {
-      throw new McpError(ErrorCode.InvalidParams, `Invalid segment "${seg}": cannot end with a dot or space`);
-    }
-  }
+  const problem = checkNotePath(name, 'Note name');
+  if (problem) throw new McpError(ErrorCode.InvalidParams, problem);
+}
+
+/** Validates a folder path (any depth) given to a read-only tool, such as list_notes. */
+export function validateFolderPath(folder: unknown): asserts folder is string {
+  const problem = checkFolderPath(folder, 'Folder name');
+  if (problem) throw new McpError(ErrorCode.InvalidParams, problem);
 }
 
 /** Validates a folder name and throws McpError (InvalidParams) on failure. */
@@ -185,23 +159,27 @@ export function validateFolderName(name: unknown): asserts name is string {
 /** Returns the absolute path to a note, validated to stay inside NOTES_DIR. */
 export function safeNotePath(name: string): string {
   validateNoteName(name);
-  let resolved = path.resolve(NOTES_DIR, name);
-  
-  // Resolve physical path of the file or its parent directory to prevent symlink traversal
-  try {
-    if (fs.existsSync(resolved)) {
-      resolved = fs.realpathSync(resolved);
-    } else {
-      const parent = path.dirname(resolved);
-      if (fs.existsSync(parent)) {
-        const realParent = fs.realpathSync(parent);
-        resolved = path.join(realParent, path.basename(resolved));
-      }
-    }
-  } catch { /* fallback to path.resolve */ }
-
   const root = path.resolve(NOTES_DIR);
   const rootReal = fs.existsSync(root) ? fs.realpathSync(root) : root;
+  const target = path.resolve(root, name);
+
+  // Resolve the physical path of the nearest part of the target that exists, so a symbolic link anywhere on the way
+  // (a folder that points outside the vault, however many levels above the new file) cannot carry a write out of the
+  // vault. The names below it do not exist yet, so they cannot be links. A link that points nowhere is refused.
+  let existing = target;
+  const missing: string[] = [];
+  for (;;) {
+    try { fs.lstatSync(existing); break; } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw new McpError(ErrorCode.InvalidParams, 'Path traversal detected');
+      const parent = path.dirname(existing);
+      if (parent === existing) break;
+      missing.unshift(path.basename(existing));
+      existing = parent;
+    }
+  }
+  let resolved: string;
+  try { resolved = path.join(fs.realpathSync(existing), ...missing); } catch { throw new McpError(ErrorCode.InvalidParams, 'Path traversal detected'); }
+
   if (resolved !== rootReal && !resolved.startsWith(rootReal + path.sep)) {
     throw new McpError(ErrorCode.InvalidParams, 'Path traversal detected');
   }
@@ -329,40 +307,22 @@ interface NoteEntry {
 function listAllNotes(folder?: string): NoteEntry[] {
   if (!fs.existsSync(NOTES_DIR)) return [];
 
-  const collect = (dir: string, prefix: string): NoteEntry[] => {
-    let entries: NoteEntry[] = [];
+  // Every note at any depth: never a hidden folder, never a symbolic link, never a name the other tools would refuse.
+  const entries: NoteEntry[] = [];
+  for (const name of walkVaultSync(NOTES_DIR).notes) {
     try {
-      const items = fs.readdirSync(dir, { withFileTypes: true });
-      for (const item of items) {
-        try {
-          if (item.isFile() && item.name.endsWith('.md')) {
-            const name = prefix ? `${prefix}/${item.name}` : item.name;
-            try {
-              validateNoteName(name);
-            } catch {
-              continue;
-            }
-            const stat = fs.statSync(path.join(dir, item.name));
-            entries.push({ name, mtime: stat.mtime, size: stat.size });
-          } else if (item.isDirectory() && !item.name.startsWith('.') && !prefix) {
-            // One level deep only
-            entries = entries.concat(collect(path.join(dir, item.name), item.name));
-          }
-        } catch {
-          // Skip unreadable/invalid entries but continue scanning siblings
-        }
-      }
-    } catch { /* skip unreadable */ }
-    return entries;
-  };
-
-  const all = collect(NOTES_DIR, '');
+      const stat = fs.statSync(path.join(NOTES_DIR, name));
+      entries.push({ name, mtime: stat.mtime, size: stat.size });
+    } catch { /* gone since it was listed */ }
+  }
+  entries.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
 
   if (folder) {
+    // A folder means everything under it, sub-folders included.
     const normalized = folder.replace(/\/$/, '');
-    return all.filter(n => n.name.startsWith(`${normalized}/`));
+    return entries.filter(n => n.name.startsWith(`${normalized}/`));
   }
-  return all.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
+  return entries;
 }
 
 // ─── Full-text search index (shared BM25) ─────────────────────────────────────
@@ -754,7 +714,7 @@ const TOOLS: Tool[] = [
       properties: {
         folder: {
           type: 'string',
-          description: 'Restrict results to a specific folder (e.g. "Lavoro"). Omit to list all notes.',
+          description: 'Restrict results to a folder and everything under it (e.g. "Lavoro" or "Lavoro/Q4"). Omit to list all notes.',
         },
       },
       additionalProperties: false,
@@ -1063,7 +1023,7 @@ const TOOLS: Tool[] = [
 export async function handleListNotes(args: Record<string, unknown>) {
   const folder = typeof args.folder === 'string' ? args.folder : undefined;
   if (folder !== undefined) {
-    validateFolderName(folder);
+    validateFolderPath(folder);
   }
   const notes = listAllNotes(folder);
   if (notes.length === 0) {

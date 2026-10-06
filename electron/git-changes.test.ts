@@ -92,11 +92,29 @@ describe('the two versions of a note', () => {
 
   it('refuses a note with no changes, and anything that is not a note in the vault', async () => {
     expect((await getFileVersions(dir, 'Plan.md')).success).toBe(false);
-    for (const bad of ['../outside.md', '/etc/passwd', 'a/b/c.md', 'readme.txt', '.noted/x.md', '']) {
+    for (const bad of ['../outside.md', '/etc/passwd', 'a/../b.md', 'readme.txt', '.noted/x.md', 'a/.hidden/x.md', '']) {
       expect((await getFileVersions(dir, bad)).success, bad).toBe(false);
       expect((await stageFiles(dir, [bad])).success, bad).toBe(false);
       expect((await unstageFiles(dir, [bad])).success, bad).toBe(false);
     }
+  });
+});
+
+describe('notes in nested folders (#65)', () => {
+  it('lists, compares, stages and commits a note at any depth, and still ignores hidden folders', async () => {
+    write('Work/Q4/Deep/Goals.md', 'v1\n');
+    write('Work/.hidden/Secret.md', 'x\n');
+    expect((await files()).map(f => f.path)).toEqual(['Work/Q4/Deep/Goals.md']);
+    expect((await getFileVersions(dir, 'Work/Q4/Deep/Goals.md')).data).toEqual({ before: null, after: 'v1\n', state: 'untracked' });
+    expect((await stageFiles(dir, ['Work/Q4/Deep/Goals.md'])).success).toBe(true);
+    expect(await byPath('Work/Q4/Deep/Goals.md')).toMatchObject({ state: 'added', staged: true });
+    expect((await commitStaged(dir, 'deep')).success).toBe(true);
+    write('Work/Q4/Deep/Goals.md', 'v2\n');
+    expect((await getFileVersions(dir, 'Work/Q4/Deep/Goals.md')).data).toMatchObject({ before: 'v1\n', after: 'v2\n', state: 'modified' });
+  });
+
+  it('refuses hidden segments and traversal at depth', async () => {
+    for (const bad of ['a/b/.noted/x.md', 'a/b/../../../etc/x.md']) expect((await stageFiles(dir, [bad])).success, bad).toBe(false);
   });
 });
 

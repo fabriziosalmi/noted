@@ -89,7 +89,8 @@ export const test = base.extend<{ noted: Launched }>({
       console.warn(`[app-log tail] ${testInfo.title}\n${appLog.slice(-3000)}`);
     }
     await current.app.close().catch(() => undefined);
-    fs.rmSync(base, { recursive: true, force: true });
+    // On Windows the browser keeps a file in the profile (DIPS) open for a moment after the app has closed.
+    fs.rmSync(base, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
   },
 });
 

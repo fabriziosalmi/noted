@@ -51,8 +51,13 @@ headers before they ever reach the UI or a log.
 
 ## Filesystem confinement
 
-Note paths are validated (`.md` only, at most one subfolder, no traversal) and
-resolved through symlinks so a link cannot escape the vault. Broad or destructive
+Note paths are validated by one shared rule (`shared/vault/paths.ts`) in the app, the
+MCP server and Git: `.md` only, folders nested at most 16 levels, at most 200 characters
+and 255 bytes per name, no traversal, no absolute path, and **no hidden segment**
+(`.noted/`, `.git/`, `.obsidian/` and the history and trash folders are never reachable
+as notes). Paths are resolved through symlinks, starting from the nearest part that
+exists, so a link anywhere on the way cannot carry a write out of the vault, and the
+vault walk that lists notes never follows a link. Broad or destructive
 operations — wiping the vault, copying it elsewhere — only act on vault roots that
 were explicitly blessed through the native folder picker or a detected cloud path,
 recorded in an allowlist.

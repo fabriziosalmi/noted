@@ -253,19 +253,24 @@ describe('MCP validateNoteName', () => {
   });
 
   it('rejects path traversal and absolute paths', () => {
-    expect(() => validateNoteName('../nota.md')).toThrow('not contain ".."');
-    expect(() => validateNoteName('../../secret.md')).toThrow('not contain ".."');
-    expect(() => validateNoteName('a/../b.md')).toThrow('not contain ".."');
-    expect(() => validateNoteName('/etc/passwd.md')).toThrow('absolute path');
+    expect(() => validateNoteName('../nota.md')).toThrow('Path traversal');
+    expect(() => validateNoteName('../../secret.md')).toThrow('Path traversal');
+    expect(() => validateNoteName('a/../b.md')).toThrow('Path traversal');
+    expect(() => validateNoteName('/etc/passwd.md')).toThrow('Absolute paths');
   });
 
-  it('rejects notes with more than one subfolder level', () => {
-    expect(() => validateNoteName('dir1/dir2/note.md')).toThrow('Only one level of subfolder is allowed');
+  it('accepts notes in nested folders, up to a limit, and never under a hidden folder', () => {
+    expect(() => validateNoteName('dir1/dir2/note.md')).not.toThrow();
+    expect(() => validateNoteName('a/b/c/d/e/f/note.md')).not.toThrow();
+    expect(() => validateNoteName('d/'.repeat(17) + 'note.md')).toThrow('at most 16 levels');
+    for (const hidden of ['.noted/trash/2026/x.md', 'dir/.git/x.md', '.obsidian/x.md']) {
+      expect(() => validateNoteName(hidden), hidden).toThrow('Hidden names');
+    }
   });
 
   it('rejects filenames without .md extension', () => {
-    expect(() => validateNoteName('nota.txt')).toThrow('must end with .md');
-    expect(() => validateNoteName('nota')).toThrow('must end with .md');
+    expect(() => validateNoteName('nota.txt')).toThrow('.md extension');
+    expect(() => validateNoteName('nota')).toThrow('.md extension');
   });
 
   it('rejects segment names with forbidden characters', () => {
@@ -464,12 +469,6 @@ describe('MCP stripUnsafeHtml (Draconian Bypasses)', () => {
   it('handles recursive entity obfuscation', () => {
     const nested = '&amp;#x3C;script&amp;#x3E;alert(1)&amp;#x3C;/script&amp;#x3E;';
     expect(stripUnsafeHtml(nested)).toBe(nested);
-  });
-});
-
-describe('MCP safeNotePath Symlink Traversal', () => {
-  it('rejects path traversal via directory symlinks', () => {
-    expect(() => safeNotePath('symfolder/note.md')).toThrow('Path traversal detected');
   });
 });
 
@@ -1210,17 +1209,6 @@ describe('MCP server additional coverage', () => {
     process.argv = originalArgv;
   });
 
-  it('falls back to path.resolve when realpathSync throws in safeNotePath', async () => {
-    const fsModule = await import('node:fs');
-    const realpathSpy = vi.spyOn(fsModule, 'realpathSync').mockImplementationOnce(() => {
-      throw new Error('FileSystem error');
-    });
-    mockFiles.set('/mockdir/fallback.md', { content: 'test', mtime: new Date(), size: 4 });
-    const pathResult = safeNotePath('fallback.md');
-    expect(pathResult).toBe('/mockdir/fallback.md');
-    realpathSpy.mockRestore();
-  });
-
   it('ignores unreadable directories in listAllNotes', async () => {
     const fsModule = await import('node:fs');
     const readdirSpy = vi.spyOn(fsModule, 'readdirSync').mockImplementationOnce(() => {
@@ -1497,15 +1485,15 @@ describe('MCP server additional coverage', () => {
     expect(mockFiles.has('/mockdir/Nuovo/note.md')).toBe(true);
   });
 
-  it('ignores hidden folders and nested subfolders more than one level deep in listAllNotes', async () => {
+  it('lists notes at any depth in listAllNotes, and ignores hidden folders', async () => {
     mockFiles.set('/mockdir/.hidden/note.md', { content: 'hidden', mtime: new Date(), size: 6 });
     mockFiles.set('/mockdir/Lavoro/nested/note.md', { content: 'nested', mtime: new Date(), size: 6 });
     mockFiles.set('/mockdir/Lavoro/note.md', { content: 'lavoro', mtime: new Date(), size: 6 });
 
     const res = await handleListNotes({});
     expect(res.content[0].text).toContain('Lavoro/note.md');
+    expect(res.content[0].text).toContain('Lavoro/nested/note.md');
     expect(res.content[0].text).not.toContain('.hidden/note.md');
-    expect(res.content[0].text).not.toContain('Lavoro/nested/note.md');
   });
 
   describe('excerpt formatting', () => {

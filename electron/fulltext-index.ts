@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { InvertedIndex } from '../shared/search/invertedIndex.js';
 import { noteToPlainText, deriveTitleFromRelPath } from '../shared/search/textExtract.js';
+import { checkNotePath } from '../shared/vault/paths.js';
+import { walkVault } from '../shared/vault/walk.js';
 
 export interface FullTextResult {
   relPath: string;
@@ -194,6 +196,9 @@ export class FullTextSearchReadModel {
   async refreshFile(dir: string, relPath: string): Promise<void> {
     const state = this.byDir.get(normalizeDir(dir));
     if (!state) return;
+    // The watcher reports any file that changes; only a note the walk would list belongs in the index
+    // (not `.obsidian/x.md`, `A/.trash/x.md`, history or trash copies).
+    if (checkNotePath(relPath) !== null) return;
     const file = path.join(dir, relPath);
     let stat: fs.Stats;
     try { stat = await fs.promises.stat(file); } catch { if (state.index.has(relPath)) state.index.remove(relPath); return; }
@@ -231,40 +236,18 @@ export class FullTextSearchReadModel {
     let totalBytes = 0;
 
     try {
-      const rootEntries = await fs.promises.readdir(dir, { withFileTypes: true });
-      const dirPromises = rootEntries.map(async (entry) => {
-        if (entry.isDirectory() && !entry.name.startsWith('.')) {
-          const sub = path.join(dir, entry.name);
-          try {
-            const subEntries = await fs.promises.readdir(sub, { withFileTypes: true });
-            return subEntries
-              .filter(f => !f.isDirectory() && f.name.endsWith('.md'))
-              .map(f => ({ relPath: `${entry.name}/${f.name}`, filePath: path.join(sub, f.name) }));
-          } catch {
-            return [];
-          }
-        } else if (!entry.isDirectory() && entry.name.endsWith('.md')) {
-          return [{ relPath: entry.name, filePath: path.join(dir, entry.name) }];
-        }
-        return [];
-      });
-
-      const nestedFiles = await Promise.all(dirPromises);
-      const allCandidates = nestedFiles.flat();
-
+      // Every note at any depth (never a hidden folder, never a link); the cap below is applied to the most recent ones.
+      const walked = await walkVault(dir);
       const validCandidates: { relPath: string; filePath: string }[] = [];
-      for (const cand of allCandidates) {
+      for (const relPath of walked.notes) {
         try {
-          validateFileName(cand.relPath);
-          validCandidates.push(cand);
+          validateFileName(relPath);
+          validCandidates.push({ relPath, filePath: path.join(dir, relPath) });
         } catch {
           // skip
         }
-        if (validCandidates.length >= FT_MAX_FILES) {
-          truncated = true;
-          break;
-        }
       }
+      if (walked.truncated) truncated = true;
 
       const stattedFiles = (await mapLimit(validCandidates, FT_READ_CONCURRENCY, async (cand) => {
         try {
@@ -277,8 +260,12 @@ export class FullTextSearchReadModel {
         (f): f is { relPath: string; filePath: string; size: number; mtimeMs: number } => f !== null
       );
 
-      // Most recent first: if a safety cap ever bites, it drops the oldest notes.
+      // Most recent first: if a safety cap ever bites, it drops the oldest notes (not whichever the walk met last).
       stattedFiles.sort((a, b) => b.mtimeMs - a.mtimeMs);
+      if (stattedFiles.length > FT_MAX_FILES) {
+        truncated = true;
+        stattedFiles.length = FT_MAX_FILES;
+      }
 
       // Read with bounded concurrency (a vault of thousands of notes would
       // otherwise open them all at once and run out of file descriptors).

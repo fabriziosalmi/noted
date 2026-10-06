@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { validateFileName, validateFolderName, stripUnsafeHtml, formatAppleNoteToMarkdown, isAppOwnVaultEvent } from './ipc-utils';
+import { validateFileName, validateFolderName, validateFolderPath, stripUnsafeHtml, formatAppleNoteToMarkdown, isAppOwnVaultEvent } from './ipc-utils';
 import type TurndownService from 'turndown';
 
 describe('validateFileName', () => {
@@ -133,7 +133,7 @@ describe('validateFolderName', () => {
     expect(() => validateFolderName("L'ufficio")).not.toThrow();
     expect(() => validateFolderName("Progetti, Idee")).not.toThrow();
     expect(() => validateFolderName("📝 Folder")).not.toThrow();
-    expect(() => validateFolderName("Folder & Co.")).not.toThrow();
+    expect(() => validateFolderName("Folder & Co")).not.toThrow();
     expect(() => validateFolderName("Lavoro + Personale")).not.toThrow();
     expect(() => validateFolderName("tag #urgent")).not.toThrow();
   });
@@ -154,6 +154,42 @@ describe('validateFolderName', () => {
   it('rejects invalid characters', () => {
     expect(() => validateFolderName('Lavoro;')).toThrow('Invalid folder name');
     expect(() => validateFolderName('Lavoro$')).toThrow('Invalid folder name');
+  });
+
+  it('rejects what no filesystem keeps: a trailing dot or space (notes inside such a folder were never accepted), hidden names', () => {
+    expect(() => validateFolderName('Folder & Co.')).toThrow('cannot end with a dot or space');
+    expect(() => validateFolderName('Lavoro ')).toThrow('cannot end with a dot or space');
+    expect(() => validateFolderName('.hidden')).toThrow('Hidden names');
+    expect(() => validateFolderName('con')).toThrow('reserved device name');
+  });
+});
+
+describe('validateFolderPath', () => {
+  it('accepts a path of folders at any depth', () => {
+    for (const p of ['Lavoro', 'Lavoro/Q4', 'a/b/c/d/e/f']) expect(() => validateFolderPath(p), p).not.toThrow();
+  });
+  it('refuses traversal, absolute and hidden paths, empty segments, and too many levels', () => {
+    expect(() => validateFolderPath('a/../b')).toThrow('Path traversal');
+    expect(() => validateFolderPath('/etc')).toThrow('Absolute paths');
+    expect(() => validateFolderPath('a/.git')).toThrow('Hidden names');
+    expect(() => validateFolderPath('a//b')).toThrow('empty');
+    expect(() => validateFolderPath('d/'.repeat(17) + 'x')).toThrow('at most 16 levels');
+  });
+});
+
+describe('validateFileName at depth', () => {
+  it('accepts a note in nested folders', () => {
+    expect(() => validateFileName('Work/Q4/Goals.md')).not.toThrow();
+    expect(() => validateFileName('a/b/c/d/e.md')).not.toThrow();
+  });
+  it('refuses a hidden segment at any depth: MCP trash copies, Git and Obsidian files are not notes', () => {
+    for (const p of ['.noted/trash/2026-10-06/x.md', '.git/x.md', 'a/.obsidian/x.md', 'a/b/.hidden/x.md', '.noted_history/n.md/1.md']) {
+      expect(() => validateFileName(p), p).toThrow('Hidden names');
+    }
+  });
+  it('refuses too deep and too long', () => {
+    expect(() => validateFileName('d/'.repeat(17) + 'n.md')).toThrow('at most 16 levels');
+    expect(() => validateFileName('a'.repeat(200) + '.md')).toThrow('too long');
   });
 });
 

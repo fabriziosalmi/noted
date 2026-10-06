@@ -1,45 +1,25 @@
 import type TurndownService from 'turndown';
 import { stripUnsafeHtml } from '../shared/security/htmlPolicy.node.js';
+import { checkFolderPath, checkNotePath } from '../shared/vault/paths.js';
 
-function isAbsolutePath(p: string): boolean {
-  // Covers Unix (/foo) and Windows (C:\foo or C:/foo) absolute paths
-  return p.startsWith('/') || /^[A-Za-z]:[/\\]/.test(p);
-}
-
+/** A note path inside the vault, at any depth: see shared/vault/paths.ts for the rules and why they are what they are. */
 export function validateFileName(fileName: unknown): asserts fileName is string {
-  if (!fileName || typeof fileName !== 'string') throw new Error('File name must be a non-empty string');
-  if (isAbsolutePath(fileName)) throw new Error('Absolute paths are not allowed');
-  if (fileName.includes('..')) throw new Error('Path traversal is not allowed');
-  // Allow single-level subfolder: "folder/note.md" — no nested slashes
-  const segments = fileName.split('/');
-  if (segments.length > 2) throw new Error('Only one level of subfolder is allowed');
-  for (const seg of segments) {
-    const base = seg.endsWith('.md') ? seg.slice(0, -3) : seg;
-    if (!base.trim()) {
-      throw new Error('Invalid file name: segment cannot be empty or whitespace only');
-    }
-    // eslint-disable-next-line no-control-regex
-    if (/[\x00-\x1F\x7F\\/:*?"<>|;`$]/.test(base)) {
-      throw new Error('Invalid file name: contains reserved characters (\\ / : * ? " < > | ; ` $)');
-    }
-    // Windows: reserved device names, and trailing dot/space, are unwritable.
-    if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(base)) {
-      throw new Error('Invalid file name: reserved device name');
-    }
-    if (/[. ]$/.test(base)) {
-      throw new Error('Invalid file name: cannot end with a dot or space');
-    }
-  }
-  if (!fileName.endsWith('.md')) throw new Error('File must have .md extension');
+  const problem = checkNotePath(fileName);
+  if (problem) throw new Error(problem);
 }
 
+/** One folder name, not a path (a new folder, or a folder renamed within its parent). */
 export function validateFolderName(name: unknown): asserts name is string {
   if (!name || typeof name !== 'string' || !name.trim()) throw new Error('Folder name must be a non-empty string');
   if (name.includes('..') || name.includes('/') || name.includes('\\')) throw new Error('Invalid folder name');
-  // eslint-disable-next-line no-control-regex
-  if (/[\x00-\x1F\x7F\\/:*?"<>|;`$]/.test(name)) {
-    throw new Error('Invalid folder name: contains reserved characters (\\ / : * ? " < > | ; ` $)');
-  }
+  const problem = checkFolderPath(name);
+  if (problem) throw new Error(problem);
+}
+
+/** A folder path inside the vault, at any depth ("Work/Q4"). */
+export function validateFolderPath(folder: unknown): asserts folder is string {
+  const problem = checkFolderPath(folder);
+  if (problem) throw new Error(problem);
 }
 
 export { stripUnsafeHtml };

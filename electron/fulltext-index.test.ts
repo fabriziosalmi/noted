@@ -161,3 +161,46 @@ describe('FullTextSearchReadModel as the retrieval source for the AI chat', () =
   });
 });
 
+
+describe('FullTextSearchReadModel with nested folders (#65)', () => {
+  const vaultOf = (files: Record<string, string>): string => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'noted-ft-deep-'));
+    for (const [name, text] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(root, name)), { recursive: true });
+      fs.writeFileSync(path.join(root, name), text, 'utf8');
+    }
+    return root;
+  };
+  const strict = (name: string): void => {
+    if (!name.endsWith('.md')) throw new Error('invalid name');
+  };
+
+  it('finds notes at any depth, with their full path, and never one under a hidden folder', async () => {
+    const root = vaultOf({
+      'Top.md': 'zebra at the top',
+      'a/b/c/Deep.md': 'zebra deep down',
+      '.obsidian/plugins/Plugin.md': 'zebra in a plugin',
+      'a/.trash/Gone.md': 'zebra in the trash',
+      '.noted/trash/2026/Old.md': 'zebra in the MCP trash',
+    });
+    const idx = new FullTextSearchReadModel();
+    const found = await idx.search(root, 'zebra', strict);
+    expect(found.results.map(r => r.relPath).sort()).toEqual(['Top.md', 'a/b/c/Deep.md']);
+  });
+
+  it('a change the watcher reports under a hidden folder, or a name no note may have, is not indexed', async () => {
+    const root = vaultOf({ 'A.md': 'alpha' });
+    const idx = new FullTextSearchReadModel();
+    await idx.search(root, 'alpha', strict);
+    for (const name of ['.obsidian/x.md', 'a/.trash/y.md', 'a/b:c.md', '.noted/trash/2026/z.md']) {
+      fs.mkdirSync(path.dirname(path.join(root, name)), { recursive: true });
+      fs.writeFileSync(path.join(root, name), 'quokka', 'utf8');
+      await idx.refreshFile(root, name);
+    }
+    expect((await idx.search(root, 'quokka', strict)).results).toEqual([]);
+    fs.mkdirSync(path.join(root, 'x/y'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'x/y/Ok.md'), 'quokka', 'utf8');
+    await idx.refreshFile(root, 'x/y/Ok.md');
+    expect((await idx.search(root, 'quokka', strict)).results.map(r => r.relPath)).toEqual(['x/y/Ok.md']);
+  });
+});

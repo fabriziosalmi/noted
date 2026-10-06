@@ -1,3 +1,4 @@
+import { hasHiddenSegment } from '../../shared/vault/paths';
 import fs from 'node:fs';
 import path from 'node:path';
 import { isAppOwnVaultEvent } from '../ipc-utils';
@@ -30,8 +31,9 @@ export function startVaultWatch(): void {
   void vaultIndex.ensure(dir);
   try {
     vaultWatcher = watchVaultTree(watchRoot, (name) => {
-      // The app's own bookkeeping (version history, MCP trash and config) is not a note change.
-      if (!name.endsWith('.md') || name.includes('.noted_history/') || name.startsWith('.noted/')) return;
+      // Only a note is a note change: not the app's own bookkeeping (version history, MCP trash and config), and not
+      // anything under a hidden folder at any depth (.obsidian, .git, .trash, ...).
+      if (!name.endsWith('.md') || hasHiddenSegment(name)) return;
       // Every change, the app's own included, goes through the index: it compares
       // mtime and size, so an echo of our own save costs a stat and nothing else.
       vaultIndex.scheduleTouch(dir, name);
