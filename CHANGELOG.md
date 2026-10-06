@@ -8,6 +8,11 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Field types for views** (#20, Views): from the frontmatter alone the app works out which fields exist and what each is: text,
+  number, date (`2026-10-06`, with a real month and day), true/false, a list, or a choice (a few different words, or many that repeat),
+  with the values in use and how many notes use each, most used first. Notes that disagree about a field (numbers and words, a date
+  and "next week") make it text and are marked mixed, never an error. These drive the column pickers, cell editors, filters and
+  board columns that come next.
 - **Saved views: the model and where they live** (#19, Views): a view is a saved query over the notes' frontmatter (where its
   rows come from: all notes, a folder or a tag; filters; sort; a board's grouping field; table columns; table or board). Views are
   kept in `.noted-views.json` at the top of the vault, so they travel with the notes and sync through Git (the file is plain,
