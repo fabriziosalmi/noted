@@ -96,6 +96,20 @@ describe('ViewBoard', () => {
     await waitFor(() => expect(notice).toHaveBeenCalledWith('This property was changed elsewhere; the current value is shown.', 'error'));
   });
 
+  it('adds a card to a column: a new note that starts with that column\'s value', async () => {
+    const createNote = vi.fn(async () => undefined);
+    useStore.setState({ createNote });
+    show();
+    fireEvent.click(screen.getByRole('button', { name: 'Add card: done' }));
+    await waitFor(() => expect(createNote).toHaveBeenCalledTimes(1));
+    const [name, content] = createNote.mock.calls[0] as unknown as [string, string];
+    expect(name).toMatch(/^New_Note_\d+\.md$/);
+    expect(decodeURIComponent(content)).toContain('status: done');
+    fireEvent.click(screen.getByRole('button', { name: 'Add card: No value' }));
+    await waitFor(() => expect(createNote).toHaveBeenCalledTimes(2));
+    expect(decodeURIComponent((createNote.mock.calls[1] as unknown as [string, string])[1])).not.toContain('status');
+  });
+
   it('asks for a group field when there is none, and then shows the board', () => {
     show({ groupBy: undefined });
     const choose = screen.getByTestId('view-board-choose');

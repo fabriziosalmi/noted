@@ -29,6 +29,13 @@ The gear at the top right of a view opens its settings:
 Click a column header to sort by it: ascending, then descending, then not at all. Numbers sort by size, text without
 caring about case (`item 9` comes before `item 10`), and notes with no value for the property always come last.
 
+## Making a note from a view
+
+**New note** at the top of a view makes a note and opens it for writing. It belongs to the view from the first moment: it is
+put in the view's folder, given the view's tag, and given the property of every "is" filter, so it does not disappear from the
+view the moment it exists. On a board, **Add card** at the foot of a column makes a note that starts with that column's value
+(none, for the *No value* column). The file is named after the title you type, like any new note.
+
 ## The board
 
 The two buttons at the top of a view switch between the **table** and the **board**. A board has a column for each value of a

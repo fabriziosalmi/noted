@@ -863,5 +863,7 @@
   "viewColumnKeep": "Tieni questa colonna",
   "viewColumnRemove": "Rimuovi colonna",
   "viewCardMove": "Sposta \"{name}\" in",
-  "viewListNoMove": "Una nota sta in ogni colonna della sua lista, quindi qui le schede non si spostano; modificale dalla tabella."
+  "viewListNoMove": "Una nota sta in ogni colonna della sua lista, quindi qui le schede non si spostano; modificale dalla tabella.",
+  "viewNewRow": "Nuova nota",
+  "viewAddCard": "Aggiungi scheda"
 }
