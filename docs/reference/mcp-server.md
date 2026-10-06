@@ -102,9 +102,11 @@ over stdio too. (`--trash-retention-days N` or the
 The `.noted/` folder is never listed, searched or committed by Git sync.
 :::
 
-Note names are validated the same way as in the app: `.md` files only, at most
-one subfolder deep, no path traversal, and the path is resolved through symlinks
-and confined to the vault root.
+Note names are validated the same way as in the app: `.md` files only, folders
+nested up to 16 levels, no path traversal, no hidden folder (a name with a segment
+starting with `.`), and the path is resolved through symlinks (from the nearest part
+that exists) and confined to the vault root. `list_notes` with a folder lists
+everything under it, sub-folders included.
 
 ## Agent-workflow tools
 

@@ -13,6 +13,7 @@ import simpleGit, { type SimpleGit, type DefaultLogFields } from 'simple-git';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { withRepoLock } from './repo-lock';
+import { checkNotePath } from '../shared/vault/paths';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -449,9 +450,8 @@ export async function createGitHubPr(params: {
 const MAX_DIFF_BYTES = 2 * 1024 * 1024;
 
 function assertNoteFile(file: string): void {
-  if (typeof file !== 'string' || !isNotePath(file) || file.includes('..') || path.isAbsolute(file) || file.split('/').length > 2) {
-    throw new Error('Not a note file');
-  }
+  // The same rule as every other note path (any depth, nothing hidden, no traversal), and a note on disk's name.
+  if (typeof file !== 'string' || !isNotePath(file) || checkNotePath(file) !== null) throw new Error('Not a note file');
 }
 
 /** What a note was at the last commit, and what it is now. Never throws: failure is a result. */

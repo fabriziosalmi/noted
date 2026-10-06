@@ -43,6 +43,11 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Internal: notes can sit in folders at any depth** (#65, first part: the foundations). One path rule now covers the app, the MCP server and Git
+  (`.md`, up to 16 levels, nothing hidden, no traversal), one vault walk lists notes for the index, the search and the MCP server, and the
+  MCP `list_notes`, `create_note`, trash and restore work at any depth. The sidebar still shows one level until the next parts land.
+  Closes a hole that lifting the old depth limit would have opened: a symbolic link in a folder above a new deep note could have carried an
+  MCP write out of the vault.
 - **Internal: converting a vault between HTML and Markdown** (#60, second part): a dry-run report per note, a verified zip
   backup plus each note's old text in its history, notes written and read back one by one (any failure restores everything),
   the format marker changed last, resumable, and reversible. Typed `[[links]]` are now kept as links through the Markdown

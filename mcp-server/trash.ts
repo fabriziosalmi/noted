@@ -14,6 +14,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
+import { walkVaultSync } from '../shared/vault/walk';
 
 export const DEFAULT_RETENTION_DAYS = 30;
 export const MAX_RETENTION_DAYS = 3650;
@@ -85,15 +86,10 @@ export function listTrash(notesDir: string): TrashItem[] {
   for (const stampDir of readDirs(trashRoot(notesDir))) {
     const trashedAt = stampDir.isDirectory() ? parseStamp(stampDir.name) : null;
     if (!trashedAt) continue;
-    const base = path.join(trashRoot(notesDir), stampDir.name);
-    for (const entry of readDirs(base)) {
-      if (entry.isFile() && entry.name.endsWith('.md')) {
-        out.push({ name: entry.name, stamp: stampDir.name, trashedAt });
-      } else if (entry.isDirectory()) {
-        for (const inner of readDirs(path.join(base, entry.name))) {
-          if (inner.isFile() && inner.name.endsWith('.md')) out.push({ name: `${entry.name}/${inner.name}`, stamp: stampDir.name, trashedAt });
-        }
-      }
+    // A note trashed from any depth sits under the same path it had: list them all, or a deep note could never
+    // be restored and would be purged with the rest when its time came.
+    for (const name of walkVaultSync(path.join(trashRoot(notesDir), stampDir.name)).notes) {
+      out.push({ name, stamp: stampDir.name, trashedAt });
     }
   }
   return out.sort((a, b) => b.trashedAt.getTime() - a.trashedAt.getTime() || b.stamp.localeCompare(a.stamp));

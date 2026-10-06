@@ -21,6 +21,8 @@ import {
   type WikiLink, type Heading,
 } from '../shared/vault/extract.js';
 import { buildLinkResolver, linkPointsAtNote } from '../shared/vault/resolve.js';
+import { checkNotePath } from '../shared/vault/paths.js';
+import { walkVault } from '../shared/vault/walk.js';
 import { localImageRefs } from '../shared/vault/attachments.js';
 import { readVaultFormat, vaultMarkerPath } from '../shared/vault/formatFile.js';
 import type { NoteFormat } from '../shared/vault/format.js';
@@ -155,14 +157,12 @@ export class VaultIndex {
   private key(dir: string): string { return path.resolve(dir); }
 
   /**
-   * Is this a note the app would list? Notes live at the vault root or one folder
-   * down, in non-hidden folders: bookkeeping such as `.noted/trash/x.md` or
-   * `.noted_history/...` must never be indexed, whichever way the name arrives.
+   * Is this a note the app would list? Notes live in the vault at any depth, but never under a hidden folder:
+   * bookkeeping such as `.noted/trash/x.md` or `.noted_history/...` must never be indexed, whichever way the
+   * name arrives (the same rule as everywhere else: shared/vault/paths.ts).
    */
   private indexable(name: string): boolean {
-    const parts = name.split('/');
-    if (parts.length > 2 || !name.endsWith('.md')) return false;
-    if (parts.some(p => p === '' || p.startsWith('.'))) return false;
+    if (checkNotePath(name) !== null) return false;
     if (this.opts.validateFileName) {
       try { this.opts.validateFileName(name); } catch { return false; }
     }
@@ -367,26 +367,11 @@ export class VaultIndex {
   // ── scanning ─────────────────────────────────────────────────────────────
 
   private async listFiles(vault: string): Promise<{ name: string; file: string }[]> {
-    const out: { name: string; file: string }[] = [];
-    let root: fs.Dirent[];
-    try { root = await fs.promises.readdir(vault, { withFileTypes: true }); } catch { return out; }
-    const subs: string[] = [];
-    for (const e of root) {
-      if (e.isDirectory()) { if (!e.name.startsWith('.')) subs.push(e.name); }
-      else if (e.name.endsWith('.md')) out.push({ name: e.name, file: path.join(vault, e.name) });
-    }
-    const nested = await Promise.all(subs.map(async s => {
-      try {
-        return (await fs.promises.readdir(path.join(vault, s), { withFileTypes: true }))
-          .filter(f => !f.isDirectory() && f.name.endsWith('.md'))
-          .map(f => ({ name: `${s}/${f.name}`, file: path.join(vault, s, f.name) }));
-      } catch { return []; }
-    }));
-    out.push(...nested.flat());
+    const { notes } = await walkVault(vault, { maxNotes: MAX_FILES });
     const valid = this.opts.validateFileName
-      ? out.filter(f => { try { this.opts.validateFileName!(f.name); return true; } catch { return false; } })
-      : out;
-    return valid.slice(0, MAX_FILES);
+      ? notes.filter(name => { try { this.opts.validateFileName!(name); return true; } catch { return false; } })
+      : notes;
+    return valid.map(name => ({ name, file: path.join(vault, name) }));
   }
 
   private async scan(st: DirState): Promise<void> {
