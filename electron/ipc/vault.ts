@@ -5,6 +5,7 @@ import { validateFileName } from '../ipc-utils';
 import { writeVaultConfig, isValidRetentionDays } from '../../shared/vault-config';
 import { previewRewrite } from '../link-rewrite';
 import { readVaultFormat } from '../../shared/vault/formatFile';
+import { isObsidianVault } from '../../shared/vault/obsidian';
 import { logEvent, newRequestId } from '../structured-log';
 import { assertNotMigrating } from '../core/migrating';
 import { getTargetDir, blessVaultRoot, isBlessedRoot, setActiveVaultDir } from '../core/paths';
@@ -26,7 +27,8 @@ export function registerVaultHandlers(): void {
   ipcMain.handle('get-vault-format', (_, syncDir?: string) => {
     try {
       if (syncDir !== undefined && typeof syncDir !== 'string') throw new Error('syncDir must be a string');
-      return { success: true, data: readVaultFormat(getTargetDir(syncDir)) };
+      const dir = getTargetDir(syncDir);
+      return { success: true, data: readVaultFormat(dir), shared: isObsidianVault(dir) };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

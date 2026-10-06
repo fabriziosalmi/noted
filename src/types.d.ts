@@ -79,7 +79,9 @@ declare global {
       migrationRevert: (syncDir?: string) => Promise<MigrationOutcome>;
       onMigrationProgress: (cb: (p: MigrationProgress) => void) => () => void;
       onVaultFormatChanged: (cb: () => void) => () => void;
-      getVaultFormat: (syncDir?: string) => Promise<{ success: boolean; data?: 'html' | 'markdown'; error?: string }>;
+      getVaultFormat: (
+        syncDir?: string,
+      ) => Promise<{ success: boolean; data?: 'html' | 'markdown'; shared?: boolean; error?: string }>;
       setVaultConfig: (config: { trashRetentionDays?: number }, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       saveAttachment: (bytes: Uint8Array, folder?: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       scanEmbeddedImages: (syncDir?: string) => Promise<{ success: boolean; data?: EmbeddedImagesReport; error?: string }>;

@@ -4,16 +4,21 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import { VAULT_MARKER, isNoteFormat, type NoteFormat } from './format';
+import { isObsidianVault } from './obsidian';
 
 export const vaultMarkerPath = (notesDir: string): string => path.join(notesDir, VAULT_MARKER);
 
-/** Never throws: no marker (or an unreadable or unknown one) means a vault from before the marker existed: HTML. */
+/**
+ * Never throws. A marker says it. With no marker file at all, an Obsidian vault (a `.obsidian/` folder) is
+ * Markdown, which is how it can be opened in place without writing anything into it; any other vault with no
+ * marker (or an unreadable or unknown one) is from before the marker existed: HTML.
+ */
 export function readVaultFormat(notesDir: string): NoteFormat {
   try {
     const raw = JSON.parse(fs.readFileSync(vaultMarkerPath(notesDir), 'utf8')) as { format?: unknown } | null;
     return raw && isNoteFormat(raw.format) ? raw.format : 'html';
-  } catch {
-    return 'html';
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'ENOENT' && isObsidianVault(notesDir) ? 'markdown' : 'html';
   }
 }
 

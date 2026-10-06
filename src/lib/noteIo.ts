@@ -48,12 +48,14 @@ export function canonicalWire(wire: string, format: NoteFormat): string {
 // ── the vault's format, per vault directory ────────────────────────────────
 
 const formats = new Map<string, NoteFormat>();
+/** Vaults another app shares (an Obsidian vault opened in place): their files are not ours to rename. */
+const shared = new Map<string, boolean>();
 const asking = new Map<string, Promise<NoteFormat>>();
 const keyOf = (syncDir?: string): string => syncDir ?? '';
 
 /** The format of the vault at `syncDir`, asked of the main process once (concurrent callers share the answer) and then remembered. */
 export function vaultFormatOf(
-  api: { getVaultFormat?: (syncDir?: string) => Promise<{ success: boolean; data?: NoteFormat }> },
+  api: { getVaultFormat?: (syncDir?: string) => Promise<{ success: boolean; data?: NoteFormat; shared?: boolean }> },
   syncDir?: string,
 ): Promise<NoteFormat> {
   const key = keyOf(syncDir);
@@ -65,6 +67,7 @@ export function vaultFormatOf(
       const res = await api.getVaultFormat?.(syncDir).catch(() => undefined);
       const format: NoteFormat = res?.success && res.data === 'markdown' ? 'markdown' : 'html';
       formats.set(key, format);
+      shared.set(key, res?.success === true && res.shared === true);
       return format;
     })().finally(() => asking.delete(key));
     asking.set(key, pending);
@@ -77,8 +80,20 @@ export function peekVaultFormat(syncDir?: string): NoteFormat {
   return formats.get(keyOf(syncDir)) ?? 'html';
 }
 
+/** Is this vault shared with another app (Obsidian)? False until the format has been asked. */
+export function peekVaultShared(syncDir?: string): boolean {
+  return shared.get(keyOf(syncDir)) ?? false;
+}
+
 /** After a migration (or a change from outside): forget what was remembered. */
 export function forgetVaultFormat(syncDir?: string): void {
-  if (syncDir === undefined) { formats.clear(); asking.clear(); }
-  else { formats.delete(keyOf(syncDir)); asking.delete(keyOf(syncDir)); }
+  if (syncDir === undefined) {
+    formats.clear();
+    shared.clear();
+    asking.clear();
+    return;
+  }
+  formats.delete(keyOf(syncDir));
+  shared.delete(keyOf(syncDir));
+  asking.delete(keyOf(syncDir));
 }

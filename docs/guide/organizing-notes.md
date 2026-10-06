@@ -127,3 +127,29 @@ removes the sources, so treat it as a deliberate action.
 ## Next steps
 
 - **[Search](/guide/search)** — find anything across the vault.
+
+## Opening an Obsidian vault
+
+Point Noted at an Obsidian vault with **Settings → Sync → Choose custom folder** and it is used
+where it is: no copy, no conversion, and **nothing in it is rewritten just because you opened it**.
+A note is written only when you edit it, and then only that note.
+
+- A folder with a `.obsidian/` folder is read as Markdown. `.obsidian/`, `.trash/` and every other
+  dot-folder are ignored.
+- **Links follow Obsidian's rules.** Case does not matter; `[[Plan]]` finds `Work/Plan.md` wherever it
+  sits; `[[Work/Plan]]` means that note; when two notes share a name the one next to the note holding
+  the link wins, then the shortest path. Backlinks, following a link and renaming all use the same rule,
+  and renaming a note rewrites only the links that would no longer find it.
+- **Images** go to the folder named in Obsidian's *Default location for new attachments* when that is one
+  folder at the vault's root. Other choices (next to the note, a subfolder of it) are not supported, and
+  Noted's own **Images folder** setting applies.
+- **File names stay yours.** *Title follows filename* does not rename notes in an Obsidian vault.
+- A note's formatting is kept as you wrote it until you edit that note; saving it then writes it the way
+  Noted does (see [Note format](/guide/editor#note-format)). Frontmatter is never reformatted.
+- Noted keeps what it needs (a note's earlier versions) in hidden folders inside the vault; Obsidian ignores them.
+
+::: warning Folders deeper than one level
+Noted shows notes at the vault's top level and one folder down. Notes in deeper folders are not listed
+yet (nested folders are planned). They are not touched either.
+:::
+

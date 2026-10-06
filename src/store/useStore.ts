@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { marked } from 'marked';
-import { vaultFormatOf } from '../lib/noteIo';
+import { peekVaultShared, vaultFormatOf } from '../lib/noteIo';
 import { convertTaskListsToTiptap } from '../lib/listUtils';
 import type { NoteTemplate } from '../lib/templates';
 import { otherVersionName } from '../lib/externalChange';
@@ -791,6 +791,8 @@ export const useStore = create<NoteState>()(
   syncActiveNoteTitle: async (title: string) => {
     const { activeNoteName, settings } = get();
     if (!activeNoteName || settings.titleFollowsFilename === false) return;
+    // An Obsidian vault opened in place: another app owns these file names (links in it, and in its plugins, use them).
+    if (peekVaultShared(settings.syncDirectory || undefined)) return;
     const slash = activeNoteName.lastIndexOf('/');
     const folder = slash >= 0 ? activeNoteName.slice(0, slash + 1) : '';
     const currentStem = activeNoteName.slice(slash + 1).replace(/\.md$/, '');

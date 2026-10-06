@@ -5,7 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { VaultIndex } from './vault-index';
 import { applyRewrite, planRewrite, previewRewrite, type RewriteDeps } from './link-rewrite';
-import { parseWikilinks, linkPointsAt } from '../shared/vault/extract';
+import { parseWikilinks } from '../shared/vault/extract';
+import { buildLinkResolver } from '../shared/vault/resolve';
 
 let dir: string;
 let index: VaultIndex;
@@ -74,12 +75,32 @@ describe('applyRewrite', () => {
     expect(read('Work/Idea.md')).toBe('<p>[[New]]</p>');
   });
 
-  it('handles a move between folders (the link target is the path)', async () => {
-    write('Plan.md', 'x'); write('Ref.md', '<p>[[Plan]]</p>');
+  it('a move between folders leaves a bare name alone (it still finds the note, as in Obsidian) and rewrites a path', async () => {
+    write('Plan.md', 'x'); write('Ref.md', '<p>[[Plan]] and [[Plan.md|p]]</p>'); write('Pathy.md', '<p>[[Plan.md]]</p>');
     await index.ensure(dir);
     renameOnDisk('Plan.md', 'Archive/Plan.md');
-    await applyRewrite(dir, [{ from: 'Plan.md', to: 'Archive/Plan.md' }], deps);
-    expect(read('Ref.md')).toBe('<p>[[Archive/Plan]]</p>');
+    const out = await applyRewrite(dir, [{ from: 'Plan.md', to: 'Archive/Plan.md' }], deps);
+    expect(read('Ref.md')).toBe('<p>[[Plan]] and [[Plan.md|p]]</p>');
+    expect(out.links).toBe(0);
+  });
+
+  it('a link written with the old folder path follows the note to its new folder', async () => {
+    write('Work/Plan.md', 'x'); write('Ref.md', '<p>[[Work/Plan]] [[plan]]</p>');
+    await index.ensure(dir);
+    renameOnDisk('Work/Plan.md', 'Archive/Plan.md');
+    await applyRewrite(dir, [{ from: 'Work/Plan.md', to: 'Archive/Plan.md' }], deps);
+    expect(read('Ref.md')).toBe('<p>[[Archive/Plan]] [[plan]]</p>'); // the bare one still finds it
+  });
+
+  it('a bare link to a note in a folder is renamed bare, and a same-named note elsewhere is not touched', async () => {
+    write('Work/Plan.md', 'x'); write('Life/Garden.md', 'y'); write('Life/Plan.md', 'z');
+    write('Home.md', '<p>[[Plan]] [[Garden]]</p>'); write('Work/Notes.md', '<p>[[Plan]]</p>');
+    await index.ensure(dir);
+    renameOnDisk('Work/Plan.md', 'Work/Roadmap.md');
+    await applyRewrite(dir, [{ from: 'Work/Plan.md', to: 'Work/Roadmap.md' }], deps);
+    // from Work/Notes.md, "Plan" meant the neighbour Work/Plan.md; from Home.md it meant Life/Plan.md (shortest, then alphabetical)
+    expect(read('Work/Notes.md')).toBe('<p>[[Roadmap]]</p>');
+    expect(read('Home.md')).toBe('<p>[[Plan]] [[Garden]]</p>');
   });
 
   it('applies a batch (folder rename) in one pass', async () => {
@@ -160,12 +181,12 @@ describe('invariant: renames never create a dangling link', () => {
     }
     await index.ensure(dir);
 
-    const resolves = (target: string, notes: string[]) => notes.some(n => linkPointsAt(target, n));
+    const resolves = (target: string, notes: string[], from: string) => buildLinkResolver(notes).resolve(target, from) !== null;
     const allNotes = () => index.names(dir);
     const danglingNow = () => {
       const notes = allNotes();
       const out: string[] = [];
-      for (const n of notes) for (const l of parseWikilinks(read(n))) if (!resolves(l.target, notes)) out.push(`${n} -> ${l.target}`);
+      for (const n of notes) for (const l of parseWikilinks(read(n))) if (!resolves(l.target, notes, n)) out.push(`${n} -> ${l.target}`);
       return out.sort();
     };
     const baseline = danglingNow(); // only "Never existed" links, one per note

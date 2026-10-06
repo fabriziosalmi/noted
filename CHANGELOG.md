@@ -8,6 +8,11 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Open an Obsidian vault where it is.** Point Noted at the folder (Settings → Sync → Choose custom folder): it is read as Markdown,
+  `.obsidian/` and `.trash/` are ignored, nothing is rewritten, renamed or added by opening notes, and only a note you edit is written.
+  Links resolve the way Obsidian resolves them (`[[Plan]]` finds `Work/Plan.md`, case does not matter), for backlinks, following a link and
+  renames alike, and pasted images go to Obsidian's attachment folder when it names one. Notes in folders more than one level deep are not
+  shown yet.
 - **Convert your vault to Markdown** (Settings → Editor → Note format). Notes made by earlier versions are HTML inside `.md`
   files; this turns each into ordinary Markdown that Obsidian, VS Code and Git diffs read well. It shows a report first and
   changes nothing until you confirm, makes a zip copy of every note and keeps each note's old text in its history, rewrites the
@@ -19,6 +24,12 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`read_note` returns structured content** (MCP): the parsed YAML frontmatter, the raw frontmatter block, and the body, with a
   `schemaVersion` (2). In a Markdown vault the note is returned once, as Markdown, instead of as plain text plus HTML, which is
   far fewer tokens for an agent. HTML vaults keep the previous text layout; the new fields are additive.
+
+### Fixed
+
+- **Opening a note no longer saves it.** The editor used to write back the text it had just loaded, which changed the file's modification
+  time and added a history snapshot for a note you had only looked at.
+- **A link by bare name finds the note in a folder** (`[[Plan]]` for `Work/Plan.md`) instead of offering to create a new, empty `Plan`.
 
 ### Changed
 

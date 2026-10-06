@@ -45,6 +45,9 @@ export function writeVaultConfig(notesDir: string, patch: VaultConfig): VaultCon
   }
   const next: VaultConfig = { ...readVaultConfig(notesDir), ...patch };
   const file = vaultConfigPath(notesDir);
+  // Nothing to say that the defaults do not already say: leave a vault we have not been asked to change as it is
+  // (an Obsidian vault opened in place must not gain a folder just by being opened).
+  if (!fs.existsSync(file) && (patch.trashRetentionDays === undefined || patch.trashRetentionDays === DEFAULT_TRASH_RETENTION_DAYS)) return next;
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${crypto.randomBytes(6).toString('hex')}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(next, null, 2) + '\n', 'utf8');

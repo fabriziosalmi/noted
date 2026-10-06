@@ -4,6 +4,7 @@ import { applyRewrite, type RewriteDeps, type RewriteOutcome } from '../link-rew
 import type { NoteRename } from '../../shared/vault/links';
 import type { MigrationDeps } from '../attachments';
 import { DEFAULT_ATTACHMENTS_FOLDER } from '../../shared/vault/attachments';
+import { obsidianAttachmentsFolder } from '../../shared/vault/obsidian';
 import { logEvent } from '../structured-log';
 import { safeResolve } from './paths';
 import { saveSnapshot, writeNoteAtomic } from './note-io';
@@ -57,5 +58,10 @@ export function parseRenames(input: unknown): NoteRename[] {
     return { from, to };
   });
 }
-/** The attachments folder name the renderer asks for; anything invalid falls back to the default. */
-export const attachmentsFolderOf = (v: unknown): string => (typeof v === 'string' && v ? v : DEFAULT_ATTACHMENTS_FOLDER);
+/**
+ * The attachments folder for a vault: the one Obsidian uses when the vault is an Obsidian vault with a fixed
+ * folder (so both apps keep finding each other's images), else the one the renderer asks for; anything invalid
+ * falls back to the default.
+ */
+export const attachmentsFolderFor = (vaultDir: string, requested: unknown): string =>
+  obsidianAttachmentsFolder(vaultDir) ?? (typeof requested === 'string' && requested ? requested : DEFAULT_ATTACHMENTS_FOLDER);
