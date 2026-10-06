@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-06
+
 ### Added
 
 - **Renaming a heading updates the links to it** (#67, part 3): when a heading is renamed and the caret moves on, the
@@ -315,7 +317,8 @@ The first cross-platform release, and the first that keeps itself up to date.
   backlinks, full-text search, multi-provider AI, Git integration, export, quick
   capture, and a built-in MCP server.
 
-[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/fabriziosalmi/noted/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/fabriziosalmi/noted/compare/v1.3.6...v1.4.0
 [1.3.6]: https://github.com/fabriziosalmi/noted/compare/v1.3.5...v1.3.6
 [1.3.5]: https://github.com/fabriziosalmi/noted/compare/v1.3.4...v1.3.5
