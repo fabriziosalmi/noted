@@ -64,7 +64,7 @@ export const isImageTarget = (target: string): boolean => IMAGE_EXT.test(target.
 
 /** `![[photo.png|300]]` or `|300x200`: the width (and height) to show it at, in pixels. */
 export function imageSize(alias: string | undefined): { width?: number; height?: number } {
-  const m = /^(\d{1,4})(?:x(\d{1,4}))?$/.exec((alias ?? '').trim());
-  if (!m) return {};
-  return { width: Number(m[1]), ...(m[2] ? { height: Number(m[2]) } : {}) };
+  const size = /^(\d{1,4})(?:x(\d{1,4}))?$/.exec((alias ?? '').trim());
+  if (!size) return {};
+  return { width: Number(size[1]), ...(size[2] ? { height: Number(size[2]) } : {}) };
 }

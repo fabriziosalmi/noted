@@ -12,8 +12,8 @@ const SOURCE = '# Source\n\nOpening words.\n\n![[Plan#Budget]]\n\n![[Plan#^quote
 test('embeds: show a section, a block and an image in place, read-only, and click through to the source', async ({ noted }) => {
   for (const [name] of SEED_NOTES) fs.rmSync(path.join(noted.vault, name), { force: true });
   fs.writeFileSync(path.join(noted.vault, '.noted-vault.json'), '{"format":"markdown"}\n');
-  fs.mkdirSync(path.join(noted.vault, 'Attachments'));
-  fs.writeFileSync(path.join(noted.vault, 'Attachments', 'pic.png'), PNG);
+  fs.mkdirSync(path.join(noted.vault, 'attachments')); // the default attachments folder (case matters on Linux)
+  fs.writeFileSync(path.join(noted.vault, 'attachments', 'pic.png'), PNG);
   fs.writeFileSync(path.join(noted.vault, 'Plan.md'), PLAN);
   fs.writeFileSync(path.join(noted.vault, 'Source.md'), SOURCE);
   const { win, vault } = await noted.relaunch();

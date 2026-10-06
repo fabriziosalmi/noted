@@ -37,9 +37,9 @@ export function findEmbeds(doc: PMNode): EmbedSite[] {
     if (!node.isTextblock) return true;
     if (node.type.spec.code) return false; // `![[x]]` in a code block is code
     const text = node.textBetween(0, node.content.size, '', LEAF);
-    for (const m of text.matchAll(EMBED)) {
-      const parts = parseWikilinkText(m[0]);
-      if (parts && parts.target) sites.push({ pos: pos + 1 + node.content.size, literal: m[0], parts });
+    for (const found of text.matchAll(EMBED)) {
+      const parts = parseWikilinkText(found[0]);
+      if (parts && parts.target) sites.push({ pos: pos + 1 + node.content.size, literal: found[0], parts });
     }
     return false;
   });
@@ -78,8 +78,9 @@ async function renderNote(site: EmbedSite, body: HTMLElement, ctx: EmbedContext)
     body.replaceChildren(el('span', 'embed-missing', ctx.text('embedMissing', { name: site.parts.target })));
     return;
   }
+  // Parsed into an inert document first (the HTML is already sanitized by embedHtml), then its nodes are adopted.
   const holder = document.createElement('div');
-  holder.innerHTML = shown; // sanitized by embedHtml
+  holder.append(...new DOMParser().parseFromString(shown, 'text/html').body.childNodes);
   body.replaceChildren(holder);
 }
 
@@ -110,7 +111,10 @@ function buildWidget(site: EmbedSite, ctx: EmbedContext): HTMLElement {
   });
 
   if (isImage) renderImage(site, body, ctx);
-  else void renderNote(site, body, ctx).catch(() => body.replaceChildren(el('span', 'embed-missing', ctx.text('embedMissing', { name: site.parts.target }))));
+  else {
+    const missing = (): void => body.replaceChildren(el('span', 'embed-missing', ctx.text('embedMissing', { name: site.parts.target })));
+    void renderNote(site, body, ctx).catch(missing);
+  }
   return box;
 }
 
@@ -134,7 +138,9 @@ export const EmbedExtension = Extension.create({
         const n = (seen.get(site.literal) ?? 0) + 1;
         seen.set(site.literal, n);
         // Keyed by what it shows, so typing elsewhere keeps the same widget (and does not read the note again).
-        return Decoration.widget(site.pos, () => buildWidget(site, ctx), { key: `${site.literal}#${n}`, side: 1, ignoreSelection: true, stopEvent: () => true });
+        return Decoration.widget(site.pos, () => buildWidget(site, ctx), {
+          key: `${site.literal}#${n}`, side: 1, ignoreSelection: true, stopEvent: () => true,
+        });
       }));
     };
     return [new Plugin({
