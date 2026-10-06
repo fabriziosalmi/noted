@@ -20,6 +20,12 @@ link rendered as `[[Note name]]`.
   block: put ` ^some-id` at the end of a paragraph or list item and `[[Note#^some-id]]` leads to it. A heading is
   found whatever its case or spacing (`#risks` finds "Risks"), and `[[Note#Part#Detail]]` means the heading *Detail*
   under the heading *Part*. If the note has no such heading or block, the link still opens the note.
+- **Embeds.** Put a `!` in front of a link to show what it points at, in place, under that line:
+  `![[Note]]` the whole note, `![[Note#Heading]]` the section under a heading (its sub-sections included),
+  `![[Note#^block-id]]` one block, and `![[photo.png]]` an image (found by its path, or in the attachments folder;
+  `![[photo.png|300]]` sets the width). An embed is a read-only view: it is never saved into the note, so the
+  file keeps only the `![[...]]` you wrote. Click it to open the note it comes from, at that place. An embed of
+  something that is not there says *Not found*. Embeds inside an embedded note are shown as written, not expanded.
 - **Aliases.** A note can have other names, in its frontmatter (the Obsidian way):
 
   ```yaml

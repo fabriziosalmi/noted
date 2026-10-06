@@ -790,5 +790,8 @@
   "outlineEmpty": "This note has no headings yet.",
   "connMentions": "Unlinked mentions",
   "connMentionLink": "Link",
-  "connMentionCount": "{n} mentions"
+  "connMentionCount": "{n} mentions",
+  "embedLoading": "Loading…",
+  "embedMissing": "Not found: {name}",
+  "embedOpenAria": "Embedded from {name}: open it"
 }

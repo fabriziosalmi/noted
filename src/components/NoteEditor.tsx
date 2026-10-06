@@ -13,11 +13,12 @@ import { createLowlight, common } from 'lowlight';
 import 'katex/dist/katex.min.css';
 import { Bold, Italic, Strikethrough, Code, FileText, CheckCheck, AlertTriangle, Highlighter, Link2 } from 'lucide-react';
 import { askLLM } from '../lib/llm';
-import { useStore } from '../store/useStore';
+import { useStore, parseNoteFile } from '../store/useStore';
 import { WikilinkMark, createWikilinkHighlightPlugin } from '../lib/WikilinkExtension';
 import { WikilinkSuggestion } from './WikilinkSuggestion';
 import { parseWikilinkText } from '../../shared/vault/wikilink';
 import { scrollToAnchor } from '../lib/anchors';
+import { EmbedExtension, setEmbedContext } from '../lib/EmbedExtension';
 import { TagSuggestion } from './TagSuggestion';
 import { BacklinksPanel } from './BacklinksPanel';
 import { Extension, getMarkRange } from '@tiptap/core';
@@ -27,7 +28,7 @@ import { SmartTagSuggestion } from './SmartTagSuggestion';
 import { GhostTextExtension, ghostTextKey } from '../lib/ghostTextExtension';
 import { deriveTitle } from '../lib/noteTitle';
 import { planExternalChange } from '../lib/externalChange';
-import { attachImage } from '../lib/imageAttach';
+import { attachImage, DEFAULT_ATTACHMENTS_FOLDER } from '../lib/imageAttach';
 import { canonicalWire, peekVaultFormat } from '../lib/noteIo';
 import { getElectronApi } from '../lib/electronApi';
 import { setPendingSaveFlusher } from '../lib/pendingSave';
@@ -120,6 +121,24 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     if (anchor) useStore.getState().setPendingAnchor({ note: target, ...anchor });
     onSelectNote?.(target);
   }, [resolveLink, activeNoteName, onSelectNote, createTitledNote]);
+  // What embeds (![[Note]], ![[image.png]]) need from the app; read through a ref so the editor, made once, always
+  // sees the current vault.
+  useEffect(() => {
+    setEmbedContext({
+      read: async noteFile => {
+        const res = await getElectronApi()?.readNote(noteFile, useStore.getState().settings.syncDirectory || undefined);
+        return res?.success && typeof res.data === 'string' ? parseNoteFile(res.data).content : null;
+      },
+      resolve: resolveLink,
+      open: literal => followWikilink('', literal),
+      imageSources: name => {
+        const folder = useStore.getState().settings.attachmentsFolder || DEFAULT_ATTACHMENTS_FOLDER;
+        return name.includes('/') ? [name] : [name, `${folder}/${name}`];
+      },
+      text: (key, params) => Object.entries(params ?? {}).reduce((out, [k, v]) => out.replace(`{${k}}`, v), t(key)),
+    });
+    return () => setEmbedContext(null);
+  }, [resolveLink, followWikilink, t]);
   const onboardingDismissed = useStore(s => s.settings.onboardingDismissed ?? false);
   const shortcutsSeen = useStore(s => s.settings.shortcutsSeen ?? false);
   const aiGhostMode = useStore(s => s.settings.aiGhostMode ?? 'manual');
@@ -344,6 +363,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       // Focus mode adds `.focus-mode`, which dims every other block (see CSS).
       Focus.configure({ className: 'has-focus', mode: 'shallowest' }),
       WikilinkPlugin,
+      EmbedExtension,
       GhostTextExtension,
     ],
     content: activeNoteContent,

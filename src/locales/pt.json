@@ -790,5 +790,8 @@
   "outlineEmpty": "Esta nota ainda não tem títulos.",
   "connMentions": "Menções sem ligação",
   "connMentionLink": "Ligar",
-  "connMentionCount": "{n} menções"
+  "connMentionCount": "{n} menções",
+  "embedLoading": "A carregar…",
+  "embedMissing": "Não encontrado: {name}",
+  "embedOpenAria": "Incorporado de {name}: abrir"
 }
