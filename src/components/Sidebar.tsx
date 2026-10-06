@@ -8,17 +8,13 @@ import type { NoteFile, FolderInfo } from '../store/useStore';
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
 import { dirnameOf } from '../../shared/vault/paths';
-import { baseOfPath } from '../../shared/vault/folderOps';
+import { baseOfPath, isInsideFolder } from '../../shared/vault/folderOps';
+import { buildSidebarRows, type SidebarRow, type SortBy } from '../lib/sidebarTree';
 import { Tooltip } from './Tooltip';
 import { useConfirm } from './ConfirmProvider';
 
-type SortBy = 'date' | 'name' | 'size' | 'custom';
-
-type SidebarRow =
-  | { type: 'root-note'; note: NoteFile }
-  | { type: 'folder-header'; folder: FolderInfo; isCollapsed: boolean; isDragTarget: boolean }
-  | { type: 'folder-note'; note: NoteFile; folderName: string }
-  | { type: 'folder-empty'; folderName: string };
+/** How far each level of folders is indented. */
+const INDENT_PX = 12;
 
 interface SidebarProps {
   notes: NoteFile[];                     // flat (all notes for search)
@@ -241,6 +237,8 @@ export function Sidebar({
   const [folderRenameValue, setFolderRenameValue] = useState('');
   const [newFolderMode, setNewFolderMode] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  /** The folder a new folder is made in ('' = the top level). */
+  const [newFolderParent, setNewFolderParent] = useState('');
   
   const [dragOver, setDragOver] = useState<string | null>(null); // folder name or 'root'
   const [dragOverFolderHeader, setDragOverFolderHeader] = useState<string | null>(null);
@@ -328,10 +326,13 @@ export function Sidebar({
 
   const commitNewFolder = useCallback(async () => {
     const name = newFolderName.trim();
-    setNewFolderMode(false); setNewFolderName('');
+    const parent = newFolderParent;
+    setNewFolderMode(false);
+    setNewFolderName('');
+    setNewFolderParent('');
     if (!name) return;
-    try { await onCreateFolder(name); } catch { /* toast */ }
-  }, [newFolderName, onCreateFolder]);
+    try { await onCreateFolder(parent ? `${parent}/${name}` : name); } catch { /* toast */ }
+  }, [newFolderName, newFolderParent, onCreateFolder]);
 
   // Drag helpers
   const isDraggingFolder = (types: readonly string[] | DOMStringList | undefined) =>
@@ -343,9 +344,23 @@ export function Sidebar({
     e.dataTransfer?.setData('text/note-name', noteName);
   };
 
+  /** Move a folder under another ('' = the top level). Not onto where it is, and never into itself or what it holds. */
+  const moveFolderTo = async (folder: string, parent: string) => {
+    if (dirnameOf(folder) === parent) return;
+    if (parent && isInsideFolder(parent, folder)) return;
+    try {
+      await onRenameFolder(folder, parent ? `${parent}/${baseOfPath(folder)}` : baseOfPath(folder));
+    } catch { /* toast */ }
+  };
+
   const handleDrop = async (e: React.DragEvent, toFolder: string) => {
     e.preventDefault();
     setDragOver(null);
+    const draggedFolder = e.dataTransfer?.getData('text/folder-name');
+    if (draggedFolder) {
+      await moveFolderTo(draggedFolder, toFolder);
+      return;
+    }
     const noteName = e.dataTransfer?.getData('text/note-name');
     if (!noteName) return;
     const currentFolder = dirnameOf(noteName);
@@ -369,10 +384,17 @@ export function Sidebar({
       e.stopPropagation();
       const rect = e.currentTarget.getBoundingClientRect();
       const relativeY = e.clientY - rect.top;
-      const position = relativeY < rect.height / 2 ? 'before' : 'after';
-      setDragOverFolderHeader(targetFolderName);
-      setDragOverFolderPosition(position);
-      setDragOver(null);
+      // The middle of a folder means "into it"; the top and bottom quarters mean "next to it".
+      const position = relativeY < rect.height * 0.25 ? 'before' : relativeY > rect.height * 0.75 ? 'after' : 'into';
+      if (position === 'into') {
+        setDragOver(targetFolderName);
+        setDragOverFolderHeader(null);
+        setDragOverFolderPosition(null);
+      } else {
+        setDragOverFolderHeader(targetFolderName);
+        setDragOverFolderPosition(position);
+        setDragOver(null);
+      }
     }
   };
 
@@ -384,13 +406,19 @@ export function Sidebar({
     const isFolder = types ? isDraggingFolder(types) : false;
     
     const position = dragOverFolderPosition;
+    const into = dragOver === targetFolderName;
     setDragOverFolderHeader(null);
     setDragOverFolderPosition(null);
     setDragOver(null);
     
     if (isFolder) {
       const folderName = e.dataTransfer?.getData('text/folder-name');
-      if (folderName && folderName !== targetFolderName) {
+      if (folderName && folderName !== targetFolderName && into) {
+        await moveFolderTo(folderName, targetFolderName);
+      } else if (folderName && folderName !== targetFolderName && dirnameOf(folderName) !== dirnameOf(targetFolderName)) {
+        // Dropped next to a folder that is not its sibling: it goes into that folder's parent.
+        await moveFolderTo(folderName, dirnameOf(targetFolderName));
+      } else if (folderName && folderName !== targetFolderName) {
         const order = [...customFoldersOrder];
         const allFolderNames = noteFolders.map(f => f.name);
         for (const fName of allFolderNames) {
@@ -544,85 +572,14 @@ export function Sidebar({
 
   const parentRef = useRef<HTMLDivElement>(null);
 
-  // Flat rows calculation for virtualization
-  const rows = useMemo<SidebarRow[]>(() => {
-    const list: SidebarRow[] = [];
-
-    // 1. Add root notes
-    for (const note of rootNotes) {
-      list.push({
-        type: 'root-note',
-        note,
-      });
-    }
-
-    // 2. Add folder rows and their contents
-    const filteredFolders = noteFolders.filter(
-      f => !query || f.notes.some(n => n.name.toLowerCase().includes(query.toLowerCase()))
-    );
-
-    const foldersSorted = [...filteredFolders].sort((a, b) => {
-      if (sortBy === 'custom') {
-        const idxA = customFoldersOrder.indexOf(a.name);
-        const idxB = customFoldersOrder.indexOf(b.name);
-        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-        if (idxA !== -1) return -1;
-        if (idxB !== -1) return 1;
-        return a.name.localeCompare(b.name);
-      }
-      return a.name.localeCompare(b.name);
-    });
-
-    for (const folder of foldersSorted) {
-      const isCollapsed = collapsedFolders.has(folder.name);
-      const isDragTarget = dragOver === folder.name;
-      const filteredFolderNotes = query
-        ? folder.notes.filter(n => n.name.toLowerCase().includes(query.toLowerCase()))
-        : folder.notes;
-
-      const sortedFolderNotes = [...filteredFolderNotes].sort((a, b) => {
-        const ap = pinnedNotes.includes(a.name) ? 0 : 1;
-        const bp = pinnedNotes.includes(b.name) ? 0 : 1;
-        if (ap !== bp) return ap - bp;
-        if (sortBy === 'custom') {
-          const idxA = customNotesOrder.indexOf(a.name);
-          const idxB = customNotesOrder.indexOf(b.name);
-          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-          if (idxA !== -1) return -1;
-          if (idxB !== -1) return 1;
-          return b.stats.mtimeMs - a.stats.mtimeMs;
-        }
-        if (sortBy === 'name') return a.name.localeCompare(b.name);
-        if (sortBy === 'size') return b.stats.size - a.stats.size;
-        return b.stats.mtimeMs - a.stats.mtimeMs;
-      });
-
-      list.push({
-        type: 'folder-header',
-        folder,
-        isCollapsed,
-        isDragTarget,
-      });
-
-      if (!isCollapsed) {
-        for (const note of sortedFolderNotes) {
-          list.push({
-            type: 'folder-note',
-            note,
-            folderName: folder.name,
-          });
-        }
-        if (sortedFolderNotes.length === 0 && !query) {
-          list.push({
-            type: 'folder-empty',
-            folderName: folder.name,
-          });
-        }
-      }
-    }
-
-    return list;
-  }, [rootNotes, noteFolders, query, collapsedFolders, dragOver, sortBy, customNotesOrder, customFoldersOrder, pinnedNotes]);
+  // The flat list the virtualizer shows: root notes, then the folder tree (any depth) with its notes.
+  const rows = useMemo<SidebarRow[]>(
+    () => buildSidebarRows({
+      rootNotes, folders: noteFolders, query, collapsed: collapsedFolders, dragOver, sortBy,
+      customFoldersOrder, customNotesOrder, pinnedNotes,
+    }),
+    [rootNotes, noteFolders, query, collapsedFolders, dragOver, sortBy, customNotesOrder, customFoldersOrder, pinnedNotes],
+  );
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer({
@@ -657,7 +614,7 @@ export function Sidebar({
             </Tooltip>
           )}
           <Tooltip label={t('newFolder')}>
-            <button type="button" onClick={() => setNewFolderMode(true)} aria-label={t('newFolder')} className="hover:text-gray-800 dark:hover:text-gray-200 p-1 animate-spring-scale">
+            <button type="button" onClick={() => { setNewFolderParent(''); setNewFolderMode(true); }} aria-label={t('newFolder')} className="hover:text-gray-800 dark:hover:text-gray-200 p-1 animate-spring-scale">
               <FolderPlus size={13} />
             </button>
           </Tooltip>
@@ -725,9 +682,9 @@ export function Sidebar({
             onKeyDown={e => {
               if (e.nativeEvent.isComposing || e.repeat) return;
               if (e.key === 'Enter') void commitNewFolder();
-              if (e.key === 'Escape') { setNewFolderMode(false); setNewFolderName(''); }
+              if (e.key === 'Escape') { setNewFolderMode(false); setNewFolderName(''); setNewFolderParent(''); }
             }}
-            placeholder={t('folderNamePlaceholder')}
+            placeholder={newFolderParent ? t('subfolderNamePlaceholder').replace('{parent}', newFolderParent) : t('folderNamePlaceholder')}
             className="w-full bg-white dark:bg-gray-700 border border-[var(--accent)] rounded px-2 py-1 text-xs outline-none"
           />
         </div>
@@ -784,6 +741,7 @@ export function Sidebar({
                     width: '100%',
                     height: `${virtualItem.size}px`,
                     transform: `translateY(${virtualItem.start}px)`,
+                    paddingLeft: row.depth * INDENT_PX,
                   }}
                 >
                   {row.type === 'root-note' && renderNote(row.note)}
@@ -861,8 +819,8 @@ export function Sidebar({
                             ) : (
                               <FolderOpen size={13} className="text-[var(--accent)]" />
                             )}
-                            <span className="flex-1 text-xs font-medium text-gray-600 dark:text-gray-400 truncate">
-                              {row.folder.name}
+                            <span className="flex-1 text-xs font-medium text-gray-600 dark:text-gray-400 truncate" title={row.folder.name}>
+                              {baseOfPath(row.folder.name)}
                             </span>
                           </button>
                         )}
@@ -882,6 +840,17 @@ export function Sidebar({
                               <Plus size={11} />
                             </button>
                           </Tooltip>
+                          <Tooltip label={t('newSubfolder')}>
+                            <button
+                              type="button"
+                              aria-label={t('newSubfolder')}
+                              onMouseDown={e => e.stopPropagation()}
+                              onClick={() => { setNewFolderParent(row.folder.name); setNewFolderName(''); setNewFolderMode(true); }}
+                              className="p-0.5 hover:text-[var(--accent)] text-gray-400"
+                            >
+                              <FolderPlus size={11} />
+                            </button>
+                          </Tooltip>
                           <Tooltip label={t('deleteFolder')}>
                             <button
                               type="button"
@@ -899,14 +868,14 @@ export function Sidebar({
                   )}
 
                   {row.type === 'folder-note' && (
-                    <div className="pl-4">
+                    <div>
                       {renderNote(row.note, row.folderName)}
                     </div>
                   )}
 
                   {row.type === 'folder-empty' && (
                     <p
-                      className="text-[10px] text-gray-400 px-2 py-1 italic pl-4"
+                      className="text-[10px] text-gray-400 px-2 py-1 italic"
                       onDragOver={e => {
                         e.preventDefault();
                         e.stopPropagation();

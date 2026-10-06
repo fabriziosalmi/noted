@@ -316,7 +316,53 @@ describe('Sidebar', () => {
 
   describe('notes and folders at depth', () => {
     const deepNote = makeNote('Work/Q4/Goals.md', 1000);
-    const deepFolders = [{ name: 'Work/Q4', notes: [deepNote] }];
+    const deepFolders = [{ name: 'Work/Q4', notes: [deepNote] }]; // "Work" is implied
+    const folderBox = (label: string) => screen.getByText(label).closest('[draggable="true"]')?.parentElement as HTMLElement;
+    const dragData = (value: string, type = 'text/note-name') => ({
+      types: [type],
+      getData: (t: string) => (t === type ? value : ''),
+      setData: vi.fn(),
+    });
+
+    it('draws a nested folder under its parent, by its own name and indented', () => {
+      render(<Sidebar {...defaults} notes={[deepNote]} noteFolders={deepFolders} />);
+      expect(screen.getByText('Work')).toBeInTheDocument();
+      expect(screen.getByText('Q4')).toBeInTheDocument();
+      expect(screen.getByText('Q4').getAttribute('title')).toBe('Work/Q4');
+      const padOf = (el: HTMLElement): string => (el.closest('[style*="translateY"]') as HTMLElement).style.paddingLeft;
+      expect(padOf(screen.getByText('Work'))).toBe('0px');
+      expect(padOf(screen.getByText('Q4'))).toBe('12px');
+      expect(padOf(screen.getByText('Goals'))).toBe('24px');
+    });
+
+    it('collapsing a folder hides the folders and notes under it', () => {
+      render(<Sidebar {...defaults} notes={[deepNote]} noteFolders={deepFolders} />);
+      fireEvent.click(screen.getByText('Work'));
+      expect(screen.queryByText('Q4')).toBeNull();
+      expect(screen.queryByText('Goals')).toBeNull();
+      fireEvent.click(screen.getByText('Work'));
+      expect(screen.getByText('Goals')).toBeInTheDocument();
+    });
+
+    it('a search keeps the folders above a match', () => {
+      render(<Sidebar {...defaults} notes={[deepNote, makeNote('other.md', 2000)]} noteFolders={deepFolders} />);
+      fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'goals' } });
+      expect(screen.getByText('Work')).toBeInTheDocument();
+      expect(screen.getByText('Q4')).toBeInTheDocument();
+      expect(screen.getByText('Goals')).toBeInTheDocument();
+      expect(screen.queryByText('other')).toBeNull();
+    });
+
+    it('makes a new folder inside a folder, with its parent in the path', async () => {
+      const onCreateFolder = vi.fn().mockResolvedValue(undefined);
+      render(<Sidebar {...defaults} notes={[deepNote]} noteFolders={deepFolders} onCreateFolder={onCreateFolder} />);
+      const box = folderBox('Q4');
+      fireEvent.click(within(box).getByLabelText('New folder inside'));
+      const input = screen.getByPlaceholderText('New folder in Work/Q4');
+      fireEvent.change(input, { target: { value: 'Retro' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      await waitFor(() => expect(onCreateFolder).toHaveBeenCalledWith('Work/Q4/Retro'));
+    });
 
     it('renames a note in a nested folder inside that folder, not in the top-level one', async () => {
       const onRenameNote = vi.fn().mockResolvedValue(undefined);
@@ -342,7 +388,7 @@ describe('Sidebar', () => {
     it('renames a nested folder keeping its parent: the field holds its own name, the call gets the whole path', async () => {
       const onRenameFolder = vi.fn().mockResolvedValue(undefined);
       render(<Sidebar {...defaults} notes={[deepNote]} noteFolders={deepFolders} onRenameFolder={onRenameFolder} />);
-      fireEvent.doubleClick(screen.getByText('Work/Q4'));
+      fireEvent.doubleClick(screen.getByText('Q4'));
       const input = screen.getByDisplayValue('Q4');
       fireEvent.change(input, { target: { value: 'Q5' } });
       fireEvent.keyDown(input, { key: 'Enter' });
@@ -352,19 +398,55 @@ describe('Sidebar', () => {
     it('does not move a note dropped on the folder it is already in, however deep', async () => {
       const onMoveNote = vi.fn().mockResolvedValue(undefined);
       render(<Sidebar {...defaults} notes={[deepNote]} noteFolders={deepFolders} onMoveNote={onMoveNote} />);
-      const folderContainer = screen.getByText('Work/Q4').closest('[draggable="true"]')?.parentElement as HTMLElement;
-      fireEvent.drop(folderContainer, { dataTransfer: { getData: () => 'Work/Q4/Goals.md' } });
+      fireEvent.drop(folderBox('Q4'), { dataTransfer: dragData('Work/Q4/Goals.md') });
       await Promise.resolve();
       expect(onMoveNote).not.toHaveBeenCalled();
     });
 
-    it('moves a note from a nested folder to the root, and from the root into a nested folder', async () => {
+    it('moves a note from the root into a nested folder, by the folder\'s whole path', async () => {
       const onMoveNote = vi.fn().mockResolvedValue(undefined);
-      const rootNote = makeNote('root.md', 2000);
-      render(<Sidebar {...defaults} notes={[rootNote, deepNote]} noteFolders={deepFolders} onMoveNote={onMoveNote} />);
-      const folderContainer = screen.getByText('Work/Q4').closest('[draggable="true"]')?.parentElement as HTMLElement;
-      fireEvent.drop(folderContainer, { dataTransfer: { getData: () => 'root.md' } });
+      render(<Sidebar {...defaults} notes={[makeNote('root.md', 2000), deepNote]} noteFolders={deepFolders} onMoveNote={onMoveNote} />);
+      fireEvent.drop(folderBox('Q4'), { dataTransfer: dragData('root.md') });
       await waitFor(() => expect(onMoveNote).toHaveBeenCalledWith('root.md', 'Work/Q4'));
+    });
+
+    // The middle of a folder header means "into it"; jsdom has no layout, so the header's box is given by hand.
+    const overMiddle = (el: HTMLElement) => {
+      el.getBoundingClientRect = () => ({ top: 0, height: 40, bottom: 40, left: 0, right: 100, width: 100, x: 0, y: 0, toJSON: () => ({}) });
+      return { clientY: 20 };
+    };
+
+    it('drops a folder into another folder: it moves, keeping its own name', async () => {
+      const onRenameFolder = vi.fn().mockResolvedValue(undefined);
+      const folders = [{ name: 'Life', notes: [makeNote('Life/Garden.md', 1)] }, ...deepFolders];
+      render(<Sidebar {...defaults} notes={[deepNote, makeNote('Life/Garden.md', 1)]} noteFolders={folders} onRenameFolder={onRenameFolder} />);
+      const target = folderBox('Life');
+      const point = overMiddle(target);
+      const dataTransfer = dragData('Work/Q4', 'text/folder-name');
+      fireEvent.dragOver(target, { dataTransfer, ...point });
+      fireEvent.drop(target, { dataTransfer, ...point });
+      await waitFor(() => expect(onRenameFolder).toHaveBeenCalledWith('Work/Q4', 'Life/Q4'));
+    });
+
+    it('never drops a folder into itself or what is under it', async () => {
+      const onRenameFolder = vi.fn().mockResolvedValue(undefined);
+      const folders = [...deepFolders, { name: 'Work/Q4/Deep', notes: [makeNote('Work/Q4/Deep/n.md', 1)] }];
+      render(<Sidebar {...defaults} notes={[deepNote, makeNote('Work/Q4/Deep/n.md', 1)]} noteFolders={folders} onRenameFolder={onRenameFolder} />);
+      const target = folderBox('Deep');
+      const point = overMiddle(target);
+      const dataTransfer = dragData('Work/Q4', 'text/folder-name');
+      fireEvent.dragOver(target, { dataTransfer, ...point });
+      fireEvent.drop(target, { dataTransfer, ...point });
+      await Promise.resolve();
+      expect(onRenameFolder).not.toHaveBeenCalled();
+    });
+
+    it('drops a folder on the list itself to bring it to the top level', async () => {
+      const onRenameFolder = vi.fn().mockResolvedValue(undefined);
+      render(<Sidebar {...defaults} notes={[deepNote]} noteFolders={deepFolders} onRenameFolder={onRenameFolder} />);
+      const list = screen.getByText('Work').closest('.overflow-y-auto') as HTMLElement;
+      fireEvent.drop(list, { dataTransfer: dragData('Work/Q4', 'text/folder-name') });
+      await waitFor(() => expect(onRenameFolder).toHaveBeenCalledWith('Work/Q4', 'Q4'));
     });
   });
 });

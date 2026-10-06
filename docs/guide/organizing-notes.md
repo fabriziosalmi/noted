@@ -75,11 +75,17 @@ in the connections panel and under the sidebar's tag filter.
 
 ## Folders
 
-Folders can be nested to any depth (up to 16 levels). For now the sidebar lists each folder by its
-full path (`Work/Q4`), with the notes directly in it; a tree is coming. You can:
+Folders can be nested to any depth (up to 16 levels), and the sidebar shows them as a tree: each folder
+under its parent, indented, with its own notes first and its sub-folders below. Click a folder to collapse
+it (everything under it hides). With a search active, the notes that match stay with the folders above
+them. You can:
 
 - Drag notes between folders and the root, and reorder notes and folders (which
   switches sorting to **Custom**).
+- **Drag a folder onto another** to move it inside (the middle of the folder; the top and bottom edges
+  reorder next to it), or onto the empty part of the list to bring it to the top level. A folder can never
+  go into itself or into something it holds.
+- Each folder has a **New folder inside** action.
 - Double-click a folder header to rename it (it keeps its parent; the notes under it, at any depth,
   move with it and the links to them follow); each folder has its own "new note here" and delete actions.
 - **Deleting a folder keeps what is in it**: its notes, files and sub-folders move up one level, into

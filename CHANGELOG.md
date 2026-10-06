@@ -8,6 +8,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Nested folders** (#65): folders to any depth (16 levels), shown as a tree in the sidebar: indented under their parent, collapsing hides
+  everything under a folder, a search keeps the folders above a match. **New folder inside** a folder, and **drag a folder onto another**
+  (or onto the empty list) to move it with everything in it; the links to the notes in it follow. Notes in deep folders of an Obsidian
+  vault now show up. Deleting a folder keeps what is in it, moving it up one level.
 - **Compare a changed note with its last version, and stage notes one by one** (Git panel → Changed notes). The comparison reads as text:
   changed lines with context, and the words that changed highlighted inside a rewritten line; notes stored as HTML are shown as Markdown so only
   the text differs. **Stage** / **Unstage** per note, and **Commit staged** commits exactly those.
@@ -48,7 +52,6 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   another. **Deleting a folder now moves everything in it up one level** (into the folder above, the top level for a top-level folder)
   instead of flattening it to the top; files that are not notes are moved too instead of being destroyed; a folder holding a hidden item
   that is not system litter is refused; and if a move fails half way, what already moved is put back. Imported folders keep their structure.
-  A tree is the next part.
 - **Internal: notes can sit in folders at any depth** (#65, first part: the foundations). One path rule now covers the app, the MCP server and Git
   (`.md`, up to 16 levels, nothing hidden, no traversal), one vault walk lists notes for the index, the search and the MCP server, and the
   MCP `list_notes`, `create_note`, trash and restore work at any depth. The sidebar still shows one level until the next parts land.
