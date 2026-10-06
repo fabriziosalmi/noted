@@ -150,3 +150,44 @@ describe('stage, unstage, commit what is staged', () => {
     expect(await simpleGit(dir).revparse(['HEAD'])).toBe(head);
   });
 });
+
+describe('initRepo on a machine with no git identity', () => {
+  const saved = { global: process.env.GIT_CONFIG_GLOBAL, system: process.env.GIT_CONFIG_NOSYSTEM };
+  afterEach(() => {
+    for (const [key, value] of [['GIT_CONFIG_GLOBAL', saved.global], ['GIT_CONFIG_NOSYSTEM', saved.system]] as const) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+
+  it('gives the repository an identity of its own, so the first commit works', async () => {
+    const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'noted-gitbare-'));
+    fs.writeFileSync(path.join(bare, 'gitconfig'), '[user]\n\tuseConfigOnly = true\n');
+    process.env.GIT_CONFIG_GLOBAL = path.join(bare, 'gitconfig');
+    process.env.GIT_CONFIG_NOSYSTEM = '1';
+    const fresh = path.join(bare, 'vault');
+    fs.mkdirSync(fresh);
+    try {
+      expect(await initRepo(fresh)).toEqual({ success: true });
+      expect((await simpleGit(fresh).raw(['config', 'user.email'])).trim()).toBe('noted@local');
+      expect((await simpleGit(fresh).raw(['log', '--format=%an'])).trim()).toBe('Noted');
+    } finally {
+      fs.rmSync(bare, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps the identity a person already has', async () => {
+    const own = fs.mkdtempSync(path.join(os.tmpdir(), 'noted-gitown-'));
+    fs.writeFileSync(path.join(own, 'gitconfig'), '[user]\n\tname = Ada\n\temail = ada@example.com\n');
+    process.env.GIT_CONFIG_GLOBAL = path.join(own, 'gitconfig');
+    process.env.GIT_CONFIG_NOSYSTEM = '1';
+    const fresh = path.join(own, 'vault');
+    fs.mkdirSync(fresh);
+    try {
+      expect((await initRepo(fresh)).success).toBe(true);
+      expect((await simpleGit(fresh).raw(['log', '--format=%an <%ae>'])).trim()).toBe('Ada <ada@example.com>');
+    } finally {
+      fs.rmSync(own, { recursive: true, force: true });
+    }
+  });
+});

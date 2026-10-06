@@ -170,11 +170,13 @@ export async function initRepo(dir: string): Promise<GitResult> {
       ].join('\n'), 'utf8');
     }
 
-    // Config user identity if not set globally (avoids "Please tell me who you are" error)
-    try { await g.raw(['config', 'user.email']); } catch {
-      await g.addConfig('user.email', 'noted@local');
-      await g.addConfig('user.name', 'Noted');
-    }
+    // Config user identity if not set (avoids "Please tell me who you are" error). `git config <key>` exits with 1
+    // and prints nothing when the key is unset, which simple-git does not report as an error, so the value is checked.
+    const configured = async (key: string): Promise<boolean> => {
+      try { return (await g.raw(['config', key])).trim() !== ''; } catch { return false; }
+    };
+    if (!(await configured('user.email'))) await g.addConfig('user.email', 'noted@local');
+    if (!(await configured('user.name'))) await g.addConfig('user.name', 'Noted');
 
     // Initial commit
     await g.add('.gitignore');

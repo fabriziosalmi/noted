@@ -30,6 +30,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Initializing a Git repository failed on a computer with no Git identity** (a fresh machine, or a new user). The fallback identity was never
+  set because its check could not tell "not set" from "set". It is now set when missing, and an identity you already have is left alone.
 - **Opening a note no longer saves it.** The editor used to write back the text it had just loaded, which changed the file's modification
   time and added a history snapshot for a note you had only looked at.
 - **A link by bare name finds the note in a folder** (`[[Plan]]` for `Work/Plan.md`) instead of offering to create a new, empty `Plan`.
