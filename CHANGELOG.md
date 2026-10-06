@@ -8,6 +8,11 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Saved views: the model and where they live** (#19, Views): a view is a saved query over the notes' frontmatter (where its
+  rows come from: all notes, a folder or a tag; filters; sort; a board's grouping field; table columns; table or board). Views are
+  kept in `.noted-views.json` at the top of the vault, so they travel with the notes and sync through Git (the file is plain,
+  stably ordered JSON, a small diff per change); a file edited by hand or damaged is read defensively and never stops the app.
+  Create, rename, change, duplicate and delete are in place, saved in order; the screens come next.
 - **Frontmatter field index** (#18, foundation of Views): the vault index now keeps each note's frontmatter as typed fields
   (text, number, true/false, empty, lists; a date stays the text it was written as) and the app holds them for the whole vault,
   kept current as notes are saved, renamed, deleted or changed on disk. Nothing to see yet: the table and board views build on it.
