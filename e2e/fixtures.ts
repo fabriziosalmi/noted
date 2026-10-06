@@ -89,8 +89,9 @@ export const test = base.extend<{ noted: Launched }>({
       console.warn(`[app-log tail] ${testInfo.title}\n${appLog.slice(-3000)}`);
     }
     await current.app.close().catch(() => undefined);
-    // On Windows the browser keeps a file in the profile (DIPS) open for a moment after the app has closed.
-    fs.rmSync(base, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
+    // On Windows the browser keeps a file in the profile (DIPS) open for a moment after the app has closed. A temp
+    // folder left behind is harmless; failing a test that passed over it is not.
+    try { fs.rmSync(base, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }); } catch { /* left for the OS to clean */ }
   },
 });
 
