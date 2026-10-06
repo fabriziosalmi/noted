@@ -2,6 +2,7 @@ import { useI18n } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import { useFieldSchema } from '../hooks/useFieldSchema';
 import { MODIFIED_FIELD } from '../../shared/views/query';
+import { groupableFields } from '../../shared/views/board';
 import type { View, ViewSource } from '../../shared/views/model';
 
 const inputClass = 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded px-2 py-1 text-xs outline-none focus:border-[var(--accent)]';
@@ -72,6 +73,20 @@ export function ViewSettings({ view }: { view: View }) {
           </>
         )}
       </div>
+      {view.layout === 'board' && (
+        <div className="flex items-center gap-2">
+          <label htmlFor={`groupby-${view.id}`} className="text-gray-500">{t('viewGroupBy')}</label>
+          <select
+            id={`groupby-${view.id}`}
+            value={view.groupBy ?? ''}
+            onChange={e => { void updateView(view.id, { groupBy: e.target.value || undefined, boardColumns: [] }); }}
+            className={inputClass}
+          >
+            <option value="" />
+            {groupableFields(schema).map(name => <option key={name} value={name}>{name}</option>)}
+          </select>
+        </div>
+      )}
       <fieldset className="flex flex-wrap items-center gap-1.5 min-w-0">
         <legend className="sr-only">{t('viewColumns')}</legend>
         <span className="text-gray-500 mr-1" aria-hidden="true">{t('viewColumns')}</span>

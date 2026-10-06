@@ -849,5 +849,19 @@
   "filterOp_not-has": "does not have",
   "viewEditHint": "Double-click or press Enter to edit",
   "viewEditConflict": "This property was changed elsewhere; the current value is shown.",
-  "viewEditFailed": "Could not change the property: {error}"
+  "viewEditFailed": "Could not change the property: {error}",
+  "viewLayout": "Layout",
+  "viewLayoutTable": "Table",
+  "viewLayoutBoard": "Board",
+  "viewGroupBy": "Group by",
+  "viewBoardChoose": "Choose a field to group the cards by.",
+  "viewNoValue": "No value",
+  "viewAddColumn": "Add column",
+  "viewColumnName": "Column name",
+  "viewColumnLeft": "Move column left",
+  "viewColumnRight": "Move column right",
+  "viewColumnKeep": "Keep this column",
+  "viewColumnRemove": "Remove column",
+  "viewCardMove": "Move \"{name}\" to",
+  "viewListNoMove": "A note sits in every column its list has, so cards cannot be moved here; change them from the table."
 }

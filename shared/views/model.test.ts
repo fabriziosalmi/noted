@@ -74,3 +74,18 @@ describe('serializeViews', () => {
     expect(normalizeViews(JSON.parse(text), makeId)).toEqual(views);
   });
 });
+
+describe('board columns in the model', () => {
+  it('are kept in order, cleaned, and written in a fixed place', () => {
+    const [v] = normalizeViews({ views: [{ id: 'a', name: 'B', layout: 'board', groupBy: 'status', boardColumns: ['todo', 'doing', 'todo', 5, '', 'done'] }] }, makeId);
+    expect(v.boardColumns).toEqual(['todo', 'doing', 'done']);
+    const text = serializeViews([v]);
+    expect(text.indexOf('"groupBy"')).toBeLessThan(text.indexOf('"boardColumns"'));
+    expect(normalizeViews(JSON.parse(text), makeId)).toEqual([v]);
+  });
+
+  it('are left out when there are none', () => {
+    const [v] = normalizeViews({ views: [{ id: 'a', name: 'T', boardColumns: [] }] }, makeId);
+    expect('boardColumns' in v).toBe(false);
+  });
+});

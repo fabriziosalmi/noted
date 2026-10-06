@@ -849,5 +849,19 @@
   "filterOp_not-has": "no tiene",
   "viewEditHint": "Doble clic o Intro para editar",
   "viewEditConflict": "Esta propiedad se cambió en otro sitio; se muestra el valor actual.",
-  "viewEditFailed": "No se pudo cambiar la propiedad: {error}"
+  "viewEditFailed": "No se pudo cambiar la propiedad: {error}",
+  "viewLayout": "Diseño",
+  "viewLayoutTable": "Tabla",
+  "viewLayoutBoard": "Tablero",
+  "viewGroupBy": "Agrupar por",
+  "viewBoardChoose": "Elige una propiedad para agrupar las tarjetas.",
+  "viewNoValue": "Sin valor",
+  "viewAddColumn": "Añadir columna",
+  "viewColumnName": "Nombre de la columna",
+  "viewColumnLeft": "Mover la columna a la izquierda",
+  "viewColumnRight": "Mover la columna a la derecha",
+  "viewColumnKeep": "Conservar esta columna",
+  "viewColumnRemove": "Quitar columna",
+  "viewCardMove": "Mover «{name}» a",
+  "viewListNoMove": "Una nota está en cada columna de su lista, así que aquí no se pueden mover las tarjetas; cámbialas desde la tabla."
 }

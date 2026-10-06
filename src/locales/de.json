@@ -849,5 +849,19 @@
   "filterOp_not-has": "hat nicht",
   "viewEditHint": "Doppelklick oder Eingabetaste zum Bearbeiten",
   "viewEditConflict": "Diese Eigenschaft wurde anderswo geändert; der aktuelle Wert wird angezeigt.",
-  "viewEditFailed": "Die Eigenschaft konnte nicht geändert werden: {error}"
+  "viewEditFailed": "Die Eigenschaft konnte nicht geändert werden: {error}",
+  "viewLayout": "Layout",
+  "viewLayoutTable": "Tabelle",
+  "viewLayoutBoard": "Board",
+  "viewGroupBy": "Gruppieren nach",
+  "viewBoardChoose": "Wähle eine Eigenschaft, nach der die Karten gruppiert werden.",
+  "viewNoValue": "Kein Wert",
+  "viewAddColumn": "Spalte hinzufügen",
+  "viewColumnName": "Spaltenname",
+  "viewColumnLeft": "Spalte nach links",
+  "viewColumnRight": "Spalte nach rechts",
+  "viewColumnKeep": "Diese Spalte behalten",
+  "viewColumnRemove": "Spalte entfernen",
+  "viewCardMove": "„{name}“ verschieben nach",
+  "viewListNoMove": "Eine Notiz steht in jeder Spalte ihrer Liste, daher lassen sich Karten hier nicht verschieben; ändere sie in der Tabelle."
 }
