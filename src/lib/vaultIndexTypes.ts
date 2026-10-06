@@ -7,6 +7,8 @@ export interface VaultIndexNoteView {
   /** Distinct [[link]] targets, without alias/heading/".md". */
   links: string[];
   tags: string[];
+  /** Other names the note answers to (frontmatter `aliases:`). */
+  aliases: string[];
 }
 
 export interface VaultIndexSnapshot {

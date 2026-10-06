@@ -69,3 +69,37 @@ describe('link resolution (Obsidian rules)', () => {
     expect(normalizeTarget(' /Work/Plan.MD/ ')).toBe('work/plan');
   });
 });
+
+describe('aliases', () => {
+  const aliases = { 'Home.md': ['Start', 'Landing Page'], 'Work/Plan.md': ['Roadmap'], 'Life/Plan.md': ['Roadmap', 'Garden plan'], 'Gone.md': ['Ghost'] };
+  const r = buildLinkResolver(names, aliases);
+
+  it('a link that names no note finds the note with that alias, in any case', () => {
+    expect(r.resolve('Start')).toBe('Home.md');
+    expect(r.resolve('LANDING page')).toBe('Home.md');
+    expect(r.resolve('garden plan')).toBe('Life/Plan.md');
+    expect(r.resolve('Start.md')).toBe('Home.md');
+  });
+
+  it('a name or path always wins over an alias', () => {
+    const withClash = buildLinkResolver(names, { 'Life/Garden.md': ['Home'] });
+    expect(withClash.resolve('Home')).toBe('Home.md');
+    expect(withClash.resolve('home')).toBe('Home.md');
+  });
+
+  it('an alias two notes share is settled like a name two notes share: the neighbour, then the shortest path', () => {
+    expect(r.resolve('Roadmap', 'Work/Notes.md')).toBe('Work/Plan.md');
+    expect(r.resolve('Roadmap', 'Life/Garden.md')).toBe('Life/Plan.md');
+    expect(r.resolve('Roadmap', 'Home.md')).toBe('Life/Plan.md'); // same depth and length: alphabetical
+  });
+
+  it('an alias of a note that does not exist is nothing', () => {
+    expect(r.resolve('Ghost')).toBeNull();
+  });
+
+  it('does not depend on the order the notes were listed in, nor on the order of the aliases', () => {
+    const shuffled = buildLinkResolver([...names].reverse(), Object.fromEntries(Object.entries(aliases).reverse()));
+    for (const t of ['Start', 'Roadmap', 'Garden plan', 'Plan', 'Missing']) expect(shuffled.resolve(t, 'Home.md')).toBe(r.resolve(t, 'Home.md'));
+  });
+});
+

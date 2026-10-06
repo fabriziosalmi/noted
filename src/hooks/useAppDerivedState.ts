@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { backlinksOf } from '../lib/backlinks';
+import { useStore } from '../store/useStore';
 import type { AppDerivedStateArgs, AppDerivedStateResult } from './contracts';
 
 export function useAppDerivedState({
@@ -10,6 +11,7 @@ export function useAppDerivedState({
   activeTagFilter,
   settings,
 }: AppDerivedStateArgs): AppDerivedStateResult {
+  const noteAliasesIndex = useStore(s => s.noteAliasesIndex);
   const allTags = useMemo(() => Object.keys(tagIndex), [tagIndex]);
 
   const filteredNotes = useMemo(() => (
@@ -19,8 +21,8 @@ export function useAppDerivedState({
   ), [activeTagFilter, notes, tagIndex]);
 
   const backlinks = useMemo(
-    () => (activeNoteName ? backlinksOf(noteLinksIndex, activeNoteName) : []),
-    [activeNoteName, noteLinksIndex],
+    () => (activeNoteName ? backlinksOf(noteLinksIndex, activeNoteName, noteAliasesIndex) : []),
+    [activeNoteName, noteLinksIndex, noteAliasesIndex],
   );
 
   const allNoteNames = useMemo(

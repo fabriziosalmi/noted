@@ -784,5 +784,6 @@
   "mcpRevealInExplorer": "Show in Explorer",
   "mcpRevealInFileManager": "Show in file manager",
   "newSubfolder": "New folder inside",
-  "subfolderNamePlaceholder": "New folder in {parent}"
+  "subfolderNamePlaceholder": "New folder in {parent}",
+  "aliasMatch": "also known as \"{alias}\""
 }

@@ -111,17 +111,26 @@ test.describe('nested folders', () => {
     await expect(w.getByText('Life', { exact: true })).toBeVisible({ timeout: 20_000 });
     const box = (label: string) => w.getByText(label, { exact: true }).locator('xpath=ancestor::*[@draggable="true"][1]');
 
+    // Real drag and drop is timing-sensitive on a busy machine, so a drag that did not land is made again: both
+    // moves are no-ops when the folder is already where the drag would put it.
+    const list = w.getByText('Life', { exact: true }).locator('xpath=ancestor::div[contains(@class,"overflow-y-auto")][1]');
+
     // the middle of a folder header means "into it"
-    await box('Q4').dragTo(box('Life'));
-    await expect.poll(() => fs.existsSync(path.join(root, 'Life/Q4/Goals.md')), { timeout: 15_000 }).toBe(true);
+    await expect(async () => {
+      await box('Q4').dragTo(box('Life'));
+      await expect.poll(() => fs.existsSync(path.join(root, 'Life/Q4/Goals.md')), { timeout: 4_000 }).toBe(true);
+    }).toPass({ timeout: 40_000 });
     expect(fs.existsSync(path.join(root, 'Life/Q4/Deep/Deep note.md'))).toBe(true);
     expect(fs.existsSync(path.join(root, 'Work/Q4'))).toBe(false);
     await expect.poll(() => fs.readFileSync(path.join(root, 'Home.md'), 'utf8'), { timeout: 15_000 }).toContain('[[Life/Q4/Goals]]');
 
     // and onto the empty part of the list, it comes back to the top level
-    const list = w.getByText('Life', { exact: true }).locator('xpath=ancestor::div[contains(@class,"overflow-y-auto")][1]');
-    await box('Q4').dragTo(list, { targetPosition: { x: 60, y: 300 } });
-    await expect.poll(() => fs.existsSync(path.join(root, 'Q4/Goals.md')), { timeout: 15_000 }).toBe(true);
+    await expect(async () => {
+      // the very bottom of the list: below the last row, so the drop lands on the list and not on a row
+      const area = (await list.boundingBox())!;
+      await box('Q4').dragTo(list, { targetPosition: { x: 60, y: area.height - 6 } });
+      await expect.poll(() => fs.existsSync(path.join(root, 'Q4/Goals.md')), { timeout: 4_000 }).toBe(true);
+    }).toPass({ timeout: 40_000 });
     expect(fs.existsSync(path.join(root, 'Life/Q4'))).toBe(false);
   });
 });

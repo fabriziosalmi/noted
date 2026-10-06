@@ -5,7 +5,9 @@
  *  - a bare name (`[[Plan]]`) matches a note of that name wherever it sits in the vault;
  *  - when several notes fit, a note whose whole path is the link wins, then the one next to the note that
  *    holds the link, then the one with the shortest path (and the alphabetical first, so the answer never
- *    depends on the order the files were listed in).
+ *    depends on the order the files were listed in);
+ *  - a note's aliases (its frontmatter `aliases:`) are other names for it: a link that names no note by its
+ *    path or name finds the note that has that alias, the same ties settled the same way.
  *
  * Pure, so the main process, the renderer and the rename rewrite give the same answer.
  */
@@ -39,7 +41,10 @@ function rank(a: string, b: string, fromFolder: string | null): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-export function buildLinkResolver(names: Iterable<string>): LinkResolver {
+/** Note name -> its aliases. */
+export type AliasMap = Readonly<Record<string, readonly string[]>>;
+
+export function buildLinkResolver(names: Iterable<string>, aliases: AliasMap = {}): LinkResolver {
   const byStem = new Map<string, string[]>();
   const byBase = new Map<string, string[]>();
   for (const name of names) {
@@ -47,6 +52,20 @@ export function buildLinkResolver(names: Iterable<string>): LinkResolver {
     const base = stem.slice(stem.lastIndexOf('/') + 1);
     (byStem.get(stem) ?? byStem.set(stem, []).get(stem)!).push(name);
     (byBase.get(base) ?? byBase.set(base, []).get(base)!).push(name);
+  }
+
+  // alias (lower case) -> the notes that answer to it; only notes that exist count
+  const byAlias = new Map<string, string[]>();
+  const known = new Set<string>();
+  for (const list of byStem.values()) for (const name of list) known.add(name);
+  for (const [name, list] of Object.entries(aliases)) {
+    if (!known.has(name)) continue;
+    for (const alias of list) {
+      const key = normalizeTarget(alias);
+      if (!key) continue;
+      const owners = byAlias.get(key) ?? byAlias.set(key, []).get(key)!;
+      if (!owners.includes(name)) owners.push(name);
+    }
   }
 
   const best = (candidates: string[], from?: string): string => {
@@ -63,10 +82,13 @@ export function buildLinkResolver(names: Iterable<string>): LinkResolver {
       if (exact) return best(exact, from);
       const base = t.slice(t.lastIndexOf('/') + 1);
       const sameName = byBase.get(base);
-      if (!sameName) return null;
-      // "Work/Plan" also matches "Deep/Work/Plan.md": the link names the end of the path.
-      const fits = t === base ? sameName : sameName.filter(n => lower(stemOf(n)).endsWith(`/${t}`));
-      return fits.length ? best(fits, from) : null;
+      if (sameName) {
+        // "Work/Plan" also matches "Deep/Work/Plan.md": the link names the end of the path.
+        const fits = t === base ? sameName : sameName.filter(n => lower(stemOf(n)).endsWith(`/${t}`));
+        if (fits.length) return best(fits, from);
+      }
+      const owners = byAlias.get(t);
+      return owners ? best(owners, from) : null;
     },
   };
 }

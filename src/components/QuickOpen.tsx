@@ -40,14 +40,23 @@ export function QuickOpen({ notes, onSelect, onCreateNote, onOpenDaily, onOpenSe
     return notes.map(n => n.path).sort().join('\n');
   }, [notes]);
 
-  const fuse = useMemo(() => new Fuse(notes, {
-    keys: ['name'],
+  // A note answers to its name and to its aliases (frontmatter `aliases:`).
+  const aliasIndex = useStore(s => s.noteAliasesIndex);
+  const fuse = useMemo(() => new Fuse(notes.map(note => ({ note, name: note.name, aliases: aliasIndex[note.name] ?? [] })), {
+    keys: ['name', 'aliases'],
     threshold: 0.4,
     ignoreLocation: true,
     includeScore: true,
   }),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [notesKey]);
+  [notesKey, aliasIndex]);
+
+  /** The alias that made a note match, when its name did not (shown beside the name, so the match is not a mystery). */
+  const matchedAlias = (note: NoteFile): string | null => {
+    const q = query.trim().replace(/\.md$/i, '').toLowerCase();
+    if (!q || query.startsWith('/') || note.name.toLowerCase().includes(q)) return null;
+    return (aliasIndex[note.name] ?? []).find(a => a.toLowerCase().includes(q)) ?? null;
+  };
 
   const nameResults = useMemo(() => {
     if (query.startsWith('/')) return [];
@@ -56,11 +65,7 @@ export function QuickOpen({ notes, onSelect, onCreateNote, onOpenDaily, onOpenSe
         .sort((a, b) => b.stats.mtimeMs - a.stats.mtimeMs)
         .slice(0, 20);
     }
-    const searchResults = fuse.search(query);
-    const notesMap = new Map(notes.map(n => [n.path, n]));
-    return searchResults
-      .map((r) => notesMap.get(r.item.path))
-      .filter((n): n is NoteFile => !!n);
+    return fuse.search(query).map(r => r.item.note);
   }, [fuse, query, notes]);
 
   // Full-text pass: so ⌘K finds notes by *content*, not just filename. Name
@@ -277,6 +282,11 @@ export function QuickOpen({ notes, onSelect, onCreateNote, onOpenDaily, onOpenSe
                     }`} />
                     <span className="text-sm truncate font-medium">
                       <HighlightedText text={note.name.replace('.md', '')} query={query} isActive={isSelected} />
+                      {matchedAlias(note) && (
+                        <span className="ml-2 text-[11px] font-normal opacity-70" data-testid="quick-open-alias">
+                          {t('aliasMatch').replace('{alias}', matchedAlias(note)!)}
+                        </span>
+                      )}
                     </span>
                   </button>
                 );

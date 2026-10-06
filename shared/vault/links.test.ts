@@ -104,5 +104,11 @@ describe('rewriteWikilinks with the whole vault known (Obsidian resolution)', ()
     const out = rewriteWikilinks(raw, rename, plans[0], 'Home.md');
     expect(out.content).toBe('<span data-wikilink="Work/Roadmap" class="wikilink">[[Work/Roadmap]]</span>');
   });
+
+  it('leaves a link written with an alias alone when the note is renamed: the alias travels with the note', () => {
+    const plan = prepareRewrite([R('Home.md', 'Landing.md')], ['Landing.md', 'Other.md']);
+    expect(rewriteWikilinks('[[Start]] and [[Home]]', [R('Home.md', 'Landing.md')], plan, 'Other.md'))
+      .toEqual({ content: '[[Start]] and [[Landing]]', changed: 1 });
+  });
 });
 

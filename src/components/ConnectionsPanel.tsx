@@ -41,6 +41,7 @@ export function ConnectionsPanel({ onOpenNote }: { onOpenNote: (name: string) =>
   const { t } = useI18n();
   const activeNoteName = useStore(s => s.activeNoteName);
   const noteLinksIndex = useStore(s => s.noteLinksIndex);
+  const noteAliasesIndex = useStore(s => s.noteAliasesIndex);
   const tagIndex = useStore(s => s.tagIndex);
 
   const { outgoing, backlinks, projectTags, projectSiblings } = useMemo(() => {
@@ -48,13 +49,13 @@ export function ConnectionsPanel({ onOpenNote }: { onOpenNote: (name: string) =>
       return { outgoing: [] as string[], backlinks: [] as string[], projectTags: [] as string[], projectSiblings: [] as string[] };
     }
     const outgoing = [...new Set(noteLinksIndex[activeNoteName] ?? [])];
-    const backlinks = backlinksOf(noteLinksIndex, activeNoteName);
+    const backlinks = backlinksOf(noteLinksIndex, activeNoteName, noteAliasesIndex);
     const projectTags = Object.keys(tagIndex)
       .filter(tag => tag.startsWith('#project/') && tagIndex[tag].includes(activeNoteName));
     const sib = new Set<string>();
     for (const tag of projectTags) for (const n of tagIndex[tag]) if (n !== activeNoteName) sib.add(n);
     return { outgoing, backlinks, projectTags, projectSiblings: [...sib] };
-  }, [activeNoteName, noteLinksIndex, tagIndex]);
+  }, [activeNoteName, noteLinksIndex, noteAliasesIndex, tagIndex]);
 
   if (!activeNoteName) {
     return <div className="p-4 text-sm text-gray-400 dark:text-gray-500">{t('connNoActive')}</div>;
