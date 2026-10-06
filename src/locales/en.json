@@ -793,5 +793,11 @@
   "connMentionCount": "{n} mentions",
   "embedLoading": "Loading…",
   "embedMissing": "Not found: {name}",
-  "embedOpenAria": "Embedded from {name}: open it"
+  "embedOpenAria": "Embedded from {name}: open it",
+  "viewNameColumn": "Name",
+  "viewModifiedColumn": "Modified",
+  "viewLoading": "Indexing your notes…",
+  "viewNoRows": "No notes match this view.",
+  "viewSortBy": "Sort by {field}",
+  "viewRowCount": "{n} notes"
 }

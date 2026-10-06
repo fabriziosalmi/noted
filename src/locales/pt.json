@@ -793,5 +793,11 @@
   "connMentionCount": "{n} menções",
   "embedLoading": "A carregar…",
   "embedMissing": "Não encontrado: {name}",
-  "embedOpenAria": "Incorporado de {name}: abrir"
+  "embedOpenAria": "Incorporado de {name}: abrir",
+  "viewNameColumn": "Nome",
+  "viewModifiedColumn": "Modificada",
+  "viewLoading": "A indexar as suas notas…",
+  "viewNoRows": "Nenhuma nota corresponde a esta vista.",
+  "viewSortBy": "Ordenar por {field}",
+  "viewRowCount": "{n} notas"
 }
