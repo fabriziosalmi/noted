@@ -790,5 +790,8 @@
   "outlineEmpty": "Cette note n'a pas encore de titres.",
   "connMentions": "Mentions sans lien",
   "connMentionLink": "Lier",
-  "connMentionCount": "{n} mentions"
+  "connMentionCount": "{n} mentions",
+  "embedLoading": "Chargement…",
+  "embedMissing": "Introuvable : {name}",
+  "embedOpenAria": "Intégré depuis {name} : l’ouvrir"
 }

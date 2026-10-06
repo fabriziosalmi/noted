@@ -790,5 +790,8 @@
   "outlineEmpty": "Diese Notiz hat noch keine Überschriften.",
   "connMentions": "Unverlinkte Erwähnungen",
   "connMentionLink": "Verlinken",
-  "connMentionCount": "{n} Erwähnungen"
+  "connMentionCount": "{n} Erwähnungen",
+  "embedLoading": "Wird geladen…",
+  "embedMissing": "Nicht gefunden: {name}",
+  "embedOpenAria": "Eingebettet aus {name}: öffnen"
 }

@@ -8,6 +8,9 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Embeds** (#67, part 2): `![[Note]]`, `![[Note#Heading]]`, `![[Note#^block-id]]` and `![[image.png|300]]` show what they point at,
+  in place under the line, read-only (never saved into the note); a click opens the source at that place. A missing target says
+  so. The embedded HTML is sanitized, and an embed inside an embedded note is not expanded, so a note that embeds itself cannot loop.
 - **Heading and block links** (#67, part 1): after `[[Note#` the autocomplete lists the note's headings, and following
   `[[Note#Heading]]` or `[[Note#^block-id]]` opens the note with the caret on that heading or block, scrolled into view (also
   within the same note). Headings match whatever the case or spacing, `[[Note#Part#Detail]]` finds the heading under its parent.

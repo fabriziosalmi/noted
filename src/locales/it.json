@@ -790,5 +790,8 @@
   "outlineEmpty": "Questa nota non ha ancora titoli.",
   "connMentions": "Menzioni senza link",
   "connMentionLink": "Collega",
-  "connMentionCount": "{n} menzioni"
+  "connMentionCount": "{n} menzioni",
+  "embedLoading": "Caricamento…",
+  "embedMissing": "Non trovato: {name}",
+  "embedOpenAria": "Incorporato da {name}: aprilo"
 }

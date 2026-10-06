@@ -180,7 +180,7 @@ function ensureOptimisticNoteVisible(
  * converted. Shared by opening a note and by re-reading it after an external
  * change, so both agree on what "the same content" means.
  */
-function parseNoteFile(raw: string): { content: string; frontmatter: string | null } {
+export function parseNoteFile(raw: string): { content: string; frontmatter: string | null } {
   if (raw.trimStart().startsWith('<')) {
     const extracted = extractHtmlFrontmatterComment(raw);
     return { content: extracted.body, frontmatter: extracted.frontmatter };

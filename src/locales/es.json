@@ -790,5 +790,8 @@
   "outlineEmpty": "Esta nota todavía no tiene encabezados.",
   "connMentions": "Menciones sin enlace",
   "connMentionLink": "Enlazar",
-  "connMentionCount": "{n} menciones"
+  "connMentionCount": "{n} menciones",
+  "embedLoading": "Cargando…",
+  "embedMissing": "No encontrado: {name}",
+  "embedOpenAria": "Incrustado desde {name}: abrir"
 }

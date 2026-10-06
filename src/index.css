@@ -915,3 +915,25 @@ body {
   }
 }
 
+
+/* ─── Embeds: ![[Note]] and ![[image.png]] shown in place, read-only ─────── */
+.ProseMirror .embed {
+  display: block;
+  margin: 6px 0 10px;
+  padding: 8px 12px;
+  border-left: 3px solid #5856d6;
+  border-radius: 4px;
+  background: rgba(88, 86, 214, 0.05);
+  max-height: 24rem;
+  overflow: auto;
+  cursor: pointer;
+  user-select: text;
+  font-size: 0.95em;
+}
+.ProseMirror .embed:hover { background: rgba(88, 86, 214, 0.09); }
+.ProseMirror .embed img { max-width: 100%; height: auto; border-radius: 4px; }
+.ProseMirror .embed .embed-missing { color: #8e8e93; font-style: italic; }
+.ProseMirror .embed-body > div > :first-child { margin-top: 0; }
+.ProseMirror .embed-body > div > :last-child { margin-bottom: 0; }
+.dark .ProseMirror .embed { border-left-color: #bf5af2; background: rgba(191, 90, 242, 0.08); }
+.dark .ProseMirror .embed:hover { background: rgba(191, 90, 242, 0.13); }
