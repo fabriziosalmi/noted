@@ -43,3 +43,6 @@ notes_dev/
 scripts/demo/out/
 test-results/
 playwright-report/
+
+# Benchmark output (scripts/bench-compare.mjs reads it)
+bench/results*.json
