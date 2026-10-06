@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { InvertedIndex } from '../shared/search/invertedIndex.js';
-import { htmlToPlainText, deriveTitleFromRelPath } from '../shared/search/textExtract.js';
+import { noteToPlainText, deriveTitleFromRelPath } from '../shared/search/textExtract.js';
 
 export interface FullTextResult {
   relPath: string;
@@ -96,7 +96,7 @@ export class FullTextSearchReadModel {
     state.index.add({
       id: relPath,
       title: deriveTitleFromRelPath(relPath),
-      text: htmlToPlainText(raw),
+      text: noteToPlainText(raw),
       mtimeMs: Date.now(),
     });
   }
@@ -202,7 +202,7 @@ export class FullTextSearchReadModel {
     if (known && known.mtimeMs === stat.mtimeMs) return;
     let raw: string;
     try { raw = await fs.promises.readFile(file, 'utf-8'); } catch { return; }
-    state.index.add({ id: relPath, title: deriveTitleFromRelPath(relPath), text: htmlToPlainText(raw), mtimeMs: stat.mtimeMs });
+    state.index.add({ id: relPath, title: deriveTitleFromRelPath(relPath), text: noteToPlainText(raw), mtimeMs: stat.mtimeMs });
   }
 
   private async ensureFresh(
@@ -286,7 +286,7 @@ export class FullTextSearchReadModel {
         if (entry.size > FT_MAX_FILE_BYTES) return null;
         try {
           const raw = await fs.promises.readFile(entry.filePath, 'utf-8');
-          return { ...entry, text: htmlToPlainText(raw) };
+          return { ...entry, text: noteToPlainText(raw) };
         } catch {
           return null;
         }

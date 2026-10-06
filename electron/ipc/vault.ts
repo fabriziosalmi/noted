@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { validateFileName } from '../ipc-utils';
 import { writeVaultConfig, isValidRetentionDays } from '../../shared/vault-config';
 import { previewRewrite } from '../link-rewrite';
+import { readVaultFormat } from '../../shared/vault/formatFile';
 import { logEvent, newRequestId } from '../structured-log';
 import { getTargetDir, blessVaultRoot, isBlessedRoot, setActiveVaultDir } from '../core/paths';
 import { fullTextSearchIndex, vaultIndex } from '../core/services';
@@ -20,6 +21,16 @@ export function registerVaultHandlers(): void {
 
   // Settings the MCP server (possibly started by another program) must share with
   // the app live in <vault>/.noted/config.json; the renderer pushes them here.
+  // How this vault's notes are stored on disk (shared/vault/format.ts); the renderer converts to and from it.
+  ipcMain.handle('get-vault-format', (_, syncDir?: string) => {
+    try {
+      if (syncDir !== undefined && typeof syncDir !== 'string') throw new Error('syncDir must be a string');
+      return { success: true, data: readVaultFormat(getTargetDir(syncDir)) };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
   ipcMain.handle('set-vault-config', (_, config: { trashRetentionDays?: unknown }, syncDir?: string) => {
     try {
       if (typeof config !== 'object' || config === null) throw new Error('Invalid config');

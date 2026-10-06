@@ -80,6 +80,7 @@ describe('IPC channels', () => {
     'get-note-history',
     'get-notes-list',
     'get-notes-tree',
+    'get-vault-format',
     'git-commit-all',
     'git-commit-note',
     'git-create-pr',

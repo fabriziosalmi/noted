@@ -74,6 +74,7 @@ declare global {
       gitPushBranch: (branch: string, remoteUrl: string, syncDir?: string) => Promise<GitResult>;
       gitLog: (noteName?: string, syncDir?: string) => Promise<GitResult<GitLogEntry[]>>;
       gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => Promise<GitResult<PrData>>;
+      getVaultFormat: (syncDir?: string) => Promise<{ success: boolean; data?: 'html' | 'markdown'; error?: string }>;
       setVaultConfig: (config: { trashRetentionDays?: number }, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       saveAttachment: (bytes: Uint8Array, folder?: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       scanEmbeddedImages: (syncDir?: string) => Promise<{ success: boolean; data?: EmbeddedImagesReport; error?: string }>;

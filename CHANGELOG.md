@@ -8,6 +8,11 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Internal: the app can read and write a vault stored as Markdown** (#60, first part). A vault carries its note format
+  in `.noted-vault.json`; for one marked `markdown` the app opens notes as rich text, saves them back as Markdown
+  (frontmatter untouched), indexes, searches and previews them, and writes quick captures in that format. No vault is
+  marked yet, so nothing changes for anyone until the migration lands. The editor is now built from the same document model as
+  the codec, so callouts, raw Markdown blocks, loose lists, table alignment and a code fence's full info string are part of it.
 - **Internal: the Markdown codec** (`shared/markdown/`, #59), the converter between Markdown text and the editor's
   document chosen in ADR 0001. Not connected to the app yet, so notes are still stored as before. It covers
   CommonMark, GFM tables and task lists, fenced code, wikilinks and embeds, highlights, math, callouts, comments and

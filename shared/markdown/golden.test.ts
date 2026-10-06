@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { normalizeMarkdown } from './codec';
+import { normalizeMarkdown, plainTextToMarkdown } from './codec';
 import { GOLDEN } from './golden';
 
 const strip = (s: string): string => s.replace(/\n$/, '');
@@ -26,4 +26,20 @@ describe('golden corpus', () => {
       });
     });
   }
+});
+
+describe('plainTextToMarkdown (quick capture)', () => {
+  it('writes one paragraph per non-empty line, as typed', () => {
+    expect(plainTextToMarkdown('first line\n\nsecond *line* with [[Link]] and #tag\r\n  third  ')).toBe('first line\n\nsecond \\*line\\* with [[Link]] and #tag\n\nthird\n');
+  });
+
+  it('keeps syntax characters from becoming syntax', () => {
+    const md = plainTextToMarkdown('# not a heading\n- not a list\n1. nor this\n<script>x</script>');
+    expect(md).toBe('\\# not a heading\n\n\\- not a list\n\n1\\. nor this\n\n\\<script>x\\</script>\n');
+    expect(normalizeMarkdown(md)).toBe(md);
+  });
+
+  it('is empty for blank input', () => {
+    expect(plainTextToMarkdown('  \n\n')).toBe('');
+  });
 });

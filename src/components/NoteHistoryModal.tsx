@@ -1,3 +1,4 @@
+import { getElectronApi } from '../lib/electronApi';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { X, RotateCcw, Clock } from 'lucide-react';
 import { Modal } from './Modal';
@@ -35,8 +36,10 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
 
   const loadPreview = useCallback(async (snap: Snapshot) => {
     setSelected(snap);
-    if (!window.electronAPI) return;
-    const res = await window.electronAPI.readNoteSnapshot(fileName, snap.name, syncDir ?? undefined);
+    // through getElectronApi: a snapshot of a Markdown note is Markdown, the preview is HTML
+    const api = getElectronApi();
+    if (!api) return;
+    const res = await api.readNoteSnapshot(fileName, snap.name, syncDir ?? undefined);
     if (res.success && res.data) setPreview(res.data);
   }, [fileName, syncDir]);
 

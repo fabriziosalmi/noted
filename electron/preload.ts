@@ -85,6 +85,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gitPushBranch: (branch: string, remoteUrl: string, syncDir?: string) => ipcRenderer.invoke('git-push-branch', branch, remoteUrl, syncDir),
   gitLog: (noteName?: string, syncDir?: string) => ipcRenderer.invoke('git-log', noteName, syncDir),
   gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => ipcRenderer.invoke('git-create-pr', params),
+  getVaultFormat: (syncDir?: string) => ipcRenderer.invoke('get-vault-format', syncDir),
   setVaultConfig: (config: { trashRetentionDays?: number }, syncDir?: string) => ipcRenderer.invoke('set-vault-config', config, syncDir),
   saveAttachment: (bytes: Uint8Array, folder?: string, syncDir?: string) => ipcRenderer.invoke('save-attachment', bytes, folder, syncDir),
   scanEmbeddedImages: (syncDir?: string) => ipcRenderer.invoke('scan-embedded-images', syncDir),

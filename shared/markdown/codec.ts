@@ -2,6 +2,7 @@
 // followed by a Markdown body; the body is what the editor works on.
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { parseMarkdownBody } from './parser';
+import { documentSchema } from './schema';
 import { serializeMarkdownBody } from './serializer';
 
 export { documentSchema, documentExtensions } from './schema';
@@ -45,4 +46,31 @@ export function serializeNote({ frontmatter, doc }: ParsedNote): string {
 /** What saving `text` through the editor would write: the codec applied once. */
 export function normalizeMarkdown(text: string): string {
   return serializeNote(parseNote(text));
+}
+
+const WIKILINK_IN_TEXT = /(!?)\[\[([^\]|#^\n]+?)(#[^\]|\n]*)?(\|[^\]\n]*)?\]\]/g;
+
+/** Plain text as inline content: a typed `[[Note]]` is a link, as it is in the editor, everything else is literal. */
+function plainInline(line: string): object[] {
+  const out: object[] = [];
+  let last = 0;
+  for (const m of line.matchAll(WIKILINK_IN_TEXT)) {
+    if (m.index > last) out.push({ type: 'text', text: line.slice(last, m.index) });
+    out.push({ type: 'text', text: m[0], marks: [{ type: 'wikilink', attrs: { target: m[2].trim(), embed: m[1] === '!' } }] });
+    last = m.index + m[0].length;
+  }
+  if (last < line.length) out.push({ type: 'text', text: line.slice(last) });
+  return out;
+}
+
+/** A note holding plain text, one paragraph per non-empty line (quick capture): every character written as typed. */
+export function plainTextToMarkdown(text: string): string {
+  const paragraphs = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== '')
+    .map((line) => ({ type: 'paragraph', content: plainInline(line) }));
+  if (paragraphs.length === 0) return '';
+  const doc = documentSchema().nodeFromJSON({ type: 'doc', content: paragraphs });
+  return serializeNote({ frontmatter: '', doc });
 }

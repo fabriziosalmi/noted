@@ -2,16 +2,11 @@ import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { useI18n } from '../lib/i18n';
 import { useEditor, EditorContent, ReactNodeViewRenderer, type Editor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
-import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Typography from '@tiptap/extension-typography';
-import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table';
+import { Table } from '@tiptap/extension-table';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
-import Image from '@tiptap/extension-image';
-import Mathematics from '@tiptap/extension-mathematics';
-import { TaskList } from '@tiptap/extension-task-list';
-import { TaskItem } from '@tiptap/extension-task-item';
-import { Highlight } from '@tiptap/extension-highlight';
+import { documentExtensions, withCodeInfo } from '../../shared/markdown/schema';
 import { Link } from '@tiptap/extension-link';
 import { Focus } from '@tiptap/extension-focus';
 import { createLowlight, common } from 'lowlight';
@@ -31,6 +26,7 @@ import { GhostTextExtension, ghostTextKey } from '../lib/ghostTextExtension';
 import { deriveTitle } from '../lib/noteTitle';
 import { planExternalChange } from '../lib/externalChange';
 import { attachImage } from '../lib/imageAttach';
+import { canonicalWire, peekVaultFormat } from '../lib/noteIo';
 import { getElectronApi } from '../lib/electronApi';
 import { suggestProject, type ProjectSuggestion } from '../lib/projectSuggestion';
 import { usePrompt } from './ConfirmProvider';
@@ -39,6 +35,15 @@ import { marked } from 'marked';
 import { isMarkdownList, convertTaskListsToTiptap } from '../lib/listUtils';
 
 const lowlight = createLowlight(common);
+
+/** The vault's format as far as it is known (a note has been read, so it is). */
+const currentFormat = () => peekVaultFormat(useStore.getState().settings.syncDirectory || undefined);
+
+/**
+ * In a Markdown vault whitespace is content ("a  b", a line break inside a paragraph): the editor must read
+ * it as written, which is not how it reads HTML by default.
+ */
+const parseOptionsFor = (format: ReturnType<typeof currentFormat>) => (format === 'markdown' ? { preserveWhitespace: 'full' as const } : undefined);
 
 const WikilinkPlugin = Extension.create({
   name: 'wikilinkPlugin',
@@ -265,10 +270,19 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
 
   const editor = useEditor({
     extensions: [
-      // StarterKit bundles its own Link; disable it so the configured one
-      // below (rel="noopener noreferrer nofollow", target="_blank") is the one
-      // that registers, instead of racing a duplicate 'link' extension.
-      StarterKit.configure({ codeBlock: false, link: false }),
+      // What a note can contain is defined once, in shared/markdown/schema.ts, so the editor, the Markdown
+      // codec and the MCP server cannot disagree about it. Here: only the editor-only parts of it.
+      ...documentExtensions({
+        codeBlock: withCodeInfo(CodeBlockLowlight.extend({
+          addNodeView() { return ReactNodeViewRenderer(CodeBlockView); },
+        }).configure({ lowlight })),
+        table: Table.configure({ resizable: true }),
+        // External links open in the system browser: a click hits main's
+        // setWindowOpenHandler, which routes https to shell.openExternal (the
+        // renderer itself can't navigate). rel hardening blocks window.opener.
+        link: Link.configure({ openOnClick: true, autolink: true, HTMLAttributes: { rel: 'noopener noreferrer nofollow', target: '_blank' } }),
+        wikilink: WikilinkMark,
+      }),
       Typography,
       Placeholder.configure({
         placeholder: ({ editor, node }) => {
@@ -279,30 +293,14 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
           return t('editorPlaceholder');
         },
       }),
-      Table.configure({ resizable: true }),
-      TableRow,
-      TableCell,
-      TableHeader,
-      CodeBlockLowlight.extend({
-        addNodeView() { return ReactNodeViewRenderer(CodeBlockView); },
-      }).configure({ lowlight }),
-      Image.configure({ inline: false, allowBase64: true }),
-      Mathematics,
-      TaskList,
-      TaskItem.configure({ nested: true }),
-      Highlight,
-      // External links open in the system browser: a click hits main's
-      // setWindowOpenHandler, which routes https to shell.openExternal (the
-      // renderer itself can't navigate). rel hardening blocks window.opener.
-      Link.configure({ openOnClick: true, autolink: true, HTMLAttributes: { rel: 'noopener noreferrer nofollow', target: '_blank' } }),
       // Tags the top-level block under the cursor with `.has-focus`; inert until
       // Focus mode adds `.focus-mode`, which dims every other block (see CSS).
       Focus.configure({ className: 'has-focus', mode: 'shallowest' }),
-      WikilinkMark,
       WikilinkPlugin,
       GhostTextExtension,
     ],
     content: activeNoteContent,
+    parseOptions: parseOptionsFor(currentFormat()),
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
       debouncedSave(html);
@@ -432,7 +430,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       // so its last <debounce edits are never dropped.
       flushPending();
       prevNoteNameRef.current = activeNoteName;
-      editor.commands.setContent(activeNoteContent);
+      editor.commands.setContent(activeNoteContent, { parseOptions: parseOptionsFor(currentFormat()) });
       baselineHtmlRef.current = editor.getHTML();
       updateWordCount(editor.getText());
       // Baseline the title tracker to the loaded note so body edits don't
@@ -472,10 +470,14 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       // just the echo of loading the note, with nothing of the user's in it.
       const pending = pendingSaveRef.current;
       const typed = pending && pending.name === name && pending.content !== baselineHtmlRef.current ? pending : null;
+      // In a Markdown vault the editor and the file print the same note slightly differently; compare what
+      // each would be after a trip through the file, or every save would look like an outside change.
+      const format = currentFormat();
+      const same = (html: string) => canonicalWire(html, format);
       const plan = planExternalChange({
-        disk: disk && { content: disk.content, frontmatter: disk.frontmatter },
-        loaded: { content: cur.activeNoteContent, frontmatter: cur.activeNoteFrontmatter },
-        unsaved: typed ? { content: typed.content } : null,
+        disk: disk && { content: same(disk.content), frontmatter: disk.frontmatter },
+        loaded: { content: same(cur.activeNoteContent), frontmatter: cur.activeNoteFrontmatter },
+        unsaved: typed ? { content: same(typed.content) } : null,
       });
       const notice = onNoticeRef.current;
       const tr = tRef.current;
@@ -496,7 +498,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       pendingSaveRef.current = null;
       cur.applyExternalContent(name, plan.disk.content, plan.disk.frontmatter);
       const { from, to } = editor.state.selection;
-      editor.commands.setContent(plan.disk.content, { emitUpdate: false });
+      editor.commands.setContent(plan.disk.content, { emitUpdate: false, parseOptions: parseOptionsFor(currentFormat()) });
       baselineHtmlRef.current = editor.getHTML();
       const max = editor.state.doc.content.size;
       editor.commands.setTextSelection({ from: Math.min(from, max), to: Math.min(to, max) });
