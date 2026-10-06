@@ -897,5 +897,17 @@
   "tasksToggleFailed": "Impossibile cambiare l'attività: {error}",
   "tasksOverdue": "in ritardo",
   "tasksStatus": "Stato",
-  "tasksDue": "Scadenza"
+  "tasksDue": "Scadenza",
+  "mcpAccessTitle": "Accesso degli agenti",
+  "mcpAccessHelp": "Scegli cosa possono raggiungere gli assistenti collegati tramite MCP. Le cartelle nascoste per loro non esistono: non compaiono, non si leggono, non si cercano, non si scrivono. Vince la cartella più specifica. Le modifiche valgono dalla richiesta successiva.",
+  "mcpAccessDefault": "Ovunque altrove",
+  "mcpAccessHidden": "Nascosta",
+  "mcpAccessReadOnly": "Sola lettura",
+  "mcpAccessReadWrite": "Lettura e scrittura",
+  "mcpAccessAdd": "Aggiungi cartella",
+  "mcpAccessFolder": "Cartella",
+  "mcpAccessRemove": "Rimuovi la regola per {name}",
+  "mcpAccessInvalid": "Il file della policy non è valido: {error}. Gli assistenti non raggiungono nulla finché non viene corretto.",
+  "mcpAccessReset": "Torna all'accesso aperto",
+  "mcpAccessSaveFailed": "Impossibile salvare la policy: {error}"
 }

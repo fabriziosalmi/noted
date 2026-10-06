@@ -8,6 +8,11 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Per-folder MCP access** (#86): Settings → MCP → Agent access (and `.noted/mcp-policy.yaml`) gives assistants *hidden*, *read-only* or
+  *read-write* access to the vault and to each folder, the most specific winning. Every MCP tool enforces it: hidden notes are not
+  listed, searched (nor excerpted), counted among tasks or trash, and read or change as "not found", like a note that is not there;
+  read-only notes cannot be written, deleted or restored over. It follows symbolic links to the real location, ignores case and
+  Unicode form, applies to the next request, and an unreadable policy closes everything with a clear message instead of guessing.
 - **Tasks across the vault** (#71): a **Tasks** page (top of the sidebar's Views section) lists every `- [ ]` / `- [x]` item of your
   Markdown notes, soonest due first (`📅 2026-10-10`, `due:: 2026-10-10`). Filter by status, due date (overdue, today, next 7 days,
   none), folder, tag and text; the list follows the notes live. Tick a task and it is ticked in its note (one character, the rest of

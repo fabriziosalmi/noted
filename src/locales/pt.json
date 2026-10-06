@@ -897,5 +897,17 @@
   "tasksToggleFailed": "Não foi possível alterar a tarefa: {error}",
   "tasksOverdue": "em atraso",
   "tasksStatus": "Estado",
-  "tasksDue": "Prazo"
+  "tasksDue": "Prazo",
+  "mcpAccessTitle": "Acesso dos agentes",
+  "mcpAccessHelp": "Escolha o que os assistentes ligados por MCP podem alcançar. As pastas ocultas não existem para eles: não são listadas, lidas, pesquisadas nem escritas. Vence a pasta mais específica. As alterações valem a partir do pedido seguinte.",
+  "mcpAccessDefault": "Em todo o resto",
+  "mcpAccessHidden": "Oculta",
+  "mcpAccessReadOnly": "Só de leitura",
+  "mcpAccessReadWrite": "Leitura e escrita",
+  "mcpAccessAdd": "Adicionar pasta",
+  "mcpAccessFolder": "Pasta",
+  "mcpAccessRemove": "Remover a regra de {name}",
+  "mcpAccessInvalid": "O ficheiro de política é inválido: {error}. Os assistentes não alcançam nada até ser corrigido.",
+  "mcpAccessReset": "Voltar ao acesso aberto",
+  "mcpAccessSaveFailed": "Não foi possível guardar a política: {error}"
 }

@@ -68,6 +68,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteFolder: (name: string, syncDir?: string, opts?: { updateLinks?: boolean }) => ipcRenderer.invoke('delete-folder', name, syncDir, opts),
   moveNote: (fileName: string, toFolder: string, syncDir?: string, opts?: { updateLinks?: boolean }) => ipcRenderer.invoke('move-note', fileName, toFolder, syncDir, opts),
   previewLinkRewrite: (renames: { from: string; to: string }[], syncDir?: string) => ipcRenderer.invoke('preview-link-rewrite', renames, syncDir),
+  getMcpPolicy: (syncDir?: string) => ipcRenderer.invoke('get-mcp-policy', syncDir),
+  setMcpPolicy: (policy: unknown, syncDir?: string) => ipcRenderer.invoke('set-mcp-policy', policy, syncDir),
   listTasks: (filter: unknown, syncDir?: string) => ipcRenderer.invoke('list-tasks', filter, syncDir),
   toggleTask: (name: string, line: number, text: string, done: boolean, syncDir?: string) => ipcRenderer.invoke('toggle-task', name, line, text, done, syncDir),
   setNoteProperty: (name: string, key: string, value: unknown, expect: unknown, syncDir?: string) => ipcRenderer.invoke('set-note-property', name, key, value, expect, syncDir),

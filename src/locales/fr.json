@@ -897,5 +897,17 @@
   "tasksToggleFailed": "Impossible de modifier la tâche : {error}",
   "tasksOverdue": "en retard",
   "tasksStatus": "Statut",
-  "tasksDue": "Échéance"
+  "tasksDue": "Échéance",
+  "mcpAccessTitle": "Accès des agents",
+  "mcpAccessHelp": "Choisissez ce que les assistants connectés par MCP peuvent atteindre. Les dossiers masqués n'existent pas pour eux : ni listés, ni lus, ni cherchés, ni écrits. Le dossier le plus précis l'emporte. Les changements s'appliquent à la requête suivante.",
+  "mcpAccessDefault": "Partout ailleurs",
+  "mcpAccessHidden": "Masqué",
+  "mcpAccessReadOnly": "Lecture seule",
+  "mcpAccessReadWrite": "Lecture et écriture",
+  "mcpAccessAdd": "Ajouter un dossier",
+  "mcpAccessFolder": "Dossier",
+  "mcpAccessRemove": "Retirer la règle de {name}",
+  "mcpAccessInvalid": "Le fichier de politique est invalide : {error}. Les assistants n'atteignent rien tant qu'il n'est pas corrigé.",
+  "mcpAccessReset": "Revenir à l'accès ouvert",
+  "mcpAccessSaveFailed": "Impossible d'enregistrer la politique : {error}"
 }

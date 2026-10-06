@@ -8,6 +8,8 @@ import { readVaultFormat } from '../../shared/vault/formatFile';
 import { readViews, writeViews } from '../../shared/views/file';
 import { setProperty } from '../note-properties';
 import { toggleTask } from '../note-tasks';
+import { isAccess, parsePolicy, serializePolicy, MAX_POLICY_FOLDERS, type McpPolicy } from '../../shared/vault/mcpPolicy';
+import { loadPolicy, savePolicy } from '../../shared/vault/mcpPolicyFile';
 import { queryTasks, localDay, type TaskFilter } from '../../shared/tasks/query';
 import { isFieldValue, type FieldValue } from '../../shared/vault/fields';
 import { MAX_FIELD_CHARS } from '../../shared/views/model';
@@ -165,6 +167,31 @@ export function registerVaultHandlers(): void {
     try {
       assertNotMigrating();
       return { success: true, data: writeViews(getTargetDir(syncDir), views) };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  // What agents (MCP clients) may reach: the policy file the MCP server enforces.
+  ipcMain.handle('get-mcp-policy', (_, syncDir?: string) => {
+    try {
+      const loaded = loadPolicy(getTargetDir(syncDir));
+      return { success: true, data: loaded.ok ? { policy: loaded.policy, present: loaded.present } : { error: loaded.error } };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('set-mcp-policy', (_, policy: unknown, syncDir?: string) => {
+    try {
+      const p = (policy ?? {}) as { default?: unknown; folders?: unknown };
+      if (!isAccess(p.default) || typeof p.folders !== 'object' || p.folders === null || Array.isArray(p.folders)) throw new Error('Invalid policy');
+      const entries = Object.entries(p.folders as Record<string, unknown>);
+      if (entries.length > MAX_POLICY_FOLDERS) throw new Error('Too many folders');
+      const checked = parsePolicy(serializePolicy({ default: p.default, folders: Object.fromEntries(entries.filter(([, a]) => isAccess(a))) as McpPolicy['folders'] }));
+      if (!checked.ok || entries.some(([, a]) => !isAccess(a))) throw new Error(checked.ok ? 'Invalid access' : checked.error);
+      savePolicy(getTargetDir(syncDir), checked.policy);
+      return { success: true, data: { policy: checked.policy } };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

@@ -51,6 +51,8 @@ import {
 import pkg from '../package.json';
 import { moveToTrash, listTrash, restoreFromTrash, purgeTrash, parseRetentionDays, DEFAULT_RETENTION_DAYS, TrashError } from './trash';
 import { readVaultConfig } from '../shared/vault-config.js';
+import { accessFor, canRead, canWrite, lessAccess, type Access, type McpPolicy } from '../shared/vault/mcpPolicy.js';
+import { loadPolicy, policyStamp, type LoadedPolicy } from '../shared/vault/mcpPolicyFile.js';
 import { isMigrationLocked, readVaultFormat } from '../shared/vault/formatFile.js';
 import { checkFolderPath, checkNotePath } from '../shared/vault/paths.js';
 import { walkVaultSync } from '../shared/vault/walk.js';
@@ -192,6 +194,51 @@ export function safeNotePath(name: string): string {
   return resolved;
 }
 
+// ─── Agent access policy (.noted/mcp-policy.yaml) ─────────────────────────────
+
+let policyCache: { stamp: string; result: LoadedPolicy } | null = null;
+
+/** The vault's policy, read again whenever its file changes. A policy that cannot be read is an error, never a guess. */
+function currentPolicy(): McpPolicy {
+  const stamp = policyStamp(NOTES_DIR);
+  if (!policyCache || policyCache.stamp !== stamp) policyCache = { stamp, result: loadPolicy(NOTES_DIR) };
+  if (!policyCache.result.ok) {
+    throw new McpError(ErrorCode.InternalError, `${policyCache.result.error}. No note can be reached until it is fixed (Settings → MCP, or delete the file).`);
+  }
+  return policyCache.result.policy;
+}
+
+/** What agents may do with a note: what the policy says of its name, and of where it really is (a link cannot lead out of a scope). */
+export function accessTo(name: string, resolved?: string): Access {
+  const policy = currentPolicy();
+  let access = accessFor(policy, name);
+  if (resolved !== undefined) {
+    const root = path.resolve(NOTES_DIR);
+    const rootReal = fs.existsSync(root) ? fs.realpathSync(root) : root;
+    access = lessAccess(access, accessFor(policy, path.relative(rootReal, resolved)));
+  }
+  return access;
+}
+
+/**
+ * The file of a note for a tool, after the policy: a note agents cannot read is reported as not there at all (nothing
+ * tells it exists); one they can read but not write says it is read-only. `create` says "not allowed" for a hidden place
+ * instead, since the note does not exist to be missing.
+ */
+function guardedPath(name: string, need: 'read' | 'write' | 'create'): string {
+  const file = safeNotePath(name);
+  const access = accessTo(name, file);
+  if (!canRead(access)) {
+    throw new McpError(ErrorCode.InvalidParams, need === 'create'
+      ? `Not allowed: agents cannot write ${name} (vault policy)`
+      : `Note not found: ${name}`);
+  }
+  if (need !== 'read' && !canWrite(access)) {
+    throw new McpError(ErrorCode.InvalidParams, `Not allowed: ${name} is read-only for agents (vault policy)`);
+  }
+  return file;
+}
+
 
 // ─── Markdown → HTML (marked-powered) ───────────────────────────────────────
 
@@ -315,7 +362,9 @@ function listAllNotes(folder?: string): NoteEntry[] {
 
   // Every note at any depth: never a hidden folder, never a symbolic link, never a name the other tools would refuse.
   const entries: NoteEntry[] = [];
+  const policy = currentPolicy();
   for (const name of walkVaultSync(NOTES_DIR).notes) {
+    if (!canRead(accessFor(policy, name))) continue; // a note agents may not see is not even looked at
     try {
       const stat = fs.statSync(path.join(NOTES_DIR, name));
       entries.push({ name, mtime: stat.mtime, size: stat.size });
@@ -342,6 +391,7 @@ const INDEX_STALE_MS = 30_000;
 
 let searchIndex: InvertedIndex | null = null;
 let indexScannedAt = 0;
+let indexPolicyStamp: string | null = null;
 
 // Lazily bring the index up to date once per staleness window instead of on every query. After the first build only
 // the notes whose modification time moved are read again, so a refresh of a big vault costs a stat per note, not a
@@ -349,7 +399,9 @@ let indexScannedAt = 0;
 // window catches external edits.
 function ensureSearchIndex(): InvertedIndex {
   const now = Date.now();
-  if (searchIndex && now - indexScannedAt < INDEX_STALE_MS) return searchIndex;
+  // A change to the policy takes effect at once: never serve what the index holds from before it.
+  const stamp = policyStamp(NOTES_DIR);
+  if (searchIndex && now - indexScannedAt < INDEX_STALE_MS && stamp === indexPolicyStamp) return searchIndex;
   const idx = searchIndex ?? new InvertedIndex();
   const format = vaultFormat();
   const wanted = new Set<string>();
@@ -368,11 +420,13 @@ function ensureSearchIndex(): InvertedIndex {
   for (const id of idx.ids()) if (!wanted.has(id)) idx.remove(id);
   searchIndex = idx;
   indexScannedAt = now;
+  indexPolicyStamp = stamp;
   return idx;
 }
 
 // Keep a live index in sync after a mutation (no-op until the index is built).
 function indexUpsert(name: string, html: string): void {
+  if (!canRead(accessFor(currentPolicy(), name))) return;
   searchIndex?.add({ id: name, title: name, text: noteText(html), mtimeMs: Date.now() });
 }
 function indexRemove(name: string): void {
@@ -383,6 +437,8 @@ function indexRemove(name: string): void {
 export function __resetSearchIndex(): void {
   searchIndex = null;
   indexScannedAt = 0;
+  indexPolicyStamp = null;
+  policyCache = null;
 }
 
 // ─── Excerpt helper ───────────────────────────────────────────────────────────
@@ -1116,7 +1172,7 @@ export async function handleListNotes(args: Record<string, unknown>) {
 export async function handleReadNote(args: Record<string, unknown>) {
   const name = args.name;
   validateNoteName(name);
-  const filePath = safeNotePath(name as string);
+  const filePath = guardedPath(name as string, 'read');
   if (!fs.existsSync(filePath)) {
     throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}`);
   }
@@ -1153,7 +1209,7 @@ export async function handleCreateNote(args: Record<string, unknown>) {
   if (typeof rawContent !== 'string' || !rawContent.trim()) {
     throw new McpError(ErrorCode.InvalidParams, 'content must be a non-empty string');
   }
-  const filePath = safeNotePath(name as string);
+  const filePath = guardedPath(name as string, 'create');
   if (fs.existsSync(filePath)) {
     throw new McpError(ErrorCode.InvalidParams, `Note already exists: ${name as string}. Use update_note to edit it.`);
   }
@@ -1177,7 +1233,7 @@ export async function handleUpdateNote(args: Record<string, unknown>) {
   if (typeof rawContent !== 'string' || !rawContent.trim()) {
     throw new McpError(ErrorCode.InvalidParams, 'content must be a non-empty string');
   }
-  const filePath = safeNotePath(name as string);
+  const filePath = guardedPath(name as string, 'write');
   if (!fs.existsSync(filePath)) {
     throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}. Use create_note to create it first.`);
   }
@@ -1285,7 +1341,7 @@ export async function handleEditNote(args: Record<string, unknown>) {
   if (etag === undefined && modified === undefined) {
     throw new McpError(ErrorCode.InvalidParams, 'expected_etag is required: read the note with read_note and pass its etag, so the edit cannot overwrite a change made since');
   }
-  const filePath = safeNotePath(name as string);
+  const filePath = guardedPath(name as string, 'write');
   if (!fs.existsSync(filePath)) {
     throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}`);
   }
@@ -1392,7 +1448,8 @@ export async function handleSearchNotes(args: Record<string, unknown>) {
     : 10;
 
   const idx = ensureSearchIndex();
-  const hits = idx.search(query, { limit: maxResults });
+  const policy = currentPolicy();
+  const hits = idx.search(query, { limit: maxResults * 4 }).filter(h => canRead(accessFor(policy, h.id))).slice(0, maxResults);
 
   if (hits.length === 0) {
     return { content: [{ type: 'text', text: `No notes found matching "${query}".` }] };
@@ -1413,7 +1470,7 @@ const retentionText = () =>
 export async function handleDeleteNote(args: Record<string, unknown>) {
   const name = args.name;
   validateNoteName(name);
-  const filePath = safeNotePath(name as string);
+  const filePath = guardedPath(name as string, 'write');
   if (!fs.existsSync(filePath)) {
     throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}`);
   }
@@ -1431,7 +1488,8 @@ export async function handleDeleteNote(args: Record<string, unknown>) {
 
 export async function handleListTrash() {
   purgeTrash(NOTES_DIR, new Date(), trashRetentionDays());
-  const items = listTrash(NOTES_DIR);
+  const policy = currentPolicy();
+  const items = listTrash(NOTES_DIR).filter(i => canRead(accessFor(policy, i.name)));
   if (items.length === 0) return { content: [{ type: 'text', text: 'The trash is empty.' }] };
   const lines = items.map(i => `${i.name} — deleted ${formatLocal(i.trashedAt, true)} — id ${i.stamp}`);
   return { content: [{ type: 'text', text: `${items.length} note(s) in the trash (${retentionText()}):\n${lines.join('\n')}` }] };
@@ -1444,7 +1502,7 @@ export async function handleRestoreNote(args: Record<string, unknown>) {
   if (id !== undefined && typeof id !== 'string') {
     throw new McpError(ErrorCode.InvalidParams, 'id must be a string');
   }
-  safeNotePath(name as string); // same confinement rules as every other note path
+  guardedPath(name as string, 'create'); // same confinement rules as every other note path, and the policy
   assertNotMigrating();
   purgeTrash(NOTES_DIR, new Date(), trashRetentionDays());
   try {
@@ -1461,7 +1519,7 @@ export async function handleCreateAgentWorkflow(args: Record<string, unknown>) {
   const files = buildAgentWorkflowFiles(args);
   const paths = files.map(file => {
     validateNoteName(file.name);
-    return { ...file, filePath: safeNotePath(file.name) };
+    return { ...file, filePath: guardedPath(file.name, 'create') };
   });
 
   const existing = paths.filter(file => fs.existsSync(file.filePath)).map(file => file.name);
@@ -1491,7 +1549,7 @@ export async function handleCreateAgentWorkflow(args: Record<string, unknown>) {
 export async function handleAppendAgentEvent(args: Record<string, unknown>) {
   const name = args.name;
   validateNoteName(name);
-  const filePath = safeNotePath(name as string);
+  const filePath = guardedPath(name as string, 'write');
   if (!fs.existsSync(filePath)) {
     throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}`);
   }
@@ -1548,7 +1606,7 @@ interface LoadedAgentNote {
 
 function loadAgentNote(name: unknown): LoadedAgentNote {
   validateNoteName(name);
-  const filePath = safeNotePath(name as string);
+  const filePath = guardedPath(name as string, 'write');
   if (!fs.existsSync(filePath)) {
     throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}`);
   }
@@ -1570,7 +1628,7 @@ function findWorkflowById(workflowId: string, candidates: NoteEntry[], excludeNa
   for (const entry of candidates) {
     if (entry.name === excludeName) continue;
     try {
-      const filePath = safeNotePath(entry.name);
+      const filePath = guardedPath(entry.name, 'write');
       const html = fs.readFileSync(filePath, 'utf8');
       const meta = readAgentMetadata(html);
       if (meta && meta.type === 'workflow' && meta.id === workflowId) {

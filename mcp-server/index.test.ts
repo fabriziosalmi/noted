@@ -1397,8 +1397,10 @@ describe('MCP server additional coverage', () => {
     const handler = callToolCall![1];
 
     const fsModule = await import('node:fs');
-    const readSpy = vi.spyOn(fsModule, 'readFileSync').mockImplementationOnce(() => {
-      throw 'string-based-error';
+    // The note's read fails with a string; the vault has no policy file (reading it says "not found").
+    const readSpy = vi.spyOn(fsModule, 'readFileSync').mockImplementation((p: unknown) => {
+      if (String(p).endsWith('crash.md')) throw 'string-based-error';
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
     });
 
     mockFiles.set('/mockdir/crash.md', { content: 'test', mtime: new Date(), size: 4 });
