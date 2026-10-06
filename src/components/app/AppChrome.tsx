@@ -199,7 +199,7 @@ export function AppChrome({
           )}
 
           <Panel id="editor-center" order={2} minSize={30} role="main" className="editor-canvas bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
-            {activeView && <ViewPage view={activeView} onOpenNote={onOpenNote} />}
+            {activeView && <ViewPage view={activeView} onOpenNote={onOpenNote} onNotice={onToast} />}
             {activeNoteName && !activeView && (
               <EditorToolbar
                 editor={activeEditor}

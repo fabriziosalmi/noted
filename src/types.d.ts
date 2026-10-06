@@ -2,6 +2,7 @@ export {};
 
 import type { GitSyncState, GitConflictResolution } from './lib/gitSyncTypes';
 import type { View } from '../shared/views/model';
+import type { FieldValue } from '../shared/vault/fields';
 import type { VaultIndexSnapshot, VaultIndexDelta, VaultIndexNote } from './lib/vaultIndexTypes';
 
 interface NoteFileBase {
@@ -58,6 +59,7 @@ declare global {
       deleteFolder: (name: string, syncDir?: string, opts?: LinkUpdateOptions) => Promise<{ success: boolean; data?: { moved: number; renamed: string[] }; links?: LinkUpdateResult; error?: string }>;
       moveNote: (fileName: string, toFolder: string, syncDir?: string, opts?: LinkUpdateOptions) => Promise<{ success: boolean; data?: string; links?: LinkUpdateResult; error?: string }>;
       previewLinkRewrite: (renames: { from: string; to: string }[], syncDir?: string) => Promise<{ success: boolean; data?: { notes: number; links: number }; error?: string }>;
+      setNoteProperty: (name: string, key: string, value: FieldValue | undefined, expect: { value: FieldValue | undefined } | undefined, syncDir?: string) => Promise<{ success: boolean; data?: { changed: boolean; fields: Record<string, FieldValue> }; error?: string; conflict?: boolean; fields?: Record<string, FieldValue> }>;
       loadViews: (syncDir?: string) => Promise<{ success: boolean; data?: View[]; error?: string }>;
       saveViews: (views: View[], syncDir?: string) => Promise<{ success: boolean; data?: View[]; error?: string }>;
       previewHeadingRewrite: (change: HeadingChange, syncDir?: string) => Promise<{ success: boolean; data?: { notes: number; links: number }; error?: string }>;

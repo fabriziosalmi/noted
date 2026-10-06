@@ -846,5 +846,8 @@
   "filterOp_is-true": "è spuntato",
   "filterOp_is-false": "non è spuntato",
   "filterOp_has": "ha",
-  "filterOp_not-has": "non ha"
+  "filterOp_not-has": "non ha",
+  "viewEditHint": "Doppio clic o Invio per modificare",
+  "viewEditConflict": "Questa proprietà è stata cambiata altrove; si vede il valore attuale.",
+  "viewEditFailed": "Impossibile cambiare la proprietà: {error}"
 }

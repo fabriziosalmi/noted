@@ -133,6 +133,7 @@ describe('IPC channels', () => {
     'set-active-vault-dir',
     'set-language',
     'set-llm-hosts',
+    'set-note-property',
     'set-note-title',
     'set-vault-config',
     'setup-claude-mcp',

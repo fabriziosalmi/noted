@@ -846,5 +846,8 @@
   "filterOp_is-true": "est coché",
   "filterOp_is-false": "n'est pas coché",
   "filterOp_has": "a",
-  "filterOp_not-has": "n'a pas"
+  "filterOp_not-has": "n'a pas",
+  "viewEditHint": "Double-clic ou Entrée pour modifier",
+  "viewEditConflict": "Cette propriété a été modifiée ailleurs ; la valeur actuelle est affichée.",
+  "viewEditFailed": "Impossible de modifier la propriété : {error}"
 }

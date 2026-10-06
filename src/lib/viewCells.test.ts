@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cellFor, cellText } from './viewCells';
+import { cellFor, cellText, editorText, parseCellInput } from './viewCells';
 
 describe('cellFor', () => {
   it('empty values are empty, but an empty checkbox is an unchecked box', () => {
@@ -26,5 +26,25 @@ describe('cellFor', () => {
     expect(cellText(cellFor(['a', 'b'], 'list'))).toBe('a, b');
     expect(cellText(cellFor(true, 'checkbox'))).toBe('✓');
     expect(cellText(cellFor(undefined, 'text'))).toBe('');
+  });
+});
+
+describe('editing a cell', () => {
+  it('the editor starts with the value as text, lists comma-separated', () => {
+    expect(editorText(undefined)).toBe('');
+    expect(editorText(null)).toBe('');
+    expect(editorText(3)).toBe('3');
+    expect(editorText(['a', 'b'])).toBe('a, b');
+  });
+
+  it('what is typed becomes the value: empty clears, numbers are numbers, lists are split', () => {
+    expect(parseCellInput('  ', 'text')).toBeUndefined();
+    expect(parseCellInput(' open ', 'select')).toBe('open');
+    expect(parseCellInput('12.5', 'number')).toBe(12.5);
+    expect(parseCellInput('twelve', 'number')).toBe('twelve');
+    expect(parseCellInput('12', 'text')).toBe('12');
+    expect(parseCellInput('a, b ,, c', 'list')).toEqual(['a', 'b', 'c']);
+    expect(parseCellInput(' , ', 'list')).toBeUndefined();
+    expect(parseCellInput('2026-10-06', 'date')).toBe('2026-10-06');
   });
 });

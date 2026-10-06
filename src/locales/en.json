@@ -846,5 +846,8 @@
   "filterOp_is-true": "is checked",
   "filterOp_is-false": "is unchecked",
   "filterOp_has": "has",
-  "filterOp_not-has": "does not have"
+  "filterOp_not-has": "does not have",
+  "viewEditHint": "Double-click or press Enter to edit",
+  "viewEditConflict": "This property was changed elsewhere; the current value is shown.",
+  "viewEditFailed": "Could not change the property: {error}"
 }
