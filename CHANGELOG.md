@@ -8,6 +8,9 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A Views section in the sidebar** (#26, Views): make a view, open it in place of the note (the note stays loaded behind it),
+  rename, duplicate or delete it (deleting never touches a note), choose its source (all notes, a folder, a tag) and its columns, sort
+  by clicking a header. Views are saved in `.noted-views.json`. The board layout and the filter builder follow. New docs page: Views.
 - **The table view and the query behind it** (#21, Views): a view's rows are the notes of its source (all notes, a folder at any depth,
   or a tag), kept if they pass every filter (equals, contains, empty, greater/less, before/after a date, checked, list contains; a note
   with no value fails a positive test and passes a negative one; an unfinished filter lets everything through), ordered by any number

@@ -212,6 +212,10 @@ interface NoteState {
   tagIndex: Record<string, string[]>;
   /** The vault's saved views (`.noted-views.json`): never persisted in the browser, the file is the truth. */
   views: View[];
+  /** The view shown in the main area instead of the open note (the note stays open behind it); null for the note. */
+  activeViewId: string | null;
+  openView: (id: string) => void;
+  closeView: () => void;
   /** Replace the views with what the vault's file holds (on opening a vault, and when asked to look again). */
   loadViews: () => Promise<void>;
   createView: (name: string, patch?: Partial<Omit<View, 'id' | 'name'>>) => Promise<View | null>;
@@ -405,6 +409,9 @@ export const useStore = create<NoteState>()(
       noteAliasesIndex: {},
       frontmatterIndex: {},
       views: [],
+      activeViewId: null,
+      openView: id => set(state => (state.views.some(v => v.id === id) ? { activeViewId: id } : state)),
+      closeView: () => set({ activeViewId: null }),
       tagIndex: {},
       vaultIndexSync: null,
       noteFolders: [],
@@ -596,6 +603,7 @@ export const useStore = create<NoteState>()(
           activeNoteFrontmatter: frontmatter,
           lastOpenedNote: fileName,
           pendingSelfRename: null,
+          activeViewId: null,
         });
       }
     }
@@ -868,6 +876,7 @@ export const useStore = create<NoteState>()(
   },
 
   deleteView: async id => {
+    if (get().activeViewId === id) set({ activeViewId: null });
     await commitViews(set, get, get().views.filter(v => v.id !== id));
   },
 

@@ -5,6 +5,7 @@ import {
   Tag, X, FolderOpen, Folder, FolderPlus, ChevronRight, ChevronDown
 } from 'lucide-react';
 import type { NoteFile, FolderInfo } from '../store/useStore';
+import { ViewsSection } from './ViewsSection';
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
 import { dirnameOf } from '../../shared/vault/paths';
@@ -669,6 +670,8 @@ export function Sidebar({
             className="bg-transparent text-xs text-gray-700 dark:text-gray-200 placeholder-gray-400 outline-none w-full" />
         </div>
       </div>
+
+      <ViewsSection />
 
       {/* New folder input */}
       {newFolderMode && (
