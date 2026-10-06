@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { validateFileName, validateFolderName } from '../ipc-utils';
 import { deleteFolderMovingContentToRoot } from '../vault-ops';
 import type { NoteRename } from '../../shared/vault/links';
+import { assertNotMigrating } from '../core/migrating';
 import { getTargetDir, safeResolve } from '../core/paths';
 import { fullTextSearchIndex, vaultIndex } from '../core/services';
 import { rewriteLinks } from '../core/rewrite';
@@ -142,6 +143,7 @@ export function registerFoldersHandlers(): void {
 
   ipcMain.handle('rename-folder', async (_, oldName: string, newName: string, syncDir?: string, opts?: { updateLinks?: boolean }) => {
     try {
+      assertNotMigrating();
       validateFolderName(oldName);
       validateFolderName(newName);
       const targetDir = getTargetDir(syncDir);
@@ -166,6 +168,7 @@ export function registerFoldersHandlers(): void {
 
   ipcMain.handle('delete-folder', async (_, folderName: string, syncDir?: string, opts?: { updateLinks?: boolean }) => {
     try {
+      assertNotMigrating();
       validateFolderName(folderName);
       const targetDir = getTargetDir(syncDir);
       const folderPath = safeResolve(targetDir, folderName);
@@ -185,6 +188,7 @@ export function registerFoldersHandlers(): void {
 
   ipcMain.handle('move-note', async (_, fileName: string, toFolder: string, syncDir?: string, opts?: { updateLinks?: boolean }) => {
     try {
+      assertNotMigrating();
       validateFileName(fileName);
       if (toFolder !== '') validateFolderName(toFolder);
       const targetDir = getTargetDir(syncDir);

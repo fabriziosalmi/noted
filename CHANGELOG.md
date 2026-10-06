@@ -8,6 +8,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Internal: converting a vault between HTML and Markdown** (#60, second part): a dry-run report per note, a verified zip
+  backup plus each note's old text in its history, notes written and read back one by one (any failure restores everything),
+  the format marker changed last, resumable, and reversible. Typed `[[links]]` are now kept as links through the Markdown
+  codec. Handlers and tests only: there is no button yet, so no vault is converted until the last part lands.
 - **Internal: the app can read and write a vault stored as Markdown** (#60, first part). A vault carries its note format
   in `.noted-vault.json`; for one marked `markdown` the app opens notes as rich text, saves them back as Markdown
   (frontmatter untouched), indexes, searches and previews them, and writes quick captures in that format. No vault is

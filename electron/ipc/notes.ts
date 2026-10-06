@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { validateFileName } from '../ipc-utils';
+import { assertNotMigrating } from '../core/migrating';
 import { getTargetDir, safeResolve } from '../core/paths';
 import { fullTextSearchIndex, vaultIndex } from '../core/services';
 import { markAppWrite, markAppDelete } from '../core/app-writes';
@@ -60,6 +61,7 @@ export function registerNotesHandlers(): void {
 
   ipcMain.handle('save-note', async (_, fileName: string, content: string, syncDir?: string) => {
     try {
+      assertNotMigrating();
       validateFileName(fileName);
       if (typeof content !== 'string') throw new Error('Content must be a string');
       const targetDir = getTargetDir(syncDir);
@@ -127,6 +129,7 @@ export function registerNotesHandlers(): void {
 
   ipcMain.handle('rename-note', async (_, oldName: string, newName: string, syncDir?: string, opts?: { updateLinks?: boolean }) => {
     try {
+      assertNotMigrating();
       validateFileName(oldName);
       validateFileName(newName);
       const targetDir = getTargetDir(syncDir);
@@ -160,6 +163,7 @@ export function registerNotesHandlers(): void {
 
   ipcMain.handle('delete-note', async (_, fileName: string, syncDir?: string) => {
     try {
+      assertNotMigrating();
       validateFileName(fileName);
       const targetDir = getTargetDir(syncDir);
       const filePath = safeResolve(targetDir, fileName);
@@ -179,6 +183,7 @@ export function registerNotesHandlers(): void {
 
   ipcMain.handle('wipe-all-notes', (_, syncDir?: string) => {
     try {
+      assertNotMigrating();
       if (syncDir !== undefined && typeof syncDir !== 'string') throw new Error('syncDir must be a string');
       const targetDir = getTargetDir(syncDir);
     

@@ -50,8 +50,8 @@ describe('IPC channels', () => {
   it('pushes the expected set of events', () => {
     expect(pushed).toEqual([
       'app-will-quit-for-update', 'flush-before-quit', 'git-sync-state', 'menu-command',
-      'native-theme-updated', 'note-changed-externally', 'refresh-notes',
-      'update-download-progress', 'vault-index-delta',
+      'migration-progress', 'native-theme-updated', 'note-changed-externally', 'refresh-notes',
+      'update-download-progress', 'vault-format-changed', 'vault-index-delta',
     ]);
   });
 
@@ -101,6 +101,9 @@ describe('IPC channels', () => {
     'list-orphan-attachments',
     'llm-fetch',
     'migrate-embedded-images',
+    'migration-apply',
+    'migration-plan',
+    'migration-revert',
     'move-note',
     'ping',
     'preview-link-rewrite',

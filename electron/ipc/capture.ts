@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { stripUnsafeHtml } from '../ipc-utils';
 import { readVaultFormat } from '../../shared/vault/formatFile';
 import { plainTextToMarkdown } from '../../shared/markdown/codec';
+import { assertNotMigrating } from '../core/migrating';
 import { getTargetDir, safeResolve, getActiveVaultDir } from '../core/paths';
 import { fullTextSearchIndex, vaultIndex } from '../core/services';
 import { markAppWrite } from '../core/app-writes';
@@ -12,6 +13,7 @@ import { getMainWindow, closeCaptureWindow } from '../core/windows';
 export function registerCaptureHandlers(): void {
   ipcMain.handle('save-capture', async (_, text: string) => {
     try {
+      assertNotMigrating();
       if (typeof text !== 'string' || !text.trim()) return { success: false };
       const pad = (n: number) => String(n).padStart(2, '0');
       const now = new Date();

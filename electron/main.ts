@@ -22,6 +22,7 @@ import { registerNotesHandlers } from './ipc/notes';
 import { registerFoldersHandlers } from './ipc/folders';
 import { registerSecretsHandlers } from './ipc/secrets';
 import { registerVaultHandlers } from './ipc/vault';
+import { registerMigrationHandlers } from './ipc/migration';
 
 // First thing: a closed stdout pipe (Finder/DMG launch) must never kill the
 // main process with EPIPE — see stdio-guard.ts.
@@ -118,6 +119,7 @@ registerCaptureHandlers();
 registerNotesHandlers();
 registerFoldersHandlers();
 registerVaultHandlers();
+registerMigrationHandlers();
 registerAttachmentsHandlers();
 registerGitHandlers();
 registerLlmHandlers();

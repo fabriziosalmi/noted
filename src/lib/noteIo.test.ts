@@ -109,6 +109,12 @@ describe('the wrapped electron API', () => {
     expect('getVaultFormat' in api).toBe(true);
   });
 
+  it('reads an old HTML snapshot of a note that has since been converted as it is', async () => {
+    install('markdown', '<h1>Before conversion</h1><p>x</p>');
+    const res = await getElectronApi()!.readNoteSnapshot('a.md', 's.html', undefined);
+    expect(res.data).toBe('<h1>Before conversion</h1><p>x</p>');
+  });
+
   it('reads snapshots the same way', async () => {
     install('markdown', '- [ ] todo\n');
     const res = await getElectronApi()!.readNoteSnapshot('a.md', 's.html', undefined);

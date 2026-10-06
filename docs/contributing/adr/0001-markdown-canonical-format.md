@@ -212,3 +212,21 @@ the editor or to storage: that is the migration (#60). What building it taught, 
   (`html.property.test.ts`), and `e2e/markdown-vault.e2e.ts` on the real app (open, edit, external change, new note, search, rename with links).
 - **Not reachable yet:** nothing sets the marker, so no user vault is affected. The migration (dry run, backup, resume) and the
   MCP server and importers writing Markdown follow, and only then does Settings offer the migration.
+
+## Implementation notes (#60, second part: the conversion)
+
+- **`electron/migration.ts`** converts a whole vault, either way, under five rules: nothing is written until every note has converted in
+  memory; a verified zip of every note goes to `.noted/backups/` and each note's old text into its own version history; each write
+  is read back and one failure puts every note back; the format marker changes last; running it again finishes an interrupted run
+  (notes already converted are skipped). While it runs the vault is closed to other writes and Git sync waits.
+- **The report** says, per note, `exact`, `raw` (parts the editor cannot show, such as `<details>` or `<sup>`, are kept as written, as raw
+  HTML), `formatting` (every word kept, some styling not) or `lossy` (words missing; the conversion refuses to start until the user
+  has seen it). Counts and a list of every non-exact note come back before anything changes.
+- **Typed `[[Note]]` is a link.** Notes written by earlier versions hold most links as plain text, not as the editor's link mark, and
+  the first version of the codec escaped them (`\[\[Note\]\]`), silently removing them from the index. The codec now writes such
+  text as it is and reads it back as a link; the link mark is the innermost mark so `**[[a]]b**` is stable. The conversion test compares
+  links, tags and headings of every note before and after.
+- **Bundling.** The main process is bundled as Node-mode CommonJS, where a default import of a TipTap package is not its extension:
+  the codec uses named imports, and `electron/bundle-interop.test.ts` bundles it the way the build does and runs it.
+- **Not yet reachable from Settings.** The handlers exist (`migration-plan`, `migration-apply`, `migration-revert`) and the real app is
+  tested through them (`e2e/markdown-migration.e2e.ts`); the screen, and MCP and the importers writing Markdown, are the last part.

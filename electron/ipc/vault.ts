@@ -6,6 +6,7 @@ import { writeVaultConfig, isValidRetentionDays } from '../../shared/vault-confi
 import { previewRewrite } from '../link-rewrite';
 import { readVaultFormat } from '../../shared/vault/formatFile';
 import { logEvent, newRequestId } from '../structured-log';
+import { assertNotMigrating } from '../core/migrating';
 import { getTargetDir, blessVaultRoot, isBlessedRoot, setActiveVaultDir } from '../core/paths';
 import { fullTextSearchIndex, vaultIndex } from '../core/services';
 import { startVaultWatch } from '../core/watcher';
@@ -147,6 +148,7 @@ export function registerVaultHandlers(): void {
   // once, instead of on every keystroke-pause).
   ipcMain.handle('rewrite-links', async (_, renames: unknown, syncDir?: string) => {
     try {
+      assertNotMigrating();
       const dir = getTargetDir(syncDir);
       await vaultIndex.ensure(dir);
       return { success: true, data: await rewriteLinks(dir, parseRenames(renames)) };

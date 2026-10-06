@@ -74,6 +74,11 @@ declare global {
       gitPushBranch: (branch: string, remoteUrl: string, syncDir?: string) => Promise<GitResult>;
       gitLog: (noteName?: string, syncDir?: string) => Promise<GitResult<GitLogEntry[]>>;
       gitCreatePr: (params: { remoteUrl: string; token: string; branch: string; base: string; title: string; body: string }) => Promise<GitResult<PrData>>;
+      migrationPlan: (direction: 'to-markdown' | 'to-html', syncDir?: string) => Promise<{ success: boolean; data?: MigrationReport; error?: string }>;
+      migrationApply: (opts: { allowLossy?: boolean }, syncDir?: string) => Promise<MigrationOutcome>;
+      migrationRevert: (syncDir?: string) => Promise<MigrationOutcome>;
+      onMigrationProgress: (cb: (p: MigrationProgress) => void) => () => void;
+      onVaultFormatChanged: (cb: () => void) => () => void;
       getVaultFormat: (syncDir?: string) => Promise<{ success: boolean; data?: 'html' | 'markdown'; error?: string }>;
       setVaultConfig: (config: { trashRetentionDays?: number }, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       saveAttachment: (bytes: Uint8Array, folder?: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
@@ -138,6 +143,29 @@ interface LinkUpdateResult {
   links: number;
   failed: number;
 }
+
+/** The plan of a conversion between note formats (electron/migration.ts). */
+interface MigrationReport {
+  direction: 'to-markdown' | 'to-html';
+  total: number;
+  convert: number;
+  skip: number;
+  verdicts: { exact: number; raw: number; formatting: number; lossy: number };
+  failed: number;
+  notes: { name: string; verdict?: 'exact' | 'raw' | 'formatting' | 'lossy'; findings: string[]; error?: string }[];
+  truncated: boolean;
+}
+
+interface MigrationProgress {
+  phase: 'scan' | 'convert' | 'backup' | 'write' | 'finish';
+  done: number;
+  total: number;
+  name?: string;
+}
+
+type MigrationOutcome =
+  | { ok: true; report: MigrationReport; backup: string; converted: number }
+  | { ok: false; reason: string; report?: MigrationReport };
 
 interface EmbeddedImagesReport {
   notes: { name: string; images: number; bytes: number }[];

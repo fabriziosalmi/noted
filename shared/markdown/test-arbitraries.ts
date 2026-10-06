@@ -1,7 +1,9 @@
 // Generators for the property tests of the Markdown codec and of the HTML wire format. Test support only:
 // nothing in the app imports this file.
 import fc from 'fast-check';
+import { Fragment, type Node as PMNode } from '@tiptap/pm/model';
 import { documentSchema } from './schema';
+import { WIKILINK, wikilinkTarget } from './syntax';
 
 export const schema = documentSchema();
 // FC_RUNS=5000 npx vitest run shared/markdown/roundtrip.property.test.ts digs deeper than the default
@@ -11,10 +13,46 @@ export const RUNS = Number(process.env.FC_RUNS ?? 400);
 export const ALPHABET = ['a', 'b', 'Z', '7', ' ', ' ', '*', '_', '~', '`', '[', ']', '(', ')', '<', '>', '&', '#', '!', '|', '\\', '$', '=', '%', ':', '-', '+', '.', '"', "'", '{', '}', '/', '^', ';'];
 
 /** Text that does not begin or end with a space (Markdown trims those) and has no line break. */
-const word = fc
+const plainWord = fc
   .array(fc.constantFrom(...ALPHABET), { minLength: 1, maxLength: 10 })
   .map((cs) => cs.join('').trim())
   .filter((s) => s.length > 0);
+
+// [[Note]] typed as text is a link (see syntax.ts): make sure the generators meet it, alone and beside other text.
+const wikiWord = fc.constantFrom('[[Alpha]]', '[[A b|c]]', '[[X#h]]', '![[img.png]]', '[[a]]b', 'c[[d]]');
+const word = fc.oneof({ weight: 12, arbitrary: plainWord }, { weight: 1, arbitrary: wikiWord });
+
+/**
+ * The document a reader gets: text shaped like a wikilink carries the wikilink mark (typing `[[Note]]` is how most links
+ * are made, so the codec reads it as one). Used to compare what was written with what comes back.
+ */
+export function withWikilinkMarks(doc: PMNode): PMNode {
+  const rebuild = (node: PMNode): PMNode => {
+    if (node.isText) {
+      if (!node.text || node.marks.some((m) => ['wikilink', 'code', 'obsidianComment'].includes(m.type.name))) return node;
+      const pieces: PMNode[] = [];
+      let last = 0;
+      for (const m of node.text.matchAll(WIKILINK)) {
+        if (!wikilinkTarget(m[0].replace(/^!?\[\[|\]\]$/g, ''))) continue;
+        if (m.index > last) pieces.push(schema.text(node.text.slice(last, m.index), node.marks));
+        const target = wikilinkTarget(m[0].replace(/^!?\[\[|\]\]$/g, ''))!;
+        pieces.push(schema.text(m[0], [...node.marks, schema.marks.wikilink.create({ target, embed: m[0].startsWith('!') })]));
+        last = m.index + m[0].length;
+      }
+      if (last === 0) return node;
+      if (last < node.text.length) pieces.push(schema.text(node.text.slice(last), node.marks));
+      return pieces as unknown as PMNode;
+    }
+    if (!node.childCount) return node;
+    const kids: PMNode[] = [];
+    node.forEach((child) => {
+      const r = rebuild(child);
+      if (Array.isArray(r)) kids.push(...(r as PMNode[])); else kids.push(r);
+    });
+    return node.copy(Fragment.fromArray(kids));
+  };
+  return rebuild(doc);
+}
 
 const text = (value: string, marks: string[] = []) => ({ type: 'text', text: value, ...(marks.length ? { marks: marks.map((type) => ({ type })) } : {}) });
 
