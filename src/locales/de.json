@@ -37,7 +37,7 @@
   "folderNamePlaceholder": "Ordnername...",
   "newNoteHere": "Neue Notiz hier",
   "deleteFolder": "Ordner löschen",
-  "deleteFolderConfirm": "Ordner „{name}\" löschen? Notizen werden in den Stammordner verschoben.",
+  "deleteFolderConfirm": "Ordner „{name}\" löschen? Alles darin wird eine Ebene nach oben verschoben.",
   "emptyFolder": "Leer — ziehe eine Notiz hierher",
   "noNotesWithTag": "Keine Notizen mit {tag}",
   "noNotesFound": "Keine Notizen gefunden",

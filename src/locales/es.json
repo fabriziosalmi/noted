@@ -37,7 +37,7 @@
   "folderNamePlaceholder": "Nombre de carpeta...",
   "newNoteHere": "Nueva nota aquí",
   "deleteFolder": "Eliminar carpeta",
-  "deleteFolderConfirm": "¿Eliminar carpeta \"{name}\"? Las notas se moverán a la raíz.",
+  "deleteFolderConfirm": "¿Eliminar la carpeta \"{name}\"? Todo lo que contiene sube un nivel.",
   "emptyFolder": "Vacía — arrastra una nota aquí",
   "noNotesWithTag": "Sin notas con {tag}",
   "noNotesFound": "No se encontraron notas",

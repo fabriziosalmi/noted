@@ -7,6 +7,8 @@ import {
 import type { NoteFile, FolderInfo } from '../store/useStore';
 import { useStore } from '../store/useStore';
 import { useI18n } from '../lib/i18n';
+import { dirnameOf } from '../../shared/vault/paths';
+import { baseOfPath } from '../../shared/vault/folderOps';
 import { Tooltip } from './Tooltip';
 import { useConfirm } from './ConfirmProvider';
 
@@ -307,9 +309,9 @@ export function Sidebar({
   // Commits rename
   const commitNoteRename = useCallback(async () => {
     if (!renamingNote || !renameValue.trim()) { setRenamingNote(null); return; }
-    const baseName = renamingNote.includes('/') ? renamingNote.split('/')[0] + '/' : '';
+    const folderPrefix = dirnameOf(renamingNote) ? `${dirnameOf(renamingNote)}/` : '';
     const stem = renameValue.trim().replace(/\.md$/i, '');
-    const fullNew = baseName + stem + '.md';
+    const fullNew = folderPrefix + stem + '.md';
     if (fullNew === renamingNote) { setRenamingNote(null); return; }
     try { await onRenameNote(renamingNote, fullNew); } catch { /* toast upstream */ }
     finally { setRenamingNote(null); }
@@ -317,8 +319,10 @@ export function Sidebar({
 
   const commitFolderRename = useCallback(async () => {
     if (!renamingFolder || !folderRenameValue.trim()) { setRenamingFolder(null); return; }
-    if (folderRenameValue.trim() === renamingFolder) { setRenamingFolder(null); return; }
-    try { await onRenameFolder(renamingFolder, folderRenameValue.trim()); } catch { /* toast */ }
+    const parent = dirnameOf(renamingFolder);
+    const renamed = parent ? `${parent}/${folderRenameValue.trim()}` : folderRenameValue.trim();
+    if (renamed === renamingFolder) { setRenamingFolder(null); return; }
+    try { await onRenameFolder(renamingFolder, renamed); } catch { /* toast */ }
     finally { setRenamingFolder(null); }
   }, [renamingFolder, folderRenameValue, onRenameFolder]);
 
@@ -344,7 +348,7 @@ export function Sidebar({
     setDragOver(null);
     const noteName = e.dataTransfer?.getData('text/note-name');
     if (!noteName) return;
-    const currentFolder = noteName.includes('/') ? noteName.split('/')[0] : '';
+    const currentFolder = dirnameOf(noteName);
     if (currentFolder === toFolder) return;
     try {
       await onMoveNote(noteName, toFolder);
@@ -411,7 +415,7 @@ export function Sidebar({
     } else {
       const noteName = e.dataTransfer?.getData('text/note-name');
       if (noteName) {
-        const currentFolder = noteName.includes('/') ? noteName.split('/')[0] : '';
+        const currentFolder = dirnameOf(noteName);
         if (currentFolder === targetFolderName) return;
         try {
           await onMoveNote(noteName, targetFolderName);
@@ -450,7 +454,7 @@ export function Sidebar({
     
     if (!noteName || noteName === targetNote.name) return;
     
-    const currentFolder = noteName.includes('/') ? noteName.split('/')[0] : '';
+    const currentFolder = dirnameOf(noteName);
     let finalNoteName = noteName;
     if (currentFolder !== folderName) {
       try {
@@ -513,7 +517,7 @@ export function Sidebar({
           renameInputRef={renameInputRef}
           onSelect={() => onSelectNote(note.name)}
           onDelete={async () => {
-            const label = note.name.replace(/^[^/]+\//, '').replace(/\.md$/, '');
+            const label = baseOfPath(note.name).replace(/\.md$/, '');
             const ok = await confirm({
               message: t('deleteNoteConfirm').replace('{name}', label),
               danger: true,
@@ -522,7 +526,7 @@ export function Sidebar({
             if (ok) onDeleteNote(note.name);
           }}
           onTogglePin={() => onTogglePin(note.name)}
-          onStartRename={e => { e.stopPropagation(); setRenamingNote(note.name); setRenameValue(note.name.replace(/^[^/]+\//, '').replace('.md', '')); setTimeout(() => renameInputRef.current?.select(), 0); }}
+          onStartRename={e => { e.stopPropagation(); setRenamingNote(note.name); setRenameValue(baseOfPath(note.name).replace('.md', '')); setTimeout(() => renameInputRef.current?.select(), 0); }}
           onRenameChange={setRenameValue}
           onRenameBlur={() => void commitNoteRename()}
           onRenameKeyDown={e => {
@@ -844,7 +848,7 @@ export function Sidebar({
                             onDoubleClick={e => {
                               e.stopPropagation();
                               setRenamingFolder(row.folder.name);
-                              setFolderRenameValue(row.folder.name);
+                              setFolderRenameValue(baseOfPath(row.folder.name));
                             }}
                             aria-expanded={!row.isCollapsed}
                             className="flex items-center gap-1 flex-1 min-w-0 cursor-pointer text-left"

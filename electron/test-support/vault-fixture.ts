@@ -1,6 +1,6 @@
 /**
  * A deterministic vault of realistic notes for integrity tests (the same idea as
- * the demo fixture in scripts/demo, scaled up): folders one level deep, every
+ * the demo fixture in scripts/demo, scaled up): folders up to three levels deep, every
  * wikilink form, tags, headings, frontmatter, names with characters that must be
  * HTML-escaped, and links to notes that do not exist. Same seed, same vault.
  */
@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseWikilinks, extractTags } from '../../shared/vault/extract';
 import { buildLinkResolver } from '../../shared/vault/resolve';
+import { walkVaultSync } from '../../shared/vault/walk';
 
 export function rng(seed: number): () => number {
   let s = seed >>> 0;
@@ -21,7 +22,7 @@ export function rng(seed: number): () => number {
   };
 }
 
-const FOLDERS = ['', '', '', '', 'Projects', 'Archive', 'Meetings', 'Ideas'];
+const FOLDERS = ['', '', '', '', 'Projects', 'Archive', 'Meetings', 'Ideas', 'Projects/Aurora', 'Projects/Aurora/Specs', 'Archive/2025/Q4'];
 const WORDS = ['aurora', 'budget', 'cedar', 'delta', 'ember', 'falcon', 'glacier', 'harbor', 'indigo', 'juniper', 'kestrel', 'lagoon', 'meadow', 'nimbus', 'orchid', 'pebble', 'quartz', 'ripple', 'summit', 'tundra'];
 const TAGS = ['#idea', '#todo', '#reading', '#project/aurora', '#project/falcon', '#review', '#draft'];
 const NEVER = 'A note nobody wrote';
@@ -77,18 +78,9 @@ export function generateVault(dir: string, opts: { count?: number; seed?: number
   return { names, danglingBaseline: danglingLinks(dir) };
 }
 
-/** Notes of a vault as the app lists them: the root and one level of non-hidden folders. */
+/** Notes of a vault as the app lists them: at any depth, never under a hidden folder. */
 export function listNotes(dir: string): string[] {
-  const out: string[] = [];
-  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.isDirectory()) {
-      if (e.name.startsWith('.')) continue;
-      for (const f of fs.readdirSync(path.join(dir, e.name), { withFileTypes: true })) {
-        if (!f.isDirectory() && f.name.endsWith('.md')) out.push(`${e.name}/${f.name}`);
-      }
-    } else if (e.name.endsWith('.md')) out.push(e.name);
-  }
-  return out.sort();
+  return walkVaultSync(dir).notes;
 }
 
 export interface ColdNote { links: string[]; tags: string[] }

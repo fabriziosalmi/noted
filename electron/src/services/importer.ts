@@ -10,6 +10,25 @@ import { assertNotMigrating } from '../../core/migrating.js';
 import { readVaultFormat } from '../../../shared/vault/formatFile.js';
 import { normalizeMarkdown } from '../../../shared/markdown/codec.js';
 import { tr } from '../../core/language.js';
+import { checkFolderPath } from '../../../shared/vault/paths.js';
+
+/** One folder name made safe to create: no reserved characters, no trailing dot or space. */
+const cleanSegment = (segment: string): string =>
+  // eslint-disable-next-line no-control-regex
+  segment.replace(/[\x00-\x1F\x7F\\/:*?"<>|;`$]/g, '').replace(/[. ]+$/, '').trim();
+
+/**
+ * Where an imported folder goes: the same structure it had (an Obsidian vault is a tree), each name made safe.
+ * A tree the vault would not accept as it is (too deep, a name that cannot be made valid) is flattened into one
+ * folder named after its path, "Folder-Sub", as every import used to be.
+ */
+export function importedFolderPath(relDir: string): string {
+  const segments = relDir.split(/[/\\]/).filter(Boolean).map(cleanSegment);
+  const nested = segments.join('/');
+  if (segments.every(Boolean) && checkFolderPath(nested) === null) return nested;
+  const flat = cleanSegment(segments.filter(Boolean).join('-')) || 'Imported';
+  return checkFolderPath(flat) === null ? flat : 'Imported';
+}
 
 export function importVaultRecursive(srcRoot: string, srcDir: string, destRoot: string): number {
   let imported = 0;
@@ -22,6 +41,8 @@ export function importVaultRecursive(srcRoot: string, srcDir: string, destRoot: 
     if (entry.isDirectory()) {
       imported += importVaultRecursive(srcRoot, srcPath, destRoot);
     } else {
+      // A link is not a file of the folder being imported: copying it would read whatever it points at.
+      if (!entry.isFile()) continue;
       const ext = path.extname(entry.name).toLowerCase();
       const isMarkdown = ext === '.md';
       const isMedia = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.pdf'].includes(ext);
@@ -29,18 +50,13 @@ export function importVaultRecursive(srcRoot: string, srcDir: string, destRoot: 
 
       const relPath = path.relative(srcRoot, srcPath);
       const dirName = path.dirname(relPath);
-      
+
       let destPath: string;
       if (dirName === '.') {
         destPath = path.join(destRoot, entry.name);
       } else {
-        // Flatten folder structure to 1-level of folder (e.g. "Folder-Subfolder")
-        const flattenedFolder = dirName
-          .replace(/[/\\]/g, '-')
-          // eslint-disable-next-line no-control-regex
-          .replace(/[\x00-\x1F\x7F\\/:*?"<>|;`$]/g, '')
-          .trim();
-        const folderPath = path.join(destRoot, flattenedFolder);
+        const folder = importedFolderPath(dirName);
+        const folderPath = path.join(destRoot, ...folder.split('/'));
         if (!fs.existsSync(folderPath)) {
           fs.mkdirSync(folderPath, { recursive: true });
         }

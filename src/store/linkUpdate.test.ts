@@ -28,7 +28,8 @@ beforeEach(() => {
   };
   window.electronAPI = { ...original, ...api } as unknown as typeof window.electronAPI;
   useStore.setState({
-    activeNoteName: 'Old.md', notes: [note('Old.md')], noteFolders: [{ name: 'F', notes: [note('F/One.md'), note('F/Two.md')] }],
+    activeNoteName: 'Old.md', notes: [note('Old.md'), note('F/One.md'), note('F/Two.md'), note('F/Sub/Deep.md')],
+    noteFolders: [{ name: 'F', notes: [note('F/One.md'), note('F/Two.md')] }, { name: 'F/Sub', notes: [note('F/Sub/Deep.md')] }],
     pinnedNotes: [], customNotesOrder: [], customFoldersOrder: [],
   });
   mode('always');
@@ -100,15 +101,34 @@ describe('move and folder operations', () => {
   it('renameFolder previews every note in the folder under its new path', async () => {
     mode('ask');
     await useStore.getState().renameFolder('F', 'G');
-    expect(api.previewLinkRewrite).toHaveBeenCalledWith([{ from: 'F/One.md', to: 'G/One.md' }, { from: 'F/Two.md', to: 'G/Two.md' }], undefined);
+    expect(api.previewLinkRewrite).toHaveBeenCalledWith([
+      { from: 'F/One.md', to: 'G/One.md' }, { from: 'F/Two.md', to: 'G/Two.md' }, { from: 'F/Sub/Deep.md', to: 'G/Sub/Deep.md' },
+    ], undefined);
     expect(api.renameFolder).toHaveBeenCalledWith('F', 'G', undefined, { updateLinks: true });
   });
 
-  it('deleteFolder (notes move to the root) asks about the root names', async () => {
+  it('deleteFolder (everything moves up one level) asks about the names above, sub-folders included', async () => {
     mode('ask');
     await useStore.getState().deleteFolder('F');
-    expect(api.previewLinkRewrite).toHaveBeenCalledWith([{ from: 'F/One.md', to: 'One.md' }, { from: 'F/Two.md', to: 'Two.md' }], undefined);
+    expect(api.previewLinkRewrite).toHaveBeenCalledWith([
+      { from: 'F/One.md', to: 'One.md' }, { from: 'F/Two.md', to: 'Two.md' }, { from: 'F/Sub/Deep.md', to: 'Sub/Deep.md' },
+    ], undefined);
     expect(api.deleteFolder).toHaveBeenCalledWith('F', undefined, { updateLinks: true });
+  });
+
+  it('deleteFolder of a folder inside a folder moves up into the folder above, not the root', async () => {
+    mode('ask');
+    await useStore.getState().deleteFolder('F/Sub');
+    expect(api.previewLinkRewrite).toHaveBeenCalledWith([{ from: 'F/Sub/Deep.md', to: 'F/Deep.md' }], undefined);
+  });
+
+  it('a folder renamed or deleted takes the custom order of the folders under it along', async () => {
+    useStore.setState({ customFoldersOrder: ['Z', 'F', 'F/Sub', 'Y'] });
+    await useStore.getState().renameFolder('F', 'G');
+    expect(useStore.getState().customFoldersOrder).toEqual(['Z', 'G', 'G/Sub', 'Y']);
+    useStore.setState({ customFoldersOrder: ['Z', 'F', 'F/Sub', 'Y'] });
+    await useStore.getState().deleteFolder('F');
+    expect(useStore.getState().customFoldersOrder).toEqual(['Z', 'Sub', 'Y']);
   });
 });
 

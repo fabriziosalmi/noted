@@ -37,7 +37,7 @@
   "folderNamePlaceholder": "Nome da pasta...",
   "newNoteHere": "Nova nota aqui",
   "deleteFolder": "Eliminar pasta",
-  "deleteFolderConfirm": "Eliminar pasta \"{name}\"? As notas serão movidas para a raiz.",
+  "deleteFolderConfirm": "Eliminar a pasta \"{name}\"? Tudo o que contém sobe um nível.",
   "emptyFolder": "Vazia — arraste uma nota para aqui",
   "noNotesWithTag": "Sem notas com {tag}",
   "noNotesFound": "Nenhuma nota encontrada",
