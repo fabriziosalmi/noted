@@ -38,8 +38,14 @@ beforeEach(() => {
   api = {
     getVaultFormat: vi.fn(async () => ({ success: true, data: formatNow })),
     migrationPlan: vi.fn(async () => ({ success: true, data: report() })),
-    migrationApply: vi.fn(async (): Promise<MigrationOutcome> => { formatNow = 'markdown'; return { ok: true, report: report(), backup: '/v/.noted/backups/b.zip', converted: 10 }; }),
-    migrationRevert: vi.fn(async (): Promise<MigrationOutcome> => { formatNow = 'html'; return { ok: true, report: report({ direction: 'to-html' }), backup: '/v/.noted/backups/c.zip', converted: 10 }; }),
+    migrationApply: vi.fn(async (): Promise<MigrationOutcome> => {
+      formatNow = 'markdown';
+      return { ok: true, report: report(), backup: '/v/.noted/backups/b.zip', converted: 10 };
+    }),
+    migrationRevert: vi.fn(async (): Promise<MigrationOutcome> => {
+      formatNow = 'html';
+      return { ok: true, report: report({ direction: 'to-html' }), backup: '/v/.noted/backups/c.zip', converted: 10 };
+    }),
     onVaultFormatChanged: vi.fn(() => () => undefined),
     onMigrationProgress: vi.fn(() => () => undefined),
   };
@@ -83,13 +89,16 @@ describe('NoteFormatSettings', () => {
   });
 
   it('writes what is typed but not saved before it looks at the vault', async () => {
-    const order: string[] = [];
-    setPendingSaveFlusher(async () => { order.push('flush'); });
-    api.migrationPlan.mockImplementation(async () => { order.push('plan'); return { success: true, data: report() }; });
+    const calls: string[] = [];
+    setPendingSaveFlusher(async () => { calls.push('flush'); });
+    api.migrationPlan.mockImplementation(async () => {
+      calls.push('plan');
+      return { success: true, data: report() };
+    });
     await open();
     fireEvent.click(screen.getByRole('button', { name: /Convert to Markdown/ }));
     await screen.findByTestId('note-format-summary');
-    expect(order).toEqual(['flush', 'plan']);
+    expect(calls).toEqual(['flush', 'plan']);
   });
 
   it('cancelling leaves the vault alone and the note editable again', async () => {

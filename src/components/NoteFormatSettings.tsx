@@ -49,7 +49,11 @@ export function NoteFormatSettings({ syncDirectory }: { syncDirectory: string | 
 
   useEffect(() => getElectronApi()?.onMigrationProgress?.(setProgress), []);
 
-  const closeDialog = () => { setReport(null); setOutcome(null); setProgress(null); };
+  const closeDialog = () => {
+    setReport(null);
+    setOutcome(null);
+    setProgress(null);
+  };
 
   // The open note is read-only from here until the conversion is over or called off.
   const start = async (direction: Direction) => {
@@ -58,21 +62,24 @@ export function NoteFormatSettings({ syncDirectory }: { syncDirectory: string | 
     setBusy(true);
     setStatus(t('noteFormatChecking'));
     setVaultConverting(true);
-    let showing = false;
+    let isShowingReport = false;
     try {
       await flushPendingSaves(); // what is typed but not yet saved goes to disk, in the old format, first
       const plan = await api.migrationPlan(direction, syncDir);
-      if (!plan.success || !plan.data) { setStatus(plan.error ?? t('noteFormatFailedRun')); return; }
+      if (!plan.success || !plan.data) {
+        setStatus(plan.error ?? t('noteFormatFailedRun'));
+        return;
+      }
       setStatus(null);
       setOutcome(null);
       setProgress(null);
       setReport(plan.data);
-      showing = true;
+      isShowingReport = true;
     } catch {
       setStatus(t('noteFormatFailedRun'));
     } finally {
       setBusy(false);
-      if (!showing) setVaultConverting(false);
+      if (!isShowingReport) setVaultConverting(false);
     }
   };
 
@@ -95,7 +102,10 @@ export function NoteFormatSettings({ syncDirectory }: { syncDirectory: string | 
     }
   };
 
-  const closeAfterRun = () => { closeDialog(); setVaultConverting(false); };
+  const closeAfterRun = () => {
+    closeDialog();
+    setVaultConverting(false);
+  };
 
   return (
     <div className="space-y-2 pt-1" data-testid="note-format">
