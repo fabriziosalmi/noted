@@ -171,3 +171,46 @@ describe('an HTML vault (unchanged)', () => {
     expect(read('a.md')).toMatch(/<p>one<\/p>\n+<hr>\n<p>two<\/p>/);
   });
 });
+
+describe('the search index of a big vault', () => {
+  beforeEach(() => load('markdown'));
+
+  it('holds far more than the old 1,500 notes', async () => {
+    for (let i = 0; i < 1600; i++) fs.writeFileSync(path.join(dir, `n${i}.md`), `# N${i}\n\nfiller ${i}\n`);
+    fs.writeFileSync(path.join(dir, 'oldest.md'), '# Oldest\n\nzanzibar\n');
+    const old = new Date(Date.now() - 3_600_000); // the oldest note: the first one the old cap dropped
+    fs.utimesSync(path.join(dir, 'oldest.md'), old, old);
+    expect(text(await mcp.handleSearchNotes({ query: 'zanzibar' }))).toContain('oldest.md');
+  });
+
+  it('on a refresh reads again only what changed, and forgets what is gone', async () => {
+    fs.writeFileSync(path.join(dir, 'a.md'), '# A\n\nalpha\n');
+    fs.writeFileSync(path.join(dir, 'b.md'), '# B\n\nbravo\n');
+    expect(text(await mcp.handleSearchNotes({ query: 'alpha' }))).toContain('a.md');
+
+    // Edited and deleted behind the server's back, then the staleness window passes.
+    fs.writeFileSync(path.join(dir, 'a.md'), '# A\n\ncharlie\n');
+    const later = new Date(Date.now() + 5000);
+    fs.utimesSync(path.join(dir, 'a.md'), later, later);
+    fs.rmSync(path.join(dir, 'b.md'));
+    // A note whose modification time did not move is not read again: its new content stays unseen until it does.
+    fs.writeFileSync(path.join(dir, 'c.md'), '# C\n\ndelta\n');
+    const stamp = new Date(Date.now() - 10_000);
+    fs.utimesSync(path.join(dir, 'c.md'), stamp, stamp);
+    mcp.__resetSearchIndex();
+    expect(text(await mcp.handleSearchNotes({ query: 'delta' }))).toContain('c.md');
+    fs.writeFileSync(path.join(dir, 'c.md'), '# C\n\necho\n');
+    fs.utimesSync(path.join(dir, 'c.md'), stamp, stamp);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(Date.now() + 60_000);
+      expect(text(await mcp.handleSearchNotes({ query: 'charlie' }))).toContain('a.md');
+      expect(text(await mcp.handleSearchNotes({ query: 'bravo' }))).not.toContain('b.md');
+      expect(text(await mcp.handleSearchNotes({ query: 'alpha' }))).not.toContain('a.md');
+      expect(text(await mcp.handleSearchNotes({ query: 'echo' }))).not.toContain('c.md');
+      expect(text(await mcp.handleSearchNotes({ query: 'delta' }))).toContain('c.md');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

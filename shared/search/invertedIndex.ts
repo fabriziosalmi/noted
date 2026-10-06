@@ -54,6 +54,7 @@ export class InvertedIndex {
 
   get size(): number { return this.docs.size; }
   has(id: string): boolean { return this.docs.has(id); }
+  ids(): string[] { return [...this.docs.keys()]; }
   getDoc(id: string): StoredDoc | undefined { return this.docs.get(id); }
 
   /** Insert or replace a document. */

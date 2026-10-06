@@ -36,9 +36,9 @@ newest-first and applies these limits:
 
 | Limit | Value |
 | --- | --- |
-| Maximum files indexed | 1,500 |
-| Maximum total content | 50 MB |
-| Maximum size per file | 2 MB |
+| Maximum files indexed | 20,000 |
+| Maximum total content | 200 MB |
+| Maximum size per file | 20 MB |
 
 The index updates incrementally as you save notes and as new notes arrive from
 Quick Capture, so results stay current without a full rescan.
@@ -48,6 +48,22 @@ This full-text index powers Quick Open and full-text search. The
 [AI assistant](/guide/ai) uses a **separate** retrieval system (RAG) to decide
 which notes to send as context — the two are independent.
 :::
+
+## How fast it is
+
+Measured on a 10,000-note vault of 25 MB (notes of about 350 words), on a laptop:
+
+| | |
+| --- | --- |
+| Vault index (links, tags, headings, aliases), cold start | about 0.3 s |
+| Full-text index, built on the first search | about 0.6 s |
+| A search, 95th percentile | under 10 ms |
+| Memory the two indexes take | about 75 MB |
+
+Cost grows in line with the vault: 20,000 notes take about 1.5 s to index and 150 MB. Because that is quick, the
+indexes are rebuilt in memory when the app starts rather than saved to disk: a saved copy would be one more thing to
+keep in step with the notes. The benchmark (`npm run bench:index`) runs in CI against a budget of 2 s to index and
+50 ms to search, and fails a change that makes either more than 20% slower.
 
 ## Next steps
 

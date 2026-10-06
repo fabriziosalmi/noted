@@ -1,0 +1,50 @@
+name: Bench
+
+# How the vault index and the full-text search scale (bench/index-scale.bench.ts): a 10,000-note vault must index in
+# under 2 s and answer a search in under 50 ms. On a pull request the same benchmark also runs against the code the
+# change started from, on the same machine, and a measure that got more than 20% slower fails the check.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'electron/vault-index.ts'
+      - 'electron/fulltext-index.ts'
+      - 'electron/test-support/**'
+      - 'shared/**'
+      - 'mcp-server/**'
+      - 'bench/**'
+      - 'scripts/bench-*.mjs'
+      - '.github/workflows/bench.yml'
+
+jobs:
+  index-scale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - run: npm ci
+
+      - name: Measure this change
+        run: node scripts/bench-run.mjs bench/results.json 3
+
+      - name: Measure the code it started from
+        if: github.event_name == 'pull_request'
+        continue-on-error: true # a base that cannot run today's benchmark leaves only the budgets to check
+        run: |
+          git worktree add ../base "${{ github.event.pull_request.base.sha }}"
+          cp -r bench vitest.bench.config.ts scripts/bench-run.mjs ../base/
+          mkdir -p ../base/electron/test-support && cp electron/test-support/vault-fixture.ts ../base/electron/test-support/
+          ln -s "$PWD/node_modules" ../base/node_modules
+          cd ../base && node bench-run.mjs "$GITHUB_WORKSPACE/bench/results-base.json" 3
+
+      - name: Judge
+        run: node scripts/bench-compare.mjs bench/results.json bench/results-base.json

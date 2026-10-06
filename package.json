@@ -38,7 +38,9 @@
     "demo:record": "node scripts/demo/record.mjs",
     "demo:render": "node scripts/demo/render.mjs",
     "demo": "npm run build:main && npm run build:preload && vite build && npm run demo:record && npm run demo:render",
-    "demo:shots": "node scripts/demo/shots.mjs"
+    "demo:shots": "node scripts/demo/shots.mjs",
+    "bench:index": "node scripts/bench-run.mjs bench/results.json 3 && node scripts/bench-compare.mjs bench/results.json",
+    "bench:index:once": "vitest run --config vitest.bench.config.ts"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.24",

@@ -8,6 +8,12 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Search that scales** (#72): measured on a 10,000-note vault (25 MB) the vault index builds in about 0.3 s, the full-text index in
+  about 0.6 s, a search answers in under 10 ms, and the index takes about 75 MB; at 20,000 notes it is still under 1.5 s. The MCP
+  server's search index had a far lower ceiling (1,500 notes, 50 MB), which left the oldest notes of a big vault unsearchable by an
+  agent; it now has the app's own bounds (20,000 notes, 200 MB, 20 MB a note) and, after the first build, reads again only the notes
+  whose modification time moved. `npm run bench:index` runs the benchmark; a CI check runs it on every change to the indexes, fails over
+  the budgets (2 s cold start, 50 ms search p95) and fails when a measure is more than 20% slower than the code the change started from.
 - **Unlinked mentions** (#69): the Connections panel lists notes that write this note's title or an alias as plain text without
   linking to it, with the line they appear in, and **Link** turns the mention into a `[[link]]` in one click (the note's earlier text goes
   to its history). Code, links, URLs, tags, math and front matter are never mentions. Found through the search index, so no note is read

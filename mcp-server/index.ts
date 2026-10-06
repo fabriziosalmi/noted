@@ -327,32 +327,39 @@ function listAllNotes(folder?: string): NoteEntry[] {
 
 // ─── Full-text search index (shared BM25) ─────────────────────────────────────
 
-const FT_MAX_FILES = 1500;
-const FT_MAX_TOTAL_BYTES = 50 * 1024 * 1024;
-const FT_MAX_FILE_BYTES = 2 * 1024 * 1024;
+// The same bounds as the app's own index (electron/fulltext-index.ts): measured at 10,000 notes (25 MB) the whole
+// scan takes about a second and search answers in under 10 ms (bench/index-scale.bench.ts).
+const FT_MAX_FILES = 20_000;
+const FT_MAX_TOTAL_BYTES = 200 * 1024 * 1024;
+const FT_MAX_FILE_BYTES = 20 * 1024 * 1024;
 const INDEX_STALE_MS = 30_000;
 
 let searchIndex: InvertedIndex | null = null;
 let indexScannedAt = 0;
 
-// Lazily (re)build the index once per staleness window instead of re-reading
-// every note on every query. Incremental hooks on create/update/delete keep a
-// warm (SSE-session) index fresh; the staleness window catches external edits.
+// Lazily bring the index up to date once per staleness window instead of on every query. After the first build only
+// the notes whose modification time moved are read again, so a refresh of a big vault costs a stat per note, not a
+// read per note. Incremental hooks on create/update/delete keep a warm (SSE-session) index fresh; the staleness
+// window catches external edits.
 function ensureSearchIndex(): InvertedIndex {
   const now = Date.now();
   if (searchIndex && now - indexScannedAt < INDEX_STALE_MS) return searchIndex;
-  const idx = new InvertedIndex();
+  const idx = searchIndex ?? new InvertedIndex();
   const format = vaultFormat();
+  const wanted = new Set<string>();
   let totalBytes = 0;
-  for (const note of listAllNotes()) {
-    if (idx.size >= FT_MAX_FILES) break;
+  for (const note of listAllNotes()) { // newest first, so the bounds keep the most recent notes
+    if (wanted.size >= FT_MAX_FILES) break;
+    if (note.size > FT_MAX_FILE_BYTES) continue;
+    if ((totalBytes += note.size) > FT_MAX_TOTAL_BYTES) break;
+    wanted.add(note.name);
+    if (idx.getDoc(note.name)?.mtimeMs === note.mtime.getTime()) continue;
     try {
       const html = fs.readFileSync(safeNotePath(note.name), 'utf8');
-      if (html.length > FT_MAX_FILE_BYTES) continue;
-      if ((totalBytes += html.length) > FT_MAX_TOTAL_BYTES) break;
       idx.add({ id: note.name, title: note.name, text: noteText(html, format), mtimeMs: note.mtime.getTime() });
     } catch { /* skip unreadable */ }
   }
+  for (const id of idx.ids()) if (!wanted.has(id)) idx.remove(id);
   searchIndex = idx;
   indexScannedAt = now;
   return idx;
