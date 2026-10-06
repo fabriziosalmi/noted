@@ -15,6 +15,13 @@ describe('field types', () => {
     expect(typeOf('tags', ['a'], ['b', 'c'], [])).toBe('list');
   });
 
+  it('links: a value that is a [[note]] link, when every value is', () => {
+    expect(typeOf('parent', '[[Home]]', '[[Work/Plan#Risks|the plan]]')).toBe('link');
+    expect(inferField('parent', ['[[Home]]', 'Home'])).toMatchObject({ type: 'text', mixed: true });
+    expect(typeOf('related', ['[[A]]', '[[B]]'], ['[[C]]'])).toBe('list');
+    expect(typeOf('x', '[[]]', '[[a]] and [[b]]')).toBe('select');
+  });
+
   it('a few different words is a choice, many different ones is text', () => {
     expect(typeOf('status', 'draft', 'open', 'done')).toBe('select');
     expect(typeOf('title', ...Array.from({ length: 12 }, (_, i) => `Note number ${i}`))).toBe('text');

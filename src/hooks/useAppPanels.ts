@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { AppPanelsApi } from './contracts';
 
-type RightTab = 'ai' | 'agent' | 'analytics' | 'graph' | 'outline';
+type RightTab = 'ai' | 'agent' | 'analytics' | 'graph' | 'outline' | 'properties';
 
 export function useAppPanels(): AppPanelsApi {
   const [leftOpen, setLeftOpen] = useState(true);

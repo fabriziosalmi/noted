@@ -80,3 +80,12 @@ export function plainHeading(text: string): string {
 export function headingLinkText(text: string): string {
   return plainHeading(text).replace(/[#^|[\]]/g, ' ').replace(/\s+/g, ' ').trim();
 }
+
+/** What a `[[Note#Heading|alias]]` value shows as: the alias if it has one, else the note (and heading). */
+export function linkLabel(raw: string): string {
+  const parts = parseWikilinkText(raw);
+  if (!parts) return raw;
+  if (parts.alias) return parts.alias;
+  const place = parts.heading ?? (parts.block ? `^${parts.block}` : '');
+  return place ? `${parts.target} › ${place}` : parts.target;
+}

@@ -70,6 +70,16 @@ describe('initial scan', () => {
     expect(index.backlinks(dir, 'Target.md')).toEqual(['One.md', 'Three.md', 'Two.md']);
   });
 
+  it('a link held in a property counts as a link: the note is a backlink of the one it names', async () => {
+    write('Home.md', '# Home\n');
+    write('Task.md', '---\nparent: "[[Home]]"\nrelated:\n  - "[[Other|the other]]"\n---\n# Task\n');
+    write('Other.md', '# Other\n');
+    await index.ensure(dir);
+    expect(index.get(dir, 'Task.md')!.linkTargets).toEqual(['Home', 'Other']);
+    expect(index.backlinks(dir, 'Home.md')).toEqual(['Task.md']);
+    expect(index.backlinks(dir, 'Other.md')).toEqual(['Task.md']);
+  });
+
   it('skips an unreadable vault and a missing one without throwing', async () => {
     const snap = await index.snapshot(path.join(dir, 'does-not-exist'));
     expect(snap.notes).toEqual({});

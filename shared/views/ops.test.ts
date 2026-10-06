@@ -3,7 +3,7 @@ import { opsFor, takesValue, newFilter, retarget, operandFrom } from './ops';
 import { FILTER_OPS } from './model';
 import type { FieldType } from './schema';
 
-const TYPES: FieldType[] = ['text', 'number', 'date', 'select', 'checkbox', 'list'];
+const TYPES: FieldType[] = ['text', 'number', 'date', 'select', 'checkbox', 'list', 'link'];
 
 describe('opsFor', () => {
   it('offers every type only tests that can be answered for it, with no repeats', () => {

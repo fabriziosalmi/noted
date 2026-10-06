@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cellFor, cellText, editorText, parseCellInput } from './viewCells';
+import { cellFor, cellText, editorText, parseCellInput, propertyType, initialValue } from './viewCells';
 
 describe('cellFor', () => {
   it('empty values are empty, but an empty checkbox is an unchecked box', () => {
@@ -20,6 +20,14 @@ describe('cellFor', () => {
     expect(cellFor(true, 'text')).toEqual({ kind: 'text', text: 'true' });
     expect(cellFor(['a'], 'text')).toEqual({ kind: 'chips', items: ['a'] });
     expect(cellFor('many', 'number')).toEqual({ kind: 'text', text: 'many' });
+  });
+
+  it('a link value is a link cell in a link field, a plain text anywhere else', () => {
+    expect(cellFor('[[Home]]', 'link')).toEqual({ kind: 'link', value: '[[Home]]' });
+    expect(cellFor('[[Home]]', 'text')).toEqual({ kind: 'text', text: '[[Home]]' });
+    expect(cellFor('Home', 'link')).toEqual({ kind: 'text', text: 'Home' });
+    expect(cellText(cellFor('[[Home|my home]]', 'link'))).toBe('my home');
+    expect(cellText(cellFor(['[[A]]', 'b'], 'list'))).toBe('A, b');
   });
 
   it('cellText gives each cell as text', () => {
@@ -46,5 +54,36 @@ describe('editing a cell', () => {
     expect(parseCellInput('a, b ,, c', 'list')).toEqual(['a', 'b', 'c']);
     expect(parseCellInput(' , ', 'list')).toBeUndefined();
     expect(parseCellInput('2026-10-06', 'date')).toBe('2026-10-06');
+    expect(parseCellInput('Home', 'link')).toBe('[[Home]]');
+    expect(parseCellInput(' [[Home|my]] ', 'link')).toBe('[[Home|my]]');
+  });
+});
+
+describe('propertyType', () => {
+  it('a value shows its own type first', () => {
+    expect(propertyType(3, 'text', undefined)).toBe('number');
+    expect(propertyType(false, undefined, undefined)).toBe('checkbox');
+    expect(propertyType(['a'], 'text', undefined)).toBe('list');
+    expect(propertyType('[[Home]]', 'text', undefined)).toBe('link');
+  });
+
+  it('a text value takes what the vault says about the name (a date, a choice), but not a type that needs another kind of value', () => {
+    expect(propertyType('2026-10-06', 'date', undefined)).toBe('date');
+    expect(propertyType('open', 'select', undefined)).toBe('select');
+    expect(propertyType('open', 'checkbox', undefined)).toBe('text');
+    expect(propertyType('open', 'list', undefined)).toBe('text');
+  });
+
+  it('with no value, the type that was chosen, else the vault\'s, else text', () => {
+    expect(propertyType(null, 'date', 'number')).toBe('number');
+    expect(propertyType(undefined, 'date', undefined)).toBe('date');
+    expect(propertyType('', undefined, undefined)).toBe('text');
+  });
+
+  it('what a new property starts as', () => {
+    expect(initialValue('checkbox')).toBe(false);
+    expect(initialValue('list')).toEqual([]);
+    expect(initialValue('number')).toBeNull();
+    expect(initialValue('link')).toBeNull();
   });
 });

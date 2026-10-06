@@ -2,6 +2,9 @@ import { useRef, useState } from 'react';
 import { Check } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import { cellFor, cellText, editorText, parseCellInput } from '../lib/viewCells';
+import { openLinkValue } from '../lib/openLink';
+import { linkLabel } from '../../shared/vault/wikilink';
+import { isLinkValue } from '../../shared/views/schema';
 import type { FieldValue } from '../../shared/vault/fields';
 import type { FieldType } from '../../shared/views/schema';
 
@@ -24,6 +27,7 @@ export function ViewCell({ field, value, type, options, onCommit }: {
   const [editing, setEditing] = useState(false);
   const finished = useRef(false);
   const cell = cellFor(value, type);
+  const holdsLink = cell.kind === 'link' || (cell.kind === 'chips' && cell.items.some(isLinkValue));
 
   const finish = (text: string | null) => {
     if (finished.current) return;
@@ -77,7 +81,8 @@ export function ViewCell({ field, value, type, options, onCommit }: {
 
   return (
     <div
-      role="button"
+      // A link holds a button of its own (it opens the note), so the cell around it is a group, not a second button.
+      role={holdsLink ? 'group' : 'button'}
       tabIndex={0}
       data-field={field}
       title={t('viewEditHint')}
@@ -86,13 +91,28 @@ export function ViewCell({ field, value, type, options, onCommit }: {
       className="min-h-[1.5rem] cursor-text rounded focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)]"
     >
       {cell.kind === 'text' && cell.text}
+      {cell.kind === 'link' && <LinkButton value={cell.value} />}
       {cell.kind === 'chips' && (
         <span className="inline-flex flex-wrap gap-1" title={cellText(cell)}>
-          {cell.items.map(item => (
-            <span key={item} className="px-1.5 py-0.5 rounded-full text-xs bg-[var(--accent-light)] text-[var(--accent)]">{item}</span>
-          ))}
+          {cell.items.map(item => (isLinkValue(item)
+            ? <LinkButton key={item} value={item} chip />
+            : <span key={item} className="px-1.5 py-0.5 rounded-full text-xs bg-[var(--accent-light)] text-[var(--accent)]">{item}</span>))}
         </span>
       )}
     </div>
+  );
+}
+
+/** A `[[Note]]` value, shown as the note's name; a click opens the note (and leaves the cell's own click alone). */
+function LinkButton({ value, chip }: { value: string; chip?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={e => { e.stopPropagation(); void openLinkValue(value); }}
+      onDoubleClick={e => e.stopPropagation()}
+      className={chip ? 'px-1.5 py-0.5 rounded-full text-xs bg-[var(--accent-light)] text-[var(--accent)] hover:underline' : 'text-[var(--accent)] hover:underline'}
+    >
+      {linkLabel(value)}
+    </button>
   );
 }

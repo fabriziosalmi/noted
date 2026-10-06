@@ -865,5 +865,18 @@
   "viewCardMove": "Move \"{name}\" to",
   "viewListNoMove": "A note sits in every column its list has, so cards cannot be moved here; change them from the table.",
   "viewNewRow": "New note",
-  "viewAddCard": "Add card"
+  "viewAddCard": "Add card",
+  "propsTab": "Properties",
+  "propsEmpty": "This note has no properties yet.",
+  "propsAdd": "Add property",
+  "propsKey": "Property name",
+  "propsType": "Type",
+  "propsRemove": "Remove property: {name}",
+  "propTypeText": "Text",
+  "propTypeNumber": "Number",
+  "propTypeDate": "Date",
+  "propTypeCheckbox": "Checkbox",
+  "propTypeList": "List",
+  "propTypeLink": "Link",
+  "propsNoNote": "Open a note to see its properties."
 }
