@@ -9,6 +9,7 @@ import type { FullTextSearchReadModel } from '../../fulltext-index.js';
 import { assertNotMigrating } from '../../core/migrating.js';
 import { readVaultFormat } from '../../../shared/vault/formatFile.js';
 import { normalizeMarkdown } from '../../../shared/markdown/codec.js';
+import { tr } from '../../core/language.js';
 
 export function importVaultRecursive(srcRoot: string, srcDir: string, destRoot: string): number {
   let imported = 0;
@@ -70,7 +71,7 @@ export function registerImporterHandlers(
     try {
       assertNotMigrating();
       const { filePaths, canceled } = await dialog.showOpenDialog({
-        title: 'Import vault (Obsidian / Bear / Markdown folder)',
+        title: tr('dlgImportVault'),
         properties: ['openDirectory'],
       });
       if (canceled || !filePaths.length) return { success: false, error: 'Cancelled' };

@@ -30,6 +30,11 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The update dialogs, the menu bar and the file dialogs now speak the app's language** (English, Italian, German, Spanish, French,
+  Portuguese). They were English whatever the setting. The menu changes as soon as you change the language, and the next start shows
+  it in that language straight away.
+- **"Reveal in Finder" and the Claude Desktop hint are right on Windows and Linux**: "Show in Explorer" / "Show in file manager", and the
+  configuration path of that OS.
 - **Initializing a Git repository failed on a computer with no Git identity** (a fresh machine, or a new user). The fallback identity was never
   set because its check could not tell "not set" from "set". It is now set when missing, and an identity you already have is left alone.
 - **Opening a note no longer saves it.** The editor used to write back the text it had just loaded, which changed the file's modification

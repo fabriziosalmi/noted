@@ -16,6 +16,7 @@
 import { app, dialog, shell, type BrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { logEvent, type LogLevel } from './structured-log.js';
+import { tr } from './core/language';
 
 const RELEASES_URL = 'https://github.com/fabriziosalmi/noted/releases/latest';
 
@@ -86,7 +87,7 @@ let inFlightCheck: Promise<void> | null = null;
 
 function reportManualOnly(title: string, message: string): void {
   if (!checkIsManual) return;
-  void dialog.showMessageBox({ type: 'info', title, message, buttons: ['OK'] });
+  void dialog.showMessageBox({ type: 'info', title, message, buttons: [tr('updButtonOk')] });
 }
 
 // electron-updater logs through bare `console` by default, and console.info to
@@ -120,10 +121,10 @@ function wireListeners(getWindow: () => BrowserWindow | null | undefined): void 
     logEvent('info', 'update_available', { version: info.version });
     const { response } = await dialog.showMessageBox({
       type: 'info',
-      title: 'Update available',
-      message: `Noted ${info.version} is available.`,
-      detail: `You are on ${app.getVersion()}. Download it now?`,
-      buttons: ['Download', 'Release notes', 'Later'],
+      title: tr('updAvailableTitle'),
+      message: tr('updAvailableMessage', { version: info.version }),
+      detail: tr('updAvailableDetail', { current: app.getVersion() }),
+      buttons: [tr('updButtonDownload'), tr('updButtonReleaseNotes'), tr('updButtonLater')],
       defaultId: 0,
       cancelId: 2,
     });
@@ -132,8 +133,8 @@ function wireListeners(getWindow: () => BrowserWindow | null | undefined): void 
         logEvent('error', 'update_download_failed', { error: err.message });
         void dialog.showMessageBox({
           type: 'error',
-          title: 'Download failed',
-          message: 'Could not download the update.',
+          title: tr('updDownloadFailedTitle'),
+          message: tr('updDownloadFailedMessage'),
           detail: err.message,
         });
       });
@@ -144,12 +145,12 @@ function wireListeners(getWindow: () => BrowserWindow | null | undefined): void 
 
   autoUpdater.on('update-not-available', () => {
     logEvent('info', 'update_not_available', { version: app.getVersion() });
-    reportManualOnly('You are up to date', `Noted ${app.getVersion()} is the latest version.`);
+    reportManualOnly(tr('updUpToDateTitle'), tr('updUpToDateMessage', { version: app.getVersion() }));
   });
 
   autoUpdater.on('error', (err: Error) => {
     logEvent('error', 'update_check_failed', { error: err.message });
-    reportManualOnly('Update check failed', err.message);
+    reportManualOnly(tr('updCheckFailedTitle'), err.message);
   });
 
   // Progress goes to the window if it wants to show it; no dialog, since the
@@ -162,10 +163,10 @@ function wireListeners(getWindow: () => BrowserWindow | null | undefined): void 
     logEvent('info', 'update_downloaded', { version: info.version });
     const { response } = await dialog.showMessageBox({
       type: 'info',
-      title: 'Update ready',
-      message: `Noted ${info.version} is ready to install.`,
-      detail: 'Restart now, or it will be installed the next time you quit.',
-      buttons: ['Restart now', 'Later'],
+      title: tr('updReadyTitle'),
+      message: tr('updReadyMessage', { version: info.version }),
+      detail: tr('updReadyDetail'),
+      buttons: [tr('updButtonRestart'), tr('updButtonLater')],
       defaultId: 0,
       cancelId: 1,
     });
@@ -189,7 +190,7 @@ export async function checkForUpdates(
   manual = false,
 ): Promise<void> {
   if (!app.isPackaged) {
-    if (manual) reportManualDialog('Updates unavailable', 'Update checks only run in a packaged build.');
+    if (manual) reportManualDialog(tr('updUnavailableTitle'), tr('updUnavailableMessage'));
     return;
   }
   if (!canSelfUpdate()) {
@@ -201,14 +202,10 @@ export async function checkForUpdates(
         isDiskImagePath(safeGetAppPath() ?? '', process.platform);
       const { response } = await dialog.showMessageBox({
         type: 'info',
-        title: 'Check for updates',
-        message: fromDiskImage
-          ? 'Noted is running from the disk image, which cannot update itself.'
-          : 'This install updates through your package manager.',
-        detail: fromDiskImage
-          ? 'Drag Noted to Applications first, then check for updates — or open the releases page to see the latest version.'
-          : 'Open the releases page to see the latest version.',
-        buttons: ['Open releases', 'Cancel'],
+        title: tr('updManualTitle'),
+        message: tr(fromDiskImage ? 'updManualDiskImage' : 'updManualPackageManager'),
+        detail: tr(fromDiskImage ? 'updManualDiskImageDetail' : 'updManualPackageManagerDetail'),
+        buttons: [tr('updButtonOpenReleases'), tr('updButtonCancel')],
         defaultId: 0,
         cancelId: 1,
       });
@@ -242,7 +239,7 @@ export async function checkForUpdates(
 // A plain info dialog, shown regardless of manual/automatic intent. Used for the
 // pre-check "can't even try" cases, which only ever run for a manual request.
 function reportManualDialog(title: string, message: string): void {
-  void dialog.showMessageBox({ type: 'info', title, message, buttons: ['OK'] });
+  void dialog.showMessageBox({ type: 'info', title, message, buttons: [tr('updButtonOk')] });
 }
 
 /** Kick off the one-shot startup check, well after the window has settled. */

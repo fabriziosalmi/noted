@@ -3,10 +3,14 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { getMainWindow } from '../core/windows';
 import { resolveAppVersion } from '../app-version';
+import { setLanguage } from '../core/language';
 
 export function registerAppHandlers(): void {
   // Example IPC handler for the magical stuff
   ipcMain.handle('ping', () => 'pong');
+
+  // The renderer owns the language setting; main follows it (update dialogs, the native menu, file dialogs).
+  ipcMain.handle('set-language', async (_, language: unknown) => ({ success: await setLanguage(language) }));
   ipcMain.handle('get-app-version', () => resolveAppVersion({
     isPackaged: app.isPackaged,
     electronReported: app.getVersion(),
