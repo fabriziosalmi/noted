@@ -126,7 +126,9 @@ test.describe('nested folders', () => {
 
     // and onto the empty part of the list, it comes back to the top level
     await expect(async () => {
-      await box('Q4').dragTo(list, { targetPosition: { x: 60, y: 300 } });
+      // the very bottom of the list: below the last row, so the drop lands on the list and not on a row
+      const area = (await list.boundingBox())!;
+      await box('Q4').dragTo(list, { targetPosition: { x: 60, y: area.height - 6 } });
       await expect.poll(() => fs.existsSync(path.join(root, 'Q4/Goals.md')), { timeout: 4_000 }).toBe(true);
     }).toPass({ timeout: 40_000 });
     expect(fs.existsSync(path.join(root, 'Life/Q4'))).toBe(false);

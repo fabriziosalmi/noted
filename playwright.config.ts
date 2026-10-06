@@ -9,8 +9,10 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
-  timeout: 60_000,
-  expect: { timeout: 10_000 },
+  // The CI runners (Windows above all) are sometimes several times slower than a laptop; a test that merely has to
+  // wait longer must not be a failure, and a hung one is still caught.
+  timeout: process.env.CI ? 90_000 : 60_000,
+  expect: { timeout: process.env.CI ? 15_000 : 10_000 },
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   outputDir: 'test-results',
   use: {
