@@ -8,6 +8,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Views, documented** (#27): the Views page now says how views compare with Notion databases and what they deliberately do not do
+  (relations, rollups, formulas, real-time collaboration, declared schemas, other layouts).
 - **Properties panel** (#66): a **Properties** tab in the right panel for the open note: each frontmatter property in the editor for
   its type (text, number, date, checkbox, list, link), add (name suggested from the vault, with a type), edit and remove, written with
   the same byte-preserving writer as the views. A new **link** type for `"[[Note]]"` values: shown as the note's name, opens it, counts
