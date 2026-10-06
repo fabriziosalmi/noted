@@ -142,6 +142,8 @@ describe('IPC channels', () => {
     'update-mcp-sse-config',
     'vault-index-note',
     'vault-index-snapshot',
+    'views-load',
+    'views-save',
     'wipe-all-notes',
     ]);
   });

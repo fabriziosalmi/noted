@@ -10,6 +10,7 @@ import { fetchRetrievalCandidates } from './lib/ragRetrieval';
 import { useAppLifecycle } from './hooks/useAppLifecycle';
 import { useGitSync } from './hooks/useGitSync';
 import { useVaultIndex } from './hooks/useVaultIndex';
+import { useViews } from './hooks/useViews';
 import { useVaultFormatSync } from './hooks/useVaultFormatSync';
 import { useLanguageSync } from './hooks/useLanguageSync';
 import { registerLinkUpdateUi } from './lib/linkUpdateUi';
@@ -94,6 +95,7 @@ function App() {
 
   // Links and tags come from the main-process VaultIndex (snapshot + deltas).
   useVaultIndex(settings.syncDirectory || undefined);
+  useViews(settings.syncDirectory || undefined);
   useVaultFormatSync();
   useLanguageSync();
 

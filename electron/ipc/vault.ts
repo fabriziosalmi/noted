@@ -5,6 +5,7 @@ import { validateFileName } from '../ipc-utils';
 import { writeVaultConfig, isValidRetentionDays } from '../../shared/vault-config';
 import { previewRewrite } from '../link-rewrite';
 import { readVaultFormat } from '../../shared/vault/formatFile';
+import { readViews, writeViews } from '../../shared/views/file';
 import { isObsidianVault } from '../../shared/vault/obsidian';
 import { logEvent, newRequestId } from '../structured-log';
 import { assertNotMigrating } from '../core/migrating';
@@ -127,6 +128,24 @@ export function registerVaultHandlers(): void {
       const dir = getTargetDir(syncDir);
       await vaultIndex.ensure(dir);
       return { success: true, data: await previewRewrite(dir, parseRenames(renames), linkRewriteDeps(dir)) };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  // The vault's saved views (`.noted-views.json`): read, and replace as a whole.
+  ipcMain.handle('views-load', async (_, syncDir?: string) => {
+    try {
+      return { success: true, data: readViews(getTargetDir(syncDir)) };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('views-save', async (_, views: unknown, syncDir?: string) => {
+    try {
+      assertNotMigrating();
+      return { success: true, data: writeViews(getTargetDir(syncDir), views) };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

@@ -68,6 +68,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteFolder: (name: string, syncDir?: string, opts?: { updateLinks?: boolean }) => ipcRenderer.invoke('delete-folder', name, syncDir, opts),
   moveNote: (fileName: string, toFolder: string, syncDir?: string, opts?: { updateLinks?: boolean }) => ipcRenderer.invoke('move-note', fileName, toFolder, syncDir, opts),
   previewLinkRewrite: (renames: { from: string; to: string }[], syncDir?: string) => ipcRenderer.invoke('preview-link-rewrite', renames, syncDir),
+  loadViews: (syncDir?: string) => ipcRenderer.invoke('views-load', syncDir),
+  saveViews: (views: unknown, syncDir?: string) => ipcRenderer.invoke('views-save', views, syncDir),
   previewHeadingRewrite: (change: unknown, syncDir?: string) => ipcRenderer.invoke('preview-heading-rewrite', change, syncDir),
   rewriteHeadingLinks: (change: unknown, syncDir?: string) => ipcRenderer.invoke('rewrite-heading-links', change, syncDir),
   rewriteLinks: (renames: { from: string; to: string }[], syncDir?: string) => ipcRenderer.invoke('rewrite-links', renames, syncDir),

@@ -12,6 +12,7 @@ import { readLinkUpdateMode, foldRename, isNoopRename, type PendingRename } from
 import { getLinkUpdateUi } from '../lib/linkUpdateUi';
 import type { HeadingChange } from '../types';
 import type { FieldValue } from '../../shared/vault/fields';
+import { blankView, newViewId, type View } from '../../shared/views/model';
 import { slugifyTitle } from '../lib/noteTitle';
 import { translate } from '../lib/i18n';
 import { getElectronApi } from '../lib/electronApi';
@@ -209,6 +210,14 @@ interface NoteState {
   /** Note name -> its frontmatter as typed fields (the rows of a view), only for the notes that have any. */
   frontmatterIndex: Record<string, Record<string, FieldValue>>;
   tagIndex: Record<string, string[]>;
+  /** The vault's saved views (`.noted-views.json`): never persisted in the browser, the file is the truth. */
+  views: View[];
+  /** Replace the views with what the vault's file holds (on opening a vault, and when asked to look again). */
+  loadViews: () => Promise<void>;
+  createView: (name: string, patch?: Partial<Omit<View, 'id' | 'name'>>) => Promise<View | null>;
+  updateView: (id: string, patch: Partial<Omit<View, 'id'>>) => Promise<void>;
+  deleteView: (id: string) => Promise<void>;
+  duplicateView: (id: string, name: string) => Promise<View | null>;
   vaultIndexSync: { vault: string; seq: number } | null;
   applyVaultIndexSnapshot: (snapshot: VaultIndexSnapshot) => void;
   applyVaultIndexDelta: (delta: VaultIndexDelta) => void;
@@ -315,6 +324,26 @@ export function _resetLinkRewriteForTest(): void {
 }
 
 type StoreGet = () => NoteState;
+type StoreSet = (partial: Partial<NoteState>) => void;
+
+// Saves go one after another, each with the list as it is then: two quick edits can never reach the file in the
+// wrong order, and the file always ends up holding the last list.
+let viewsSaving: Promise<unknown> = Promise.resolve();
+
+/** Show the new views at once, write them, and settle on what the file now holds (the writer cleans them). */
+async function commitViews(set: StoreSet, get: StoreGet, views: View[]): Promise<boolean> {
+  set({ views });
+  const api = getElectronApi();
+  if (!api?.saveViews) return true;
+  const syncDir = get().settings.syncDirectory || undefined;
+  const run = viewsSaving.then(() => api.saveViews(views, syncDir));
+  viewsSaving = run.catch(() => undefined);
+  const res = await run.catch(() => null);
+  if (!res?.success) return false;
+  // Only adopt the cleaned list if nothing changed meanwhile.
+  if (get().views === views && res.data) set({ views: res.data });
+  return true;
+}
 type LinkRenames = { from: string; to: string }[];
 
 /** Should links be rewritten for these renames? Honours Always / Ask / Never. */
@@ -375,6 +404,7 @@ export const useStore = create<NoteState>()(
       noteLinksIndex: {},
       noteAliasesIndex: {},
       frontmatterIndex: {},
+      views: [],
       tagIndex: {},
       vaultIndexSync: null,
       noteFolders: [],
@@ -816,6 +846,37 @@ export const useStore = create<NoteState>()(
     pendingLinkRewrite = null;
     if (linkRewriteTimer) { clearTimeout(linkRewriteTimer); linkRewriteTimer = null; }
     if (pending) await settleLinkRewrite(get, pending, opts?.quiet);
+  },
+
+  loadViews: async () => {
+    const api = getElectronApi();
+    if (!api?.loadViews) return;
+    const res = await api.loadViews(get().settings.syncDirectory || undefined);
+    if (res.success && res.data) set({ views: res.data });
+  },
+
+  createView: async (name, patch) => {
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    const view = blankView(newViewId(), trimmed, patch);
+    return (await commitViews(set, get, [...get().views, view])) ? view : null;
+  },
+
+  updateView: async (id, patch) => {
+    if (!get().views.some(v => v.id === id)) return;
+    await commitViews(set, get, get().views.map(v => (v.id === id ? { ...v, ...patch, id } : v)));
+  },
+
+  deleteView: async id => {
+    await commitViews(set, get, get().views.filter(v => v.id !== id));
+  },
+
+  duplicateView: async (id, name) => {
+    const source = get().views.find(v => v.id === id);
+    const trimmed = name.trim();
+    if (!source || !trimmed) return null;
+    const copy: View = { ...structuredClone(source), id: newViewId(), name: trimmed };
+    return (await commitViews(set, get, [...get().views, copy])) ? copy : null;
   },
 
   settleHeadingRename: async change => {
