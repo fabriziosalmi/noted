@@ -36,10 +36,11 @@ describe('initial scan', () => {
     write('Work/.git/F.md', '[[A]] #nope');             // a hidden folder at depth is not
     const snap = await index.snapshot(dir);
     expect(Object.keys(snap.notes).sort()).toEqual(['A.md', 'B.md', 'Work/C.md', 'Work/deeper/E.md']);
-    expect(snap.notes['A.md']).toEqual({ links: ['B', 'Work/C'], tags: ['#idea'], aliases: [] });
-    expect(snap.notes['Work/C.md']).toEqual({ links: ['A'], tags: ['#project/aurora'], aliases: [] });
+    expect(snap.notes['A.md']).toEqual({ links: ['B', 'Work/C'], tags: ['#idea'], aliases: [], fields: {} });
+    expect(snap.notes['Work/C.md']).toEqual({ links: ['A'], tags: ['#project/aurora'], aliases: [], fields: {} });
     const b = index.get(dir, 'B.md')!;
     expect(b.headings).toEqual([{ level: 1, text: 'Bee' }]);
+    expect(snap.notes['B.md'].fields).toEqual({ title: 'B', status: 'x' });
     expect(b.frontmatterKeys).toEqual(['title', 'status']);
     expect(index.tagIndex(dir)).toEqual({ '#deep': ['Work/deeper/E.md'], '#idea': ['A.md', 'B.md'], '#other': ['B.md'], '#project/aurora': ['Work/C.md'] });
   });
@@ -79,8 +80,8 @@ describe('initial scan', () => {
     write('Big.md', `[[A]] #t ${'x'.repeat(500)}`);
     write('Small.md', '[[A]] #t');
     const snap = await index.snapshot(dir);
-    expect(snap.notes['Big.md']).toEqual({ links: [], tags: [], aliases: [] });
-    expect(snap.notes['Small.md']).toEqual({ links: ['A'], tags: ['#t'], aliases: [] });
+    expect(snap.notes['Big.md']).toEqual({ links: [], tags: [], aliases: [], fields: {} });
+    expect(snap.notes['Small.md']).toEqual({ links: ['A'], tags: ['#t'], aliases: [], fields: {} });
   });
 
   it('honours the name validator', async () => {
@@ -99,7 +100,7 @@ describe('incremental updates (the app\'s own writes)', () => {
     expect(index.get(dir, 'A.md')!.linkTargets).toEqual(['C']);
     expect(index.tagIndex(dir)['#one']).toBeUndefined();
     expect(deltas).toHaveLength(1);
-    expect(deltas[0].upserts).toEqual({ 'A.md': { links: ['C'], tags: ['#two'], aliases: [] } });
+    expect(deltas[0].upserts).toEqual({ 'A.md': { links: ['C'], tags: ['#two'], aliases: [], fields: {} } });
     expect(deltas[0].removals).toEqual([]);
   });
 

@@ -86,3 +86,22 @@ describe('aliases in the store', () => {
   });
 });
 
+
+describe('frontmatter fields in the store', () => {
+  beforeEach(() => useStore.setState({ frontmatterIndex: {} }));
+
+  it('keeps the fields of the notes that have any, from a snapshot and through deltas', () => {
+    s().applyVaultIndexSnapshot(snap(1, {
+      'A.md': { links: [], tags: [], aliases: [], fields: { status: 'open', votes: 2 } },
+      'B.md': { links: [], tags: [], aliases: [], fields: {} },
+    }));
+    expect(s().frontmatterIndex).toEqual({ 'A.md': { status: 'open', votes: 2 } });
+    s().applyVaultIndexDelta(delta(2, {
+      'A.md': { links: [], tags: [], aliases: [], fields: { status: 'done', votes: 2 } },
+      'B.md': { links: [], tags: [], aliases: [], fields: { tags: ['x'] } },
+    }));
+    expect(s().frontmatterIndex).toEqual({ 'A.md': { status: 'done', votes: 2 }, 'B.md': { tags: ['x'] } });
+    s().applyVaultIndexDelta(delta(3, { 'A.md': { links: [], tags: [], aliases: [], fields: {} } }, ['B.md']));
+    expect(s().frontmatterIndex).toEqual({});
+  });
+});
