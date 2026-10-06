@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readAgentMetadata, writeAgentMetadata, renderEventBlockHtml, applyEngineResultToHtml } from './metadataBlock';
+import { readAgentMetadata, writeAgentMetadata, renderEventBlockHtml, renderEventBlockMarkdown, applyEngineResultToHtml } from './metadataBlock';
 import type { AgentMetadata, AgentEvent } from './types';
 
 // Marked HTML-escapes code-block content; the metadata block ships as escaped
@@ -70,5 +70,46 @@ describe('metadataBlock', () => {
     expect(out).toContain('<h2>Event GateApproved</h2>');
     expect(readAgentMetadata(out)).toMatchObject({ status: 'ready' });
     expect(applyEngineResultToHtml('<p>plain</p>', result)).toBeNull();
+  });
+});
+
+describe('metadataBlock in a note stored as Markdown', () => {
+  const fenced = (m: AgentMetadata, fence = '```'): string =>
+    `# WF001\n\ngoal & scope\n\n## Agent Metadata\n\n${fence}json\n${JSON.stringify(m, null, 2)}\n${fence}\n`;
+
+  it('reads the metadata from a fenced block, as written', () => {
+    expect(readAgentMetadata(fenced({ ...meta, title: 'a < b & c' }))).toMatchObject({ id: 'WF001', title: 'a < b & c' });
+    expect(readAgentMetadata(fenced(meta, '~~~~'))).toMatchObject({ id: 'WF001' });
+  });
+
+  it('ignores a fenced block that is not agent metadata', () => {
+    expect(readAgentMetadata('```json\n{"foo":1}\n```\n')).toBeNull();
+    expect(readAgentMetadata('```js\nconst x = 1;\n```\n')).toBeNull();
+  });
+
+  it('rewrites the block in place and leaves the rest of the note byte for byte', () => {
+    const before = fenced(meta);
+    const after = writeAgentMetadata(before, { ...meta, status: 'ready' })!;
+    expect(after).not.toContain('"draft"');
+    expect(after.startsWith('# WF001\n\ngoal & scope\n\n## Agent Metadata\n\n```json\n')).toBe(true);
+    expect(readAgentMetadata(after)).toMatchObject({ status: 'ready' });
+  });
+
+  it('uses a longer fence when the JSON itself contains backticks', () => {
+    const tricky = { ...meta, title: 'run ```x``` now' };
+    const after = writeAgentMetadata(fenced(meta), tricky)!;
+    expect(after).toContain('````json');
+    expect(readAgentMetadata(after)).toMatchObject({ title: 'run ```x``` now' });
+  });
+
+  it('returns null for a Markdown note with no agent block', () => {
+    expect(writeAgentMetadata('# just a note\n', meta)).toBeNull();
+  });
+
+  it('an event block appended to the note keeps it readable', () => {
+    const event: AgentEvent = { type: 'status_changed', actor: 'a', at: '2026-01-01T00:00:00.000Z' } as AgentEvent;
+    const text = fenced(meta) + '\n' + renderEventBlockMarkdown(event);
+    expect(text).toContain('## Event status_changed');
+    expect(readAgentMetadata(text)).toMatchObject({ id: 'WF001' });
   });
 });

@@ -53,6 +53,9 @@ each feature behaves.
   (default `attachments`; one plain folder name). **Move embedded images out of
   notes…** converts images that older versions embedded in the note text. See
   [Images](/guide/editor).
+- **Note format** — whether notes are stored as HTML (older vaults) or Markdown, with
+  **Convert to Markdown…** and **Convert back to HTML…**. Always starts with a report and
+  makes a backup first. See [Note format](/guide/editor#note-format).
 
 ## Sync
 

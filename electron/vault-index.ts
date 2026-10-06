@@ -21,6 +21,8 @@ import {
   type WikiLink, type Heading,
 } from '../shared/vault/extract.js';
 import { localImageRefs } from '../shared/vault/attachments.js';
+import { readVaultFormat, vaultMarkerPath } from '../shared/vault/formatFile.js';
+import type { NoteFormat } from '../shared/vault/format.js';
 
 export interface NoteEntry {
   name: string;
@@ -85,19 +87,36 @@ interface DirState {
   touchTimers: Map<string, ReturnType<typeof setTimeout>>;
   /** Bumped by clearDir so an in-flight scan of the old content is discarded. */
   epoch: number;
+  /** How the vault stores its notes (its marker file), read when indexing starts and after a bulk change. */
+  format: NoteFormat;
+  /** The marker file's mtime when `format` was read: a pull that brings a converted vault changes it. */
+  formatStamp: number;
+}
+
+/** The vault's format, re-read only when its marker file changed (a stat per call, not a read). */
+function currentFormat(st: DirState): NoteFormat {
+  let stamp = 0;
+  try { stamp = fs.statSync(vaultMarkerPath(st.vault)).mtimeMs; } catch { /* no marker: an HTML vault */ }
+  if (stamp !== st.formatStamp) {
+    st.formatStamp = stamp;
+    st.format = readVaultFormat(st.vault);
+  }
+  return st.format;
 }
 
 const toView = (e: NoteEntry): NoteView => ({ links: e.linkTargets, tags: e.tags });
 
-export function buildEntry(name: string, raw: string, mtimeMs: number, size: number, gen = 0, parsed = true): NoteEntry {
+export function buildEntry(name: string, raw: string, mtimeMs: number, size: number, gen = 0, parsed = true, vaultFormat?: NoteFormat): NoteEntry {
+  // Only a Markdown vault is certain about its notes; an HTML vault can still hold older plain-Markdown notes, so those are sniffed.
+  const format = vaultFormat === 'markdown' ? vaultFormat : undefined;
   const links = parseWikilinks(raw);
   return {
     name,
     links,
     linkTargets: [...new Set(links.map(l => l.target))],
-    tags: extractTags(raw),
-    headings: extractHeadings(raw),
-    frontmatterKeys: extractFrontmatterKeys(raw),
+    tags: extractTags(raw, format),
+    headings: extractHeadings(raw, format),
+    frontmatterKeys: extractFrontmatterKeys(raw, format),
     images: localImageRefs(raw),
     parsed,
     mtimeMs,
@@ -157,7 +176,7 @@ export class VaultIndex {
       st = {
         vault: k, notes: new Map(), seq: 0, ready: Promise.resolve(),
         pendingUpserts: new Set(), pendingRemovals: new Set(), flushTimer: null,
-        touchTimers: new Map(), epoch: 0,
+        touchTimers: new Map(), epoch: 0, format: 'html', formatStamp: Number.NaN,
       };
       this.byDir.set(k, st);
       st.ready = this.scan(st).then(() => {
@@ -229,7 +248,7 @@ export class VaultIndex {
       try { const f = fs.statSync(path.join(dir, name)); s = { mtimeMs: f.mtimeMs, size: f.size }; }
       catch { s = { mtimeMs: Date.now(), size: Buffer.byteLength(raw) }; }
     }
-    st.notes.set(name, buildEntry(name, raw, s.mtimeMs, s.size, ++this.gen));
+    st.notes.set(name, buildEntry(name, raw, s.mtimeMs, s.size, ++this.gen, true, currentFormat(st)));
     this.queue(st, name, 'upsert');
   }
 
@@ -282,6 +301,7 @@ export class VaultIndex {
     const cur = st.notes.get(name);
     if (cur && cur.mtimeMs === stat.mtimeMs && cur.size === stat.size) return;
     const genAtRead = this.gen;
+    const format = currentFormat(st);
     let raw = '';
     if (stat.size <= this.maxParseBytes) {
       try { raw = await fs.promises.readFile(file, 'utf8'); } catch { return; }
@@ -289,7 +309,7 @@ export class VaultIndex {
     // A save/rename that landed while we were reading is newer than what we read.
     const now = st.notes.get(name);
     if (now && now.gen > genAtRead) return;
-    st.notes.set(name, buildEntry(name, raw, stat.mtimeMs, stat.size, ++this.gen, stat.size <= this.maxParseBytes));
+    st.notes.set(name, buildEntry(name, raw, stat.mtimeMs, stat.size, ++this.gen, stat.size <= this.maxParseBytes, format));
     this.queue(st, name, 'upsert');
   }
 
@@ -310,6 +330,11 @@ export class VaultIndex {
     const st = this.byDir.get(this.key(dir));
     if (!st) return;
     await st.ready;
+    const before = st.format;
+    if (currentFormat(st) !== before) {
+      // The vault was converted: every entry was read the old way, so none can be trusted as unchanged.
+      for (const e of st.notes.values()) e.mtimeMs = -1;
+    }
     const onDisk = new Set((await this.listFiles(st.vault)).map(f => f.name));
     for (const name of [...st.notes.keys()]) if (!onDisk.has(name)) this.deleteDoc(dir, name);
     await Promise.all([...onDisk].map(name => this.touch(dir, name)));
@@ -353,6 +378,7 @@ export class VaultIndex {
     // files is newer than anything this scan will see.
     const epoch = st.epoch;
     const genAtStart = this.gen;
+    const format = currentFormat(st);
     const files = await this.listFiles(st.vault);
     await mapLimit(files, READ_CONCURRENCY, async f => {
       try {
@@ -362,7 +388,7 @@ export class VaultIndex {
         // Something wrote this note while we were scanning: that is newer.
         const existing = st.notes.get(f.name);
         if (existing && existing.gen > genAtStart) return;
-        st.notes.set(f.name, buildEntry(f.name, raw, stat.mtimeMs, stat.size, ++this.gen, stat.size <= this.maxParseBytes));
+        st.notes.set(f.name, buildEntry(f.name, raw, stat.mtimeMs, stat.size, ++this.gen, stat.size <= this.maxParseBytes, format));
       } catch { /* vanished or unreadable: skip */ }
     });
   }

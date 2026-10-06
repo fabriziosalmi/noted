@@ -30,3 +30,17 @@ export function writeVaultFormat(notesDir: string, format: NoteFormat): void {
   fs.writeFileSync(tmp, JSON.stringify({ ...existing, format }, null, 2) + '\n', 'utf8');
   fs.renameSync(tmp, file);
 }
+
+/** A conversion that has not finished in this long is taken to have died (it left its lock behind). */
+export const MIGRATION_LOCK_STALE_MS = 2 * 60 * 60 * 1000;
+
+export const migrationLockPath = (notesDir: string): string => path.join(notesDir, '.noted', 'migration.lock');
+
+/** Is a format conversion running on this vault right now? Anything else that writes notes must wait. */
+export function isMigrationLocked(notesDir: string): boolean {
+  try {
+    return Date.now() - fs.statSync(migrationLockPath(notesDir)).mtimeMs < MIGRATION_LOCK_STALE_MS;
+  } catch {
+    return false;
+  }
+}

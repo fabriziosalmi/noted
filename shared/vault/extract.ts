@@ -4,11 +4,14 @@
  * VaultIndex and by the renderer, so "what counts as a tag or a link" cannot
  * drift between the index and the editor.
  *
- * Notes are stored as HTML inside .md files (legacy ones as Markdown); every
- * function takes the raw file text.
+ * A note is HTML inside a .md file (vaults created before ADR 0001) or Markdown. Every function takes the
+ * raw file text; the ones that depend on the format take it too, and when it is not given they sniff it.
+ * The caller that knows the vault's format should pass it: a Markdown note can start with `<`
+ * (an HTML block, an autolink) without being HTML.
  */
 
 import { extractHtmlFrontmatterComment, extractMarkdownFrontmatter } from '../markdown/frontmatter.js';
+import type { NoteFormat } from './format.js';
 
 export interface WikiLink {
   /** Note the link points at, without alias/heading/".md": "Folder/Note". */
@@ -30,11 +33,11 @@ export function decodeEntities(s: string): string {
   return s.replace(/&(?:amp|lt|gt|quot|apos|nbsp|#39);/g, m => ENTITIES[m] ?? m);
 }
 
-const looksLikeHtml = (s: string) => s.trimStart().startsWith('<');
+const looksLikeHtml = (s: string, format?: NoteFormat) => (format ? format === 'html' : s.trimStart().startsWith('<'));
 
 /** Body of a note with its frontmatter (either flavour) removed. */
-function bodyAndFrontmatter(raw: string): { body: string; frontmatter: string | null } {
-  if (looksLikeHtml(raw)) {
+function bodyAndFrontmatter(raw: string, format?: NoteFormat): { body: string; frontmatter: string | null } {
+  if (looksLikeHtml(raw, format)) {
     const { body, frontmatter } = extractHtmlFrontmatterComment(raw);
     return { body, frontmatter };
   }
@@ -74,9 +77,11 @@ export function linkTargets(raw: string): string[] {
  * (#project/aurora); a second slash is not part of the tag. HTML tags and
  * character references (`&#39;` is not the tag "#39") are ignored.
  */
-export function extractTags(content: string): string[] {
+export function extractTags(content: string, format?: NoteFormat): string[] {
+  // A Markdown note's YAML frontmatter is data, not text ("# a comment" in it is not a tag).
+  const body = format === 'markdown' ? extractMarkdownFrontmatter(content).body : content;
   // A link's "#Heading" anchor ([[Note#Setup]]) is not a tag, so links are dropped first.
-  const text = content
+  const text = body
     .replace(/\[\[[^\]\n]*\]\]/g, ' ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&#?\w+;/g, m => (m in ENTITIES ? ENTITIES[m] : ' '));
@@ -87,10 +92,10 @@ export function extractTags(content: string): string[] {
 const stripTags = (s: string) => decodeEntities(s.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
 
 /** Headings in document order: <h1>-<h6> for HTML notes, `#`-lines (outside code fences) for Markdown. */
-export function extractHeadings(raw: string): Heading[] {
-  const { body } = bodyAndFrontmatter(raw);
+export function extractHeadings(raw: string, format?: NoteFormat): Heading[] {
+  const { body } = bodyAndFrontmatter(raw, format);
   const out: Heading[] = [];
-  if (looksLikeHtml(raw)) {
+  if (looksLikeHtml(raw, format)) {
     for (const m of body.matchAll(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi)) {
       const text = stripTags(m[2]);
       if (text) out.push({ level: Number(m[1]), text });
@@ -108,8 +113,8 @@ export function extractHeadings(raw: string): Heading[] {
 }
 
 /** Top-level keys of the note's YAML frontmatter, if any. */
-export function extractFrontmatterKeys(raw: string): string[] {
-  const { frontmatter } = bodyAndFrontmatter(raw);
+export function extractFrontmatterKeys(raw: string, format?: NoteFormat): string[] {
+  const { frontmatter } = bodyAndFrontmatter(raw, format);
   if (!frontmatter) return [];
   const keys: string[] = [];
   for (const line of frontmatter.split('\n')) {

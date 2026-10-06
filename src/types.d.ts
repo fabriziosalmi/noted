@@ -145,7 +145,7 @@ interface LinkUpdateResult {
 }
 
 /** The plan of a conversion between note formats (electron/migration.ts). */
-interface MigrationReport {
+export interface MigrationReport {
   direction: 'to-markdown' | 'to-html';
   total: number;
   convert: number;
@@ -156,14 +156,14 @@ interface MigrationReport {
   truncated: boolean;
 }
 
-interface MigrationProgress {
+export interface MigrationProgress {
   phase: 'scan' | 'convert' | 'backup' | 'write' | 'finish';
   done: number;
   total: number;
   name?: string;
 }
 
-type MigrationOutcome =
+export type MigrationOutcome =
   | { ok: true; report: MigrationReport; backup: string; converted: number }
   | { ok: false; reason: string; report?: MigrationReport };
 

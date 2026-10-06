@@ -1,8 +1,9 @@
 # The editor
 
 Noted's editor is built on [TipTap](https://tiptap.dev/). You write in a rich
-surface, but everything is saved as sanitized HTML inside a `.md` file, so your
-notes stay portable.
+surface, but what is saved is a plain `.md` file, so your notes stay portable. Vaults
+made by earlier versions hold HTML inside those files; you can convert them to real
+Markdown at any time (see [Note format](#note-format)).
 
 ## Title-first writing
 
@@ -104,3 +105,33 @@ menu, and the AI actions bar. Those are covered in
 
 - **[Organizing notes](/guide/organizing-notes)** — links, tags, projects,
   folders, and daily notes.
+
+## Note format
+
+Noted stores each note as one `.md` file. Which language is inside it is a property of the
+vault:
+
+- **HTML** (vaults made by earlier versions): the file holds the editor's HTML. It opens fine in Noted
+  and in a browser, but other note apps show markup instead of text, and Git diffs are noisy.
+- **Markdown**: the file is ordinary Markdown with YAML frontmatter, wikilinks (`[[Note]]`),
+  `==highlights==`, callouts, tables and task lists. Obsidian, VS Code and any text editor
+  read and edit it, and a Git diff shows the words that changed.
+
+Nothing converts by itself. To convert, open **Settings → Editor → Note format → Convert to
+Markdown…**. Noted first shows a report and changes nothing:
+
+- how many notes convert exactly, how many keep a part as raw HTML (a `<details>` block, a
+  superscript) and how many lose some formatting such as colours or merged cells;
+- the name of every note that is not exact, with what is different;
+- a note whose **text** would be lost needs a second, explicit yes; a note that cannot be
+  read at all stops the conversion before anything is written.
+
+When you confirm, Noted saves what you were typing, makes a zip copy of every note in
+`.noted/backups/`, keeps each note's old text in its version history, and rewrites the notes
+one by one, reading each back. If anything fails, every note is put back exactly as it was.
+The note you have open is read-only while this runs. The same screen has **Convert back to
+HTML…** if you change your mind.
+
+The MCP server and the importers follow the vault: in a Markdown vault an assistant's
+`create_note` stores Markdown, and `read_note` returns it. A vault synced with Git carries its
+format with it (the `.noted-vault.json` file), so another computer reads it the same way.

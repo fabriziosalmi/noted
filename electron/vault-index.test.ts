@@ -255,3 +255,40 @@ describe('snapshot / delta sequencing', () => {
     expect(index.get(dir, 'n0.md')!.tags).toEqual(['#fresh']);
   });
 });
+
+describe('a Markdown vault (ADR 0001)', () => {
+  const markdownVault = () => fs.writeFileSync(path.join(dir, '.noted-vault.json'), JSON.stringify({ format: 'markdown' }));
+
+  it('reads a note that starts with "<" as Markdown, and does not take tags from its frontmatter', async () => {
+    markdownVault();
+    write('A.md', '---\ntitle: x\n# not-a-tag\n---\n<kbd>Ctrl</kbd> then [[B]]\n\n## Setup #idea\n');
+    await index.ensure(dir);
+    const a = index.get(dir, 'A.md')!;
+    expect(a.linkTargets).toEqual(['B']);
+    expect(a.tags).toEqual(['#idea']);
+    expect(a.headings).toEqual([{ level: 2, text: 'Setup #idea' }]);
+    expect(a.frontmatterKeys).toEqual(['title']);
+  });
+
+  it('indexes a vault that is converted while the app runs, without a restart', async () => {
+    write('A.md', '<h1>Alpha</h1><p>[[B]] #one</p>');
+    await index.ensure(dir);
+    expect(index.get(dir, 'A.md')!.headings).toEqual([{ level: 1, text: 'Alpha' }]);
+
+    fs.writeFileSync(path.join(dir, 'A.md'), '# Alpha\n\n[[B]] #one\n\n<kbd>x</kbd> #two\n');
+    markdownVault();
+    await index.reconcile(dir);
+    const a = index.get(dir, 'A.md')!;
+    expect(a.headings).toEqual([{ level: 1, text: 'Alpha' }]);
+    expect(a.tags).toEqual(['#one', '#two']);
+  });
+
+  it('notices the marker arriving on its own (a Git pull of a converted vault)', async () => {
+    write('A.md', '# Alpha\n');
+    await index.ensure(dir);
+    markdownVault();
+    write('B.md', '# Beta\n\n<b>bold</b> #t\n');
+    await index.touch(dir, 'B.md');
+    expect(index.get(dir, 'B.md')!.headings).toEqual([{ level: 1, text: 'Beta' }]);
+  });
+});

@@ -1,12 +1,20 @@
 // Locate and rewrite the visible `## Agent Metadata` JSON block inside a note.
-// Notes are stored as sanitised HTML, so the metadata lands in a
-// `<pre><code>…</code></pre>` block with HTML-escaped JSON (marked's default).
-// Reading decodes those entities; writing re-encodes them so the file round-
-// trips byte-compatibly with the MCP scaffold. Pure string work — no I/O.
+// A note stored as HTML holds the metadata in a `<pre><code>…</code></pre>` block with HTML-escaped JSON
+// (marked's default); reading decodes those entities, writing re-encodes them so the file round-trips
+// byte-compatibly with the MCP scaffold. A note stored as Markdown (ADR 0001) holds it in a fenced
+// code block, as written. Either way: pure string work, no I/O.
 
 import type { AgentMetadata, AgentEvent } from './types';
 
 const CODE_BLOCK_RE = /(<pre[^>]*>\s*<code[^>]*>)([\s\S]*?)(<\/code>\s*<\/pre>)/gi;
+// A fenced block: opening fence (3+ backticks or tildes, optional info), the text, a closing fence at least as long.
+const FENCED_RE = /^( {0,3})(`{3,}|~{3,})[^\n`]*\n([\s\S]*?)\n {0,3}\2[`~]*[ \t]*$/gm;
+
+/** A fence longer than any run of backticks in the text, so the text cannot close it. */
+function fenceFor(text: string): string {
+  const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map((r) => r.length));
+  return '`'.repeat(Math.max(3, longest + 1));
+}
 
 function decodeEntities(value: string): string {
   return value
@@ -48,11 +56,16 @@ function tryParse(raw: string): unknown {
 }
 
 /** Parse the note's agent metadata block, or null if none is present. */
-export function readAgentMetadata(html: string): AgentMetadata | null {
+export function readAgentMetadata(text: string): AgentMetadata | null {
   CODE_BLOCK_RE.lastIndex = 0;
   let match: RegExpExecArray | null;
-  while ((match = CODE_BLOCK_RE.exec(html)) !== null) {
+  while ((match = CODE_BLOCK_RE.exec(text)) !== null) {
     const parsed = tryParse(decodeEntities(match[2]));
+    if (isAgentMetadata(parsed)) return parsed;
+  }
+  FENCED_RE.lastIndex = 0;
+  while ((match = FENCED_RE.exec(text)) !== null) {
+    const parsed = tryParse(match[3]);
     if (isAgentMetadata(parsed)) return parsed;
   }
   return null;
@@ -63,16 +76,33 @@ export function readAgentMetadata(html: string): AgentMetadata | null {
  * surrounding markup. Returns the updated HTML, or null when no agent block was
  * found (the caller treats that as "not an agent note").
  */
-export function writeAgentMetadata(html: string, meta: AgentMetadata): string | null {
+export function writeAgentMetadata(text: string, meta: AgentMetadata): string | null {
   let replaced = false;
-  const out = html.replace(CODE_BLOCK_RE, (full, open: string, inner: string, close: string) => {
+  const out = text.replace(CODE_BLOCK_RE, (full, open: string, inner: string, close: string) => {
     if (replaced) return full;
     const parsed = tryParse(decodeEntities(inner));
     if (!isAgentMetadata(parsed)) return full;
     replaced = true;
     return open + encodeEntities(JSON.stringify(meta, null, 2)) + close;
   });
-  return replaced ? out : null;
+  if (replaced) return out;
+  const json = JSON.stringify(meta, null, 2);
+  const fenced = text.replace(FENCED_RE, (full, indent: string, _fence: string, inner: string) => {
+    if (replaced) return full;
+    const parsed = tryParse(inner);
+    if (!isAgentMetadata(parsed)) return full;
+    replaced = true;
+    const fence = fenceFor(json);
+    return `${indent}${fence}json\n${json}\n${indent}${fence}`;
+  });
+  return replaced ? fenced : null;
+}
+
+/** The same event block as Markdown, for a note stored as Markdown. */
+export function renderEventBlockMarkdown(event: AgentEvent): string {
+  const json = JSON.stringify(event, null, 2);
+  const fence = fenceFor(json);
+  return `---\n\n## Event ${event.type}\n\n${fence}json\n${json}\n${fence}\n`;
 }
 
 /** Append-only event block, matching the MCP `## Event` format as HTML. */
