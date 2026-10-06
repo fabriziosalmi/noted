@@ -159,6 +159,30 @@ on paste (through the existing sanitizer) and what Markdown cannot express is ra
 and because the editor can still produce HTML from the same document, an export back to HTML is the same code path the
 app uses today. Each migrated note also keeps its pre-migration HTML in `.noted_history/`.
 
+## Implementation notes (#59)
+
+The codec lives in `shared/markdown/` (`schema.ts`, `parser.ts`, `serializer.ts`, `codec.ts`) and is not yet connected to
+the editor or to storage: that is the migration (#60). What building it taught, so the next change does not rediscover it:
+
+- **Evidence.** 237 golden cases (`golden.ts`) must come back as written or as a listed normalisation, and be stable;
+  generated documents must read back as the same document and generated text must reach a fixed point
+  (`roundtrip.property.test.ts`, 100,000 documents and 400,000 texts per run with `FC_RUNS=100000`). Every escaping rule
+  below exists because that test found the hole.
+- **Escaping is done in one place** (`markSyntax`): prosemirror-markdown's own escaper leaves `__a__` as emphasis, ignores a
+  lone `+`, `1)`, `===`, `<div` at a line start, and knows nothing of `==`, `%%`, `$`. Our extra escapes are
+  decided per block, not per text node, because a pair can straddle a bold boundary.
+- **Three upstream behaviours are worked around**, each pinned by a test: whitespace before a line break inside a marked run
+  drops the rest of the text (we strip it first); `atBlank()` rescans the whole output for every block (quadratic: 14 s for
+  1 MB, so top-level blocks are serialized separately); and adjacent lists merge on re-read (the second uses `*` or `)`).
+- **Speed** is linear: a 1 MB note, 37,000 blocks, parses in ~0.3 s and serializes in ~0.2 s (`performance.test.ts` fails
+  above 5 s). The earlier worry about large notes is closed.
+- **More normalisations than the four listed above**, all invisible to a reader: `_x_`/`__x__` become `*x*`/`**x**`, `*`/`+` bullets
+  and `1)` markers become `-` and `1.`, setext headings become ATX, a heading is one line, spaces at line edges and
+  a BOM are dropped, line endings become LF, one blank line follows the frontmatter, an empty paragraph has no
+  Markdown form, a hard break is written `\`, and the marker of a *second* adjacent list changes so it stays a second list.
+- **Known limits.** A task list that mixes plain and `[ ]` items is written with the `[ ]` escaped (the schema has
+  no mixed list); a table cell holding several blocks is written with `<br>`; an image that shares a line with text is kept as a raw inline.
+
 ## Open questions, resolved
 
 1. **Normalisations and the reference-link loss: accepted.** The four normalisations do not change what a reader
