@@ -6,6 +6,8 @@ import { PanelLeft, PanelRight, Keyboard, LayoutTemplate, History, Focus } from 
 import { getMarkdownFromHtml } from '../../lib/htmlToMarkdown';
 import { Sidebar } from '../Sidebar';
 import { NoteEditor } from '../NoteEditor';
+import { ViewPage } from '../ViewPage';
+import { useStore } from '../../store/useStore';
 import { AiChat } from '../AiChat';
 import { TextAnalytics } from '../TextAnalytics';
 import { ConnectionsPanel } from '../ConnectionsPanel';
@@ -76,6 +78,11 @@ export function AppChrome({
   const showLeftPanel = panels.leftOpen && !settings.focusMode;
   const showRightPanel = panels.rightOpen && !settings.focusMode;
 
+  // A saved view takes the main area; the open note stays loaded behind it, so nothing in it is lost or reloaded.
+  const activeView = useStore(s => s.views.find(v => v.id === s.activeViewId) ?? null);
+  const shown = activeView?.name ?? activeNoteName?.replace('.md', '');
+  const windowTitle = shown ? `Noted — ${shown}` : 'Noted';
+
   // The Agent tab is dev-facing scaffolding; show it only when the open note is
   // actually an agent-workflow note, so a first-run stranger never sees it.
   const isAgentNote = useMemo(() => !!parseAgentNote(activeNoteContent).metadata, [activeNoteContent]);
@@ -96,7 +103,7 @@ export function AppChrome({
           <div className="w-16" />
         </div>
         <div className="flex-1 flex justify-center text-sm font-medium text-gray-500 dark:text-gray-400">
-          {activeNoteName ? `Noted — ${activeNoteName.replace('.md', '')}` : 'Noted'}
+          {windowTitle}
         </div>
         <div className="flex space-x-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           {activeNoteName && (
@@ -192,7 +199,8 @@ export function AppChrome({
           )}
 
           <Panel id="editor-center" order={2} minSize={30} role="main" className="editor-canvas bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
-            {activeNoteName && (
+            {activeView && <ViewPage view={activeView} onOpenNote={onOpenNote} />}
+            {activeNoteName && !activeView && (
               <EditorToolbar
                 editor={activeEditor}
                 showToolbar={settings.showToolbar}
@@ -221,7 +229,7 @@ export function AppChrome({
               />
             )}
 
-            <div className={`flex-1 overflow-y-auto relative scroll-fade-bottom ${focusClass} ${typewriterClass}`}>
+            <div className={`flex-1 overflow-y-auto relative scroll-fade-bottom ${focusClass} ${typewriterClass} ${activeView ? 'hidden' : ''}`}>
               <div className={`mx-auto px-12 py-10 ${
                 settings.editorWidth === 'narrow' ? 'max-w-[560px]' :
                 settings.editorWidth === 'wide' ? 'max-w-5xl' :

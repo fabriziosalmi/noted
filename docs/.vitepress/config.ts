@@ -88,6 +88,7 @@ export default defineConfig({
             { text: 'The editor', link: '/guide/editor' },
             { text: 'Organizing notes', link: '/guide/organizing-notes' },
             { text: 'Search', link: '/guide/search' },
+            { text: 'Views', link: '/guide/views' },
             { text: 'AI assistant', link: '/guide/ai' },
             { text: 'Git integration', link: '/guide/git' },
             { text: 'Export & capture', link: '/guide/export-and-capture' },
