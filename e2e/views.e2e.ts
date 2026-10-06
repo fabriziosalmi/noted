@@ -250,3 +250,38 @@ test('views: dragging a card with the mouse moves it to another column', async (
   }).toPass({ timeout: 30_000 });
   expect(fs.readFileSync(path.join(vault, 'Gamma.md'), 'utf8')).toBe('---\nstatus: done\n---\n# Gamma\n');
 });
+
+test('views: a note made from a view belongs to it, and opens for writing', async ({ noted }) => {
+  for (const [name] of SEED_NOTES) fs.rmSync(path.join(noted.vault, name), { force: true });
+  fs.writeFileSync(path.join(noted.vault, '.noted-vault.json'), '{"format":"markdown"}\n');
+  fs.mkdirSync(path.join(noted.vault, 'Projects'));
+  fs.writeFileSync(path.join(noted.vault, 'Projects', 'Alpha.md'), '---\nstatus: open\n---\n# Alpha\n');
+  fs.writeFileSync(path.join(noted.vault, '.noted-views.json'), JSON.stringify({ version: 1, views: [
+    { id: 'v-table', name: 'Open projects', layout: 'table', source: { kind: 'folder', folder: 'Projects' }, filters: [{ field: 'status', op: 'equals', value: 'open' }], sort: [], columns: ['status'] },
+    { id: 'v-board', name: 'Flow', layout: 'board', source: { kind: 'folder', folder: 'Projects' }, filters: [], sort: [], groupBy: 'status', boardColumns: ['open', 'done'], columns: [] },
+  ] }));
+  const { win, vault } = await noted.relaunch();
+  const editor = win.locator('[contenteditable="true"]').first();
+  const made = () => fs.readdirSync(path.join(vault, 'Projects')).filter(f => /^New_Note_\d+\.md$/.test(f));
+
+  // From the table: in the folder, with the value the filter asks for, so it shows in the view
+  await win.getByTestId('views-section').getByRole('button', { name: 'Open projects', exact: true }).click({ timeout: 15_000 });
+  await expect(win.getByTestId('view-count')).toHaveText('1 notes', { timeout: 15_000 });
+  await win.getByTestId('view-page').getByRole('button', { name: 'New note', exact: true }).click();
+  await expect(win.getByTestId('view-page')).toHaveCount(0); // the note is open, for writing
+  await expect(editor).toBeFocused();
+  await expect.poll(made, { timeout: 15_000 }).toHaveLength(1);
+  expect(fs.readFileSync(path.join(vault, 'Projects', made()[0]), 'utf8')).toMatch(/^---\nstatus: open\n---\n/);
+  await win.keyboard.type('Second project');
+  await expect.poll(() => fs.existsSync(path.join(vault, 'Projects', 'Second project.md')), { timeout: 15_000 }).toBe(true);
+
+  // It is in the view now
+  await win.getByTestId('views-section').getByRole('button', { name: 'Open projects', exact: true }).click();
+  await expect(win.getByTestId('view-count')).toHaveText('2 notes', { timeout: 15_000 });
+
+  // From a board column: it starts with that column's value
+  await win.getByTestId('views-section').getByRole('button', { name: 'Flow', exact: true }).click();
+  await win.getByRole('button', { name: 'Add card: done' }).click();
+  await expect.poll(made, { timeout: 15_000 }).toHaveLength(1);
+  expect(fs.readFileSync(path.join(vault, 'Projects', made()[0]), 'utf8')).toMatch(/^---\nstatus: done\n---\n/);
+});

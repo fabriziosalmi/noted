@@ -863,5 +863,7 @@
   "viewColumnKeep": "Diese Spalte behalten",
   "viewColumnRemove": "Spalte entfernen",
   "viewCardMove": "„{name}“ verschieben nach",
-  "viewListNoMove": "Eine Notiz steht in jeder Spalte ihrer Liste, daher lassen sich Karten hier nicht verschieben; ändere sie in der Tabelle."
+  "viewListNoMove": "Eine Notiz steht in jeder Spalte ihrer Liste, daher lassen sich Karten hier nicht verschieben; ändere sie in der Tabelle.",
+  "viewNewRow": "Neue Notiz",
+  "viewAddCard": "Karte hinzufügen"
 }

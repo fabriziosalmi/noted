@@ -863,5 +863,7 @@
   "viewColumnKeep": "Manter esta coluna",
   "viewColumnRemove": "Remover coluna",
   "viewCardMove": "Mover \"{name}\" para",
-  "viewListNoMove": "Uma nota está em cada coluna da sua lista, por isso os cartões não se movem aqui; altere-os na tabela."
+  "viewListNoMove": "Uma nota está em cada coluna da sua lista, por isso os cartões não se movem aqui; altere-os na tabela.",
+  "viewNewRow": "Nova nota",
+  "viewAddCard": "Adicionar cartão"
 }

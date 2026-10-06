@@ -8,6 +8,9 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **New notes from a view** (#25, Views): **New note** on a view, and **Add card** on a board column, make a note and open it for
+  writing. It starts inside the view: in the view's folder, with its tag, with the property of every "is" filter and, on a board, the
+  column's value, so it shows in the view straight away.
 - **Board view** (#24 and the layout switch of #26, Views): the Table / Board buttons on a view. A board is a column for each value
   of a property (most used first, "No value" last; the columns you keep come first in your order, can be added, moved and removed when
   empty) and a card per note; a card opens its note. Dragging a card to another column, or picking the column from the card's menu

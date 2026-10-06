@@ -153,7 +153,7 @@ function verify(before: string | null, after: string, key: string, value: FieldV
   const expected: Record<string, FieldValue> = { ...was };
   if (value === undefined) delete expected[key];
   else expected[key] = value;
-  if (!same(sortKeys(now), sortKeys(expected))) return { ok: false, error: `the edit would not read back as intended${process.env.FM_DEBUG ? `: ${JSON.stringify(after)} gives ${JSON.stringify(now)}, wanted ${JSON.stringify(expected)}` : ''}` };
+  if (!same(sortKeys(now), sortKeys(expected))) return { ok: false, error: 'the edit would not read back as intended' };
   return { ok: true, block: after, changed: after !== (before ?? '') };
 }
 

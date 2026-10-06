@@ -7,6 +7,7 @@ import { useFieldSchema } from '../hooks/useFieldSchema';
 import { buildBoard, canMoveCards, groupableFields, movedColumn, valueForColumn, withColumn, type BoardColumn } from '../../shared/views/board';
 import { MAX_BOARD_COLUMNS, type View } from '../../shared/views/model';
 import { cellFor, cellText } from '../lib/viewCells';
+import { createNoteInView } from '../lib/viewNewNote';
 import type { FieldType } from '../../shared/views/schema';
 
 const CARD_FIELDS = 3;
@@ -141,6 +142,16 @@ export function ViewBoard({ view, onOpenNote, onNotice }: {
             </li>
           ))}
         </ul>
+        {movable && (
+          <button
+            type="button"
+            onClick={() => { createNoteInView(view, () => type, column.value).catch((err: unknown) => onNotice?.((err as Error).message, 'error')); }}
+            aria-label={`${t('viewAddCard')}: ${labelOf(column.value)}`}
+            className="mx-2 mb-2 inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-500 hover:text-[var(--accent)] hover:bg-[var(--accent-light)]"
+          >
+            <Plus size={12} aria-hidden="true" /> {t('viewAddCard')}
+          </button>
+        )}
       </section>
     );
   };

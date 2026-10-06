@@ -863,5 +863,7 @@
   "viewColumnKeep": "Keep this column",
   "viewColumnRemove": "Remove column",
   "viewCardMove": "Move \"{name}\" to",
-  "viewListNoMove": "A note sits in every column its list has, so cards cannot be moved here; change them from the table."
+  "viewListNoMove": "A note sits in every column its list has, so cards cannot be moved here; change them from the table.",
+  "viewNewRow": "New note",
+  "viewAddCard": "Add card"
 }

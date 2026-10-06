@@ -863,5 +863,7 @@
   "viewColumnKeep": "Garder cette colonne",
   "viewColumnRemove": "Retirer la colonne",
   "viewCardMove": "Déplacer « {name} » vers",
-  "viewListNoMove": "Une note figure dans chaque colonne de sa liste, les cartes ne peuvent donc pas être déplacées ici ; modifiez-les depuis le tableau."
+  "viewListNoMove": "Une note figure dans chaque colonne de sa liste, les cartes ne peuvent donc pas être déplacées ici ; modifiez-les depuis le tableau.",
+  "viewNewRow": "Nouvelle note",
+  "viewAddCard": "Ajouter une carte"
 }
