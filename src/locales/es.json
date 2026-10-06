@@ -865,5 +865,18 @@
   "viewCardMove": "Mover «{name}» a",
   "viewListNoMove": "Una nota está en cada columna de su lista, así que aquí no se pueden mover las tarjetas; cámbialas desde la tabla.",
   "viewNewRow": "Nueva nota",
-  "viewAddCard": "Añadir tarjeta"
+  "viewAddCard": "Añadir tarjeta",
+  "propsTab": "Propiedades",
+  "propsEmpty": "Esta nota aún no tiene propiedades.",
+  "propsAdd": "Añadir propiedad",
+  "propsKey": "Nombre de la propiedad",
+  "propsType": "Tipo",
+  "propsRemove": "Quitar propiedad: {name}",
+  "propTypeText": "Texto",
+  "propTypeNumber": "Número",
+  "propTypeDate": "Fecha",
+  "propTypeCheckbox": "Casilla",
+  "propTypeList": "Lista",
+  "propTypeLink": "Enlace",
+  "propsNoNote": "Abre una nota para ver sus propiedades."
 }

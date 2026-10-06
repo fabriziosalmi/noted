@@ -6,7 +6,7 @@
  */
 import type { FieldScalar, FieldValue } from '../vault/fields';
 
-export type FieldType = 'text' | 'number' | 'date' | 'select' | 'checkbox' | 'list';
+export type FieldType = 'text' | 'number' | 'date' | 'select' | 'checkbox' | 'list' | 'link';
 
 export interface FieldOption {
   value: string;
@@ -45,11 +45,16 @@ export function isIsoDate(text: string): boolean {
   return d <= new Date(Date.UTC(y, m, 0)).getUTCDate();
 }
 
-const kindOf = (v: FieldScalar): 'null' | 'boolean' | 'number' | 'date' | 'text' => {
+/** A property that points at a note, as Obsidian writes it: `"[[Note]]"`, optionally with a heading or an alias. */
+const LINK = /^\[\[[^\][\n]+\]\]$/;
+export const isLinkValue = (v: unknown): v is string => typeof v === 'string' && LINK.test(v.trim());
+
+const kindOf = (v: FieldScalar): 'null' | 'boolean' | 'number' | 'date' | 'link' | 'text' => {
   if (v === null) return 'null';
   if (typeof v === 'boolean') return 'boolean';
   if (typeof v === 'number') return 'number';
-  return isIsoDate(v) ? 'date' : 'text';
+  if (isIsoDate(v)) return 'date';
+  return isLinkValue(v) ? 'link' : 'text';
 };
 
 // By code point, not by the machine's locale: the same notes list the same way everywhere.
@@ -110,6 +115,7 @@ export function inferField(name: string, values: readonly FieldValue[]): FieldIn
     if (only === 'boolean') return { ...base, type: 'checkbox', options: [], mixed: false };
     if (only === 'number') return { ...base, type: 'number', options: [], mixed: false };
     if (only === 'date') return { ...base, type: 'date', options: [], mixed: false };
+    if (only === 'link') return { ...base, type: 'link', options: [], mixed: false };
     const distinct = used.size;
     const totalChars = scalars.reduce<number>((n, v) => n + String(v).length, 0);
     const choice = distinct <= SELECT_ALWAYS_UP_TO || (distinct <= SELECT_REPEATING_UP_TO && distinct <= count / 2);

@@ -865,5 +865,18 @@
   "viewCardMove": "Sposta \"{name}\" in",
   "viewListNoMove": "Una nota sta in ogni colonna della sua lista, quindi qui le schede non si spostano; modificale dalla tabella.",
   "viewNewRow": "Nuova nota",
-  "viewAddCard": "Aggiungi scheda"
+  "viewAddCard": "Aggiungi scheda",
+  "propsTab": "Proprietà",
+  "propsEmpty": "Questa nota non ha ancora proprietà.",
+  "propsAdd": "Aggiungi proprietà",
+  "propsKey": "Nome della proprietà",
+  "propsType": "Tipo",
+  "propsRemove": "Rimuovi proprietà: {name}",
+  "propTypeText": "Testo",
+  "propTypeNumber": "Numero",
+  "propTypeDate": "Data",
+  "propTypeCheckbox": "Casella",
+  "propTypeList": "Elenco",
+  "propTypeLink": "Collegamento",
+  "propsNoNote": "Apri una nota per vederne le proprietà."
 }

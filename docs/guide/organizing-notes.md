@@ -199,3 +199,16 @@ Folders of an Obsidian vault keep their structure when you import them (a tree t
 flattened into one folder named after its path), and `.obsidian/`, `.trash/` and every other hidden
 folder are ignored.
 
+## Properties
+
+The YAML block at the top of a Markdown note holds its **properties** (`status: open`, `due: 2026-10-09`, `tags: [a, b]`).
+The **Properties** tab of the right panel shows those of the open note, each in the editor for its type: text, number, date,
+checkbox, list, or **link** (`parent: "[[Home]]"`). Edit one and only that property changes in the file: its comments,
+quoting, order and spacing, and the rest of the note, stay as they were. **Add property** takes a name (the names the vault
+already uses are suggested) and a type; to remove one, use the **x** beside it.
+
+A **link property** shows as the note's name and opens it with a click. It counts as a link like one in the text: the note
+appears in the linked note's backlinks, and renaming or moving the linked note updates the property too. (This is for
+Markdown vaults; in an older HTML vault the properties are kept in a comment that links do not reach.)
+
+The same properties, for many notes at once, are what [Views](/guide/views) show as tables and boards.

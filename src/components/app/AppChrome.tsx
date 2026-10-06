@@ -12,6 +12,7 @@ import { AiChat } from '../AiChat';
 import { TextAnalytics } from '../TextAnalytics';
 import { ConnectionsPanel } from '../ConnectionsPanel';
 import { OutlinePanel } from '../OutlinePanel';
+import { PropertiesPanel } from '../PropertiesPanel';
 import { AgentPanel } from '../AgentPanel';
 import { NoteAdvisorBadge } from '../NoteAdvisor';
 import { EditorToolbar } from '../EditorToolbar';
@@ -22,7 +23,7 @@ import { ShareMenu } from '../ShareMenu';
 import { useTablist } from '../../lib/useTablist';
 import type { TranslationKey } from '../../lib/i18n';
 
-const RIGHT_TABS = ['ai', 'agent', 'analytics', 'graph', 'outline'] as const;
+const RIGHT_TABS = ['ai', 'agent', 'analytics', 'graph', 'outline', 'properties'] as const;
 
 const TAB_LABEL: Record<(typeof RIGHT_TABS)[number], TranslationKey> = {
   ai: 'aiAssistant',
@@ -30,6 +31,7 @@ const TAB_LABEL: Record<(typeof RIGHT_TABS)[number], TranslationKey> = {
   analytics: 'analyticsPanel',
   graph: 'connectionsTab',
   outline: 'outlineTab',
+  properties: 'propsTab',
 };
 
 export function AppChrome({
@@ -269,7 +271,7 @@ export function AppChrome({
                       <button key={tab} type="button"
                         {...rightTabs.getTabProps(tab)}
                         onClick={() => panels.setRightTab(tab)}
-                        className={`flex-1 py-2 text-xs font-medium rounded-md transition-all duration-150 ${
+                        className={`flex-1 min-w-0 truncate px-1 py-2 text-xs font-medium rounded-md transition-all duration-150 ${
                           rightTab === tab
                             ? 'bg-white/80 dark:bg-gray-700/60 text-gray-800 dark:text-gray-100 shadow-sm font-semibold'
                             : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
@@ -297,6 +299,7 @@ export function AppChrome({
                         the old global graph is retired in favour of a readable
                         per-note Connections view (project siblings + backlinks). */}
                     {rightTab === 'outline' && <OutlinePanel editor={activeEditor} />}
+                    {rightTab === 'properties' && <PropertiesPanel noteName={activeNoteName} onNotice={onToast} />}
                     {rightTab === 'graph' && (
                       <ConnectionsPanel onOpenNote={onOpenNote} />
                     )}

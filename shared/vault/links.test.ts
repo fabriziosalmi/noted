@@ -13,6 +13,13 @@ describe('rewriteWikilinks', () => {
     expect(out.content).toBe('<p>[[New name]] [[New name|the alias]] [[New name#Setup]] [[New name#Setup|both]] [[New name]]</p>');
   });
 
+  it('follows a link held in a property, quotes and all, and leaves the rest of the block alone', () => {
+    const raw = '---\n# who\nparent: "[[Old]]"   # up\nrelated:\n  - "[[Old|the old one]]"\n  - "[[Old#Setup]]"\nstatus: open\n---\n# T\n';
+    const out = rewriteWikilinks(raw, [R('Old.md', 'New.md')]);
+    expect(out.changed).toBe(3);
+    expect(out.content).toBe(raw.replace(/\[\[Old/g, '[[New'));
+  });
+
   it('matches case-insensitively, and by full folder path only', () => {
     const raw = '[[old]] [[OLD]] [[Work/Old]] [[Other/Old]] [[Older]] [[Old 2]]';
     const out = rewriteWikilinks(raw, [R('Old.md', 'New.md')]);

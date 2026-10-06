@@ -14,6 +14,7 @@ const BY_TYPE: Record<FieldType, FilterOp[]> = {
   select: ['equals', 'not-equals', ...EMPTY],
   checkbox: ['is-true', 'is-false'],
   list: ['has', 'not-has', 'contains', ...EMPTY],
+  link: ['equals', 'not-equals', 'contains', ...EMPTY],
 };
 
 /** The tests offered for a field of this type, the most common first. */

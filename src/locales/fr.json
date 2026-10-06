@@ -865,5 +865,18 @@
   "viewCardMove": "Déplacer « {name} » vers",
   "viewListNoMove": "Une note figure dans chaque colonne de sa liste, les cartes ne peuvent donc pas être déplacées ici ; modifiez-les depuis le tableau.",
   "viewNewRow": "Nouvelle note",
-  "viewAddCard": "Ajouter une carte"
+  "viewAddCard": "Ajouter une carte",
+  "propsTab": "Propriétés",
+  "propsEmpty": "Cette note n'a pas encore de propriétés.",
+  "propsAdd": "Ajouter une propriété",
+  "propsKey": "Nom de la propriété",
+  "propsType": "Type",
+  "propsRemove": "Retirer la propriété : {name}",
+  "propTypeText": "Texte",
+  "propTypeNumber": "Nombre",
+  "propTypeDate": "Date",
+  "propTypeCheckbox": "Case à cocher",
+  "propTypeList": "Liste",
+  "propTypeLink": "Lien",
+  "propsNoNote": "Ouvrez une note pour voir ses propriétés."
 }

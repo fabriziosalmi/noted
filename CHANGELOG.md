@@ -8,6 +8,11 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Properties panel** (#66): a **Properties** tab in the right panel for the open note: each frontmatter property in the editor for
+  its type (text, number, date, checkbox, list, link), add (name suggested from the vault, with a type), edit and remove, written with
+  the same byte-preserving writer as the views. A new **link** type for `"[[Note]]"` values: shown as the note's name, opens it, counts
+  as a backlink, and follows when the note is renamed (Markdown vaults); views show links the same way. What is typed in the editor
+  is saved before a property is written.
 - **New notes from a view** (#25, Views): **New note** on a view, and **Add card** on a board column, make a note and open it for
   writing. It starts inside the view: in the view's folder, with its tag, with the property of every "is" filter and, on a board, the
   column's value, so it shows in the view straight away.

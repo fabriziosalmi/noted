@@ -865,5 +865,18 @@
   "viewCardMove": "„{name}“ verschieben nach",
   "viewListNoMove": "Eine Notiz steht in jeder Spalte ihrer Liste, daher lassen sich Karten hier nicht verschieben; ändere sie in der Tabelle.",
   "viewNewRow": "Neue Notiz",
-  "viewAddCard": "Karte hinzufügen"
+  "viewAddCard": "Karte hinzufügen",
+  "propsTab": "Eigenschaften",
+  "propsEmpty": "Diese Notiz hat noch keine Eigenschaften.",
+  "propsAdd": "Eigenschaft hinzufügen",
+  "propsKey": "Name der Eigenschaft",
+  "propsType": "Typ",
+  "propsRemove": "Eigenschaft entfernen: {name}",
+  "propTypeText": "Text",
+  "propTypeNumber": "Zahl",
+  "propTypeDate": "Datum",
+  "propTypeCheckbox": "Kontrollkästchen",
+  "propTypeList": "Liste",
+  "propTypeLink": "Link",
+  "propsNoNote": "Öffne eine Notiz, um ihre Eigenschaften zu sehen."
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseWikilinkText, findHeadingIndex, normalizeHeading, headingLinkText } from './wikilink';
+import { parseWikilinkText, findHeadingIndex, normalizeHeading, headingLinkText, linkLabel } from './wikilink';
 
 describe('parseWikilinkText', () => {
   it('reads a plain link, with or without .md', () => {
@@ -61,5 +61,15 @@ describe('heading text in a link', () => {
 
   it('writes the page text of a heading that has Markdown in it', () => {
     expect(headingLinkText('Risks and *limits* of `code` and [a site](https://x.y)')).toBe('Risks and limits of code and a site');
+  });
+});
+
+describe('linkLabel', () => {
+  it('shows the alias, else the note with its heading or block', () => {
+    expect(linkLabel('[[Home]]')).toBe('Home');
+    expect(linkLabel('[[Home|my home]]')).toBe('my home');
+    expect(linkLabel('[[Home#Setup]]')).toBe('Home › Setup');
+    expect(linkLabel('[[Home#^id]]')).toBe('Home › ^id');
+    expect(linkLabel('not a link')).toBe('not a link');
   });
 });
