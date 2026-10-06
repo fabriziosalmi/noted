@@ -74,7 +74,8 @@ test.describe('a Markdown vault', () => {
   test('a new note and a quick edit are Markdown files too', async ({ noted }) => {
     const { win, vault } = await markdownVault(noted);
     await win.keyboard.press(`${MOD}+KeyN`);
-    await expect(win.locator('[contenteditable="true"]').first()).toBeVisible();
+    // A new note opens with focus in its title; typing before the editor has taken it would be lost.
+    await expect(win.locator('[contenteditable="true"]').first()).toBeFocused({ timeout: 15_000 });
     await win.keyboard.type('Epsilon markdown check');
     await expect.poll(() => fs.readdirSync(vault).some(f => f.startsWith('Epsilon markdown check')), { timeout: 15_000 }).toBe(true);
     const file = fs.readdirSync(vault).find(f => f.startsWith('Epsilon markdown check'))!;
@@ -92,8 +93,7 @@ test.describe('a Markdown vault', () => {
     await win.getByText('Spoke', { exact: true }).first().click();
     const editor = win.locator('[contenteditable="true"]').first();
     await editor.locator('h1').click();
-    await win.keyboard.press(`${MOD}+End`);
-    await win.keyboard.press('Home');
+    await win.keyboard.press('Home'); // start of the title line
     await win.keyboard.type('Hub spoke ');
     await expect.poll(() => fs.existsSync(path.join(vault, 'Hub spoke Spoke.md')) || fs.readdirSync(vault).some(f => f.startsWith('Hub spoke')), { timeout: 20_000 }).toBe(true);
     const renamed = fs.readdirSync(vault).find(f => f.startsWith('Hub spoke'))!;
