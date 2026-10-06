@@ -78,6 +78,34 @@ An HTML vault keeps the text layout earlier clients were written against (plain 
 so existing clients keep working; the new fields are additive. HTML sent to `create_note` and
 `update_note` is still accepted for at least one more minor version.
 
+### Controlling what agents can reach
+
+By default an assistant connected through MCP can read and write every note. **Settings → MCP → Agent access** narrows that,
+for the vault as a whole and per folder. It is a small file, `.noted/mcp-policy.yaml`, that you can also edit by hand:
+
+```yaml
+default: read-only      # hidden | read-only | read-write (open access when there is no file)
+folders:
+  private: hidden       # as if it were not there
+  inbox: read-write
+  inbox/locked: read-only
+```
+
+| Access | What the assistant can do |
+| --- | --- |
+| `read-write` | Everything the tools allow. |
+| `read-only` | List, read, search and list tasks. Writing is refused with a message that says the note is read-only for agents (vault policy). |
+| `hidden` | Nothing, and it cannot tell the note exists: it is not listed, not found by `search_notes` (no excerpt either), not in `list_tasks`, not in `list_trash`, and reading or changing it answers "Note not found", exactly as for a note that does not exist. Creating or restoring a note there is refused. |
+
+The most specific folder wins (`inbox/locked` over `inbox`); case, `\` vs `/` and Unicode form do not matter, so `Private/` and
+`private/` are the same folder. The rules are checked by **every** tool, on the note's real location too: a symbolic link in an
+open folder that points into a hidden one is still hidden, and one cannot be used to write out of a scope. The file is read on every
+request, so a change applies at once, even to a search index built a moment before.
+
+A policy file that cannot be read or understood (a typo such as `hiden`, an unknown key) is **not** guessed at: until it is fixed
+or deleted, every tool answers with what is wrong, so a mistake closes the vault rather than opening a folder. The policy limits
+assistants only; it does not change what you see in the app, and it is kept in `.noted/`, so it is not synced by Git.
+
 ### Editing without overwriting each other
 
 `update_note` replaces a whole note, so an agent that read a note a minute ago can erase what you typed since. `edit_note`

@@ -897,5 +897,17 @@
   "tasksToggleFailed": "Could not change the task: {error}",
   "tasksOverdue": "overdue",
   "tasksStatus": "Status",
-  "tasksDue": "Due"
+  "tasksDue": "Due",
+  "mcpAccessTitle": "Agent access",
+  "mcpAccessHelp": "Choose what assistants connected through MCP can reach. Hidden folders do not exist for them: not listed, not read, not searched, not written. The most specific folder wins. Changes apply to the next request.",
+  "mcpAccessDefault": "Everywhere else",
+  "mcpAccessHidden": "Hidden",
+  "mcpAccessReadOnly": "Read-only",
+  "mcpAccessReadWrite": "Read and write",
+  "mcpAccessAdd": "Add folder",
+  "mcpAccessFolder": "Folder",
+  "mcpAccessRemove": "Remove rule for {name}",
+  "mcpAccessInvalid": "The policy file is invalid: {error}. Assistants can reach nothing until it is fixed.",
+  "mcpAccessReset": "Reset to open access",
+  "mcpAccessSaveFailed": "Could not save the policy: {error}"
 }

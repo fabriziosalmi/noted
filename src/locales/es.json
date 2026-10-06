@@ -897,5 +897,17 @@
   "tasksToggleFailed": "No se pudo cambiar la tarea: {error}",
   "tasksOverdue": "vencida",
   "tasksStatus": "Estado",
-  "tasksDue": "Vence"
+  "tasksDue": "Vence",
+  "mcpAccessTitle": "Acceso de los agentes",
+  "mcpAccessHelp": "Elige qué pueden alcanzar los asistentes conectados por MCP. Las carpetas ocultas no existen para ellos: no se listan, no se leen, no se buscan, no se escriben. Gana la carpeta más específica. Los cambios valen desde la siguiente petición.",
+  "mcpAccessDefault": "En todo lo demás",
+  "mcpAccessHidden": "Oculta",
+  "mcpAccessReadOnly": "Solo lectura",
+  "mcpAccessReadWrite": "Lectura y escritura",
+  "mcpAccessAdd": "Añadir carpeta",
+  "mcpAccessFolder": "Carpeta",
+  "mcpAccessRemove": "Quitar la regla de {name}",
+  "mcpAccessInvalid": "El archivo de política no es válido: {error}. Los asistentes no alcanzan nada hasta que se corrija.",
+  "mcpAccessReset": "Volver al acceso abierto",
+  "mcpAccessSaveFailed": "No se pudo guardar la política: {error}"
 }

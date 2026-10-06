@@ -17,6 +17,7 @@ import { importWorkflowReducer, initialImportWorkflowState, isImportWorkflowBusy
 import { useTablist } from '../lib/useTablist';
 import { AttachmentsSettings } from './AttachmentsSettings';
 import { NoteFormatSettings } from './NoteFormatSettings';
+import { AgentAccessSettings } from './AgentAccessSettings';
 
 type SettingsTab = 'ai' | 'appearance' | 'editor' | 'sync' | 'mcp' | 'git' | 'import';
 
@@ -323,6 +324,8 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath, settings, onUpda
             className="w-20 px-2 py-1 text-xs text-right border border-gray-300/40 dark:border-gray-600/40 rounded bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
           />
         </div>
+
+        <AgentAccessSettings />
       </div>
 
       {/* Remote Access (HTTP/SSE) */}

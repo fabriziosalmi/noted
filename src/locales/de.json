@@ -897,5 +897,17 @@
   "tasksToggleFailed": "Die Aufgabe konnte nicht geändert werden: {error}",
   "tasksOverdue": "überfällig",
   "tasksStatus": "Status",
-  "tasksDue": "Fällig"
+  "tasksDue": "Fällig",
+  "mcpAccessTitle": "Zugriff für Agenten",
+  "mcpAccessHelp": "Lege fest, was über MCP verbundene Assistenten erreichen können. Versteckte Ordner existieren für sie nicht: nicht aufgelistet, nicht gelesen, nicht durchsucht, nicht beschrieben. Der spezifischste Ordner gewinnt. Änderungen gelten ab der nächsten Anfrage.",
+  "mcpAccessDefault": "Überall sonst",
+  "mcpAccessHidden": "Versteckt",
+  "mcpAccessReadOnly": "Nur lesen",
+  "mcpAccessReadWrite": "Lesen und schreiben",
+  "mcpAccessAdd": "Ordner hinzufügen",
+  "mcpAccessFolder": "Ordner",
+  "mcpAccessRemove": "Regel für {name} entfernen",
+  "mcpAccessInvalid": "Die Richtliniendatei ist ungültig: {error}. Assistenten erreichen nichts, bis sie korrigiert ist.",
+  "mcpAccessReset": "Auf offenen Zugriff zurücksetzen",
+  "mcpAccessSaveFailed": "Die Richtlinie konnte nicht gespeichert werden: {error}"
 }
