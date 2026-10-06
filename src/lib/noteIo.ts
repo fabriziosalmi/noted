@@ -87,6 +87,13 @@ export function peekVaultShared(syncDir?: string): boolean {
 
 /** After a migration (or a change from outside): forget what was remembered. */
 export function forgetVaultFormat(syncDir?: string): void {
-  if (syncDir === undefined) { formats.clear(); shared.clear(); asking.clear(); }
-  else { formats.delete(keyOf(syncDir)); shared.delete(keyOf(syncDir)); asking.delete(keyOf(syncDir)); }
+  if (syncDir === undefined) {
+    formats.clear();
+    shared.clear();
+    asking.clear();
+    return;
+  }
+  formats.delete(keyOf(syncDir));
+  shared.delete(keyOf(syncDir));
+  asking.delete(keyOf(syncDir));
 }

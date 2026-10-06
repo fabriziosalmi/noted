@@ -22,7 +22,12 @@ describe('backlinksOf', () => {
   });
 
   it('a bare name finds the note in a folder when there is none at the root (Obsidian)', () => {
-    const vault = { 'Home.md': ['Plan', 'Garden'], 'Life/Garden.md': [], 'Work/Plan.md': [], 'Work/Other.md': ['plan'] };
+    const vault = {
+      'Home.md': ['Plan', 'Garden'],
+      'Life/Garden.md': [],
+      'Work/Plan.md': [],
+      'Work/Other.md': ['plan'],
+    };
     expect(backlinksOf(vault, 'Work/Plan.md')).toEqual(['Home.md', 'Work/Other.md']);
     expect(backlinksOf(vault, 'Life/Garden.md')).toEqual(['Home.md']);
   });
