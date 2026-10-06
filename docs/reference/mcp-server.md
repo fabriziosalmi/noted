@@ -47,13 +47,33 @@ you need to reach it through a tunnel.
 | Tool | Purpose | Parameters |
 | --- | --- | --- |
 | `list_notes` | List notes, newest first | `folder` (optional) |
-| `read_note` | Return a note's plain text and its stored text (Markdown in a Markdown vault, HTML in an HTML one) | `name` |
+| `read_note` | Read a note: parsed frontmatter and Markdown body (Markdown vault), or plain text and raw HTML (HTML vault); also returns a versioned `structuredContent` | `name` |
 | `create_note` | Create a note (send Markdown; HTML is still accepted and converted); fails if it exists | `name`, `content` |
 | `update_note` | Overwrite a note, or append to it | `name`, `content`, `append` (optional) |
 | `search_notes` | Full-text (BM25) search with excerpts | `query`, `max_results` (optional, default 10, max 50) |
 | `delete_note` | Move a note to the trash | `name` |
 | `list_trash` | List trashed notes, newest first, with deletion ids | — |
 | `restore_note` | Put a trashed note back at its original path | `name`, `id` (optional) |
+
+### What `read_note` returns
+
+Every result carries `structuredContent` (schema version **2**):
+
+| Field | Meaning |
+| --- | --- |
+| `schemaVersion` | `2`. Additive changes keep it; a breaking change raises it. |
+| `format` | `markdown` or `html`: how the vault stores notes. |
+| `frontmatter` | The YAML frontmatter, parsed (`null` if there is none or it does not parse, `{}` if empty). |
+| `frontmatterRaw` | The frontmatter block exactly as stored, delimiters included. |
+| `frontmatterError` | Present when the block could not be parsed; the raw text is still returned so it can be fixed. |
+| `body` | The note without its frontmatter: Markdown, or HTML in an HTML vault. |
+| `modified`, `sizeBytes` | Last change (ISO 8601) and size. |
+
+In a Markdown vault the text result holds the parsed frontmatter and the Markdown body once each
+(no second plain-text copy), and `frontmatterRaw + body` is exactly what `update_note` accepts back.
+An HTML vault keeps the text layout earlier clients were written against (plain text, then raw HTML),
+so existing clients keep working; the new fields are additive. HTML sent to `create_note` and
+`update_note` is still accepted for at least one more minor version.
 
 ::: tip The vault decides the format
 The server stores notes the way the vault does. In a vault converted to Markdown
