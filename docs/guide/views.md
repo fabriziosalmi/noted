@@ -1,6 +1,6 @@
 # Views
 
-A **view** is a saved table over the properties of your notes. Every row is a note; a view is only a saved
+A **view** is a saved table, or board, over the properties of your notes. Every row is a note; a view is only a saved
 question (which notes, which properties, in what order). There is no separate database: the properties are the YAML
 block at the top of each note, and the view is kept in one small file in your vault.
 
@@ -106,3 +106,26 @@ An empty `key:` does not decide the type. A property that only some notes have i
 In `.noted-views.json` at the top of the vault: plain, stably ordered JSON, so it is a small diff in Git and travels with
 your notes when you sync. It is read defensively: if it is edited by hand or damaged, the views that are readable are
 used and the rest are ignored; the file is never replaced until you change a view. A vault with no views has no file.
+
+## Views and Notion databases
+
+If you know Notion, a view covers the part of a database people use most: a table with typed columns, filters and sorts, and a
+kanban board grouped by a property. The difference is where the data lives. In Notion the rows are in a database you can only
+reach through Notion. Here **every row is a note file** and every cell is a line of its YAML block, so:
+
+- you can read, edit, move and `grep` the data with any other tool, and Git shows you exactly what changed;
+- there is no lock-in and no import or export: stop using Noted and the properties are still in your notes;
+- a view is only a saved question, in one small file next to the notes.
+
+What views deliberately do **not** do:
+
+- **No relations or rollups.** A property can hold a `[[link]]` to another note (and that counts as a link, with backlinks), but
+  there is no "pull this column from the related note" or "sum the linked rows".
+- **No formulas.** A cell is a value you wrote, never a computed one.
+- **No real-time collaboration.** Notes sync through Git or your own file sync; two people editing the same property at the same
+  moment is a conflict that is shown, not merged live (a cell is never written over a value it did not see).
+- **No hidden schema.** There are no declared column types: a property's type is read from the values the notes have, so one
+  odd value makes that property text rather than silently coercing it.
+- **No other layouts yet** (calendar, gallery, timeline): a table and a board.
+
+Properties of a single note are edited in the **Properties** tab (see [Organizing notes](/guide/organizing-notes#properties)).
