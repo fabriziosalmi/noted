@@ -29,6 +29,22 @@ The gear at the top right of a view opens its settings:
 Click a column header to sort by it: ascending, then descending, then not at all. Numbers sort by size, text without
 caring about case (`item 9` comes before `item 10`), and notes with no value for the property always come last.
 
+## Filtering and sorting
+
+The funnel button opens **Filter & sort**; the number on it counts the filters and sort keys in use.
+
+Each **filter** is a property, a test and a value. The tests offered depend on the property's type: *is*, *is not*,
+*contains* for text; *is greater than*, *is at most*… for numbers; *is before*, *is after* for dates; *has* for lists;
+*is checked* for checkboxes; and *is empty* for any. A choice property offers its values to pick from. All filters have
+to pass for a note to show.
+
+- A filter with no value yet hides nothing, so adding one never empties the view; it starts to filter when you fill it in.
+- A note that does not have the property fails a positive test (*is*, *contains*, *is greater than*) and passes a negative
+  one (*is not*, *does not contain*, *does not have*). An unchecked box and no box at all are the same thing.
+- Dates compare as the day (`2026-10-09`), unless you give a time too.
+
+**Sort** can have several keys: the next one settles ties in the one before. Clicking a column header sets the first key.
+
 ## What the app knows about a property
 
 Noted works out each property's type from what the notes say, because there is no schema to declare:
