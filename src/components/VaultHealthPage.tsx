@@ -6,6 +6,7 @@ import { getElectronApi } from '../lib/electronApi';
 import { askLLM, describeLlmError } from '../lib/llm';
 import { createMasker } from '../lib/piiMasker';
 import { diskToWire } from '../lib/noteIo';
+import { ensureFolders } from '../lib/vaultFolders';
 import { htmlToPlainText, deriveTitleFromRelPath } from '../../shared/search/textExtract';
 import { KIND_DESC, KIND_ORDER, KIND_TITLE, reportMarkdown, reportName } from '../lib/vaultHealth';
 import type { Finding, LintReport } from '../../shared/lint/vaultLint';
@@ -16,17 +17,6 @@ const SHOWN = 50;
 const small = 'shrink-0 text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40';
 const link = 'font-medium text-gray-800 dark:text-gray-100 hover:text-[var(--accent)] text-left';
 const stem = (name: string): string => name.replace(/\.md$/i, '');
-
-/** Makes the folders a note will be in, one level at a time (the app creates a folder inside a folder that exists), as many as are missing. */
-async function ensureFolders(file: string, syncDir: string | undefined): Promise<string | null> {
-  const api = getElectronApi();
-  const parts = file.split('/').slice(0, -1);
-  for (let i = 0; i < parts.length; i++) {
-    const res = await api?.createFolder(parts.slice(0, i + 1).join('/'), syncDir);
-    if (res && !res.success && !/already exists/i.test(res.error ?? '')) return res.error ?? 'failed';
-  }
-  return null;
-}
 
 /**
  * The health of the whole vault: links that lead nowhere, notes nothing leads to, notes that say the same thing, notes

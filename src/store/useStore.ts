@@ -112,6 +112,8 @@ export interface SettingsState {
   ragVaultOnly?: boolean;
   /** AI actions that rewrite a selection show their changes first (default on). */
   aiReviewEdits?: boolean;
+  /** A note from a source is made only with a model on this computer (or this network). */
+  ingestLocalOnly?: boolean;
   embeddingsEnabled?: boolean;
   embeddingProvider?: 'openai' | 'lmstudio' | 'ollama' | 'none';
   embeddingModel?: string;
@@ -250,6 +252,10 @@ interface NoteState {
   healthOpen: boolean;
   openHealth: () => void;
   closeHealth: () => void;
+  /** The "note from a source" dialog is open. */
+  ingestOpen: boolean;
+  openIngest: () => void;
+  closeIngest: () => void;
   /** Replace the views with what the vault's file holds (on opening a vault, and when asked to look again). */
   loadViews: () => Promise<void>;
   createView: (name: string, patch?: Partial<Omit<View, 'id' | 'name'>>) => Promise<View | null>;
@@ -467,6 +473,9 @@ export const useStore = create<NoteState>()(
       healthOpen: false,
       openHealth: () => set({ healthOpen: true, workflowsOpen: false, activityOpen: false, tasksOpen: false, activeViewId: null }),
       closeHealth: () => set({ healthOpen: false }),
+      ingestOpen: false,
+      openIngest: () => set({ ingestOpen: true }),
+      closeIngest: () => set({ ingestOpen: false }),
       closeTasks: () => set({ tasksOpen: false }),
       tagIndex: {},
       vaultIndexSync: null,

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Check, X } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
-import { reviewable } from '../../shared/diff/hunks';
+import { reviewable, type Reviewable } from '../../shared/diff/hunks';
 import { DiffRowView } from './NoteDiffView';
 
 /** Unchanged lines shown on each side of a change. */
@@ -15,14 +15,16 @@ const toggle = 'inline-flex items-center gap-1 text-[11px] px-2 py-0.5 border fi
  * agent proposes to a note. The parent owns the choice (`accepted`, the ids of the changes kept) and turns it into text with
  * `compose` from shared/diff/hunks.
  */
-export function ReviewDiff({ before, after, accepted, onChange }: {
+export function ReviewDiff({ before, after, accepted, onChange, model }: {
   before: string;
   after: string;
   accepted: ReadonlySet<number>;
   onChange: (next: Set<number>) => void;
+  /** The changes, when the caller knows them better than a comparison of the two texts would (each link its own change). */
+  model?: Reviewable;
 }) {
   const { t } = useI18n();
-  const { pieces, changes } = useMemo(() => reviewable(before, after), [before, after]);
+  const { pieces, changes } = useMemo(() => model ?? reviewable(before, after), [model, before, after]);
   const all = () => new Set(changes.map(c => c.id));
   const set = (id: number, keep: boolean) => { const next = new Set(accepted); if (keep) next.add(id); else next.delete(id); onChange(next); };
 

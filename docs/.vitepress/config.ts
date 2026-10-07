@@ -92,6 +92,7 @@ export default defineConfig({
             { text: 'Tasks', link: '/guide/tasks' },
             { text: 'Vault health', link: '/guide/vault-health' },
             { text: 'Prompts', link: '/guide/prompts' },
+            { text: 'Notes from a source', link: '/guide/sources' },
             { text: 'AI assistant', link: '/guide/ai' },
             { text: 'Git integration', link: '/guide/git' },
             { text: 'Export & capture', link: '/guide/export-and-capture' },

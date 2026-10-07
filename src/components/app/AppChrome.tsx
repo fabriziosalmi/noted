@@ -11,6 +11,7 @@ import { TasksPage } from '../TasksPage';
 import { AgentActivityPage } from '../AgentActivityPage';
 import { WorkflowsPage } from '../WorkflowsPage';
 import { VaultHealthPage } from '../VaultHealthPage';
+import { IngestDialog } from '../IngestDialog';
 import { PendingChangesBadge } from '../PendingChanges';
 import { useStore } from '../../store/useStore';
 import { AiChat } from '../AiChat';
@@ -93,6 +94,7 @@ export function AppChrome({
   const activityOpen = useStore(s => s.activityOpen);
   const workflowsOpen = useStore(s => s.workflowsOpen);
   const healthOpen = useStore(s => s.healthOpen);
+  const ingestOpen = useStore(s => s.ingestOpen);
   const pageTitle = tasksOpen ? t('tasksTitle') : activityOpen ? t('activityTitle') : workflowsOpen ? t('workflowsTitle') : healthOpen ? t('healthTitle') : undefined;
   const shown = activeView?.name ?? pageTitle ?? activeNoteName?.replace('.md', '');
   const windowTitle = shown ? `Noted — ${shown}` : 'Noted';
@@ -232,6 +234,7 @@ export function AppChrome({
             {activityOpen && !activeView && !tasksOpen && <AgentActivityPage onOpenNote={onOpenNote} onNotice={onToast} />}
             {workflowsOpen && !activeView && !tasksOpen && !activityOpen && <WorkflowsPage onOpenNote={onOpenNote} onNotice={onToast} />}
             {healthOpen && !activeView && !tasksOpen && !activityOpen && !workflowsOpen && <VaultHealthPage onOpenNote={onOpenNote} onNotice={onToast} />}
+            {ingestOpen && <IngestDialog onOpenNote={onOpenNote} onNotice={onToast} />}
             {activeNoteName && !activeView && !tasksOpen && !activityOpen && !workflowsOpen && !healthOpen && (
               <EditorToolbar
                 editor={activeEditor}
