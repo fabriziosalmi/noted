@@ -49,7 +49,7 @@ describe('IPC channels', () => {
   // and have no listener in the preload today; pinned so that stays visible.
   it('pushes the expected set of events', () => {
     expect(pushed).toEqual([
-      'app-will-quit-for-update', 'flush-before-quit', 'git-sync-state', 'menu-command',
+      'app-will-quit-for-update', 'flush-before-quit', 'git-sync-state', 'llm-stream-chunk', 'llm-stream-end', 'menu-command',
       'migration-progress', 'native-theme-updated', 'note-changed-externally', 'refresh-notes',
       'update-download-progress', 'vault-format-changed', 'vault-index-delta',
     ]);
@@ -111,6 +111,8 @@ describe('IPC channels', () => {
     'list-pending-changes',
     'list-tasks',
     'llm-fetch',
+    'llm-stream-abort',
+    'llm-stream-start',
     'migrate-embedded-images',
     'migration-apply',
     'migration-plan',

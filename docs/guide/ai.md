@@ -85,6 +85,12 @@ context. The chat sends the active note (trimmed to a configurable size) plus th
 most relevant notes from your vault, retrieved automatically. It keeps the last
 ten turns and can be cleared at any time.
 
+Answers appear as the model writes them, for every provider (OpenAI, Anthropic,
+Gemini, OpenRouter, LM Studio, Ollama and OpenAI-compatible servers). **Stop**
+cancels the request at the provider, which stops generating, and keeps the part
+already written. If a provider fails half way, the part that arrived stays and
+the error is shown after it. A stream that sends nothing for a minute is cut.
+
 ## Retrieval (RAG)
 
 When you send a question, the assistant retrieves the most relevant notes from
@@ -114,6 +120,11 @@ Noted replaces detected personal data — emails, phone numbers, card numbers, a
 similar patterns — with typed placeholders such as `[EMAIL_1]`. Requests to
 **local** providers (LM Studio, Ollama) are sent verbatim, since they never leave
 your machine.
+
+The placeholders are turned back into the original values **on your machine**, in
+the answer, as it arrives: what the model says about `[EMAIL_1]` reads as the
+address, in the chat and in the text that an action or a slash command writes into
+your note. A placeholder means the same value for the whole conversation.
 
 You can toggle it under **Settings → Editor → PII masking**. The chat panel shows
 a shield indicator and how many items were masked.

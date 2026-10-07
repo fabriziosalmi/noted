@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { maskPii, hasPii, PII_PATTERNS } from './piiMasker';
+import { maskPii, hasPii, PII_PATTERNS, createMasker } from './piiMasker';
 
 describe('piiMasker hasPii', () => {
   it('detects simple email addresses', () => {
@@ -92,5 +92,76 @@ describe('piiMasker maskPii', () => {
     const result = maskPii(text);
     expect(result.count).toBe(4);
     expect(result.maskedText).toBe('Emails: [EMAIL_1], [EMAIL_2]. Phones: [PHONE_1], [PHONE_2]');
+  });
+});
+
+describe('createMasker', () => {
+  const MESSAGE = 'Write to ana@example.com or bob@example.org, again ana@example.com, call 192.168.1.20 now';
+
+  it('gives the same value the same token, and different values different ones', () => {
+    const m = createMasker();
+    const out = m.mask(MESSAGE);
+    expect(out).toBe('Write to [EMAIL_1] or [EMAIL_2], again [EMAIL_1], call [IP_1] now');
+    expect(m.count).toBe(3);
+  });
+
+  it('keeps counting across messages, so a token never means two values', () => {
+    const m = createMasker();
+    expect(m.mask('mail ana@example.com')).toBe('mail [EMAIL_1]');
+    expect(m.mask('mail bob@example.org')).toBe('mail [EMAIL_2]');
+    expect(m.mask('mail ana@example.com')).toBe('mail [EMAIL_1]');
+    // maskPii alone starts again at 1 in every message: the collision the masker exists to prevent
+    expect(maskPii('mail bob@example.org').maskedText).toBe('mail [EMAIL_1]');
+  });
+
+  it('turns an answer back into the original text, and leaves tokens it never issued', () => {
+    const m = createMasker();
+    m.mask(MESSAGE);
+    expect(m.unmask('Sure: [EMAIL_2] and [EMAIL_1] at [IP_1]; also [EMAIL_9] and [PHONE_1] and [not a token].'))
+      .toBe('Sure: bob@example.org and ana@example.com at 192.168.1.20; also [EMAIL_9] and [PHONE_1] and [not a token].');
+  });
+
+  it('does not mask what it masked already', () => {
+    const m = createMasker();
+    const once = m.mask(MESSAGE);
+    expect(m.mask(once)).toBe(once);
+  });
+
+  describe('streamUnmasker', () => {
+    const answer = 'Mail [EMAIL_1], then [EMAIL_2] (or [IP_1]). Items [a] and [B] stay, so does a final [';
+    const expected = 'Mail ana@example.com, then bob@example.org (or 192.168.1.20). Items [a] and [B] stay, so does a final [';
+    const run = (chunks: string[]) => {
+      const m = createMasker();
+      m.mask(MESSAGE);
+      const u = m.streamUnmasker();
+      return chunks.map(c => u.push(c)).join('') + u.flush();
+    };
+
+    it('gives the same text however the stream is cut: at every position', () => {
+      for (let i = 0; i <= answer.length; i++) expect(run([answer.slice(0, i), answer.slice(i)])).toBe(expected);
+    });
+
+    it('and one character at a time, and in three pieces', () => {
+      expect(run([...answer])).toBe(expected);
+      for (let i = 0; i < answer.length; i += 3) for (let j = i; j < answer.length; j += 5) {
+        expect(run([answer.slice(0, i), answer.slice(i, j), answer.slice(j)])).toBe(expected);
+      }
+    });
+
+    it('never shows half a token', () => {
+      const m = createMasker();
+      m.mask(MESSAGE);
+      const u = m.streamUnmasker();
+      expect(u.push('see [EMA')).toBe('see ');
+      expect(u.push('IL_')).toBe('');
+      expect(u.push('1] ok')).toBe('ana@example.com ok');
+    });
+
+    it('does not hold text back for long: a "[" that cannot become a token is released', () => {
+      const m = createMasker();
+      const u = m.streamUnmasker();
+      expect(u.push('a [')).toBe('a ');
+      expect(u.push('link](x)')).toBe('[link](x)');
+    });
   });
 });

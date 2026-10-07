@@ -6,6 +6,20 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Answers stream in, with a Stop that stops the provider** (#73): the chat shows the answer as the model writes it, for OpenAI, Anthropic,
+  Gemini, OpenRouter, LM Studio, Ollama and OpenAI-compatible servers (Server-Sent Events, or JSON lines for Ollama). **Stop** closes the request at
+  the provider, not only the waiting, and keeps what had been written; an answer that fails half way keeps its part. The request is made by the
+  main process as before, with a 60 s limit on silence instead of on the whole answer.
+
+### Fixed
+
+- **Masked values are restored in the answer.** Until now the model's reply could contain `[EMAIL_1]` and it stayed that way, in the chat and in
+  the text written into your note by the AI actions and slash commands (a rewrite of a selection with an address in it left the placeholder in the
+  note). One masker now serves a whole conversation (a placeholder means one value, and counts across messages: before, `[EMAIL_1]` in two messages
+  could be two addresses) and the answer is restored locally, also when a placeholder is cut in two by the stream.
+
 ## [1.6.0] - 2026-10-07
 
 ### Added

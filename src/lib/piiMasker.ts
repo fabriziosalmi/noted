@@ -59,3 +59,80 @@ export function hasPii(text: string): boolean {
   }
   return false;
 }
+
+// ==========================================
+// Masking that can be undone
+// ==========================================
+//
+// A masker is one conversation's worth of masking: the same value always gets the same token, tokens never repeat for
+// different values (the counters run across every message it masks, not per message), and the model's answer can be
+// turned back into the original text, locally. Without this, "[EMAIL_1]" in an answer cannot be told from the
+// "[EMAIL_1]" of another message.
+
+const TOKEN_RE = /\[(EMAIL|PHONE|CARD|SSN|IBAN|IP|CF|VAT)_(\d+)\]/g;
+// The end of a chunk that could still become a token: "[", "[EMA", "[EMAIL_", "[EMAIL_12". Longest token is "[PHONE_" + digits + "]".
+const PARTIAL_TOKEN_RE = /\[[A-Z]{0,5}(?:_\d{0,6})?$/;
+
+export interface StreamUnmasker {
+  /** Text safe to show for this chunk; a token cut in two by the chunk boundary waits for its other half. */
+  push(chunk: string): string;
+  /** What is left at the end of the stream (a "[" that never became a token is text like any other). */
+  flush(): string;
+}
+
+export interface PiiMasker {
+  mask(text: string): string;
+  unmask(text: string): string;
+  streamUnmasker(): StreamUnmasker;
+  /** How many distinct values have been masked. */
+  readonly count: number;
+}
+
+export function createMasker(): PiiMasker {
+  const counters: Record<string, number> = {};
+  const tokenOf = new Map<string, string>(); // `${kind}\0${value}` -> token
+  const valueOf = new Map<string, string>(); // token -> original value
+
+  const mask = (text: string): string => {
+    if (text.length > MAX_INPUT_CHARS) return text;
+    let out = text;
+    for (const { name, pattern } of PII_PATTERNS) {
+      pattern.lastIndex = 0;
+      out = out.replace(pattern, (match) => {
+        if (MASK_TOKEN_RE.test(match)) return match;
+        const key = `${name}\0${match}`;
+        let token = tokenOf.get(key);
+        if (!token) {
+          counters[name] = (counters[name] ?? 0) + 1;
+          token = `[${name}_${counters[name]}]`;
+          tokenOf.set(key, token);
+          valueOf.set(token, match);
+        }
+        return token;
+      });
+    }
+    return out;
+  };
+
+  const unmask = (text: string): string => text.replace(TOKEN_RE, (token) => valueOf.get(token) ?? token);
+
+  const streamUnmasker = (): StreamUnmasker => {
+    let held = '';
+    return {
+      push(chunk) {
+        const text = held + chunk;
+        const cut = text.search(PARTIAL_TOKEN_RE);
+        if (cut === -1) { held = ''; return unmask(text); }
+        held = text.slice(cut);
+        return unmask(text.slice(0, cut));
+      },
+      flush() {
+        const rest = held;
+        held = '';
+        return unmask(rest);
+      },
+    };
+  };
+
+  return { mask, unmask, streamUnmasker, get count() { return tokenOf.size; } };
+}

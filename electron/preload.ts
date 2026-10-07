@@ -15,6 +15,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getApiKey: () => ipcRenderer.invoke('get-api-key'),
   llmFetch: (url: string, options: { method: string; headers: Record<string, string>; body: string }) =>
     ipcRenderer.invoke('llm-fetch', url, options),
+  llmStreamStart: (id: string, url: string, options: { method: string; headers: Record<string, string>; body: string }) =>
+    ipcRenderer.invoke('llm-stream-start', id, url, options),
+  llmStreamAbort: (id: string) => ipcRenderer.send('llm-stream-abort', id),
+  onLlmStream: (cb: (id: string, event: { text?: string; end?: boolean; error?: string }) => void) => {
+    const chunk = (_e: unknown, id: string, text: string) => cb(id, { text });
+    const end = (_e: unknown, id: string, info: { error?: string }) => cb(id, { end: true, ...(info?.error ? { error: info.error } : {}) });
+    ipcRenderer.on('llm-stream-chunk', chunk);
+    ipcRenderer.on('llm-stream-end', end);
+    return () => {
+      ipcRenderer.removeListener('llm-stream-chunk', chunk);
+      ipcRenderer.removeListener('llm-stream-end', end);
+    };
+  },
   getNoteHistory: (fileName: string, syncDir?: string) => ipcRenderer.invoke('get-note-history', fileName, syncDir),
   readNoteSnapshot: (fileName: string, snapshotName: string, syncDir?: string) => ipcRenderer.invoke('read-note-snapshot', fileName, snapshotName, syncDir),
   saveCapture: (text: string) => ipcRenderer.invoke('save-capture', text),

@@ -8,7 +8,7 @@ import {
 import { askLLM, AbortedError, describeLlmError } from '../lib/llm';
 import { Tooltip } from './Tooltip';
 import { useStore } from '../store/useStore';
-import { maskPii } from '../lib/piiMasker';
+import { createMasker } from '../lib/piiMasker';
 import { useI18n, type TranslationKey } from '../lib/i18n';
 
 interface Action {
@@ -234,14 +234,16 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
       return;
     }
 
-    const selectedText = piiMasking ? maskPii(rawText).maskedText : rawText;
+    // The answer is written into the note: what was masked on the way out is restored on the way back.
+    const masker = piiMasking ? createMasker() : undefined;
+    const selectedText = masker ? masker.mask(rawText) : rawText;
 
     setActiveId(action.id);
     try {
       const result = await askLLM([
         { role: 'system', content: action.system },
         { role: 'user', content: selectedText },
-      ], { signal: controller.signal });
+      ], { signal: controller.signal, masker });
 
       const html = mdToHtml(result);
 
@@ -279,14 +281,16 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
       onError?.(t('errWriteSomethingFirst'));
       return;
     }
-    const selectedText = piiMasking ? maskPii(rawText).maskedText : rawText;
+    // The answer is written into the note: what was masked on the way out is restored on the way back.
+    const masker = piiMasking ? createMasker() : undefined;
+    const selectedText = masker ? masker.mask(rawText) : rawText;
 
     setActiveId('custom');
     try {
       const result = await askLLM([
         { role: 'system', content: `Apply the following instruction to the text. Return ONLY the result, in the same language as the text, Markdown format.\n\nInstruction: ${instruction.trim()}` },
         { role: 'user', content: selectedText },
-      ], { signal: controller.signal });
+      ], { signal: controller.signal, masker });
       const html = mdToHtml(result);
       if (hasSelection) {
         editor.chain().focus().deleteSelection().insertContent(html).run();
