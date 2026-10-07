@@ -1,0 +1,210 @@
+{
+  "machine": {
+    "cpu": "Apple M4",
+    "cores": 10,
+    "memoryGB": 16,
+    "platform": "darwin/arm64",
+    "gpu": true
+  },
+  "whisperCli": "whisper-cli (whisper.cpp d1be6fd, Metal build)",
+  "results": [
+    {
+      "model": "tiny",
+      "clip": "en",
+      "language": "en",
+      "audioSeconds": 54.5,
+      "wallSeconds": 1.02,
+      "timesRealtime": 53.7,
+      "peakMemoryMB": 292,
+      "wer": 2.2,
+      "exit": 0
+    },
+    {
+      "model": "tiny",
+      "clip": "en-long",
+      "language": "en",
+      "audioSeconds": 599.4,
+      "wallSeconds": 8.4,
+      "timesRealtime": 71.3,
+      "peakMemoryMB": 363,
+      "wer": 1.7,
+      "exit": 0
+    },
+    {
+      "model": "tiny",
+      "clip": "it",
+      "language": "it",
+      "audioSeconds": 61,
+      "wallSeconds": 1.07,
+      "timesRealtime": 57.1,
+      "peakMemoryMB": 298,
+      "wer": 14.3,
+      "exit": 0
+    },
+    {
+      "model": "base",
+      "clip": "en",
+      "language": "en",
+      "audioSeconds": 54.5,
+      "wallSeconds": 1.01,
+      "timesRealtime": 53.9,
+      "peakMemoryMB": 402,
+      "wer": 0.6,
+      "exit": 0
+    },
+    {
+      "model": "base",
+      "clip": "en-long",
+      "language": "en",
+      "audioSeconds": 599.4,
+      "wallSeconds": 10.75,
+      "timesRealtime": 55.8,
+      "peakMemoryMB": 474,
+      "wer": 1.1,
+      "exit": 0
+    },
+    {
+      "model": "base",
+      "clip": "it",
+      "language": "it",
+      "audioSeconds": 61,
+      "wallSeconds": 1.53,
+      "timesRealtime": 39.9,
+      "peakMemoryMB": 410,
+      "wer": 9.1,
+      "exit": 0
+    },
+    {
+      "model": "small",
+      "clip": "en",
+      "language": "en",
+      "audioSeconds": 54.5,
+      "wallSeconds": 2.28,
+      "timesRealtime": 23.9,
+      "peakMemoryMB": 876,
+      "wer": 1.1,
+      "exit": 0
+    },
+    {
+      "model": "small",
+      "clip": "en-long",
+      "language": "en",
+      "audioSeconds": 599.4,
+      "wallSeconds": 24.67,
+      "timesRealtime": 24.3,
+      "peakMemoryMB": 901,
+      "wer": 1.1,
+      "exit": 0
+    },
+    {
+      "model": "small",
+      "clip": "it",
+      "language": "it",
+      "audioSeconds": 61,
+      "wallSeconds": 3.85,
+      "timesRealtime": 15.9,
+      "peakMemoryMB": 780,
+      "wer": 6.9,
+      "exit": 0
+    },
+    {
+      "model": "small-q5_1",
+      "clip": "en",
+      "language": "en",
+      "audioSeconds": 54.5,
+      "wallSeconds": 1.97,
+      "timesRealtime": 27.6,
+      "peakMemoryMB": 546,
+      "wer": 1.1,
+      "exit": 0
+    },
+    {
+      "model": "small-q5_1",
+      "clip": "en-long",
+      "language": "en",
+      "audioSeconds": 599.4,
+      "wallSeconds": 21.54,
+      "timesRealtime": 27.8,
+      "peakMemoryMB": 632,
+      "wer": 1.1,
+      "exit": 0
+    },
+    {
+      "model": "small-q5_1",
+      "clip": "it",
+      "language": "it",
+      "audioSeconds": 61,
+      "wallSeconds": 3.72,
+      "timesRealtime": 16.4,
+      "peakMemoryMB": 570,
+      "wer": 7.4,
+      "exit": 0
+    },
+    {
+      "model": "medium",
+      "clip": "en",
+      "language": "en",
+      "audioSeconds": 54.5,
+      "wallSeconds": 7.22,
+      "timesRealtime": 7.5,
+      "peakMemoryMB": 2075,
+      "wer": 0.6,
+      "exit": 0
+    },
+    {
+      "model": "medium",
+      "clip": "en-long",
+      "language": "en",
+      "audioSeconds": 599.4,
+      "wallSeconds": 73.95,
+      "timesRealtime": 8.1,
+      "peakMemoryMB": 2171,
+      "wer": 0.6,
+      "exit": 0
+    },
+    {
+      "model": "medium",
+      "clip": "it",
+      "language": "it",
+      "audioSeconds": 61,
+      "wallSeconds": 8.79,
+      "timesRealtime": 6.9,
+      "peakMemoryMB": 2121,
+      "wer": 2.3,
+      "exit": 0
+    },
+    {
+      "model": "large-v3-turbo-q5_0",
+      "clip": "en",
+      "language": "en",
+      "audioSeconds": 54.5,
+      "wallSeconds": 3.31,
+      "timesRealtime": 16.5,
+      "peakMemoryMB": 868,
+      "wer": 0.6,
+      "exit": 0
+    },
+    {
+      "model": "large-v3-turbo-q5_0",
+      "clip": "en-long",
+      "language": "en",
+      "audioSeconds": 599.4,
+      "wallSeconds": 45.01,
+      "timesRealtime": 13.3,
+      "peakMemoryMB": 950,
+      "wer": 0.6,
+      "exit": 0
+    },
+    {
+      "model": "large-v3-turbo-q5_0",
+      "clip": "it",
+      "language": "it",
+      "audioSeconds": 61,
+      "wallSeconds": 5.6,
+      "timesRealtime": 10.9,
+      "peakMemoryMB": 794,
+      "wer": 2.3,
+      "exit": 0
+    }
+  ]
+}
