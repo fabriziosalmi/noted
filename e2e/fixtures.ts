@@ -24,6 +24,25 @@ export interface Launched {
   relaunch: () => Promise<Launched>;
 }
 
+/**
+ * Closes the app, and if it has not gone after `graceMs` ends the process. A shutdown that never finishes (seen on Windows runners,
+ * right after launch) used to cost the whole test timeout and fail whichever test happened to be running; the test is about the
+ * app's behaviour, not about how fast the process exits, so it must not depend on that. A kill is noted in the log.
+ */
+export async function closeApp(app: ElectronApplication, graceMs = 20_000): Promise<void> {
+  const proc = app.process();
+  const exited = new Promise<void>(resolve => { proc.once('exit', () => resolve()); });
+  const outcome = await Promise.race([
+    app.close().then(() => 'closed' as const, () => 'closed' as const),
+    new Promise<'late'>(resolve => setTimeout(() => resolve('late'), graceMs)),
+  ]);
+  if (outcome === 'late') {
+    console.warn(`[e2e] the app had not exited ${graceMs / 1000}s after being asked to: ending it`);
+    proc.kill();
+    await Promise.race([exited, new Promise<void>(resolve => setTimeout(resolve, 10_000))]);
+  }
+}
+
 export async function launch(
   vault: string,
   profile: string,
@@ -43,6 +62,7 @@ export async function launch(
   const app = await _electron.launch({ args, cwd: ROOT, env, timeout: 45_000 });
   const win = await app.firstWindow({ timeout: 30_000 });
   await win.waitForLoadState('domcontentloaded');
+  await win.waitForLoadState('load'); // not yet closed or driven while the page is still being put together
 
   const logChunks: string[] = [];
   app.process().stdout?.on('data', d => logChunks.push(String(d)));
@@ -55,7 +75,7 @@ export async function launch(
   const launched: Launched = {
     app, win, vault, readVault, appLog: () => logChunks.join(''),
     relaunch: async () => {
-      await app.close().catch(() => undefined);
+      await closeApp(app);
       return launch(vault, profile, track, extraEnv);
     },
   };
@@ -88,7 +108,7 @@ export const test = base.extend<{ noted: Launched }>({
       // Also in the CI log itself, where it is read first.
       console.warn(`[app-log tail] ${testInfo.title}\n${appLog.slice(-3000)}`);
     }
-    await current.app.close().catch(() => undefined);
+    await closeApp(current.app);
     // On Windows the browser keeps a file in the profile (DIPS) open for a moment after the app has closed. A temp
     // folder left behind is harmless; failing a test that passed over it is not.
     try { fs.rmSync(base, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }); } catch { /* left for the OS to clean */ }
