@@ -27,7 +27,7 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- **The quick-capture window works in the installed app.** Its script was inline, which the production content-security policy refuses, so the Save button, the close button and <kbd>⌘↩</kbd> did nothing outside a development run. The script is now a file and the buttons are wired in it.
+- **The quick-capture window works in the installed app.** Its script was inline, which the production content-security policy refuses, so the Save button, the close button and <kbd>⌘↩</kbd> did nothing outside a development run. The script is now a file and the buttons are wired in it. Escape is also answered by the app itself, so the frameless window can never be left without a way to close it, and a test now opens it and closes it both ways.
 - **Masked values are restored in the answer.** Until now the model's reply could contain `[EMAIL_1]` and it stayed that way, in the chat and in
   the text written into your note by the AI actions and slash commands (a rewrite of a selection with an address in it left the placeholder in the
   note). One masker now serves a whole conversation (a placeholder means one value, and counts across messages: before, `[EMAIL_1]` in two messages
