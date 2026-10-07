@@ -264,7 +264,7 @@
   "mcpTrashRetentionHelp": "Quand un assistant IA supprime une note via MCP, elle va dans .noted/trash du coffre et peut être restaurée. 0 la conserve jusqu'à ce que vous la supprimiez à la main.",
   "mcpSsePortLabel": "Port du serveur",
   "mcpSsePortHelp": "Le port sur lequel le serveur HTTP local écoutera.",
-  "mcpSseLocalUrl": "URL SSE locale",
+  "mcpSseLocalUrl": "URL locale (Streamable HTTP)",
   "mcpSseCloudflareHelp": "Pour connecter un appareil distant en toute sécurité, lancez un tunnel Cloudflare :",
   "dangerZone": "Zone de Danger",
   "dangerZoneDesc": "Supprimer définitivement toutes les notes, dossiers et modèles du disque. Cette action est irréversible.",
@@ -476,7 +476,7 @@
   "mcpClientCodexHint": "Ajouter à ~/.codex/config.toml",
   "mcpAfterAdding": "Redémarrez le client après avoir modifié sa configuration. Demandez-lui ensuite : « lister mes notes Noted ».",
   "mcpSseAuthHeader": "En-tête d'authentification (à ajouter à votre client MCP)",
-  "mcpSseAuthHeaderHelp": "Le serveur SSE exige ce jeton à chaque requête. Envoyez-le dans l'en-tête X-MCP-Token.",
+  "mcpSseAuthHeaderHelp": "Le serveur exige ce jeton à chaque requête. Envoyez-le dans l'en-tête X-MCP-Token, ou comme Authorization: Bearer <token>.",
   "ragSectionTitle": "Récupération (RAG)",
   "ragSectionBody": "Ajustez la quantité de contexte de notes récupérée et envoyée au modèle.",
   "ragTopKLabel": "Notes connexes principales",
@@ -950,5 +950,7 @@
   "activityClient": "Assistant",
   "activityKind": "Type",
   "activityMore": "{n} entrées plus anciennes ne sont pas affichées.",
-  "activityShowing": "{shown} affichées sur {total}"
+  "activityShowing": "{shown} affichées sur {total}",
+  "mcpLegacySseToggle": "Servir aussi l'ancien point d'accès SSE",
+  "mcpLegacySseHelp": "L'ancien transport HTTP+SSE, obsolète et conservé pour une version pour les clients qui ne sont pas passés à Streamable HTTP (l'URL ci-dessus). Désactivez-le quand vos clients utilisent /mcp."
 }

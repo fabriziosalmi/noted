@@ -19,12 +19,14 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
   ListResourcesRequestSchema,
   ListResourceTemplatesRequestSchema,
   ReadResourceRequestSchema,
+  isInitializeRequest,
   type Tool,
   McpError,
   ErrorCode,
@@ -33,6 +35,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import * as http from 'node:http';
 import { URL } from 'node:url';
 import { marked } from 'marked';
@@ -396,7 +399,7 @@ function noteNameOf(filePath: string): string {
  */
 function journalChange(tool: string, note: string, kind: 'create' | 'update' | 'delete', before: string | null, after: string | null): void {
   try {
-    appendEntry(NOTES_DIR, { client: serverClientName(), session: SESSION_ID, tool, via: 'direct', kind, note, before, after });
+    appendEntry(NOTES_DIR, { client: serverClientName(), session: callContext.getStore()?.session ?? SESSION_ID, tool, via: 'direct', kind, note, before, after });
   } catch (err) {
     throw new McpError(ErrorCode.InternalError, `The change was not made: it could not be recorded in the agent journal (${(err as Error).message})`);
   }
@@ -2114,17 +2117,13 @@ function isToolName(value: string): value is ToolName {
   return Object.prototype.hasOwnProperty.call(TOOL_HANDLERS, value);
 }
 
-const server = new Server(
-  { name: 'noted', version: pkg.version },
-  { capabilities: { tools: {}, resources: {} } },
-);
+/** Who is asking, for the journal and for staged changes: set around each tool call. */
+const callContext = new AsyncLocalStorage<{ client: string; session: string }>();
 
 /** What the connected client calls itself (it says so when it connects; nothing verifies it). */
 function serverClientName(): string {
-  return server.getClientVersion()?.name ?? 'unknown client';
+  return callContext.getStore()?.client ?? server.getClientVersion()?.name ?? 'unknown client';
 }
-
-server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 
 // ─── Notes as resources (noted://note/<path>) ─────────────────────────────────
 
@@ -2160,29 +2159,41 @@ export function handleReadResource(uri: string) {
   return { contents: [{ uri, mimeType: vaultFormat() === 'markdown' ? 'text/markdown' : 'text/html', text: fs.readFileSync(filePath, 'utf8') }] };
 }
 
-server.setRequestHandler(ListResourcesRequestSchema, async () => handleListResources());
-server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => ({
-  resourceTemplates: [{ uriTemplate: `${RESOURCE_PREFIX}{path}`, name: 'A note of the vault', description: 'The stored text of a note, by its path (for example noted://note/Projects/plan.md).', mimeType: vaultFormat() === 'markdown' ? 'text/markdown' : 'text/html' }],
-}));
-server.setRequestHandler(ReadResourceRequestSchema, async request => handleReadResource(request.params.uri));
+/** One MCP server for one connection: its handlers, and who is on the other end. */
+function createMcpServer(sessionId?: string): Server {
+  const srv = new Server(
+    { name: 'noted', version: pkg.version },
+    { capabilities: { tools: {}, resources: {} } },
+  );
+  srv.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
+  srv.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const { name, arguments: args = {} } = request.params;
+    const safeArgs = args as Record<string, unknown>;
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args = {} } = request.params;
-  const safeArgs = args as Record<string, unknown>;
+    try {
+      if (!isToolName(name)) throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
+      const handler = TOOL_HANDLERS[name];
+      const ctx = { client: srv.getClientVersion()?.name ?? 'unknown client', session: sessionId ?? SESSION_ID };
+      return await callContext.run(ctx, () => handler(safeArgs));
+    } catch (err) {
+      // Re-throw McpErrors as-is; wrap unexpected errors
+      if (err instanceof McpError) throw err;
+      throw new McpError(
+        ErrorCode.InternalError,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  });
+  srv.setRequestHandler(ListResourcesRequestSchema, async () => handleListResources());
+  srv.setRequestHandler(ListResourceTemplatesRequestSchema, async () => ({
+    resourceTemplates: [{ uriTemplate: `${RESOURCE_PREFIX}{path}`, name: 'A note of the vault', description: 'The stored text of a note, by its path (for example noted://note/Projects/plan.md).', mimeType: vaultFormat() === 'markdown' ? 'text/markdown' : 'text/html' }],
+  }));
+  srv.setRequestHandler(ReadResourceRequestSchema, async request => handleReadResource(request.params.uri));
+  return srv;
+}
 
-  try {
-    if (!isToolName(name)) throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
-    const handler = TOOL_HANDLERS[name];
-    return await handler(safeArgs);
-  } catch (err) {
-    // Re-throw McpErrors as-is; wrap unexpected errors
-    if (err instanceof McpError) throw err;
-    throw new McpError(
-      ErrorCode.InternalError,
-      err instanceof Error ? err.message : String(err),
-    );
-  }
-});
+/** The server for stdio, and for the older SSE sessions that share one. */
+const server = createMcpServer();
 
 export function getArgValue(flag: string): string | undefined {
   const argv = process.argv.slice(2);
@@ -2191,6 +2202,212 @@ export function getArgValue(flag: string): string | undefined {
   const spaceIdx = argv.indexOf(flag);
   if (spaceIdx !== -1 && argv[spaceIdx + 1]) return argv[spaceIdx + 1];
   return undefined;
+}
+
+// ─── HTTP: Streamable HTTP at /mcp, and the older SSE behind a flag ──────────
+
+export interface HttpOptions {
+  /** When set, every request must present it (X-MCP-Token, or Authorization: Bearer; the legacy /sse also takes ?token=). */
+  authToken?: string;
+  /** Also serve the older HTTP+SSE endpoints (/sse and /messages). */
+  legacySse: boolean;
+}
+
+const MAX_HTTP_SESSIONS = 20;
+const SESSION_IDLE_MS = 30 * 60 * 1000;
+const MAX_BODY_BYTES = 4 * 1024 * 1024;
+
+async function readJsonBody(req: http.IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += (chunk as Buffer).length;
+    if (size > MAX_BODY_BYTES) throw new Error('too large');
+    chunks.push(chunk as Buffer);
+  }
+  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+}
+
+/** The request handler of the HTTP server: the checks every request passes, then the endpoints. */
+export function createHttpListener({ authToken, legacySse }: HttpOptions): (req: http.IncomingMessage, res: http.ServerResponse) => Promise<void> {
+  const sseTransports = new Map<string, SSEServerTransport>();
+  const sessions = new Map<string, { transport: StreamableHTTPServerTransport; server: Server; lastSeen: number }>();
+
+  // Constant-time token comparison (avoids a length/timing oracle).
+  const tokenMatches = (given: string | undefined): boolean => {
+    if (!authToken || typeof given !== 'string') return false;
+    const a = Buffer.from(given);
+    const b = Buffer.from(authToken);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  };
+
+  const isLocalHostname = (h: string): boolean => {
+    let name: string;
+    try { name = new URL(`http://${h}`).hostname.toLowerCase().replace(/^\[|\]$/g, ''); } catch { return false; }
+    return name === 'localhost' || name === '127.0.0.1' || name === '::1';
+  };
+  const isLocalOrigin = (origin: string): boolean => {
+    try { return isLocalHostname(new URL(origin).hostname); } catch { return false; }
+  };
+
+  // Sessions nobody has used for a while are closed, so a client that vanished does not hold one for ever.
+  const sweep = setInterval(() => {
+    const now = Date.now();
+    for (const s of sessions.values()) if (now - s.lastSeen > SESSION_IDLE_MS) void s.transport.close();
+  }, 5 * 60 * 1000);
+  sweep.unref?.();
+
+  const reply = (res: http.ServerResponse, status: number, message: string): void => {
+    res.writeHead(status, { 'Content-Type': 'text/plain' });
+    res.end(message);
+  };
+
+  const handleMcp = async (req: http.IncomingMessage, res: http.ServerResponse): Promise<void> => {
+    const header = req.headers['mcp-session-id'];
+    const sessionId = typeof header === 'string' ? header : undefined;
+    const existing = sessionId ? sessions.get(sessionId) : undefined;
+
+    if (req.method === 'POST') {
+      let body: unknown;
+      try { body = await readJsonBody(req); } catch (err) {
+        reply(res, (err as Error).message === 'too large' ? 413 : 400, 'Invalid JSON body');
+        return;
+      }
+      if (existing) {
+        existing.lastSeen = Date.now();
+        await existing.transport.handleRequest(req, res, body);
+        return;
+      }
+      if (sessionId) { reply(res, 404, 'Session not found'); return; }
+      if (!isInitializeRequest(body)) { reply(res, 400, 'Missing session: start with an initialize request'); return; }
+      if (sessions.size >= MAX_HTTP_SESSIONS) { reply(res, 503, 'Too many sessions'); return; }
+      const id = crypto.randomUUID();
+      const srv = createMcpServer(`http-${id.slice(0, 12)}`);
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => id,
+        onsessioninitialized: sid => { sessions.set(sid, { transport, server: srv, lastSeen: Date.now() }); process.stderr.write(`[noted-mcp] session started: ${sid}\n`); },
+      });
+      transport.onclose = () => { sessions.delete(id); process.stderr.write(`[noted-mcp] session closed: ${id}\n`); };
+      await srv.connect(transport);
+      await transport.handleRequest(req, res, body);
+      return;
+    }
+
+    // GET (the stream of messages from the server) and DELETE (end the session) belong to a session
+    if (req.method === 'GET' || req.method === 'DELETE') {
+      if (!existing) { reply(res, sessionId ? 404 : 400, sessionId ? 'Session not found' : 'Missing Mcp-Session-Id header'); return; }
+      existing.lastSeen = Date.now();
+      await existing.transport.handleRequest(req, res);
+      return;
+    }
+    res.writeHead(405, { Allow: 'GET, POST, DELETE, OPTIONS' });
+    res.end();
+  };
+
+  return async (req, res) => {
+    const origin = typeof req.headers.origin === 'string' ? req.headers.origin : undefined;
+    const host = typeof req.headers.host === 'string' ? req.headers.host : undefined;
+
+    // DNS-rebinding defense: reject a Host or Origin that is present but not local. Local MCP clients send a local Host and
+    // no Origin header; missing headers (CLI clients) are treated as local. Bound to 127.0.0.1 already, this closes the
+    // browser/DNS-rebinding path to the notes vault.
+    if (host && !isLocalHostname(host)) {
+      res.writeHead(403);
+      res.end('Forbidden: non-local Host');
+      process.stderr.write(`[noted-mcp] Rejected non-local Host: ${host}\n`);
+      return;
+    }
+    if (origin && !isLocalOrigin(origin)) {
+      res.writeHead(403);
+      res.end('Forbidden: cross-origin request');
+      process.stderr.write(`[noted-mcp] Rejected cross-origin request from: ${origin}\n`);
+      return;
+    }
+
+    // CORS: reflect only a trusted local origin, never a wildcard.
+    if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-MCP-Token, Authorization, Mcp-Session-Id, Mcp-Protocol-Version, Last-Event-ID');
+    res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id');
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(200);
+      res.end();
+      return;
+    }
+
+    const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+    const isLegacy = parsedUrl.pathname === '/sse' || parsedUrl.pathname === '/messages';
+
+    // Token authentication: every request must present the token (the handshake and each message alike), so a leaked session
+    // id alone (from a proxy or access log) cannot drive the tools. The header carries it: X-MCP-Token, or
+    // Authorization: Bearer. A ?token= query is accepted only on the legacy /sse endpoints, since URLs end up in logs.
+    if (authToken) {
+      const headerToken = req.headers['x-mcp-token'];
+      const auth = req.headers.authorization;
+      const bearer = typeof auth === 'string' && /^Bearer /i.test(auth) ? auth.slice(7).trim() : undefined;
+      const reqToken = (isLegacy ? parsedUrl.searchParams.get('token') : null) ?? (typeof headerToken === 'string' ? headerToken : bearer);
+      if (!tokenMatches(reqToken ?? undefined)) {
+        res.writeHead(401);
+        res.end('Unauthorized: Invalid or missing token');
+        process.stderr.write('[noted-mcp] Rejected unauthorized request\n');
+        return;
+      }
+    }
+
+    if (parsedUrl.pathname === '/mcp') {
+      try {
+        await handleMcp(req, res);
+      } catch (err) {
+        process.stderr.write(`[noted-mcp] Error handling request: ${err}\n`);
+        if (!res.headersSent) reply(res, 500, 'Internal error');
+      }
+      return;
+    }
+
+    if (legacySse && req.method === 'GET' && parsedUrl.pathname === '/sse') {
+      const transport = new SSEServerTransport('/messages', res);
+      const sessionId = transport.sessionId;
+      sseTransports.set(sessionId, transport);
+
+      transport.onclose = () => {
+        sseTransports.delete(sessionId);
+        process.stderr.write(`[noted-mcp] SSE session closed: ${sessionId}\n`);
+      };
+
+      // Its own server: one server holds one connection, so sessions sharing one would take it from each other.
+      await createMcpServer(`sse-${sessionId.slice(0, 12)}`).connect(transport);
+      process.stderr.write(`[noted-mcp] SSE session started: ${sessionId}\n`);
+      return;
+    }
+
+    if (legacySse && req.method === 'POST' && parsedUrl.pathname === '/messages') {
+      const sessionId = parsedUrl.searchParams.get('sessionId');
+      if (!sessionId) {
+        res.writeHead(400);
+        res.end('Missing sessionId parameter');
+        return;
+      }
+
+      const transport = sseTransports.get(sessionId);
+      if (!transport) {
+        res.writeHead(404);
+        res.end('Session not found');
+        return;
+      }
+
+      try {
+        await transport.handlePostMessage(req, res);
+      } catch (err) {
+        process.stderr.write(`[noted-mcp] Error handling post message: ${err}\n`);
+      }
+      return;
+    }
+
+    res.writeHead(404);
+    res.end('Not Found');
+  };
 }
 
 export async function main() {
@@ -2209,129 +2426,20 @@ export async function main() {
 
   const transportType = getArgValue('--transport') ?? 'stdio';
 
-  if (transportType === 'sse') {
+  if (transportType === 'http' || transportType === 'sse') {
     const portStr = getArgValue('--port');
     const port = portStr ? parseInt(portStr, 10) : 3000;
-    const transports = new Map<string, SSEServerTransport>();
-
-    // Prefer the token from the environment (not process argv, which any
-    // same-user process can read via the process list); fall back to the flag
-    // for manual/backward-compatible starts.
+    // `--transport sse` is the name of the older transport; it still works, and still serves the Streamable endpoint too.
+    const legacySse = transportType === 'sse' || process.argv.includes('--legacy-sse');
+    if (transportType === 'sse') process.stderr.write('[noted-mcp] --transport sse is deprecated: use --transport http (Streamable HTTP at /mcp); add --legacy-sse to keep /sse for older clients.\n');
+    // Prefer the token from the environment (not process argv, which any same-user process can read via the process list);
+    // fall back to the flag for manual/backward-compatible starts.
     const authToken = process.env.NOTED_MCP_AUTH_TOKEN || getArgValue('--auth-token');
-
-    // Constant-time token comparison (avoids a length/timing oracle).
-    const tokenMatches = (given: string | undefined): boolean => {
-      if (!authToken || typeof given !== 'string') return false;
-      const a = Buffer.from(given);
-      const b = Buffer.from(authToken);
-      return a.length === b.length && crypto.timingSafeEqual(a, b);
-    };
-
-    const isLocalHostname = (h: string): boolean => {
-      const name = h.split(':')[0].toLowerCase().replace(/^\[|\]$/g, '');
-      return name === 'localhost' || name === '127.0.0.1' || name === '::1';
-    };
-    const isLocalOrigin = (origin: string): boolean => {
-      try { return isLocalHostname(new URL(origin).hostname); } catch { return false; }
-    };
-
-    const serverHttp = http.createServer(async (req, res) => {
-      const origin = typeof req.headers.origin === 'string' ? req.headers.origin : undefined;
-      const host = typeof req.headers.host === 'string' ? req.headers.host : undefined;
-
-      // DNS-rebinding defense: reject a Host or Origin that is present but not
-      // local. Local MCP clients send a local Host and no Origin header; missing
-      // headers (CLI clients) are treated as local. Bound to 127.0.0.1 already,
-      // this closes the browser/DNS-rebinding path to the notes vault.
-      if (host && !isLocalHostname(host)) {
-        res.writeHead(403);
-        res.end('Forbidden: non-local Host');
-        process.stderr.write(`[noted-mcp] Rejected non-local Host: ${host}\n`);
-        return;
-      }
-      if (origin && !isLocalOrigin(origin)) {
-        res.writeHead(403);
-        res.end('Forbidden: cross-origin request');
-        process.stderr.write(`[noted-mcp] Rejected cross-origin request from: ${origin}\n`);
-        return;
-      }
-
-      // CORS: reflect only a trusted local origin — never a wildcard.
-      if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Vary', 'Origin');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-MCP-Token');
-
-      if (req.method === 'OPTIONS') {
-        res.writeHead(200);
-        res.end();
-        return;
-      }
-
-      const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
-
-      // Token authentication: every request — the /sse handshake AND each
-      // /messages POST — must present the token, so a leaked sessionId alone
-      // (e.g. captured from a proxy/access log) can't drive the tools. Clients
-      // supply it via the X-MCP-Token header (which they apply to all requests);
-      // a ?token= query param also works for the handshake.
-      if (authToken) {
-        const headerToken = req.headers['x-mcp-token'];
-        const reqToken = parsedUrl.searchParams.get('token')
-          ?? (typeof headerToken === 'string' ? headerToken : undefined);
-        if (!tokenMatches(reqToken)) {
-          res.writeHead(401);
-          res.end('Unauthorized: Invalid or missing token');
-          process.stderr.write('[noted-mcp] Rejected unauthorized request\n');
-          return;
-        }
-      }
-
-      if (req.method === 'GET' && parsedUrl.pathname === '/sse') {
-        const transport = new SSEServerTransport('/messages', res);
-        const sessionId = transport.sessionId;
-        transports.set(sessionId, transport);
-
-        transport.onclose = () => {
-          transports.delete(sessionId);
-          process.stderr.write(`[noted-mcp] SSE session closed: ${sessionId}\n`);
-        };
-
-        await server.connect(transport);
-        process.stderr.write(`[noted-mcp] SSE session started: ${sessionId}\n`);
-        return;
-      }
-
-      if (req.method === 'POST' && parsedUrl.pathname === '/messages') {
-        const sessionId = parsedUrl.searchParams.get('sessionId');
-        if (!sessionId) {
-          res.writeHead(400);
-          res.end('Missing sessionId parameter');
-          return;
-        }
-
-        const transport = transports.get(sessionId);
-        if (!transport) {
-          res.writeHead(404);
-          res.end('Session not found');
-          return;
-        }
-
-        try {
-          await transport.handlePostMessage(req, res);
-        } catch (err) {
-          process.stderr.write(`[noted-mcp] Error handling post message: ${err}\n`);
-        }
-        return;
-      }
-
-      res.writeHead(404);
-      res.end('Not Found');
-    });
-
+    const serverHttp = http.createServer(createHttpListener({ authToken, legacySse }));
     serverHttp.listen(port, '127.0.0.1', () => {
-      process.stderr.write(`[noted-mcp] SSE server listening on http://127.0.0.1:${port}\n`);
-      process.stderr.write(`[noted-mcp] SSE endpoint: http://localhost:${port}/sse\n`);
+      process.stderr.write(`[noted-mcp] HTTP server listening on http://127.0.0.1:${port}\n`);
+      process.stderr.write(`[noted-mcp] Streamable HTTP endpoint: http://localhost:${port}/mcp\n`);
+      if (legacySse) process.stderr.write(`[noted-mcp] Legacy SSE endpoint (deprecated): http://localhost:${port}/sse\n`);
     });
   } else {
     const transport = new StdioServerTransport();

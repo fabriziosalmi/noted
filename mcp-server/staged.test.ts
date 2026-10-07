@@ -50,7 +50,10 @@ describe('staging an agent\'s change', () => {
     expect(r.structuredContent).toMatchObject({ staged: true, kind: 'update' });
     await mcp.handleUpdateNote({ name: 'drafts/plan.md', content: 'extra', append: true });
     expect(read('drafts/plan.md')).toBe(before);
-    const [first, second] = listPending(dir);
+    // two changes in the same millisecond have no order of their own: tell them apart by what they say
+    const all = listPending(dir);
+    const first = all.find(c => c.after === 'replaced entirely\n')!;
+    const second = all.find(c => c !== first)!;
     expect(first).toMatchObject({ kind: 'update', baseEtag: etagOf(before), before });
     expect(first.after).toBe('replaced entirely\n');
     expect(second.after).toContain('quarterly roadmap');

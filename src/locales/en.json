@@ -273,14 +273,14 @@
   "mcpClientCodexHint": "Add to ~/.codex/config.toml",
   "mcpAfterAdding": "Restart the client after editing its config. Then ask it: \"list my Noted notes\".",
   "mcpSseToggle": "Remote Access (HTTP/SSE)",
-  "mcpSseToggleHelp": "Expose the MCP server over HTTP/SSE. This allows remote clients (like Claude iOS on your phone) to connect to Noted.",
+  "mcpSseToggleHelp": "Expose the MCP server over HTTP (Streamable HTTP). This allows remote clients (like Claude on your phone) to connect to Noted.",
   "mcpTrashRetentionLabel": "Keep deleted notes for (days)",
   "mcpTrashRetentionHelp": "When an AI assistant deletes a note over MCP it goes to the vault's .noted/trash and can be restored. 0 keeps it until you remove it by hand.",
   "mcpSsePortLabel": "Server Port",
   "mcpSsePortHelp": "The port the local HTTP server will listen on.",
-  "mcpSseLocalUrl": "Local SSE URL",
+  "mcpSseLocalUrl": "Local URL (Streamable HTTP)",
   "mcpSseAuthHeader": "Auth header (add to your MCP client)",
-  "mcpSseAuthHeaderHelp": "The SSE server requires this token on every request. Send it as the X-MCP-Token header.",
+  "mcpSseAuthHeaderHelp": "The server requires this token on every request. Send it as the X-MCP-Token header, or as Authorization: Bearer <token>.",
   "mcpSseCloudflareHelp": "To connect a remote device securely, run a Cloudflare Tunnel:",
   "ragSectionTitle": "Retrieval (RAG)",
   "ragSectionBody": "Tune how much note context is retrieved and sent to the model.",
@@ -950,5 +950,7 @@
   "activityClient": "Assistant",
   "activityKind": "Kind",
   "activityMore": "{n} older entries are not shown.",
-  "activityShowing": "Showing {shown} of {total}"
+  "activityShowing": "Showing {shown} of {total}",
+  "mcpLegacySseToggle": "Also serve the older SSE endpoint",
+  "mcpLegacySseHelp": "The older HTTP+SSE transport, deprecated and kept for one release for clients that have not moved to Streamable HTTP (the URL above). Turn it off once your clients use /mcp."
 }

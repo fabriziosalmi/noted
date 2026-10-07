@@ -195,9 +195,9 @@
   "mcpTrashRetentionHelp": "Quando un assistente AI elimina una nota via MCP, finisce in .noted/trash nel vault e si può ripristinare. 0 la conserva finché non la rimuovi a mano.",
   "mcpSsePortLabel": "Porta del Server",
   "mcpSsePortHelp": "La porta su cui rimarrà in ascolto il server HTTP locale.",
-  "mcpSseLocalUrl": "URL SSE Locale",
+  "mcpSseLocalUrl": "URL locale (Streamable HTTP)",
   "mcpSseAuthHeader": "Header di autenticazione (aggiungilo al client MCP)",
-  "mcpSseAuthHeaderHelp": "Il server SSE richiede questo token a ogni richiesta. Invialo come header X-MCP-Token.",
+  "mcpSseAuthHeaderHelp": "Il server richiede questo token a ogni richiesta. Invialo nell'header X-MCP-Token, oppure come Authorization: Bearer <token>.",
   "mcpSseCloudflareHelp": "Per connettere un dispositivo remoto in modo sicuro, avvia un tunnel Cloudflare:",
   "ragSectionTitle": "Retrieval (RAG)",
   "ragSectionBody": "Regola quanta conoscenza locale viene recuperata e inviata al modello.",
@@ -950,5 +950,7 @@
   "activityClient": "Assistente",
   "activityKind": "Tipo",
   "activityMore": "{n} voci più vecchie non sono mostrate.",
-  "activityShowing": "Mostrate {shown} su {total}"
+  "activityShowing": "Mostrate {shown} su {total}",
+  "mcpLegacySseToggle": "Servi anche il vecchio endpoint SSE",
+  "mcpLegacySseHelp": "Il vecchio trasporto HTTP+SSE, deprecato e tenuto per una versione per i client che non sono passati a Streamable HTTP (l'URL qui sopra). Spegnilo quando i tuoi client usano /mcp."
 }

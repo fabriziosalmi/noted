@@ -109,6 +109,8 @@ export interface SettingsState {
   enableAutoCommit?: boolean;
   mcpSseEnabled?: boolean;
   mcpSsePort?: number;
+  /** Also serve the older HTTP+SSE endpoint (/sse), for clients that have not moved to Streamable HTTP (/mcp). */
+  mcpLegacySse?: boolean;
   // Days a note deleted through MCP stays in <vault>/.noted/trash (0 = until removed by hand).
   mcpTrashRetentionDays?: number;
   smartTagsEnabled?: boolean;

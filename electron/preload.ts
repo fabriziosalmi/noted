@@ -147,7 +147,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   searchNotesFulltext: (query: string, syncDir?: string) => ipcRenderer.invoke('search-notes-fulltext', query, syncDir),
   setupClaudeMcp: () => ipcRenderer.invoke('setup-claude-mcp'),
   importAppleNotes: (targetDir?: string) => ipcRenderer.invoke('import-apple-notes', targetDir),
-  updateMcpSseConfig: (config: { enabled: boolean; port: number; syncDir?: string }) =>
+  updateMcpSseConfig: (config: { enabled: boolean; port: number; syncDir?: string; legacySse?: boolean }) =>
     ipcRenderer.invoke('update-mcp-sse-config', config),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
 });

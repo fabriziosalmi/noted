@@ -77,7 +77,7 @@ provider.
 
 ## MCP server
 
-The optional SSE transport of the [MCP server](/reference/mcp-server#security)
+The optional HTTP transport (Streamable HTTP, and the deprecated SSE) of the [MCP server](/reference/mcp-server#security)
 binds to loopback, rejects non-local `Host`/`Origin` headers, and requires a
 constant-time-compared bearer token on every request. The default stdio transport
 inherits the trust of the client that launched it.
