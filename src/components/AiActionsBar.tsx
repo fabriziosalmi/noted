@@ -3,14 +3,19 @@ import type { Editor } from '@tiptap/react';
 import {
   ChevronRight, Maximize2, Minimize2, Wand2,
   FileText, Eye, Zap, HelpCircle, Loader2, Square,
-  Languages, SlidersHorizontal, List, MessageSquarePlus, X,
+  Languages, SlidersHorizontal, List, MessageSquarePlus, X, Library, Plus,
 } from 'lucide-react';
 import { askLLM, AbortedError, describeLlmError } from '../lib/llm';
 import { Tooltip } from './Tooltip';
 import { useStore } from '../store/useStore';
 import { createMasker } from '../lib/piiMasker';
 import { reviewable } from '../../shared/diff/hunks';
+import { mdToHtml } from '../lib/mdToHtml';
 import { AiEditReview } from './AiEditReview';
+import { answerPrompt, loadPrompt, usePromptList, type PromptListing } from '../lib/userPrompts';
+import { getElectronApi } from '../lib/electronApi';
+import { diskToWire } from '../lib/noteIo';
+import { PROMPTS_FOLDER, promptTemplateNote, type PromptMode } from '../../shared/prompts/prompt';
 import { useI18n, type TranslationKey } from '../lib/i18n';
 
 interface Action {
@@ -109,85 +114,6 @@ const ANALYSIS_ACTIONS: Action[] = [
   },
 ];
 
-function mdToHtml(md: string): string {
-  return md
-    .split('\n\n')
-    .map(block => {
-      const trimmed = block.trim();
-      if (!trimmed) return '';
-
-      // Headings (handle multiple in same block)
-      if (/^#{1,6} /m.test(trimmed)) {
-        return trimmed
-          .replace(/^###### (.+)$/mg, '<h6>$1</h6>')
-          .replace(/^##### (.+)$/mg, '<h5>$1</h5>')
-          .replace(/^#### (.+)$/mg, '<h4>$1</h4>')
-          .replace(/^### (.+)$/mg, '<h3>$1</h3>')
-          .replace(/^## (.+)$/mg, '<h2>$1</h2>')
-          .replace(/^# (.+)$/mg, '<h1>$1</h1>');
-      }
-
-      // Blockquotes
-      if (/^> /.test(trimmed)) {
-        const content = trimmed.replace(/^> ?/gm, '').trim();
-        return `<blockquote><p>${inlineFormat(content)}</p></blockquote>`;
-      }
-
-      // Tables (detect by | at start)
-      if (/^\|/.test(trimmed)) {
-        const rows = trimmed.split('\n').filter(l => l.trim() && !/^\s*\|[-: |]+\|\s*$/.test(l));
-        const html = rows.map((line, i) => {
-          const cells = line.split('|').slice(1, -1).map(c => c.trim());
-          const tag = i === 0 ? 'th' : 'td';
-          return `<tr>${cells.map(c => `<${tag}>${inlineFormat(c)}</${tag}>`).join('')}</tr>`;
-        }).join('');
-        return `<table>${html}</table>`;
-      }
-
-      // Unordered lists
-      if (/^[-*] /.test(trimmed)) {
-        const items = trimmed.split('\n')
-          .filter(l => /^[-*] /.test(l))
-          .map(l => `<li>${inlineFormat(l.replace(/^[-*] /, ''))}</li>`)
-          .join('');
-        return `<ul>${items}</ul>`;
-      }
-
-      // Ordered lists
-      if (/^\d+\. /.test(trimmed)) {
-        const items = trimmed.split('\n')
-          .filter(l => /^\d+\. /.test(l))
-          .map(l => `<li>${inlineFormat(l.replace(/^\d+\. /, ''))}</li>`)
-          .join('');
-        return `<ol>${items}</ol>`;
-      }
-
-      // Code blocks
-      if (trimmed.startsWith('```')) {
-        const code = trimmed.replace(/^```\w*\n?/, '').replace(/```$/, '');
-        return `<pre><code>${code}</code></pre>`;
-      }
-
-      // Horizontal rule
-      if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
-        return '<hr>';
-      }
-
-      return `<p>${inlineFormat(trimmed.replace(/\n/g, '<br>'))}</p>`;
-    })
-    .filter(Boolean)
-    .join('');
-}
-
-function inlineFormat(text: string): string {
-  return text
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    .replace(/_([^_]+)_/g, '<em>$1</em>');
-}
-
 interface AiActionsBarProps {
   editor: Editor;
   onError?: (msg: string) => void;
@@ -208,6 +134,20 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
   const piiMasking = useStore(s => s.settings.piiMasking ?? false);
   const reviewEdits = useStore(s => s.settings.aiReviewEdits ?? true);
   const [review, setReview] = useState<PendingReview | null>(null);
+  const prompts = usePromptList();
+  const syncDir = useStore(s => s.settings.syncDirectory) || undefined;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // The prompts menu closes on Escape, and on a click anywhere else.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const away = (e: PointerEvent) => { if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false); };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('pointerdown', away);
+    document.addEventListener('keydown', key);
+    return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', key); };
+  }, [menuOpen]);
   const abortRef = useRef<AbortController | null>(null);
   const { from, to } = editor.state.selection;
   const hasSelection = from !== to;
@@ -336,6 +276,63 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
     editor.chain().focus().insertContentAt({ from, to }, mdToHtml(text)).run();
   };
 
+  // A prompt from the vault: filled in for this note and selection, answered by the model, and the answer put where the prompt says
+  // (in place of the selection, through the same review as any rewrite; at the caret; or at the end of the note).
+  const runPrompt = useCallback(async (listing: PromptListing) => {
+    setMenuOpen(false);
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const { from, to } = editor.state.selection;
+    const selected = from !== to ? selectionText(editor, from, to) : '';
+    setActiveId('prompt');
+    try {
+      const prompt = await loadPrompt(listing.path, syncDir);
+      if (!prompt) { onError?.(t('promptEmpty')); return; }
+      const answer = await answerPrompt(prompt, { selection: selected, note: editor.getText({ blockSeparator: '\n\n' }), now: new Date() }, { piiMasking, signal: controller.signal });
+      if (!answer.ok) { onError?.(t('promptsNeedSelection')); return; }
+      const html = mdToHtml(answer.text);
+      const place = (mode: PromptMode) => {
+        if (mode === 'replace' && reviewEdits) {
+          if (reviewable(selected, answer.text).changes.length === 0) onError?.(t('reviewNoChange'));
+          else setReview({ title: prompt.name, original: selected, proposed: answer.text, from, to });
+        } else if (mode === 'replace') {
+          editor.chain().focus().deleteSelection().insertContent(html).run();
+        } else if (mode === 'append') {
+          editor.commands.focus('end');
+          editor.commands.insertContent(`<hr><h2>${prompt.name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</h2>${html}`);
+        } else {
+          editor.chain().focus().insertContentAt(editor.state.selection.to, html).run();
+        }
+      };
+      place(answer.mode);
+    } catch (err) {
+      if (err instanceof AbortedError) return;
+      onError?.(describeLlmError(err));
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
+      setActiveId(null);
+    }
+  }, [editor, onError, piiMasking, reviewEdits, syncDir, t]);
+
+  // A new prompt: a note in prompts/ to start from, opened for writing. Its name is the first free "New prompt", "New prompt 2"…
+  const newPrompt = useCallback(async () => {
+    setMenuOpen(false);
+    const api = getElectronApi();
+    const taken = new Set(useStore.getState().notes.map(n => n.name.toLowerCase()));
+    let n = 1;
+    const base = t('promptsNew');
+    const nameOf = () => `${PROMPTS_FOLDER}/${n === 1 ? base : `${base} ${n}`}.md`;
+    while (taken.has(nameOf().toLowerCase())) n++;
+    const name = nameOf();
+    const folder = await api?.createFolder(PROMPTS_FOLDER, syncDir);
+    if (folder && !folder.success && !/already exists/i.test(folder.error ?? '')) { onError?.(t('promptsCreateFailed').replace('{error}', folder.error ?? 'failed')); return; }
+    const res = await api?.saveNote(name, diskToWire(promptTemplateNote(n === 1 ? base : `${base} ${n}`), 'markdown'), syncDir);
+    if (!res?.success) { onError?.(t('promptsCreateFailed').replace('{error}', res?.error ?? 'failed')); return; }
+    await useStore.getState().fetchNotes();
+    await useStore.getState().openNote(name);
+  }, [onError, syncDir, t]);
+
   const renderBtn = (action: Action) => {
     const isActive = activeId === action.id;
     const isDisabled = !!activeId;
@@ -376,6 +373,50 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
       <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
       {ANALYSIS_ACTIONS.map(renderBtn)}
       <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
+      <div ref={menuRef} className="relative">
+        <Tooltip label={t('promptsMenu')} side="bottom">
+          <button
+            type="button"
+            onClick={() => setMenuOpen(o => !o)}
+            disabled={!!activeId}
+            aria-label={t('promptsMenu')}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            className={`group flex items-center py-1 px-1.5 rounded transition-colors duration-150 ${
+              menuOpen ? 'bg-[var(--accent-light)] text-[var(--accent)]'
+                : activeId ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[var(--accent)]'
+            }`}
+          >
+            <Library size={13} />
+          </button>
+        </Tooltip>
+        {menuOpen && (
+          <div role="menu" aria-label={t('promptsMenu')} className="absolute left-0 top-full mt-1 z-40 w-64 max-h-72 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl py-1">
+            {prompts.length === 0 && <p className="px-3 py-2 text-[11px] text-gray-500 dark:text-gray-400">{t('promptsNone')}</p>}
+            {prompts.map(p => {
+              const blocked = p.scope === 'selection' && !hasSelection;
+              return (
+                <button
+                  key={p.path}
+                  type="button"
+                  role="menuitem"
+                  disabled={blocked}
+                  title={blocked ? t('promptsNeedSelection') : p.description || p.path}
+                  onClick={() => { void runPrompt(p); }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:hover:bg-transparent"
+                >
+                  <span className="block truncate">{p.name}</span>
+                  {p.description && <span className="block truncate text-[11px] text-gray-500 dark:text-gray-400">{p.description}</span>}
+                </button>
+              );
+            })}
+            <button type="button" role="menuitem" onClick={() => { void newPrompt(); }} className="w-full flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--accent)] hover:bg-gray-100 dark:hover:bg-gray-800 border-t border-gray-100 dark:border-gray-800 mt-1">
+              <Plus size={12} aria-hidden="true" /> {t('promptsNew')}
+            </button>
+          </div>
+        )}
+      </div>
       <Tooltip label={t('aiActionCustom')} side="bottom">
         <button
           onClick={() => setCustomOpen(o => !o)}

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import { AiActionsBar } from './AiActionsBar';
 import { askLLM, AbortedError } from '../lib/llm';
@@ -270,6 +270,118 @@ describe('AiActionsBar', () => {
       await open();
       expect(mockEditor.state.doc.textBetween).toHaveBeenCalledWith(5, 40, '\n\n');
       expect(vi.mocked(askLLM).mock.calls.at(-1)?.[0]).toEqual(expect.arrayContaining([expect.objectContaining({ role: 'user', content: original })]));
+    });
+  });
+
+  describe('prompts from the vault', () => {
+    const file = (name: string) => ({ name, path: name, stats: { mtimeMs: 1, ctimeMs: 1, size: 1 } });
+    const raw: Record<string, string> = {
+      'prompts/Formal.md': '---\nname: Make formal\nscope: selection\ndescription: In a formal tone\n---\nRewrite formally on {{date}}:\n\n{{selection}}\n',
+      'prompts/Haiku.md': '---\nname: Haiku\nscope: note\n---\nA haiku about: {{note}}\n',
+      'prompts/Digest.md': '---\nname: Digest\nscope: note\nmode: append\n---\nDigest of: {{note}}\n',
+    };
+    const insertContentAt = vi.fn();
+    const insertContent = vi.fn();
+    const readNote = vi.fn(async (name: string) => (name in raw ? { success: true, data: raw[name] } : { success: false, error: 'no' }));
+    const saveNote = vi.fn(async () => ({ success: true }));
+    const createFolder = vi.fn(async () => ({ success: true }));
+    const openNote = vi.fn(async () => undefined);
+    const fetchNotes = vi.fn(async () => undefined);
+    const original = window.electronAPI;
+
+    beforeEach(() => {
+      insertContentAt.mockClear(); insertContent.mockClear(); saveNote.mockClear(); createFolder.mockClear(); openNote.mockClear();
+      window.electronAPI = { ...original, readNote, saveNote, createFolder } as unknown as typeof window.electronAPI;
+      useStore.setState({
+        settings: { ...useStore.getState().settings, aiReviewEdits: true, piiMasking: false },
+        notes: ['Plan.md', ...Object.keys(raw)].map(file),
+        frontmatterIndex: { 'prompts/Formal.md': { name: 'Make formal', scope: 'selection', description: 'In a formal tone' }, 'prompts/Haiku.md': { name: 'Haiku', scope: 'note' }, 'prompts/Digest.md': { name: 'Digest', scope: 'note', mode: 'append' } },
+        openNote, fetchNotes,
+      } as never);
+      mockEditor.getText.mockReturnValue('The whole note.');
+      mockEditor.commands.insertContent = insertContent;
+      mockEditor.chain.mockImplementation(() => {
+        const chainObj = { focus: () => chainObj, insertContentAt: (...a: unknown[]) => { insertContentAt(...a); return chainObj; }, deleteSelection: () => chainObj, insertContent: () => chainObj, run: vi.fn() };
+        return chainObj;
+      });
+    });
+    afterEach(() => { window.electronAPI = original; });
+
+    const menu = () => { fireEvent.click(screen.getByLabelText('Prompts')); return screen.getByRole('menu'); };
+
+    it('lists the prompts of the vault by name, with what they are for; one that needs a selection waits for one', () => {
+      render(<AiActionsBar {...defaultProps} />);
+      const m = menu();
+      expect(within(m).getAllByRole('menuitem').map(i => i.textContent?.trim())).toEqual(['Digest', 'Haiku', 'Make formalIn a formal tone', 'New prompt']); // by name, then the way to make one
+      expect(within(m).getByRole('menuitem', { name: /Make formal/ })).toBeDisabled();
+      expect(within(m).getByRole('menuitem', { name: /Haiku/ })).toBeEnabled();
+    });
+
+    it('a prompt on the note answers at the caret', async () => {
+      vi.mocked(askLLM).mockResolvedValueOnce('Autumn leaves fall');
+      render(<AiActionsBar {...defaultProps} />);
+      fireEvent.click(within(menu()).getByRole('menuitem', { name: /Haiku/ }));
+      await waitFor(() => expect(insertContentAt).toHaveBeenCalled());
+      expect(vi.mocked(askLLM).mock.calls.at(-1)?.[0][1]).toEqual({ role: 'user', content: 'A haiku about: The whole note.' });
+      expect(insertContentAt).toHaveBeenCalledWith(0, '<p>Autumn leaves fall</p>');
+    });
+
+    it('a prompt marked append puts its answer at the end of the note, under its name', async () => {
+      vi.mocked(askLLM).mockResolvedValueOnce('A digest.');
+      render(<AiActionsBar {...defaultProps} />);
+      fireEvent.click(within(menu()).getByRole('menuitem', { name: /Digest/ }));
+      await waitFor(() => expect(insertContent).toHaveBeenCalledWith('<hr><h2>Digest</h2><p>A digest.</p>'));
+    });
+
+    it('a prompt on the selection opens the review, like any rewrite, and replaces nothing until it is applied', async () => {
+      mockEditor.state.selection = { from: 5, to: 20 };
+      mockEditor.state.doc.textBetween.mockReturnValue('hey there friend');
+      vi.mocked(askLLM).mockResolvedValueOnce('Good day, dear friend');
+      render(<AiActionsBar {...defaultProps} />);
+      fireEvent.click(within(menu()).getByRole('menuitem', { name: /Make formal/ }));
+      const dialog = await screen.findByRole('dialog');
+      expect(dialog).toHaveTextContent('Make formal: review the edit');
+      expect(vi.mocked(askLLM).mock.calls.at(-1)?.[0][1].content).toMatch(/^Rewrite formally on \d{4}-\d{2}-\d{2}:\n\nhey there friend$/);
+      expect(insertContentAt).not.toHaveBeenCalled();
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Apply' }));
+      expect(insertContentAt).toHaveBeenCalledWith({ from: 5, to: 20 }, '<p>Good day, dear friend</p>');
+    });
+
+    it('a note that has no instruction is said so, and the model is not asked', async () => {
+      raw['prompts/Haiku.md'] = '---\nname: Haiku\nscope: note\n---\n';
+      render(<AiActionsBar {...defaultProps} />);
+      fireEvent.click(within(menu()).getByRole('menuitem', { name: /Haiku/ }));
+      await waitFor(() => expect(defaultProps.onError).toHaveBeenCalledWith('That prompt note has no instruction.'));
+      expect(askLLM).not.toHaveBeenCalled();
+      raw['prompts/Haiku.md'] = '---\nname: Haiku\nscope: note\n---\nA haiku about: {{note}}\n';
+    });
+
+    it('a new prompt is a note to start from in prompts/, opened for writing; the name is the first one free', async () => {
+      useStore.setState({ notes: ['prompts/New prompt.md', 'prompts/New prompt 2.md'].map(file) } as never);
+      render(<AiActionsBar {...defaultProps} />);
+      fireEvent.click(within(menu()).getAllByRole('menuitem').at(-1) as HTMLElement); // the last item is the one that makes a new prompt
+      await waitFor(() => expect(saveNote).toHaveBeenCalled());
+      const [name, html] = saveNote.mock.calls[0] as unknown as [string, string];
+      expect(name).toBe('prompts/New prompt 3.md');
+      expect(html).toContain('{{selection}}');
+      expect(createFolder).toHaveBeenCalledWith('prompts', undefined);
+      await waitFor(() => expect(openNote).toHaveBeenCalledWith('prompts/New prompt 3.md'));
+    });
+
+    it('with no prompts, the menu says what a prompt is', () => {
+      useStore.setState({ notes: [file('Plan.md')], frontmatterIndex: {} } as never);
+      render(<AiActionsBar {...defaultProps} />);
+      expect(within(menu()).getByText(/A prompt is a note in prompts\//)).toBeInTheDocument();
+    });
+
+    it('the menu closes on Escape and on a click elsewhere', () => {
+      render(<AiActionsBar {...defaultProps} />);
+      menu();
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByRole('menu')).toBeNull();
+      menu();
+      fireEvent.pointerDown(document.body);
+      expect(screen.queryByRole('menu')).toBeNull();
     });
   });
 

@@ -1,7 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 import { askLLM, AbortedError, describeLlmError } from '../lib/llm';
-import { Wand2, AlignLeft, List, Languages, Minimize2, Pencil, Loader2, Square } from 'lucide-react';
+import { answerPrompt, loadPrompt, usePromptList, type PromptListing } from '../lib/userPrompts';
+import { slugOf } from '../../shared/prompts/prompt';
+import { mdToHtml } from '../lib/mdToHtml';
+import { Wand2, AlignLeft, List, Languages, Library, Minimize2, Pencil, Loader2, Square } from 'lucide-react';
 import { useI18n, type TranslationKey } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import { createMasker } from '../lib/piiMasker';
@@ -10,6 +13,9 @@ interface SlashCommandsProps {
   editor: Editor;
   onAiError?: (msg: string) => void;
 }
+
+/** What the menu lists: the built-in commands, then the prompts of the vault. */
+type Entry = { kind: 'builtin'; id: string; cmd: Command } | { kind: 'prompt'; id: string; prompt: PromptListing };
 
 interface Command {
   id: string;
@@ -72,15 +78,22 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const [running, setRunning] = useState<string | null>(null);
+  const [runningLabel, setRunningLabel] = useState('');
+  const syncDir = useStore(s => s.settings.syncDirectory) || undefined;
+  // Prompts that work without a selection (a slash command has none): those for the note, and those for any text.
+  const allPrompts = usePromptList();
+  const prompts = useMemo(() => allPrompts.filter(p => p.scope !== 'selection'), [allPrompts]);
   const triggerFromRef = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // Abort any in-flight slash command on unmount.
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  const filtered = COMMANDS.filter(c =>
-    !query || t(c.labelKey).toLowerCase().includes(query.toLowerCase()) || c.id.includes(query.toLowerCase())
-  );
+  const q = query.toLowerCase();
+  const filtered = useMemo<Entry[]>(() => [
+    ...COMMANDS.filter(c => !query || t(c.labelKey).toLowerCase().includes(q) || c.id.includes(q)).map((cmd): Entry => ({ kind: 'builtin', id: cmd.id, cmd })),
+    ...prompts.filter(p => !query || p.name.toLowerCase().includes(q) || slugOf(p.path).includes(q)).map((p): Entry => ({ kind: 'prompt', id: p.path, prompt: p })),
+  ], [query, q, prompts, t]);
 
   useEffect(() => { setActiveIdx(0); }, [query]);
 
@@ -110,6 +123,7 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
   const executeCommand = useCallback(async (cmd: Command) => {
     setOpen(false);
     setRunning(cmd.id);
+    setRunningLabel(t(cmd.labelKey));
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -144,7 +158,41 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
       if (abortRef.current === controller) abortRef.current = null;
       setRunning(null);
     }
-  }, [editor, onAiError, piiMasking]);
+  }, [editor, onAiError, piiMasking, t]);
+
+  // A prompt of the vault: its /name text goes, it is filled in for the note, and the answer is put where the caret was (or at the end
+  // of the note, if the prompt says so). There is no selection here: a prompt that needs one is not in this menu.
+  const executePrompt = useCallback(async (listing: PromptListing) => {
+    setOpen(false);
+    setRunning(listing.path);
+    setRunningLabel(listing.name);
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const { from } = editor.state.selection;
+    editor.chain().focus().deleteRange({ from: triggerFromRef.current ?? from, to: from }).run();
+    try {
+      const prompt = await loadPrompt(listing.path, syncDir);
+      if (!prompt) { onAiError?.(t('promptEmpty')); return; }
+      const answer = await answerPrompt(prompt, { selection: '', note: editor.getText({ blockSeparator: '\n\n' }), now: new Date() }, { piiMasking, signal: controller.signal });
+      if (!answer.ok) { onAiError?.(t('promptsNeedSelection')); return; }
+      const html = mdToHtml(answer.text);
+      if (answer.mode === 'append') {
+        editor.commands.focus('end');
+        editor.commands.insertContent(`<hr>${html}`);
+      } else {
+        editor.chain().focus().insertContent(html).run();
+      }
+    } catch (err) {
+      if (err instanceof AbortedError) return;
+      onAiError?.(describeLlmError(err));
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
+      setRunning(null);
+    }
+  }, [editor, onAiError, piiMasking, syncDir, t]);
+
+  const execute = useCallback((entry: Entry) => { void (entry.kind === 'builtin' ? executeCommand(entry.cmd) : executePrompt(entry.prompt)); }, [executeCommand, executePrompt]);
 
   useEffect(() => {
     if (!open) return;
@@ -155,12 +203,12 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
       if (e.key === 'ArrowUp')   { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)); }
       if ((e.key === 'Enter' || e.key === 'Tab') && filtered[activeIdx]) {
         e.preventDefault();
-        void executeCommand(filtered[activeIdx]);
+        execute(filtered[activeIdx]);
       }
     };
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
-  }, [open, filtered, activeIdx, executeCommand]);
+  }, [open, filtered, activeIdx, execute]);
 
   // Running spinner overlay
   if (running) {
@@ -168,7 +216,7 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
       <div className="fixed top-14 right-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl px-4 py-3 flex items-center gap-3 z-50">
         <Loader2 size={16} className="animate-spin text-[var(--accent)]" />
         <span className="text-sm text-gray-600 dark:text-gray-300">
-          {t(COMMANDS.find(c => c.id === running)?.labelKey ?? 'cmdContinueLabel')}...
+          {runningLabel}...
         </span>
         <button
           type="button"
@@ -193,24 +241,33 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
       <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800 mb-1">
         {t('aiActions')}
       </div>
-      {filtered.map((cmd, i) => (
-        <button
-          key={cmd.id}
-          onMouseDown={e => { e.preventDefault(); void executeCommand(cmd); }}
-          onMouseEnter={() => setActiveIdx(i)}
-          className={`w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors ${
-            i === activeIdx
-              ? 'bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]'
-              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60'
-          }`}
-        >
-          <span className="mt-0.5 opacity-70 shrink-0">{cmd.icon}</span>
-          <div>
-            <div className="text-sm font-medium leading-tight">{t(cmd.labelKey)}</div>
-            <div className="text-xs opacity-60 mt-0.5">{t(cmd.descKey)}</div>
+      {filtered.map((entry, i) => {
+        const label = entry.kind === 'builtin' ? t(entry.cmd.labelKey) : entry.prompt.name;
+        const desc = entry.kind === 'builtin' ? t(entry.cmd.descKey) : entry.prompt.description;
+        const firstPrompt = entry.kind === 'prompt' && filtered[i - 1]?.kind !== 'prompt';
+        return (
+          <div key={entry.id}>
+            {firstPrompt && (
+              <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-t border-gray-100 dark:border-gray-800 mt-1">{t('promptsGroup')}</div>
+            )}
+            <button
+              onMouseDown={e => { e.preventDefault(); execute(entry); }}
+              onMouseEnter={() => setActiveIdx(i)}
+              className={`w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors ${
+                i === activeIdx
+                  ? 'bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60'
+              }`}
+            >
+              <span className="mt-0.5 opacity-70 shrink-0">{entry.kind === 'builtin' ? entry.cmd.icon : <Library size={14} />}</span>
+              <div className="min-w-0">
+                <div className="text-sm font-medium leading-tight truncate">{label}</div>
+                {desc && <div className="text-xs opacity-60 mt-0.5 truncate">{desc}</div>}
+              </div>
+            </button>
           </div>
-        </button>
-      ))}
+        );
+      })}
       <div className="px-3 py-1.5 border-t border-gray-100 dark:border-gray-800 mt-1 flex gap-3 text-[10px] text-gray-400">
         <span>{t('navigate')}</span><span>{t('execute')}</span><span>{t('escClose')}</span>
       </div>

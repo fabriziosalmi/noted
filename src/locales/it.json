@@ -1078,5 +1078,12 @@
   "healthConfirmCopies": "Tenere {keep} e spostare {n} copia/e nel cestino? Puoi riprenderle da lì.",
   "healthNeedsModel": "Imposta un modello IA nelle Impostazioni per avere un riassunto suggerito.",
   "healthReportFooter": "Generato da Salute del vault. Eseguilo di nuovo per averne uno aggiornato; questa nota non fa parte del controllo.",
-  "healthFixFailed": "Impossibile farlo: {error}"
+  "healthFixFailed": "Impossibile farlo: {error}",
+  "promptsMenu": "Prompt",
+  "promptsNone": "Ancora nessun prompt. Un prompt è una nota in prompts/ con l'istruzione, e {{selection}}, {{note}} o {{date}} dove servono.",
+  "promptsNew": "Nuovo prompt",
+  "promptsNeedSelection": "Seleziona prima del testo",
+  "promptEmpty": "Quella nota di prompt non ha un'istruzione.",
+  "promptsGroup": "I tuoi prompt",
+  "promptsCreateFailed": "Impossibile creare il prompt: {error}"
 }

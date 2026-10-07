@@ -140,6 +140,16 @@ and for a change over 5 MB, the agent is told it could not be staged. `restore_n
 and are refused in these folders. Policy is per folder, not per client: an MCP client names itself and nothing can check that name,
 so a rule keyed on it would protect nothing.
 
+### Prompts
+
+The notes in `prompts/` are offered to clients as MCP **prompts** (see [Prompts](/guide/prompts) for how to write them), so Claude
+Desktop, Claude Code and others can use the instructions you keep in your vault. `prompts/list` gives each by the name it is asked for
+with (the file name, lower case, words joined by dashes; a repeat gets `-2`, `-3`), its title, its description and the arguments it
+takes: `selection` and `note`, for the variables it uses (`selection` is required when the prompt's scope is `selection`). `prompts/get`
+returns one message with the instruction filled in: `{{selection}}` and `{{note}}` are what the client passes, `{{date}}` is today. As
+in the app, a prompt for `any` text takes the selection if given, else the note; a prompt for a `note` ignores the selection. Prompts
+follow the [access policy](#controlling-what-agents-can-reach): one in a folder agents cannot read is not listed and cannot be got.
+
 ### Links, tags, properties and resources
 
 `get_backlinks`, `get_outgoing_links`, `list_tags`, `list_by_tag`, `get_properties` and `query_notes` answer from the notes as the app
