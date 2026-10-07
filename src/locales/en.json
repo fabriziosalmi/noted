@@ -1007,5 +1007,21 @@
   "aiNoSources": "I couldn't find anything about this in your notes.",
   "aiUncited": "No source cited: this answer is not backed by your notes.",
   "aiSources": "Sources",
-  "aiOpenSource": "Open {label}"
+  "aiOpenSource": "Open {label}",
+  "reviewKept": "{n} of {total} changes kept",
+  "reviewKeepAll": "Keep all",
+  "reviewDropAll": "Drop all",
+  "reviewKeep": "Keep",
+  "reviewDrop": "Drop",
+  "reviewChange": "Change {n}",
+  "reviewAiTitle": "{action}: review the edit",
+  "reviewAiHelp": "Nothing in your note changes until you apply. Keep or drop each change; what is applied is your text with the kept changes made.",
+  "reviewApply": "Apply",
+  "reviewDiscard": "Discard",
+  "reviewNoChange": "The model proposed no change.",
+  "reviewStale": "The text you selected changed while the model was working, so nothing was replaced. Run the action again.",
+  "aiReviewEdits": "Review AI edits before applying",
+  "aiReviewEditsDesc": "Actions that rewrite a selection (Improve, Shorten, Expand…) show their changes first, and you keep or drop each one. Off: the rewrite replaces the selection at once.",
+  "pendingApproveSome": "Approve {n} of {total}",
+  "pendingKeepSome": "Choose which of the agent's changes to keep: only those are written."
 }

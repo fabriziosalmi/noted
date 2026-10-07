@@ -110,6 +110,8 @@ export interface SettingsState {
   ragDebug?: boolean;
   /** Chat answers come only from the notes, with citations; nothing in the notes about a question is said, not guessed. */
   ragVaultOnly?: boolean;
+  /** AI actions that rewrite a selection show their changes first (default on). */
+  aiReviewEdits?: boolean;
   embeddingsEnabled?: boolean;
   embeddingProvider?: 'openai' | 'lmstudio' | 'ollama' | 'none';
   embeddingModel?: string;

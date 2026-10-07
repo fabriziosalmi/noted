@@ -9,6 +9,8 @@ import { askLLM, AbortedError, describeLlmError } from '../lib/llm';
 import { Tooltip } from './Tooltip';
 import { useStore } from '../store/useStore';
 import { createMasker } from '../lib/piiMasker';
+import { reviewable } from '../../shared/diff/hunks';
+import { AiEditReview } from './AiEditReview';
 import { useI18n, type TranslationKey } from '../lib/i18n';
 
 interface Action {
@@ -191,6 +193,12 @@ interface AiActionsBarProps {
   onError?: (msg: string) => void;
 }
 
+/** A rewrite waiting to be read: the text that was selected, what the model proposes for it, and where it was. */
+interface PendingReview { title: string; original: string; proposed: string; from: number; to: number }
+
+/** The selected text as the model is given it, and as it is compared when the rewrite comes back: paragraphs apart, as in Markdown. */
+const selectionText = (editor: Editor, from: number, to: number): string => editor.state.doc.textBetween(from, to, '\n\n');
+
 export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
   const { t } = useI18n();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -198,6 +206,8 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
   const [customText, setCustomText] = useState('');
   const customInputRef = useRef<HTMLInputElement>(null);
   const piiMasking = useStore(s => s.settings.piiMasking ?? false);
+  const reviewEdits = useStore(s => s.settings.aiReviewEdits ?? true);
+  const [review, setReview] = useState<PendingReview | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const { from, to } = editor.state.selection;
   const hasSelection = from !== to;
@@ -218,7 +228,7 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
     const { from, to } = editor.state.selection;
     const hasSelection = from !== to;
     const rawText = hasSelection
-      ? editor.state.doc.textBetween(from, to, '\n')
+      ? (action.mode === 'replace' ? selectionText(editor, from, to) : editor.state.doc.textBetween(from, to, '\n'))
       : editor.getText();
 
     if (!rawText.trim()) {
@@ -247,7 +257,11 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
 
       const html = mdToHtml(result);
 
-      if (action.mode === 'replace') {
+      if (action.mode === 'replace' && reviewEdits) {
+        // Read before it replaces anything: the selection stays as it is until the person applies what they keep.
+        if (reviewable(rawText, result).changes.length === 0) onError?.(t('reviewNoChange'));
+        else setReview({ title: t(action.labelKey), original: rawText, proposed: result, from, to });
+      } else if (action.mode === 'replace') {
         // Guaranteed to have a selection here (guarded above); replacing via a
         // chain transaction keeps it in the undo history, unlike setContent().
         editor.chain().focus().deleteSelection().insertContent(html).run();
@@ -263,7 +277,7 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
       if (abortRef.current === controller) abortRef.current = null;
       setActiveId(null);
     }
-  }, [editor, onError, piiMasking, t]);
+  }, [editor, onError, piiMasking, reviewEdits, t]);
 
   // Free-form instruction on the selection (or the whole note if nothing is
   // selected). A selection is rewritten in place; without one the result is
@@ -276,7 +290,7 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
 
     const { from, to } = editor.state.selection;
     const hasSelection = from !== to;
-    const rawText = hasSelection ? editor.state.doc.textBetween(from, to, '\n') : editor.getText();
+    const rawText = hasSelection ? selectionText(editor, from, to) : editor.getText();
     if (!rawText.trim()) {
       onError?.(t('errWriteSomethingFirst'));
       return;
@@ -292,7 +306,10 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
         { role: 'user', content: selectedText },
       ], { signal: controller.signal, masker });
       const html = mdToHtml(result);
-      if (hasSelection) {
+      if (hasSelection && reviewEdits) {
+        if (reviewable(rawText, result).changes.length === 0) onError?.(t('reviewNoChange'));
+        else setReview({ title: t('aiActionCustom'), original: rawText, proposed: result, from, to });
+      } else if (hasSelection) {
         editor.chain().focus().deleteSelection().insertContent(html).run();
       } else {
         editor.commands.focus('end');
@@ -307,7 +324,17 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
       if (abortRef.current === controller) abortRef.current = null;
       setActiveId(null);
     }
-  }, [editor, onError, piiMasking, t]);
+  }, [editor, onError, piiMasking, reviewEdits, t]);
+
+  // Apply what was kept. The note may have moved on while the model worked or the person read: the text is put in only if it is
+  // still exactly the text that was sent, never in place of something else.
+  const applyReview = (text: string) => {
+    if (!review) return;
+    const { from, to, original } = review;
+    setReview(null);
+    if (to > editor.state.doc.content.size || selectionText(editor, from, to) !== original) { onError?.(t('reviewStale')); return; }
+    editor.chain().focus().insertContentAt({ from, to }, mdToHtml(text)).run();
+  };
 
   const renderBtn = (action: Action) => {
     const isActive = activeId === action.id;
@@ -388,6 +415,15 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
             : <button type="button" onClick={() => { setCustomOpen(false); setCustomText(''); }} aria-label={t('closeFind')} className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X size={13} /></button>
           }
         </div>
+      )}
+      {review && (
+        <AiEditReview
+          title={review.title}
+          original={review.original}
+          proposed={review.proposed}
+          onApply={applyReview}
+          onCancel={() => setReview(null)}
+        />
       )}
       {hasSelection && !customOpen && (
         <span className="ml-2 text-[10px] italic shrink-0" style={{ color: 'var(--accent)', opacity: 0.7 }}>

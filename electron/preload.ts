@@ -89,7 +89,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getMcpPolicy: (syncDir?: string) => ipcRenderer.invoke('get-mcp-policy', syncDir),
   setMcpPolicy: (policy: unknown, syncDir?: string) => ipcRenderer.invoke('set-mcp-policy', policy, syncDir),
   listPendingChanges: (syncDir?: string) => ipcRenderer.invoke('list-pending-changes', syncDir),
-  settlePendingChange: (id: string, approve: boolean, syncDir?: string) => ipcRenderer.invoke('settle-pending-change', id, approve, syncDir),
+  settlePendingChange: (id: string, approve: boolean, syncDir?: string, content?: string) => ipcRenderer.invoke('settle-pending-change', id, approve, syncDir, content),
   journalList: (syncDir?: string) => ipcRenderer.invoke('journal-list', syncDir),
   journalDiff: (id: string, syncDir?: string) => ipcRenderer.invoke('journal-diff', id, syncDir),
   journalRevert: (ids: string[], syncDir?: string) => ipcRenderer.invoke('journal-revert', ids, syncDir),

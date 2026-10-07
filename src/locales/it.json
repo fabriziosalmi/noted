@@ -1007,5 +1007,21 @@
   "aiNoSources": "Non ho trovato nulla su questo nelle tue note.",
   "aiUncited": "Nessuna fonte citata: questa risposta non è sostenuta dalle tue note.",
   "aiSources": "Fonti",
-  "aiOpenSource": "Apri {label}"
+  "aiOpenSource": "Apri {label}",
+  "reviewKept": "{n} modifiche su {total} accettate",
+  "reviewKeepAll": "Tieni tutte",
+  "reviewDropAll": "Scarta tutte",
+  "reviewKeep": "Tieni",
+  "reviewDrop": "Scarta",
+  "reviewChange": "Modifica {n}",
+  "reviewAiTitle": "{action}: rivedi la modifica",
+  "reviewAiHelp": "Nulla nella nota cambia finché non applichi. Tieni o scarta ogni modifica; viene applicato il tuo testo con le modifiche tenute.",
+  "reviewApply": "Applica",
+  "reviewDiscard": "Annulla",
+  "reviewNoChange": "Il modello non ha proposto modifiche.",
+  "reviewStale": "Il testo selezionato è cambiato mentre il modello lavorava, quindi non è stato sostituito nulla. Esegui di nuovo l'azione.",
+  "aiReviewEdits": "Rivedi le modifiche dell'IA prima di applicarle",
+  "aiReviewEditsDesc": "Le azioni che riscrivono una selezione (Migliora, Accorcia, Espandi…) mostrano prima le modifiche, e tieni o scarti ciascuna. Disattivato: la riscrittura sostituisce subito la selezione.",
+  "pendingApproveSome": "Approva {n} su {total}",
+  "pendingKeepSome": "Scegli quali modifiche dell'agente tenere: viene scritto solo ciò che tieni."
 }

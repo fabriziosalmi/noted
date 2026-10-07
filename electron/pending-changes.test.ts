@@ -55,6 +55,37 @@ describe('approving', () => {
     ]);
   });
 
+  it('an update can be approved in part: the text the person composed is written, in place of the agent\'s, and that is what is journaled', async () => {
+    const before = 'one\ntwo\nthree\nfour\n';
+    fs.writeFileSync(abs('a.md'), before);
+    const c = stage('update', 'a.md', before, 'ONE\ntwo\nthree\nFOUR\n');
+    expect(await approvePending(deps(), c.id, { content: 'ONE\ntwo\nthree\nfour\n' })).toEqual({ ok: true });
+    expect(fs.readFileSync(abs('a.md'), 'utf8')).toBe('ONE\ntwo\nthree\nfour\n');
+    expect(snapshots).toEqual([{ name: 'a.md', previous: before }]);
+    expect(recorded).toEqual([{ client: 'claude', tool: 'x', kind: 'update', note: 'a.md', before, after: 'ONE\ntwo\nthree\nfour\n' }]);
+    expect(getPending(dir, c.id)).toBeNull();
+  });
+
+  it('a partial approval is still refused when the note changed since the agent saw it, and the change stays', async () => {
+    fs.writeFileSync(abs('a.md'), 'old');
+    const c = stage('update', 'a.md', 'old', 'new');
+    fs.writeFileSync(abs('a.md'), 'edited by hand');
+    expect(await approvePending(deps(), c.id, { content: 'partly new' })).toMatchObject({ ok: false, conflict: true });
+    expect(fs.readFileSync(abs('a.md'), 'utf8')).toBe('edited by hand');
+    expect(getPending(dir, c.id)).not.toBeNull();
+  });
+
+  it('only a change to an existing note can be approved in part', async () => {
+    const created = stage('create', 'n.md', null, 'fresh');
+    expect(await approvePending(deps(), created.id, { content: 'x' })).toMatchObject({ ok: false });
+    expect(fs.existsSync(abs('n.md'))).toBe(false);
+    fs.writeFileSync(abs('d.md'), 'x');
+    const deleted = stage('delete', 'd.md', 'x', null);
+    expect(await approvePending(deps(), deleted.id, { content: '' })).toMatchObject({ ok: false });
+    expect(fs.existsSync(abs('d.md'))).toBe(true);
+    expect(getPending(dir, created.id)).not.toBeNull();
+  });
+
   it('a change that cannot be recorded is not made', async () => {
     fs.writeFileSync(abs('a.md'), 'old');
     const u = stage('update', 'a.md', 'old', 'new');

@@ -77,7 +77,7 @@ declare global {
       getMcpPolicy: (syncDir?: string) => Promise<{ success: boolean; data?: { policy?: McpPolicy; present?: boolean; error?: string }; error?: string }>;
       setMcpPolicy: (policy: McpPolicy, syncDir?: string) => Promise<{ success: boolean; data?: { policy: McpPolicy }; error?: string }>;
       listPendingChanges: (syncDir?: string) => Promise<{ success: boolean; data?: PendingChange[]; error?: string }>;
-      settlePendingChange: (id: string, approve: boolean, syncDir?: string) => Promise<{ success: boolean; error?: string; conflict?: boolean }>;
+      settlePendingChange: (id: string, approve: boolean, syncDir?: string, content?: string) => Promise<{ success: boolean; error?: string; conflict?: boolean }>;
       journalList: (syncDir?: string) => Promise<{ success: boolean; data?: { entries: JournalEntry[]; total: number; reverted: string[]; chain: { ok: true; entries: number } | { ok: false; at: number; reason: string } }; error?: string }>;
       journalDiff: (id: string, syncDir?: string) => Promise<{ success: boolean; data?: { before: string; after: string; kept: boolean }; error?: string }>;
       journalRevert: (ids: string[], syncDir?: string) => Promise<{ success: boolean; data?: { id: string; ok: boolean; conflict?: boolean; error?: string }[]; error?: string }>;

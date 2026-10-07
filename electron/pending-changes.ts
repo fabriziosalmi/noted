@@ -23,11 +23,18 @@ export interface PendingDeps {
 
 export type Settled = { ok: true } | { ok: false; error: string; conflict?: boolean };
 
-export async function approvePending(deps: PendingDeps, id: string): Promise<Settled> {
+/**
+ * Approving: make the change. For an update, `content` may be given: the text the person composed from the changes they kept (a
+ * part of what the agent proposed), written in place of the agent's own. The journal records what was written, not what was proposed.
+ */
+export async function approvePending(deps: PendingDeps, id: string, opts: { content?: string } = {}): Promise<Settled> {
   const change = getPending(deps.notesDir, id);
   if (!change) return { ok: false, error: 'that change is no longer waiting' };
   const bad = checkNotePath(change.note, 'Note name');
   if (bad) return { ok: false, error: bad };
+
+  if (opts.content !== undefined && change.kind !== 'update') return { ok: false, error: 'only a change to an existing note can be approved in part' };
+  const written = opts.content ?? change.after ?? '';
 
   const current = await deps.readNote(change.note);
   if (change.kind === 'create') {
@@ -37,9 +44,9 @@ export async function approvePending(deps: PendingDeps, id: string): Promise<Set
   } else if (change.kind === 'update') {
     if (current === null) return { ok: false, error: 'the note was deleted since', conflict: true };
     if (etagOf(current) !== change.baseEtag) return { ok: false, error: 'the note was changed since the agent saw it', conflict: true };
-    deps.record?.({ client: change.client, tool: change.tool, kind: 'update', note: change.note, before: current, after: change.after });
+    deps.record?.({ client: change.client, tool: change.tool, kind: 'update', note: change.note, before: current, after: written });
     await deps.snapshotBefore(change.note, current);
-    await deps.writeNote(change.note, change.after ?? '');
+    await deps.writeNote(change.note, written);
   } else if (current !== null) {
     if (etagOf(current) !== change.baseEtag) return { ok: false, error: 'the note was changed since the agent saw it', conflict: true };
     deps.record?.({ client: change.client, tool: change.tool, kind: 'delete', note: change.note, before: current, after: null });

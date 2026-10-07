@@ -1007,5 +1007,21 @@
   "aiNoSources": "No encontré nada sobre esto en tus notas.",
   "aiUncited": "Ninguna fuente citada: esta respuesta no está respaldada por tus notas.",
   "aiSources": "Fuentes",
-  "aiOpenSource": "Abrir {label}"
+  "aiOpenSource": "Abrir {label}",
+  "reviewKept": "{n} de {total} cambios conservados",
+  "reviewKeepAll": "Conservar todos",
+  "reviewDropAll": "Descartar todos",
+  "reviewKeep": "Conservar",
+  "reviewDrop": "Descartar",
+  "reviewChange": "Cambio {n}",
+  "reviewAiTitle": "{action}: revisar la edición",
+  "reviewAiHelp": "Nada en tu nota cambia hasta que apliques. Conserva o descarta cada cambio; se aplica tu texto con los cambios conservados.",
+  "reviewApply": "Aplicar",
+  "reviewDiscard": "Descartar",
+  "reviewNoChange": "El modelo no propuso ningún cambio.",
+  "reviewStale": "El texto seleccionado cambió mientras el modelo trabajaba, así que no se sustituyó nada. Ejecuta la acción de nuevo.",
+  "aiReviewEdits": "Revisar las ediciones de la IA antes de aplicarlas",
+  "aiReviewEditsDesc": "Las acciones que reescriben una selección (Mejorar, Acortar, Ampliar…) muestran antes sus cambios, y conservas o descartas cada uno. Desactivado: la reescritura sustituye la selección de inmediato.",
+  "pendingApproveSome": "Aprobar {n} de {total}",
+  "pendingKeepSome": "Elige qué cambios del agente conservar: solo esos se escriben."
 }
