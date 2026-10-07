@@ -1196,7 +1196,7 @@ describe('MCP server additional coverage', () => {
       return undefined as never;
     });
     
-    await import('./index?cachebust=3');
+    await import('./entry?cachebust=3');
     
     // Wait a tick for the microtask queue to process the catch block
     await new Promise(resolve => setTimeout(resolve, 10));
@@ -1469,7 +1469,7 @@ describe('MCP server additional coverage', () => {
       return undefined as never;
     });
     
-    await import('./index?cachebust=10');
+    await import('./entry?cachebust=10');
     
     await new Promise(resolve => setTimeout(resolve, 10));
     

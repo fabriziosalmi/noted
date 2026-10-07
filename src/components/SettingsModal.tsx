@@ -326,6 +326,18 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath, settings, onUpda
           />
         </div>
 
+        <div className="pt-2 border-t border-gray-200/40 dark:border-gray-700/40 space-y-1">
+          <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">{t('mcpCliTitle')}</p>
+          <p className="text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">{t('mcpCliHelp')}</p>
+          <CopyBlock
+            value={`alias noted='node "${serverPath.replace(/index\.cjs$/, 'noted-cli.cjs')}" --vault "${vaultPath}"'`}
+            kind="cli-noted"
+            copiedCmd={copiedCmd}
+            copyText={copyText}
+            label={t('copy')}
+          />
+        </div>
+
         <AgentAccessSettings />
       </div>
 

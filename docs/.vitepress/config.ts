@@ -103,6 +103,7 @@ export default defineConfig({
             { text: 'Settings', link: '/reference/settings' },
             { text: 'Keyboard shortcuts', link: '/reference/keyboard-shortcuts' },
             { text: 'MCP server', link: '/reference/mcp-server' },
+            { text: 'Command line', link: '/reference/cli' },
             { text: 'Agent workflows', link: '/reference/agent-workflows' },
           ],
         },
