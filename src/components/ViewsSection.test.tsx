@@ -26,6 +26,20 @@ describe('ViewsSection', () => {
     expect(useStore.getState().activeViewId).toBe('b');
   });
 
+  it('offers the workflows board only once the vault has a workflow note, and opening it leaves the other pages', () => {
+    const file = (name: string) => ({ name, path: name, stats: { mtimeMs: 1, ctimeMs: 1, size: 1 } });
+    useStore.setState({ notes: [file('plain.md')] });
+    const { unmount } = renderSection();
+    expect(screen.queryByRole('button', { name: 'Workflows' })).toBeNull();
+    unmount();
+    useStore.setState({ notes: [file('plain.md'), file('agents/wf-WF1-demo.md')], tasksOpen: true });
+    renderSection();
+    fireEvent.click(screen.getByRole('button', { name: 'Workflows' }));
+    expect(useStore.getState()).toMatchObject({ workflowsOpen: true, tasksOpen: false, activityOpen: false, activeViewId: null });
+    fireEvent.click(screen.getByRole('button', { name: 'Reading list' }));
+    expect(useStore.getState()).toMatchObject({ workflowsOpen: false, activeViewId: 'b' });
+  });
+
   it('makes a new view from a name, and opens it', async () => {
     renderSection();
     fireEvent.click(screen.getByRole('button', { name: 'New view' }));

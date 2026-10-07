@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { getElectronApi } from '../lib/electronApi';
-import { Bot, CheckSquare, ChevronDown, ChevronRight, Copy, Pencil, Plus, Table2, Trash2 } from 'lucide-react';
+import { Bot, CheckSquare, ChevronDown, Kanban, ChevronRight, Copy, Pencil, Plus, Table2, Trash2 } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import { useConfirm, usePrompt } from './ConfirmProvider';
 import { Tooltip } from './Tooltip';
+import { isWorkflowNoteName } from '../lib/workflowBoard';
 
 const OPEN_KEY = 'noted-views-section-open';
 const readOpen = (): boolean => {
@@ -18,6 +19,9 @@ export function ViewsSection() {
   const activeViewId = useStore(s => s.activeViewId);
   const tasksOpen = useStore(s => s.tasksOpen);
   const activityOpen = useStore(s => s.activityOpen);
+  const workflowsOpen = useStore(s => s.workflowsOpen);
+  // Offered once the vault holds a workflow note (named wf-<id>-<title>.md by the tool that makes them).
+  const hasWorkflows = useStore(s => s.notes.some(n => isWorkflowNoteName(n.name)));
   const syncDir = useStore(s => s.settings.syncDirectory) || undefined;
   const [agentsActive, setAgentsActive] = useState(false);
 
@@ -84,6 +88,17 @@ export function ViewsSection() {
         >
           <Bot size={13} className="shrink-0 text-gray-400" aria-hidden="true" />
           {t('activityTitle')}
+        </button>
+      )}
+      {hasWorkflows && (
+        <button
+          type="button"
+          onClick={() => useStore.getState().openWorkflows()}
+          aria-current={workflowsOpen ? 'page' : undefined}
+          className={`w-full flex items-center gap-2 px-2 py-1 rounded-md text-sm text-left ${workflowsOpen ? 'bg-[var(--accent-light)] text-[var(--accent)] font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-gray-700/40'}`}
+        >
+          <Kanban size={13} className="shrink-0 text-gray-400" aria-hidden="true" />
+          {t('workflowsTitle')}
         </button>
       )}
       <div className="flex items-center justify-between px-1 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">

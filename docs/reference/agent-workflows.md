@@ -173,6 +173,15 @@ tools — Approve, Reject, and Advance operate through `advance` / `approveGate`
 `rejectGate` and persist the note. When a task's governing workflow cannot be
 found, both callers fail safe to `manual` mode.
 
+## The workflows board
+
+**Workflows** in the sidebar (shown once the vault has a `wf-…` note) lays a workflow out as a board: one column per task state, from To do to Done, with Blocked, Failed and Stale after them when something is in them. A vault with several workflows has a picker at the top.
+
+- **What waits for what.** A task lists the tasks it depends on, each marked done or not yet, and the tasks it holds back. A dependency on a task that is not in the workflow is flagged, since the engine treats it as unmet; tasks that depend on each other in a loop are named in a warning, because none of them can start.
+- **Decisions.** A task in `review`, and a workflow in one of its gate states (`awaiting_plan_approval`, `awaiting_review`, `awaiting_output_approval`), shows **Approve** and **Reject**. Rejecting asks for a reason, which is recorded in the event. The decision goes through the same `approveGate` / `rejectGate` as the Agent panel and the MCP tools: the state moves, an event is appended to the note, and a task's new state is mirrored into its workflow note.
+- **Stale boards are refused.** The notes are read again when you decide. If an assistant moved the task (or the workflow) since the board was loaded, nothing is written and the board refreshes.
+- **Where the board gets its data.** The workflow note's `tasks[]` mirror, which the tools keep in step with each task note. Workflow notes are found by their name, `wf-<id>-<title>.md` in any folder, as the scaffold names them; a renamed one is not listed.
+
 ## Current status
 
 The workflow and task lifecycles are fully wired end-to-end. Two parts of the
