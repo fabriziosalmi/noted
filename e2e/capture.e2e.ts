@@ -116,3 +116,35 @@ test('quick capture window: says everything in the language of the app', async (
   await expect(page.locator('#note')).toHaveAttribute('placeholder', 'Scrivi qui…');
   await expect(page.locator('#save')).toHaveText('Salva');
 });
+
+test('quick capture window: closes with Escape and with the close button, nothing saved', async ({ noted }) => {
+  for (const [name] of SEED_NOTES) fs.rmSync(path.join(noted.vault, name), { force: true });
+  fs.writeFileSync(path.join(noted.vault, 'Anchor.md'), '# Anchor\n\nhello\n');
+  const { win, app, vault } = await noted.relaunch();
+  await expect(win.getByText('Anchor', { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+  const open = async () => {
+    const opened = app.waitForEvent('window');
+    await app.evaluate(({ Menu }) => {
+      const find = (items: Electron.MenuItem[]): Electron.MenuItem | undefined => {
+        for (const i of items) { if (i.label === 'Quick Capture') return i; const f = i.submenu && find(i.submenu.items); if (f) return f; }
+        return undefined;
+      };
+      find(Menu.getApplicationMenu()!.items)!.click();
+    });
+    const page = await opened;
+    await page.waitForLoadState('domcontentloaded');
+    return page;
+  };
+
+  let page = await open();
+  await page.locator('#note').fill('typed but not saved');
+  // The window closes under the call, which Playwright reports as an error: that is the behaviour being checked
+  await page.keyboard.press('Escape').catch(() => undefined);
+  await expect.poll(() => page.isClosed(), { timeout: 10_000 }).toBe(true);
+
+  page = await open();
+  await page.locator('#close').click().catch(() => undefined);
+  await expect.poll(() => page.isClosed(), { timeout: 10_000 }).toBe(true);
+
+  expect(fs.readdirSync(vault).filter(f => f !== 'Anchor.md' && !f.startsWith('.'))).toEqual([]);
+});

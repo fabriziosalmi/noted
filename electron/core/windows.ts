@@ -86,6 +86,11 @@ export function openCaptureWindow() {
     },
   });
   captureWin.on('closed', () => { captureWin = null; });
+  // The window has no frame, so its own page is the only way to close it. Escape is also answered here, in the main process, so a page
+  // that fails to run its script (as it did when a content-security policy refused it) can never leave a window that cannot be closed.
+  captureWin.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown' && input.key === 'Escape') { event.preventDefault(); closeCaptureWindow(); }
+  });
   // The page is static and has no store, so what it says reaches it in the address: in the language of the app.
   const labels = encodeURIComponent(JSON.stringify({
     title: tr('menuQuickCapture'), target: tr('captureTargetLabel'), placeholder: tr('capturePlaceholder'), save: tr('captureSave'),
