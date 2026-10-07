@@ -243,7 +243,10 @@ export class VaultIndex {
     const st = this.byDir.get(this.key(dir));
     if (!st) return [];
     const out: NoteTask[] = [];
-    for (const [name, e] of st.notes) {
+    // By note name, then line: the scan visits folders in whatever order the file system lists them, which differs between systems
+    // (and between runs on ext4), and a list that changes order from one machine to the next cannot be tested or relied on.
+    for (const name of [...st.notes.keys()].sort()) {
+      const e = st.notes.get(name)!;
       for (const t of e.tasks) out.push({ ...t, note: name, noteTags: e.taskNoteTags });
     }
     return out;
