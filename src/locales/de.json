@@ -1007,5 +1007,21 @@
   "aiNoSources": "Dazu habe ich in deinen Notizen nichts gefunden.",
   "aiUncited": "Keine Quelle genannt: Diese Antwort wird von deinen Notizen nicht gestützt.",
   "aiSources": "Quellen",
-  "aiOpenSource": "{label} öffnen"
+  "aiOpenSource": "{label} öffnen",
+  "reviewKept": "{n} von {total} Änderungen übernommen",
+  "reviewKeepAll": "Alle übernehmen",
+  "reviewDropAll": "Alle verwerfen",
+  "reviewKeep": "Übernehmen",
+  "reviewDrop": "Verwerfen",
+  "reviewChange": "Änderung {n}",
+  "reviewAiTitle": "{action}: Änderung prüfen",
+  "reviewAiHelp": "In deiner Notiz ändert sich nichts, bis du anwendest. Übernimm oder verwirf jede Änderung; angewendet wird dein Text mit den übernommenen Änderungen.",
+  "reviewApply": "Anwenden",
+  "reviewDiscard": "Verwerfen",
+  "reviewNoChange": "Das Modell hat keine Änderung vorgeschlagen.",
+  "reviewStale": "Der ausgewählte Text hat sich geändert, während das Modell arbeitete; es wurde nichts ersetzt. Führe die Aktion erneut aus.",
+  "aiReviewEdits": "KI-Änderungen vor dem Anwenden prüfen",
+  "aiReviewEditsDesc": "Aktionen, die eine Auswahl umschreiben (Verbessern, Kürzen, Erweitern…), zeigen zuerst ihre Änderungen, und du übernimmst oder verwirfst jede. Aus: Die Umschreibung ersetzt die Auswahl sofort.",
+  "pendingApproveSome": "{n} von {total} genehmigen",
+  "pendingKeepSome": "Wähle, welche Änderungen des Agenten übernommen werden: nur diese werden geschrieben."
 }

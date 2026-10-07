@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import { AiActionsBar } from './AiActionsBar';
 import { askLLM, AbortedError } from '../lib/llm';
 import { useStore } from '../store/useStore';
@@ -15,6 +15,7 @@ const mockEditor = {
     selection: { from: 0, to: 0 },
     doc: {
       textBetween: vi.fn(),
+      content: { size: 1000 },
     },
   },
   getText: vi.fn(),
@@ -110,7 +111,8 @@ describe('AiActionsBar', () => {
     });
   });
 
-  it('runs action with selection (mode: replace) and updates selection', async () => {
+  it('runs action with selection (mode: replace) and updates selection (review off: at once)', async () => {
+    useStore.setState({ settings: { ...useStore.getState().settings, aiReviewEdits: false } });
     mockEditor.state.selection = { from: 5, to: 10 };
     mockEditor.state.doc.textBetween.mockReturnValue('selected text');
     vi.mocked(askLLM).mockResolvedValueOnce('Replacement text.');
@@ -186,6 +188,89 @@ describe('AiActionsBar', () => {
     await waitFor(() => expect(askLLM).toHaveBeenCalled());
     const opts = vi.mocked(askLLM).mock.calls.at(-1)?.[1] as { masker?: { unmask(text: string): string } };
     expect(opts.masker?.unmask('Write to [EMAIL_1], not [PHONE_1].')).toBe('Write to john.doe@example.com, not 123-456-7890.');
+  });
+
+  describe('reviewing a rewrite before it is applied', () => {
+    const insertContentAt = vi.fn();
+    const setup = (original: string, proposed: string) => {
+      useStore.setState({ settings: { ...useStore.getState().settings, aiReviewEdits: true } });
+      mockEditor.state.selection = { from: 5, to: 40 };
+      mockEditor.state.doc.textBetween.mockReturnValue(original);
+      vi.mocked(askLLM).mockResolvedValueOnce(proposed);
+      insertContentAt.mockClear();
+      mockEditor.chain.mockImplementation(() => {
+        const chainObj = { focus: () => chainObj, insertContentAt: (...a: unknown[]) => { insertContentAt(...a); return chainObj; }, deleteSelection: () => chainObj, insertContent: () => chainObj, run: vi.fn() };
+        return chainObj;
+      });
+    };
+    const original = 'The first paragraph is fine.\n\nThe second one is wordy and long.\n\nThe third is wordy too.';
+    const proposed = 'The first paragraph is fine.\n\nThe second is brief.\n\nThe third is brief too.';
+    const open = async () => {
+      render(<AiActionsBar {...defaultProps} />);
+      fireEvent.click(screen.getByLabelText('Shorten'));
+      return screen.findByRole('dialog');
+    };
+
+    it('opens the changes to read, and touches nothing in the note while it is open', async () => {
+      setup(original, proposed);
+      const dialog = await open();
+      expect(dialog).toHaveTextContent('Shorten: review the edit');
+      expect(dialog.querySelectorAll('[data-change]')).toHaveLength(2);
+      expect(screen.getByTestId('review-count')).toHaveTextContent('2 of 2 changes kept');
+      expect(insertContentAt).not.toHaveBeenCalled();
+    });
+
+    it('applies everything that was kept, in place of the selection, as it would have been written before', async () => {
+      setup(original, proposed);
+      await open();
+      fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+      expect(insertContentAt).toHaveBeenCalledWith({ from: 5, to: 40 }, '<p>The first paragraph is fine.</p><p>The second is brief.</p><p>The third is brief too.</p>');
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    });
+
+    it('a change that was dropped stays as it was, and the others are made', async () => {
+      setup(original, proposed);
+      await open();
+      const second = document.querySelector('[data-change="1"]') as HTMLElement;
+      fireEvent.click(within(second).getByRole('button', { name: 'Drop' }));
+      expect(screen.getByTestId('review-count')).toHaveTextContent('1 of 2 changes kept');
+      fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+      expect(insertContentAt).toHaveBeenCalledWith({ from: 5, to: 40 }, '<p>The first paragraph is fine.</p><p>The second is brief.</p><p>The third is wordy too.</p>');
+    });
+
+    it('with every change dropped there is nothing to apply; discarding leaves the note as it was', async () => {
+      setup(original, proposed);
+      await open();
+      fireEvent.click(screen.getByRole('button', { name: 'Drop all' }));
+      expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled();
+      fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      expect(insertContentAt).not.toHaveBeenCalled();
+    });
+
+    it('if the selected text is no longer what was sent, nothing is replaced, and it says so', async () => {
+      setup(original, proposed);
+      await open();
+      mockEditor.state.doc.textBetween.mockReturnValue('something typed in the meantime');
+      fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+      expect(insertContentAt).not.toHaveBeenCalled();
+      expect(defaultProps.onError).toHaveBeenCalledWith(expect.stringContaining('nothing was replaced'));
+    });
+
+    it('a rewrite that changes nothing opens no review', async () => {
+      setup(original, original);
+      render(<AiActionsBar {...defaultProps} />);
+      fireEvent.click(screen.getByLabelText('Shorten'));
+      await waitFor(() => expect(defaultProps.onError).toHaveBeenCalledWith('The model proposed no change.'));
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it('the model is given the paragraphs apart, as they are compared', async () => {
+      setup(original, proposed);
+      await open();
+      expect(mockEditor.state.doc.textBetween).toHaveBeenCalledWith(5, 40, '\n\n');
+      expect(vi.mocked(askLLM).mock.calls.at(-1)?.[0]).toEqual(expect.arrayContaining([expect.objectContaining({ role: 'user', content: original })]));
+    });
   });
 
   it('refuses to rewrite the whole note when nothing is selected (data-loss guard)', async () => {

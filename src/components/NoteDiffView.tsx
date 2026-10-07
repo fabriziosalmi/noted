@@ -13,7 +13,8 @@ const WORD = {
 } as const;
 const SIGN = { same: ' ', del: '−', add: '+' } as const;
 
-function Row({ row }: { row: DiffRow }) {
+/** One line of a diff, with its line numbers and the changed words marked. */
+export function DiffRowView({ row }: { row: DiffRow }) {
   return (
     <div className={`flex ${ROW[row.kind]}`} data-kind={row.kind}>
       <span aria-hidden="true" className="w-9 shrink-0 text-right pr-1 select-none text-gray-400 dark:text-gray-500">{row.oldLine ?? ''}</span>
@@ -64,7 +65,7 @@ export function NoteDiffView({ before, after, isNew, isDeleted }: { before: stri
                   {t('gitDiffSkipped').replace('{n}', String(hunk.skipped))}
                 </div>
               )}
-              {hunk.rows.map((row, j) => <Row key={j} row={row} />)}
+              {hunk.rows.map((row, j) => <DiffRowView key={j} row={row} />)}
             </div>
           ))}
           {skippedAfter > 0 && (

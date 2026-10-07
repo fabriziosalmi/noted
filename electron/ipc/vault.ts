@@ -14,6 +14,7 @@ import { appendEntry, readBlob, readEntries } from '../../shared/vault/journalFi
 import { verifyChain } from '../../shared/vault/journal';
 import { revertedIds } from '../../shared/vault/journalTypes';
 import { listPending } from '../../shared/vault/pendingFile';
+import { MAX_PENDING_BYTES } from '../../shared/vault/pending';
 import { moveToTrash } from '../../mcp-server/trash';
 import { isAccess, parsePolicy, serializePolicy, MAX_POLICY_FOLDERS, type McpPolicy } from '../../shared/vault/mcpPolicy';
 import { loadPolicy, savePolicy } from '../../shared/vault/mcpPolicyFile';
@@ -214,9 +215,10 @@ export function registerVaultHandlers(): void {
     }
   });
 
-  ipcMain.handle('settle-pending-change', async (_, id: unknown, approve: unknown, syncDir?: string) => {
+  ipcMain.handle('settle-pending-change', async (_, id: unknown, approve: unknown, syncDir?: string, content?: unknown) => {
     try {
       if (typeof id !== 'string' || typeof approve !== 'boolean') throw new Error('Invalid request');
+      if (content !== undefined && (typeof content !== 'string' || !approve || content.length > MAX_PENDING_BYTES)) throw new Error('Invalid request');
       const dir = getTargetDir(syncDir);
       if (!approve) return rejectPending(dir, id).ok ? { success: true } : { success: false, error: 'that change is no longer waiting' };
       assertNotMigrating();
@@ -228,7 +230,7 @@ export function registerVaultHandlers(): void {
         writeNote: files.writeNote,
         trashNote: name => { moveToTrash(dir, name); fullTextSearchIndex.deleteDoc(dir, name); vaultIndex.deleteDoc(dir, name); },
         record: entry => { appendEntry(dir, { ...entry, session: `approval-${id}`, via: 'approval' }); },
-      }, id);
+      }, id, { content });
       return out.ok ? { success: true } : { success: false, error: out.error, conflict: out.conflict };
     } catch (err) {
       return { success: false, error: (err as Error).message };

@@ -89,4 +89,43 @@ describe('PendingChangesBadge', () => {
     await waitFor(() => expect(settlePendingChange).toHaveBeenCalledTimes(2));
     expect(settlePendingChange.mock.calls.every(c => c[1] === true)).toBe(true);
   });
+
+  describe('approving part of a change to a note', () => {
+    const before = 'intro\nquarterly roadmap\nmiddle\nmiddle two\nmiddle three\nmiddle four\nclosing words\n';
+    const after = 'intro\nyearly roadmap\nmiddle\nmiddle two\nmiddle three\nmiddle four\nfinal words\n';
+    beforeEach(() => { queue = [change('a', { before, after })]; });
+
+    it('shows each change to choose from, all kept to begin with, and approving all of them is the plain approval', async () => {
+      const dialog = await open();
+      expect(within(dialog).getByTestId('review-count')).toHaveTextContent('2 of 2 changes kept');
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Approve' }));
+      await waitFor(() => expect(settlePendingChange).toHaveBeenCalledWith('aaaaaaaaaaaaaaaa', true, undefined));
+    });
+
+    it('dropping one change approves the others, and what is written is the note with only those made', async () => {
+      const dialog = await open();
+      const second = dialog.querySelector('[data-change="1"]') as HTMLElement;
+      fireEvent.click(within(second).getByRole('button', { name: 'Drop' }));
+      const approve = within(dialog).getByRole('button', { name: 'Approve 1 of 2' });
+      fireEvent.click(approve);
+      await waitFor(() => expect(settlePendingChange).toHaveBeenCalled());
+      expect(settlePendingChange).toHaveBeenCalledWith('aaaaaaaaaaaaaaaa', true, undefined, 'intro\nyearly roadmap\nmiddle\nmiddle two\nmiddle three\nmiddle four\nclosing words\n');
+    });
+
+    it('with every change dropped there is nothing to approve, but the whole thing can still be rejected', async () => {
+      const dialog = await open();
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Drop all' }));
+      expect(within(dialog).getByRole('button', { name: 'Approve' })).toBeDisabled();
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Reject' }));
+      await waitFor(() => expect(settlePendingChange).toHaveBeenCalledWith('aaaaaaaaaaaaaaaa', false, undefined));
+    });
+
+    it('a new note is not offered in parts: there is nothing in it to choose between', async () => {
+      queue = [change('b', { kind: 'create', note: 'drafts/new.md', baseEtag: null, before: null, after: '# New\nbody\n' })];
+      const dialog = await open();
+      expect(dialog.querySelector('[data-change]')).toBeNull();
+      expect(within(dialog).getByRole('button', { name: 'Approve' })).toBeEnabled();
+    });
+  });
 });
+

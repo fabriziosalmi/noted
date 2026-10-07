@@ -78,6 +78,28 @@ Rewrite actions require a text selection, so they can never silently overwrite a
 whole note; a badge shows when a selection is active. Any running action turns
 into a **Stop** button.
 
+### Reviewing a rewrite
+
+A rewrite (**Expand**, **Shorten**, **Refine**, **Translate**, **Tone**,
+**Bullets**, or a custom instruction on a selection) does not replace anything at
+once. When the model answers, a review opens: the proposal compared with your
+selection, line by line (a paragraph is a line), with the words that changed
+marked. Each run of changed lines is one **change** that you **Keep** or **Drop**
+on its own; **Keep all** and **Drop all** do it for every change. **Apply** puts in
+place of the selection your text with the kept changes made; **Discard** leaves the
+note exactly as it was. Nothing in the note moves while you read.
+
+If the selected text changed while the model was working (you kept typing in it),
+nothing is replaced and you are told, rather than putting the rewrite over
+something else. Applying is one undo step.
+
+Two limits. The selection is replaced as a whole, as rewrites always were, so
+inline formatting inside it (bold, links) is not kept even for the parts you keep:
+select just the paragraphs you want rewritten. And the grain is the line: a long
+paragraph that the model changed in a few words is one change, with the words
+marked. The review can be turned off with **Settings → AI → Review AI edits before
+applying** (the rewrite then replaces the selection at once, as before).
+
 ## Chat
 
 Open the **AI Assistant** tab in the right panel to chat with your notes as

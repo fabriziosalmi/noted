@@ -130,7 +130,10 @@ worked out at that moment, against the etag the agent gave, so a stale edit is s
 
 In the app, a badge with the number of waiting changes appears in the title bar. It opens a review: each change as a difference
 (the words that changed marked), who asked (the name the client gave itself; nothing verifies it), and **Approve** or **Reject**,
-or **Approve all** / **Reject all**. Approving makes the change in the note (the version before is kept in its history; a deletion
+or **Approve all** / **Reject all**. A change to an existing note is listed as separate changes (each run of changed lines), and
+you can **Drop** the ones you do not want: **Approve 2 of 3** then writes the note with only the kept changes made (a dropped one
+stays as it was), and the agent journal records what was written, not what was proposed. With every change dropped there is nothing
+to approve, only to reject. A new note or a deletion is approved or rejected as a whole. Approving makes the change in the note (the version before is kept in its history; a deletion
 goes to the trash); rejecting drops it. If the note was changed since the agent saw it (by you, a sync or another agent), approving
 is refused and says so, and nothing is overwritten: reject it and let the agent ask again. Up to 200 changes can wait; after that,
 and for a change over 5 MB, the agent is told it could not be staged. `restore_note` and the agent-workflow tools cannot be staged

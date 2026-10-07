@@ -55,6 +55,7 @@ interface Settings {
   ragContextChars?: number;
   ragDebug?: boolean;
   ragVaultOnly?: boolean;
+  aiReviewEdits?: boolean;
   embeddingsEnabled?: boolean;
   embeddingProvider?: 'openai' | 'lmstudio' | 'ollama' | 'none';
   embeddingModel?: string;
@@ -844,6 +845,12 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
               </div>
 
               <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                <SegRow
+                  label={t('aiReviewEdits')}
+                  description={t('aiReviewEditsDesc')}
+                  value={settings.aiReviewEdits ?? true}
+                  onChange={() => onUpdate({ aiReviewEdits: !(settings.aiReviewEdits ?? true) })}
+                />
                 <SegRow
                   label={t('smartTagsLabel')}
                   description={t('smartTagsDesc')}

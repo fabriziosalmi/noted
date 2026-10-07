@@ -1007,5 +1007,21 @@
   "aiNoSources": "Je n'ai rien trouvé à ce sujet dans vos notes.",
   "aiUncited": "Aucune source citée : cette réponse n'est pas appuyée par vos notes.",
   "aiSources": "Sources",
-  "aiOpenSource": "Ouvrir {label}"
+  "aiOpenSource": "Ouvrir {label}",
+  "reviewKept": "{n} modifications conservées sur {total}",
+  "reviewKeepAll": "Tout garder",
+  "reviewDropAll": "Tout écarter",
+  "reviewKeep": "Garder",
+  "reviewDrop": "Écarter",
+  "reviewChange": "Modification {n}",
+  "reviewAiTitle": "{action} : relire la modification",
+  "reviewAiHelp": "Rien ne change dans votre note avant d'appliquer. Gardez ou écartez chaque modification ; ce qui est appliqué est votre texte avec les modifications gardées.",
+  "reviewApply": "Appliquer",
+  "reviewDiscard": "Annuler",
+  "reviewNoChange": "Le modèle n'a proposé aucune modification.",
+  "reviewStale": "Le texte sélectionné a changé pendant que le modèle travaillait, rien n'a donc été remplacé. Relancez l'action.",
+  "aiReviewEdits": "Relire les modifications de l'IA avant de les appliquer",
+  "aiReviewEditsDesc": "Les actions qui réécrivent une sélection (Améliorer, Raccourcir, Développer…) montrent d'abord leurs modifications, et vous gardez ou écartez chacune. Désactivé : la réécriture remplace aussitôt la sélection.",
+  "pendingApproveSome": "Approuver {n} sur {total}",
+  "pendingKeepSome": "Choisissez quelles modifications de l'agent garder : seules celles-ci sont écrites."
 }
