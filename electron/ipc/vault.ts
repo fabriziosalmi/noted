@@ -15,6 +15,7 @@ import { verifyChain } from '../../shared/vault/journal';
 import { revertedIds } from '../../shared/vault/journalTypes';
 import { listPending } from '../../shared/vault/pendingFile';
 import { MAX_PENDING_BYTES } from '../../shared/vault/pending';
+import { lintVaultDir } from '../vault-lint';
 import { moveToTrash } from '../../mcp-server/trash';
 import { isAccess, parsePolicy, serializePolicy, MAX_POLICY_FOLDERS, type McpPolicy } from '../../shared/vault/mcpPolicy';
 import { loadPolicy, savePolicy } from '../../shared/vault/mcpPolicyFile';
@@ -210,6 +211,18 @@ export function registerVaultHandlers(): void {
   ipcMain.handle('list-pending-changes', (_, syncDir?: string) => {
     try {
       return { success: true, data: listPending(getTargetDir(syncDir)) };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  // The health check of the whole vault (see shared/lint/vaultLint.ts): read from the indexes, nothing is changed.
+  ipcMain.handle('vault-lint', async (_, opts: unknown, syncDir?: string) => {
+    try {
+      const o = (opts ?? {}) as { staleDays?: unknown };
+      const staleDays = typeof o.staleDays === 'number' && Number.isFinite(o.staleDays) ? Math.max(7, Math.min(3650, Math.round(o.staleDays))) : undefined;
+      const dir = getTargetDir(syncDir);
+      return { success: true, data: await lintVaultDir(dir, { vaultIndex, fullText: fullTextSearchIndex, validate: name => validateFileName(name) }, staleDays ? { staleDays } : {}) };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

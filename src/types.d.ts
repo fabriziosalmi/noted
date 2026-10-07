@@ -8,6 +8,7 @@ import type { PendingChange } from '../shared/vault/pending';
 import type { McpPolicy } from '../shared/vault/mcpPolicy';
 import type { NoteTask, TaskFilter } from '../shared/tasks/query';
 import type { EmbeddingModelRef, EmbeddingStatus, RagChunk, IpcResult } from '../shared/search/embeddingTypes';
+import type { LintReport } from '../shared/lint/vaultLint';
 import type { VaultIndexSnapshot, VaultIndexDelta, VaultIndexNote } from './lib/vaultIndexTypes';
 
 interface NoteFileBase {
@@ -77,6 +78,7 @@ declare global {
       getMcpPolicy: (syncDir?: string) => Promise<{ success: boolean; data?: { policy?: McpPolicy; present?: boolean; error?: string }; error?: string }>;
       setMcpPolicy: (policy: McpPolicy, syncDir?: string) => Promise<{ success: boolean; data?: { policy: McpPolicy }; error?: string }>;
       listPendingChanges: (syncDir?: string) => Promise<{ success: boolean; data?: PendingChange[]; error?: string }>;
+      vaultLint: (opts: { staleDays?: number }, syncDir?: string) => Promise<{ success: boolean; data?: LintReport; error?: string }>;
       settlePendingChange: (id: string, approve: boolean, syncDir?: string, content?: string) => Promise<{ success: boolean; error?: string; conflict?: boolean }>;
       journalList: (syncDir?: string) => Promise<{ success: boolean; data?: { entries: JournalEntry[]; total: number; reverted: string[]; chain: { ok: true; entries: number } | { ok: false; at: number; reason: string } }; error?: string }>;
       journalDiff: (id: string, syncDir?: string) => Promise<{ success: boolean; data?: { before: string; after: string; kept: boolean }; error?: string }>;

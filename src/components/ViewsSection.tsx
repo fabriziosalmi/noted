@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getElectronApi } from '../lib/electronApi';
-import { Bot, CheckSquare, ChevronDown, Kanban, ChevronRight, Copy, Pencil, Plus, Table2, Trash2 } from 'lucide-react';
+import { Bot, CheckSquare, ChevronDown, HeartPulse, Kanban, ChevronRight, Copy, Pencil, Plus, Table2, Trash2 } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import { useConfirm, usePrompt } from './ConfirmProvider';
@@ -20,6 +20,7 @@ export function ViewsSection() {
   const tasksOpen = useStore(s => s.tasksOpen);
   const activityOpen = useStore(s => s.activityOpen);
   const workflowsOpen = useStore(s => s.workflowsOpen);
+  const healthOpen = useStore(s => s.healthOpen);
   // Offered once the vault holds a workflow note (named wf-<id>-<title>.md by the tool that makes them).
   const hasWorkflows = useStore(s => s.notes.some(n => isWorkflowNoteName(n.name)));
   const syncDir = useStore(s => s.settings.syncDirectory) || undefined;
@@ -101,6 +102,15 @@ export function ViewsSection() {
           {t('workflowsTitle')}
         </button>
       )}
+      <button
+        type="button"
+        onClick={() => useStore.getState().openHealth()}
+        aria-current={healthOpen ? 'page' : undefined}
+        className={`w-full flex items-center gap-2 px-2 py-1 rounded-md text-sm text-left ${healthOpen ? 'bg-[var(--accent-light)] text-[var(--accent)] font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-gray-700/40'}`}
+      >
+        <HeartPulse size={13} className="shrink-0 text-gray-400" aria-hidden="true" />
+        {t('healthTitle')}
+      </button>
       <div className="flex items-center justify-between px-1 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
         <button type="button" onClick={toggle} aria-expanded={open} className="flex items-center gap-1 py-1 hover:text-gray-800 dark:hover:text-gray-200">
           {open ? <ChevronDown size={11} aria-hidden="true" /> : <ChevronRight size={11} aria-hidden="true" />}
