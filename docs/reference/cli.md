@@ -13,7 +13,7 @@ npm run build:mcp   # produces dist-mcp/noted-cli.cjs
 It needs **Node.js 20 or later** on your `PATH`. **Settings → MCP → Command line** shows a ready-made shell alias for your install; add it to your shell profile, or run `npm link` in a checkout to get a `noted` command.
 
 ::: info Not a single binary
-The Electron runtime that ships with Noted has `runAsNode` switched off on purpose (it is one of the app's hardening fuses), so the app itself cannot be used as the command. A self-contained executable would have to bundle its own Node runtime and a DOM for the Markdown-to-HTML conversion of older vaults; that is not shipped. Node 20+ is the one requirement.
+The Electron runtime that ships with Noted has `runAsNode` switched off on purpose (it is one of the app's hardening fuses), so the app itself cannot be used as the command. A self-contained executable (a Node single-executable build) was tried; it started, but creating a note failed in it, so none is shipped. Node 20+ is the one requirement.
 :::
 
 ## Commands
