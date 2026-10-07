@@ -31,16 +31,16 @@ test.describe('interface language', () => {
     });
     const english = await menuLabels(app);
     expect(english.file).toBe('File');
-    expect(english.items.slice(0, 4)).toEqual(['New Note', 'Daily Note', 'Quick Capture', 'Print…']); // Windows and Linux add the OS's own Quit after these
+    expect(english.items.slice(0, 5)).toEqual(['New Note', 'Daily Note', 'Note from a web page or text…', 'Quick Capture', 'Print…']); // Windows and Linux add the OS's own Quit after these
 
     await win.getByRole('button', { name: 'Settings' }).click();
     await win.getByRole('tab', { name: 'Appearance' }).click();
     await win.getByRole('combobox', { name: 'Language' }).selectOption('it');
-    await expect.poll(() => menuLabels(app).then(m => m.items.slice(0, 3)), { timeout: 15_000 }).toEqual(['Nuova nota', 'Nota del giorno', 'Cattura rapida']);
+    await expect.poll(() => menuLabels(app).then(m => m.items.slice(0, 4)), { timeout: 15_000 }).toEqual(['Nuova nota', 'Nota del giorno', 'Nota da una pagina web o da un testo…', 'Cattura rapida']);
 
     // Main remembers it: the next start builds the menu in Italian straight away.
     const again = await noted.relaunch();
-    expect((await menuLabels(again.app)).items.slice(0, 3)).toEqual(['Nuova nota', 'Nota del giorno', 'Cattura rapida']);
+    expect((await menuLabels(again.app)).items.slice(0, 4)).toEqual(['Nuova nota', 'Nota del giorno', 'Nota da una pagina web o da un testo…', 'Cattura rapida']);
   });
 });
 
