@@ -4,6 +4,7 @@
  *     default: read-only        # read-write when the file says nothing
  *     folders:
  *       private: hidden         # not listed, not read, not searched, not written: as if it were not there
+ *       drafts: staged          # can be read; a change is held for the user to approve, then made
  *       inbox: read-write
  *
  * The most specific folder wins (`inbox/drafts` over `inbox`); case and Unicode form do not matter. This module is the
@@ -12,7 +13,7 @@
  */
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
-export const ACCESS_LEVELS = ['hidden', 'read-only', 'read-write'] as const;
+export const ACCESS_LEVELS = ['hidden', 'read-only', 'staged', 'read-write'] as const;
 export type Access = (typeof ACCESS_LEVELS)[number];
 
 export interface McpPolicy {
@@ -24,13 +25,16 @@ export interface McpPolicy {
 export const DEFAULT_POLICY: McpPolicy = { default: 'read-write', folders: {} };
 export const MAX_POLICY_FOLDERS = 200;
 
-const RANK: Record<Access, number> = { hidden: 0, 'read-only': 1, 'read-write': 2 };
+const RANK: Record<Access, number> = { hidden: 0, 'read-only': 1, staged: 2, 'read-write': 3 };
 export const isAccess = (v: unknown): v is Access => typeof v === 'string' && (ACCESS_LEVELS as readonly string[]).includes(v);
 
 /** The less access of two. */
 export const lessAccess = (a: Access, b: Access): Access => (RANK[a] <= RANK[b] ? a : b);
 export const canRead = (a: Access): boolean => a !== 'hidden';
+/** May change the note at once. */
 export const canWrite = (a: Access): boolean => a === 'read-write';
+/** May propose a change that the user approves before it is made. */
+export const isStaged = (a: Access): boolean => a === 'staged';
 
 /** How a folder or note path is compared: `\` as `/`, no outer slashes, Unicode-normalized, lower case. */
 export function normalizePolicyPath(p: string): string {

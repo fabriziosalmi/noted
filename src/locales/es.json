@@ -909,5 +909,21 @@
   "mcpAccessRemove": "Quitar la regla de {name}",
   "mcpAccessInvalid": "El archivo de política no es válido: {error}. Los asistentes no alcanzan nada hasta que se corrija.",
   "mcpAccessReset": "Volver al acceso abierto",
-  "mcpAccessSaveFailed": "No se pudo guardar la política: {error}"
+  "mcpAccessSaveFailed": "No se pudo guardar la política: {error}",
+  "mcpAccessStaged": "En espera (los cambios requieren aprobación)",
+  "pendingBadge": "{n} cambio(s) de asistentes esperando aprobación",
+  "pendingTitle": "Cambios de asistentes",
+  "pendingHelp": "Un asistente pidió estos cambios en carpetas donde tú los apruebas. Todavía no se ha cambiado nada.",
+  "pendingEmpty": "Nada espera aprobación.",
+  "pendingNew": "Nota nueva",
+  "pendingChanged": "Cambiada",
+  "pendingDelete": "Eliminar",
+  "pendingBy": "por {client} · {time}",
+  "pendingApprove": "Aprobar",
+  "pendingReject": "Rechazar",
+  "pendingApproveAll": "Aprobar todo",
+  "pendingRejectAll": "Rechazar todo",
+  "pendingConflict": "La nota cambió desde que el asistente la vio, así que este cambio no se puede aplicar. Recházalo y pídelo de nuevo.",
+  "pendingFailed": "No se pudo resolver el cambio: {error}",
+  "pendingClose": "Cerrar"
 }

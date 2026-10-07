@@ -909,5 +909,21 @@
   "mcpAccessRemove": "Regel für {name} entfernen",
   "mcpAccessInvalid": "Die Richtliniendatei ist ungültig: {error}. Assistenten erreichen nichts, bis sie korrigiert ist.",
   "mcpAccessReset": "Auf offenen Zugriff zurücksetzen",
-  "mcpAccessSaveFailed": "Die Richtlinie konnte nicht gespeichert werden: {error}"
+  "mcpAccessSaveFailed": "Die Richtlinie konnte nicht gespeichert werden: {error}",
+  "mcpAccessStaged": "Vorgemerkt (Änderungen brauchen Freigabe)",
+  "pendingBadge": "{n} Änderung(en) von Assistenten warten auf Freigabe",
+  "pendingTitle": "Änderungen von Assistenten",
+  "pendingHelp": "Ein Assistent hat diese Änderungen in Ordnern angefragt, in denen du sie freigibst. Noch wurde nichts geändert.",
+  "pendingEmpty": "Nichts wartet auf Freigabe.",
+  "pendingNew": "Neue Notiz",
+  "pendingChanged": "Geändert",
+  "pendingDelete": "Löschen",
+  "pendingBy": "von {client} · {time}",
+  "pendingApprove": "Freigeben",
+  "pendingReject": "Ablehnen",
+  "pendingApproveAll": "Alle freigeben",
+  "pendingRejectAll": "Alle ablehnen",
+  "pendingConflict": "Die Notiz wurde geändert, seit der Assistent sie sah; diese Änderung lässt sich nicht anwenden. Lehne sie ab und frage erneut.",
+  "pendingFailed": "Die Änderung konnte nicht abgeschlossen werden: {error}",
+  "pendingClose": "Schließen"
 }

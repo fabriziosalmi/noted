@@ -8,6 +8,9 @@ import { readVaultFormat } from '../../shared/vault/formatFile';
 import { readViews, writeViews } from '../../shared/views/file';
 import { setProperty } from '../note-properties';
 import { toggleTask } from '../note-tasks';
+import { approvePending, rejectPending } from '../pending-changes';
+import { listPending } from '../../shared/vault/pendingFile';
+import { moveToTrash } from '../../mcp-server/trash';
 import { isAccess, parsePolicy, serializePolicy, MAX_POLICY_FOLDERS, type McpPolicy } from '../../shared/vault/mcpPolicy';
 import { loadPolicy, savePolicy } from '../../shared/vault/mcpPolicyFile';
 import { queryTasks, localDay, type TaskFilter } from '../../shared/tasks/query';
@@ -192,6 +195,35 @@ export function registerVaultHandlers(): void {
       if (!checked.ok || entries.some(([, a]) => !isAccess(a))) throw new Error(checked.ok ? 'Invalid access' : checked.error);
       savePolicy(getTargetDir(syncDir), checked.policy);
       return { success: true, data: { policy: checked.policy } };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  // Changes agents proposed where their writes need approval (policy `staged`): list, approve, reject.
+  ipcMain.handle('list-pending-changes', (_, syncDir?: string) => {
+    try {
+      return { success: true, data: listPending(getTargetDir(syncDir)) };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('settle-pending-change', async (_, id: unknown, approve: unknown, syncDir?: string) => {
+    try {
+      if (typeof id !== 'string' || typeof approve !== 'boolean') throw new Error('Invalid request');
+      const dir = getTargetDir(syncDir);
+      if (!approve) return rejectPending(dir, id).ok ? { success: true } : { success: false, error: 'that change is no longer waiting' };
+      assertNotMigrating();
+      const files = linkRewriteDeps(dir);
+      const out = await approvePending({
+        notesDir: dir,
+        readNote: async name => { try { return await files.readNote(name); } catch { return null; } },
+        snapshotBefore: files.snapshotBefore,
+        writeNote: files.writeNote,
+        trashNote: name => { moveToTrash(dir, name); fullTextSearchIndex.deleteDoc(dir, name); vaultIndex.deleteDoc(dir, name); },
+      }, id);
+      return out.ok ? { success: true } : { success: false, error: out.error, conflict: out.conflict };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

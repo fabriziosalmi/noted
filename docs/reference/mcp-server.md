@@ -89,12 +89,14 @@ folders:
   private: hidden       # as if it were not there
   inbox: read-write
   inbox/locked: read-only
+  drafts: staged        # readable; changes wait for your approval
 ```
 
 | Access | What the assistant can do |
 | --- | --- |
 | `read-write` | Everything the tools allow. |
 | `read-only` | List, read, search and list tasks. Writing is refused with a message that says the note is read-only for agents (vault policy). |
+| `staged` | Read, list, search like `read-only`; a **change** (create, update, edit, delete) is not made but held for you to approve (see below). |
 | `hidden` | Nothing, and it cannot tell the note exists: it is not listed, not found by `search_notes` (no excerpt either), not in `list_tasks`, not in `list_trash`, and reading or changing it answers "Note not found", exactly as for a note that does not exist. Creating or restoring a note there is refused. |
 
 The most specific folder wins (`inbox/locked` over `inbox`); case, `\` vs `/` and Unicode form do not matter, so `Private/` and
@@ -105,6 +107,22 @@ request, so a change applies at once, even to a search index built a moment befo
 A policy file that cannot be read or understood (a typo such as `hiden`, an unknown key) is **not** guessed at: until it is fixed
 or deleted, every tool answers with what is wrong, so a mistake closes the vault rather than opening a folder. The policy limits
 assistants only; it does not change what you see in the app, and it is kept in `.noted/`, so it is not synced by Git.
+
+#### Approving what an agent proposes (`staged`)
+
+In a `staged` folder, `create_note`, `update_note`, `edit_note` and `delete_note` do not change anything. The server keeps the change
+in `.noted/pending/` and answers the agent that it was **staged, not applied** and is waiting for you (with the change's id, and
+`structuredContent: { staged: true, pendingId, note, kind }`), so a well-behaved agent does not assume the note changed. An edit is
+worked out at that moment, against the etag the agent gave, so a stale edit is still refused as a conflict rather than staged.
+
+In the app, a badge with the number of waiting changes appears in the title bar. It opens a review: each change as a difference
+(the words that changed marked), who asked (the name the client gave itself; nothing verifies it), and **Approve** or **Reject**,
+or **Approve all** / **Reject all**. Approving makes the change in the note (the version before is kept in its history; a deletion
+goes to the trash); rejecting drops it. If the note was changed since the agent saw it (by you, a sync or another agent), approving
+is refused and says so, and nothing is overwritten: reject it and let the agent ask again. Up to 200 changes can wait; after that,
+and for a change over 5 MB, the agent is told it could not be staged. `restore_note` and the agent-workflow tools cannot be staged
+and are refused in these folders. Policy is per folder, not per client: an MCP client names itself and nothing can check that name,
+so a rule keyed on it would protect nothing.
 
 ### Editing without overwriting each other
 

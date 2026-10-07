@@ -51,7 +51,9 @@ import {
 import pkg from '../package.json';
 import { moveToTrash, listTrash, restoreFromTrash, purgeTrash, parseRetentionDays, DEFAULT_RETENTION_DAYS, TrashError } from './trash';
 import { readVaultConfig } from '../shared/vault-config.js';
-import { accessFor, canRead, canWrite, lessAccess, type Access, type McpPolicy } from '../shared/vault/mcpPolicy.js';
+import { accessFor, canRead, canWrite, isStaged, lessAccess, type Access, type McpPolicy } from '../shared/vault/mcpPolicy.js';
+import type { PendingChange } from '../shared/vault/pending.js';
+import { addPending } from '../shared/vault/pendingFile.js';
 import { loadPolicy, policyStamp, type LoadedPolicy } from '../shared/vault/mcpPolicyFile.js';
 import { isMigrationLocked, readVaultFormat } from '../shared/vault/formatFile.js';
 import { checkFolderPath, checkNotePath } from '../shared/vault/paths.js';
@@ -226,6 +228,14 @@ export function accessTo(name: string, resolved?: string): Access {
  * instead, since the note does not exist to be missing.
  */
 function guardedPath(name: string, need: 'read' | 'write' | 'create'): string {
+  return guardedTarget(name, need, false).file;
+}
+
+/**
+ * Like guardedPath, for the tools that can also *propose* a change: where the policy says `staged`, they get `staged: true`
+ * instead of an error, and must hold the change for approval rather than make it.
+ */
+function guardedTarget(name: string, need: 'read' | 'write' | 'create', canStage: boolean): { file: string; staged: boolean } {
   const file = safeNotePath(name);
   const access = accessTo(name, file);
   if (!canRead(access)) {
@@ -233,10 +243,31 @@ function guardedPath(name: string, need: 'read' | 'write' | 'create'): string {
       ? `Not allowed: agents cannot write ${name} (vault policy)`
       : `Note not found: ${name}`);
   }
-  if (need !== 'read' && !canWrite(access)) {
-    throw new McpError(ErrorCode.InvalidParams, `Not allowed: ${name} is read-only for agents (vault policy)`);
+  if (need === 'read' || canWrite(access)) return { file, staged: false };
+  if (isStaged(access)) {
+    if (canStage) return { file, staged: true };
+    throw new McpError(ErrorCode.InvalidParams, `Not allowed: changes to ${name} must be approved by the user, and this tool cannot propose them (vault policy)`);
   }
-  return file;
+  throw new McpError(ErrorCode.InvalidParams, `Not allowed: ${name} is read-only for agents (vault policy)`);
+}
+
+/** Hold a change for the user's approval, and tell the agent that it is held, not made. */
+function stageChange(change: Omit<PendingChange, 'id' | 'createdAt' | 'client'>) {
+  let pending: PendingChange;
+  try {
+    pending = addPending(NOTES_DIR, { ...change, client: serverClientName() });
+  } catch (err) {
+    throw new McpError(ErrorCode.InvalidParams, `Could not stage the change: ${(err as Error).message}`);
+  }
+  const what = { create: 'creating', update: 'the change to', delete: 'deleting' }[pending.kind];
+  return {
+    content: [{
+      type: 'text' as const,
+      text: `Staged, NOT applied: ${what} ${pending.note} is waiting for the user to approve it in Noted (change ${pending.id}). ` +
+        'The note has not changed yet and may never change; do not assume it has, and do not repeat the request.',
+    }],
+    structuredContent: { staged: true, pendingId: pending.id, note: pending.note, kind: pending.kind },
+  };
 }
 
 
@@ -814,7 +845,8 @@ const TOOLS: Tool[] = [
     description:
       'Create a new note in Noted. Send Markdown (a leading YAML frontmatter block is kept as written). ' +
       'The server stores it in the vault\'s own format; HTML is still accepted and converted. ' +
-      'Fails if a note with the same name already exists (use update_note to edit an existing note).',
+      'Fails if a note with the same name already exists (use update_note to edit an existing note). ' +
+      'In a folder where the user wants to approve changes, the note is staged instead of created (the result says so).',
     inputSchema: {
       type: 'object',
       required: ['name', 'content'],
@@ -837,7 +869,8 @@ const TOOLS: Tool[] = [
       'Update an existing note. By default replaces the entire content. ' +
       'Set append=true to add new content at the end of the note without touching the existing text. ' +
       'Pass expected_etag (from read_note) so the update is refused, and the current note returned, if the note was changed ' +
-      'since you read it. To change part of a note, prefer edit_note. Fails if the note does not exist.',
+      'since you read it. To change part of a note, prefer edit_note. Fails if the note does not exist. ' +
+      'In a folder where the user wants to approve changes, the change is staged instead of made (the result says so).',
     inputSchema: {
       type: 'object',
       required: ['name', 'content'],
@@ -871,7 +904,8 @@ const TOOLS: Tool[] = [
       'operation "replace": swap old_text (an exact, case-sensitive match that must be unique, or set replace_all) for new_text. ' +
       'operation "replace_section": replace the text under a heading ("Risks" or "## Risks"); its sub-sections are kept ' +
       'unless whole=true. operation "append_to_section": add content at the end of that section. ' +
-      'Section operations need a Markdown vault; the rest of the note is left byte for byte as it was.',
+      'Section operations need a Markdown vault; the rest of the note is left byte for byte as it was. ' +
+      'In a folder where the user wants to approve changes, the edit is staged instead of made (the result says so).',
     inputSchema: {
       type: 'object',
       required: ['name', 'operation'],
@@ -939,7 +973,8 @@ const TOOLS: Tool[] = [
     description:
       'Move a note to the Noted trash (.noted/trash inside the vault). It is not erased: ' +
       'restore it with restore_note (see list_trash). Trashed notes are removed for good ' +
-      'after the retention period (default 30 days). Ask the user before deleting.',
+      'after the retention period (default 30 days). Ask the user before deleting. ' +
+      'In a folder where the user wants to approve changes, the deletion is staged instead of made.',
     inputSchema: {
       type: 'object',
       required: ['name'],
@@ -1209,11 +1244,13 @@ export async function handleCreateNote(args: Record<string, unknown>) {
   if (typeof rawContent !== 'string' || !rawContent.trim()) {
     throw new McpError(ErrorCode.InvalidParams, 'content must be a non-empty string');
   }
-  const filePath = guardedPath(name as string, 'create');
+  const target = guardedTarget(name as string, 'create', true);
+  const filePath = target.file;
   if (fs.existsSync(filePath)) {
     throw new McpError(ErrorCode.InvalidParams, `Note already exists: ${name as string}. Use update_note to edit it.`);
   }
   const stored = await toStoredNote(rawContent);
+  if (target.staged) return stageChange({ tool: TOOL_NAME.CREATE_NOTE, kind: 'create', note: name as string, baseEtag: null, before: null, after: stored });
   atomicWrite(filePath, stored);
   indexUpsert(name as string, stored);
   return {
@@ -1233,7 +1270,8 @@ export async function handleUpdateNote(args: Record<string, unknown>) {
   if (typeof rawContent !== 'string' || !rawContent.trim()) {
     throw new McpError(ErrorCode.InvalidParams, 'content must be a non-empty string');
   }
-  const filePath = guardedPath(name as string, 'write');
+  const target = guardedTarget(name as string, 'write', true);
+  const filePath = target.file;
   if (!fs.existsSync(filePath)) {
     throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}. Use create_note to create it first.`);
   }
@@ -1246,6 +1284,10 @@ export async function handleUpdateNote(args: Record<string, unknown>) {
   const final = append
     ? await appendToStored(fs.readFileSync(filePath, 'utf8'), rawContent)
     : await toStoredNote(rawContent);
+  if (target.staged) {
+    const current = fs.readFileSync(filePath, 'utf8');
+    return stageChange({ tool: TOOL_NAME.UPDATE_NOTE, kind: 'update', note: name as string, baseEtag: etagOf(current), before: current, after: final });
+  }
   atomicWrite(filePath, final);
   indexUpsert(name as string, final);
   const action = append ? 'appended to' : 'updated';
@@ -1341,7 +1383,8 @@ export async function handleEditNote(args: Record<string, unknown>) {
   if (etag === undefined && modified === undefined) {
     throw new McpError(ErrorCode.InvalidParams, 'expected_etag is required: read the note with read_note and pass its etag, so the edit cannot overwrite a change made since');
   }
-  const filePath = guardedPath(name as string, 'write');
+  const target = guardedTarget(name as string, 'write', true);
+  const filePath = target.file;
   if (!fs.existsSync(filePath)) {
     throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}`);
   }
@@ -1360,6 +1403,7 @@ export async function handleEditNote(args: Record<string, unknown>) {
   if (frontmatterBroken(stored, edit.stored, format)) {
     throw new McpError(ErrorCode.InvalidParams, "the edit would break the note's frontmatter (it must stay valid YAML between its --- lines)");
   }
+  if (target.staged) return stageChange({ tool: TOOL_NAME.EDIT_NOTE, kind: 'update', note: name as string, baseEtag: etagOf(stored), before: stored, after: edit.stored });
   atomicWrite(filePath, edit.stored);
   indexUpsert(name as string, edit.stored);
   const newEtag = etagOf(edit.stored);
@@ -1470,9 +1514,14 @@ const retentionText = () =>
 export async function handleDeleteNote(args: Record<string, unknown>) {
   const name = args.name;
   validateNoteName(name);
-  const filePath = guardedPath(name as string, 'write');
+  const target = guardedTarget(name as string, 'write', true);
+  const filePath = target.file;
   if (!fs.existsSync(filePath)) {
     throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name as string}`);
+  }
+  if (target.staged) {
+    const current = fs.readFileSync(filePath, 'utf8');
+    return stageChange({ tool: TOOL_NAME.DELETE_NOTE, kind: 'delete', note: name as string, baseEtag: etagOf(current), before: current, after: null });
   }
   assertNotMigrating();
   purgeTrash(NOTES_DIR, new Date(), trashRetentionDays());
@@ -1790,6 +1839,11 @@ const server = new Server(
   { name: 'noted', version: pkg.version },
   { capabilities: { tools: {} } },
 );
+
+/** What the connected client calls itself (it says so when it connects; nothing verifies it). */
+function serverClientName(): string {
+  return server.getClientVersion()?.name ?? 'unknown client';
+}
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 

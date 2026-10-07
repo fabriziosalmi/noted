@@ -8,6 +8,7 @@ import { Sidebar } from '../Sidebar';
 import { NoteEditor } from '../NoteEditor';
 import { ViewPage } from '../ViewPage';
 import { TasksPage } from '../TasksPage';
+import { PendingChangesBadge } from '../PendingChanges';
 import { useStore } from '../../store/useStore';
 import { AiChat } from '../AiChat';
 import { TextAnalytics } from '../TextAnalytics';
@@ -139,6 +140,7 @@ export function AppChrome({
             </button>
           </Tooltip>
           <NoteAdvisorBadge count={suggestions.length} onClick={panels.toggleAdvisor} />
+          <PendingChangesBadge onNotice={onToast} />
           {settings.gitEnabled && <GitBadge onClick={panels.toggleGit} />}
           <Tooltip label={t('shortcuts')} side="bottom">
             <button onClick={panels.openShortcuts} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-[var(--accent)] transition-colors" aria-label={t('shortcuts')}>

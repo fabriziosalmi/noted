@@ -909,5 +909,21 @@
   "mcpAccessRemove": "Rimuovi la regola per {name}",
   "mcpAccessInvalid": "Il file della policy non è valido: {error}. Gli assistenti non raggiungono nulla finché non viene corretto.",
   "mcpAccessReset": "Torna all'accesso aperto",
-  "mcpAccessSaveFailed": "Impossibile salvare la policy: {error}"
+  "mcpAccessSaveFailed": "Impossibile salvare la policy: {error}",
+  "mcpAccessStaged": "In attesa (le modifiche vanno approvate)",
+  "pendingBadge": "{n} modifica/che degli assistenti in attesa di approvazione",
+  "pendingTitle": "Modifiche degli assistenti",
+  "pendingHelp": "Un assistente ha chiesto queste modifiche in cartelle dove sei tu ad approvarle. Non è stato ancora cambiato nulla.",
+  "pendingEmpty": "Niente in attesa di approvazione.",
+  "pendingNew": "Nuova nota",
+  "pendingChanged": "Modificata",
+  "pendingDelete": "Elimina",
+  "pendingBy": "da {client} · {time}",
+  "pendingApprove": "Approva",
+  "pendingReject": "Rifiuta",
+  "pendingApproveAll": "Approva tutte",
+  "pendingRejectAll": "Rifiuta tutte",
+  "pendingConflict": "La nota è cambiata da quando l'assistente l'ha vista, quindi questa modifica non si può applicare. Rifiutala e chiedi di nuovo.",
+  "pendingFailed": "Impossibile concludere la modifica: {error}",
+  "pendingClose": "Chiudi"
 }
