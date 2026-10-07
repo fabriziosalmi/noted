@@ -1,5 +1,6 @@
 import { BrowserWindow, nativeTheme, shell } from 'electron';
 import path from 'node:path';
+import { tr } from './language';
 
 let win: BrowserWindow | null;
 export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
@@ -72,7 +73,7 @@ export function openCaptureWindow() {
   }
   captureWin = new BrowserWindow({
     width: 480,
-    height: 180,
+    height: 210,
     frame: false,
     resizable: false,
     alwaysOnTop: true,
@@ -85,9 +86,15 @@ export function openCaptureWindow() {
     },
   });
   captureWin.on('closed', () => { captureWin = null; });
+  // The page is static and has no store, so what it says reaches it in the address: in the language of the app.
+  const labels = encodeURIComponent(JSON.stringify({
+    title: tr('menuQuickCapture'), target: tr('captureTargetLabel'), placeholder: tr('capturePlaceholder'), save: tr('captureSave'),
+    hint: tr('captureHint', { shortcut: process.platform === 'darwin' ? '⌘↩' : 'Ctrl+Enter' }),
+    targets: { new: tr('captureTargetNew'), daily: tr('captureTargetDaily'), inbox: tr('captureTargetInbox') },
+  }));
   const captureUrl = VITE_DEV_SERVER_URL
-    ? `${VITE_DEV_SERVER_URL}capture.html`
-    : 'app://./capture.html';
+    ? `${VITE_DEV_SERVER_URL}capture.html?l=${labels}`
+    : `app://./capture.html?l=${labels}`;
   captureWin.loadURL(captureUrl);
   applyNavigationGuards(captureWin);
 }

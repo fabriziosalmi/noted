@@ -35,7 +35,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getNoteHistory: (fileName: string, syncDir?: string) => ipcRenderer.invoke('get-note-history', fileName, syncDir),
   readNoteSnapshot: (fileName: string, snapshotName: string, syncDir?: string) => ipcRenderer.invoke('read-note-snapshot', fileName, snapshotName, syncDir),
-  saveCapture: (text: string) => ipcRenderer.invoke('save-capture', text),
+  saveCapture: (text: string, target?: string) => ipcRenderer.invoke('save-capture', text, target),
   closeCapture: () => ipcRenderer.invoke('close-capture'),
   onRefreshNotes: (cb: () => void) => {
     const listener = () => cb();

@@ -1119,5 +1119,12 @@
   "ingestLabelPasted": "Eingefügter Text",
   "ingestLabelClipped": "Nur der erste Teil der Quelle wurde zusammengefasst.",
   "ingestCancel": "Abbrechen",
-  "ingestHint": "Macht aus einer Webseite oder einem Text eine kurze Notiz in sources/: Zusammenfassung, Kernpunkte, Herkunft und welchen deiner Notizen sie nahesteht."
+  "ingestHint": "Macht aus einer Webseite oder einem Text eine kurze Notiz in sources/: Zusammenfassung, Kernpunkte, Herkunft und welchen deiner Notizen sie nahesteht.",
+  "captureTargetLabel": "Speichern in",
+  "captureTargetNew": "Eine neue Notiz",
+  "captureTargetDaily": "Tagesnotiz von heute",
+  "captureTargetInbox": "Inbox-Notiz",
+  "capturePlaceholder": "Hier schreiben…",
+  "captureHint": "{shortcut} speichern · Esc schließen",
+  "captureSave": "Speichern"
 }

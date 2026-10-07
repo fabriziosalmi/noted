@@ -1119,5 +1119,12 @@
   "ingestLabelPasted": "Pasted text",
   "ingestLabelClipped": "Only the first part of the source was summarised.",
   "ingestCancel": "Cancel",
-  "ingestHint": "Turns a web page or some text into a short note, in sources/: a summary, the key points, where it came from, and which of your notes it is near."
+  "ingestHint": "Turns a web page or some text into a short note, in sources/: a summary, the key points, where it came from, and which of your notes it is near.",
+  "captureTargetLabel": "Save to",
+  "captureTargetNew": "A new note",
+  "captureTargetDaily": "Today's daily note",
+  "captureTargetInbox": "Inbox note",
+  "capturePlaceholder": "Write here…",
+  "captureHint": "{shortcut} save · Esc close",
+  "captureSave": "Save"
 }
