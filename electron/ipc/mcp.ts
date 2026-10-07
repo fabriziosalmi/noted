@@ -17,6 +17,7 @@ function getMcpServerPathInternal(): string {
 let mcpSseChild: Electron.UtilityProcess | null = null;
 let currentMcpPort: number | null = null;
 let currentMcpSyncDir: string | null = null;
+let currentLegacySse = false;
 
 export function stopMcpSseServer() {
   if (mcpSseChild) {
@@ -51,7 +52,7 @@ function getMcpSseToken(): string {
   return (mcpSseToken = token);
 }
 
-function startMcpSseServer(port: number, syncDir?: string) {
+function startMcpSseServer(port: number, syncDir?: string, legacySse = false) {
   stopMcpSseServer();
   const reqId = newRequestId('mcp-sse');
 
@@ -70,11 +71,12 @@ function startMcpSseServer(port: number, syncDir?: string) {
     // the RunAsNode fuse turned off (ELECTRON_RUN_AS_NODE would be ignored).
     mcpSseChild = utilityProcess.fork(mcpPath, [
       '--transport',
-      'sse',
+      'http', // Streamable HTTP at /mcp; the older /sse only when asked for
       '--port',
       String(port),
       '--notes-dir',
-      targetDir
+      targetDir,
+      ...(legacySse ? ['--legacy-sse'] : []),
     ], {
       serviceName: 'noted-mcp-sse',
       // Pass the auth token via the environment, not argv — argv is readable by
@@ -85,6 +87,7 @@ function startMcpSseServer(port: number, syncDir?: string) {
 
     currentMcpPort = port;
     currentMcpSyncDir = targetDir;
+    currentLegacySse = legacySse;
 
     mcpSseChild.stdout?.on('data', data => {
       const message = data.toString().trim();
@@ -130,10 +133,11 @@ export function registerMcpHandlers(): void {
   // The SSE auth token, so Settings can render a ready-to-paste authenticated URL.
   ipcMain.handle('get-mcp-sse-token', () => getMcpSseToken());
 
-  ipcMain.handle('update-mcp-sse-config', (_, config: { enabled: boolean; port: number; syncDir?: string }) => {
+  ipcMain.handle('update-mcp-sse-config', (_, config: { enabled: boolean; port: number; syncDir?: string; legacySse?: boolean }) => {
     const reqId = newRequestId('mcp-sse-config');
     try {
       const { enabled, port, syncDir } = config;
+      const legacySse = config.legacySse === true;
       const targetDir = getTargetDir(syncDir);
 
       if (!enabled) {
@@ -141,11 +145,11 @@ export function registerMcpHandlers(): void {
         return { success: true };
       }
 
-      if (mcpSseChild && currentMcpPort === port && currentMcpSyncDir === targetDir) {
+      if (mcpSseChild && currentMcpPort === port && currentMcpSyncDir === targetDir && currentLegacySse === legacySse) {
         return { success: true };
       }
 
-      startMcpSseServer(port, syncDir);
+      startMcpSseServer(port, syncDir, legacySse);
       return { success: true };
     } catch (err) {
       logEvent('error', 'mcp_sse_config_update_failed', { reqId, error: (err as Error).message });

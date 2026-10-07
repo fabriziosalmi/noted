@@ -32,15 +32,22 @@ node dist-mcp/index.cjs --notes-dir /path/to/your/vault
 If `--notes-dir` is omitted, the server falls back to Noted's standard macOS vault
 locations.
 
-**SSE (optional)** — an HTTP server for clients that connect over the network:
+**Streamable HTTP (optional)** — an HTTP server for clients that connect over the network, at `http://localhost:<port>/mcp`
+(the transport of the 2025-03-26 MCP specification):
 
 ```bash
-node dist-mcp/index.cjs --transport sse --port 3000 --notes-dir /path/to/vault
+node dist-mcp/index.cjs --transport http --port 3000 --notes-dir /path/to/vault
 ```
 
-The SSE server binds to `127.0.0.1` only. You can enable and configure it from
-**Settings → MCP → Remote access**, which also provides a `cloudflared` helper if
-you need to reach it through a tunnel.
+It binds to `127.0.0.1` only. Each connection is its own session (`Mcp-Session-Id`; at most 20 at once, closed after 30 idle
+minutes or on `DELETE`), and a write is recorded in the [journal](#the-agent-journal) under the session and the name the client gave
+itself. You can enable and configure it from **Settings → MCP → Remote access**, which also provides a `cloudflared` helper if you
+need to reach it through a tunnel.
+
+**Older HTTP+SSE (deprecated)** — the previous transport (`/sse` and `/messages`) is no longer served by default. Clients that have
+not moved to Streamable HTTP can still use it for this release: switch on **Also serve the older SSE endpoint** in Settings, or add
+`--legacy-sse` (`--transport sse`, the old way to ask for it, still works and serves both, with a warning). It will be removed in
+a later release.
 
 ## Note tools
 
@@ -233,14 +240,14 @@ AI-agent orchestration; see [Agent workflows](/reference/agent-workflows).
 
 ## Security
 
-The stdio transport inherits the trust of the process that launched it. The SSE
+The stdio transport inherits the trust of the process that launched it. The HTTP
 transport is hardened for local-only use:
 
 - **Local-only Host and Origin.** A request whose `Host` is not local, or whose
   `Origin` is cross-site, is rejected — a defense against DNS-rebinding.
-- **A bearer token on every request.** Both the SSE handshake and each message
-  must present the token, as an `X-MCP-Token` header (or `?token=` on the
-  handshake), compared in constant time. A leaked session id alone is not enough.
+- **A bearer token on every request.** Every request, the one that starts a session and each message after it, must present
+  the token, as `Authorization: Bearer <token>` or an `X-MCP-Token` header, compared in constant time. A leaked session id alone
+  is not enough. (`?token=` in the URL is accepted only by the deprecated `/sse` handshake, since URLs end up in logs.)
 - **The token** is taken from the `NOTED_MCP_AUTH_TOKEN` environment variable
   (preferred over a command-line argument, which would be visible in the process
   list). When Noted starts the server it generates a random token, stores it with

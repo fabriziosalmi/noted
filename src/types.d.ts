@@ -128,7 +128,7 @@ declare global {
       searchNotesFulltext: (query: string, syncDir?: string) => Promise<{ success: boolean; data?: { relPath: string; title: string; snippet: string; score: number; terms: string[] }[]; truncated?: boolean; error?: string }>;
       setupClaudeMcp: () => Promise<{ success: boolean; error?: string }>;
       importAppleNotes: (targetDir?: string) => Promise<{ success: boolean; data?: number; error?: string }>;
-      updateMcpSseConfig: (config: { enabled: boolean; port: number; syncDir?: string }) => Promise<{ success: boolean; error?: string }>;
+      updateMcpSseConfig: (config: { enabled: boolean; port: number; syncDir?: string; legacySse?: boolean }) => Promise<{ success: boolean; error?: string }>;
       getAppVersion: () => Promise<string>;
     };
   }

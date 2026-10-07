@@ -8,6 +8,11 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **MCP over Streamable HTTP** (#83): the remote transport is now Streamable HTTP at `/mcp` (the 2025-03-26 specification), with one session per
+  connection, the same bearer token (now also as `Authorization: Bearer`), loopback binding and Host/Origin checks. The older `/sse`
+  endpoint is off by default and kept for one release behind **Settings → MCP → Also serve the older SSE endpoint** (or `--legacy-sse`;
+  `--transport sse` still works, with a deprecation warning). Fixes found on the way: concurrent SSE clients no longer take the server from
+  each other, and `[::1]` is recognised as a local host.
 - **MCP graph tools and resources** (#82): `get_backlinks`, `get_outgoing_links`, `list_tags`, `list_by_tag`, `get_properties` and `query_notes`
   (frontmatter queries with the same filters and sort as a table view), and every readable note as a resource at `noted://note/<path>`
   (list, template, read). They follow the app's link rules (aliases, bare names) and the agent access policy: a hidden note is neither

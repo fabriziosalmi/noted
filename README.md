@@ -176,7 +176,7 @@ npm run test
 - HTML sanitization on input/output (shared DOMPurify policy across renderer, main, and MCP)
 - API keys/tokens stored with Electron `safeStorage` (when available)
 - `contextIsolation` on and `nodeIntegration` off in the renderer
-- Navigation guards + SSRF filtering on the LLM proxy; the local MCP SSE server rejects non-local Host/Origin requests
+- Navigation guards + SSRF filtering on the LLM proxy; the local MCP HTTP server rejects non-local Host/Origin requests
 - Release builds run with the hardened runtime and are notarized by Apple
 
 To report a vulnerability, see [SECURITY.md](./SECURITY.md).

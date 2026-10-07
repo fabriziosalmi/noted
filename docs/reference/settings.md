@@ -80,8 +80,9 @@ can read and write your notes.
 - **Status** — whether the server bundle is built, with the `npm run build:mcp`
   command if not.
 - **Server path** and **vault path**, each with a reveal-in-Finder action.
-- **Remote access (HTTP/SSE)** — a toggle and port (default 3000), the local SSE
-  URL, and an authentication token header. A `cloudflared` helper is included for
+- **Remote access (Streamable HTTP)** — a toggle and port (default 3000), the local
+  `/mcp` URL, the authentication token header, and a switch to also serve the older,
+  deprecated SSE endpoint. A `cloudflared` helper is included for
   exposing it over a tunnel.
 - **Client snippets** — copy-paste configuration for Claude Code, Claude Desktop
   (with a one-click setup button), VS Code, and Codex.

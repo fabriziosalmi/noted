@@ -58,6 +58,7 @@ interface Settings {
   embeddingModel?: string;
   mcpSseEnabled?: boolean;
   mcpSsePort?: number;
+  mcpLegacySse?: boolean;
   mcpTrashRetentionDays?: number;
   linkUpdateMode?: 'always' | 'ask' | 'never';
   attachmentsFolder?: string;
@@ -372,13 +373,32 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath, settings, onUpda
             <div className="space-y-1">
               <p className="text-[11px] font-medium text-gray-600 dark:text-gray-300">{t('mcpSseLocalUrl')}</p>
               <CopyBlock
-                value={`http://localhost:${settings.mcpSsePort ?? 3000}/sse`}
+                value={`http://localhost:${settings.mcpSsePort ?? 3000}/mcp`}
                 kind="mcp-sse-url"
                 copiedCmd={copiedCmd}
                 copyText={copyText}
                 label={t('copy')}
               />
             </div>
+
+            {/* The older transport, for clients that have not moved to Streamable HTTP */}
+            <SegRow
+              label={t('mcpLegacySseToggle')}
+              value={!!settings.mcpLegacySse}
+              onChange={() => onUpdate({ mcpLegacySse: !settings.mcpLegacySse })}
+            />
+            {settings.mcpLegacySse && (
+              <div className="space-y-1">
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 leading-tight">{t('mcpLegacySseHelp')}</p>
+                <CopyBlock
+                  value={`http://localhost:${settings.mcpSsePort ?? 3000}/sse`}
+                  kind="mcp-legacy-sse-url"
+                  copiedCmd={copiedCmd}
+                  copyText={copyText}
+                  label={t('copy')}
+                />
+              </div>
+            )}
 
             {/* Auth header — the token is required on every request */}
             {sseToken && (

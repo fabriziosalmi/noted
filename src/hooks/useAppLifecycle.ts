@@ -148,6 +148,7 @@ export function useAppLifecycle({
   // Sync MCP SSE configuration to Electron
   const mcpSseEnabled = useStore((state) => state.settings.mcpSseEnabled);
   const mcpSsePort = useStore((state) => state.settings.mcpSsePort);
+  const mcpLegacySse = useStore((state) => state.settings.mcpLegacySse);
 
   useEffect(() => {
     const api = getElectronApi();
@@ -156,9 +157,10 @@ export function useAppLifecycle({
         enabled: !!mcpSseEnabled,
         port: mcpSsePort ?? 3000,
         syncDir: syncDirectory || undefined,
+        legacySse: !!mcpLegacySse,
       }).catch((err) => {
         console.error('Failed to update MCP SSE config:', err);
       });
     }
-  }, [mcpSseEnabled, mcpSsePort, syncDirectory]);
+  }, [mcpSseEnabled, mcpSsePort, mcpLegacySse, syncDirectory]);
 }

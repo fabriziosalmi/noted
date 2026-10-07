@@ -264,7 +264,7 @@
   "mcpTrashRetentionHelp": "Löscht ein KI-Assistent eine Notiz über MCP, landet sie in .noted/trash des Vaults und lässt sich wiederherstellen. 0 behält sie, bis Sie sie von Hand entfernen.",
   "mcpSsePortLabel": "Server-Port",
   "mcpSsePortHelp": "Der Port, auf dem der lokale HTTP-Server lauscht.",
-  "mcpSseLocalUrl": "Lokale SSE-URL",
+  "mcpSseLocalUrl": "Lokale URL (Streamable HTTP)",
   "mcpSseCloudflareHelp": "Um ein Remote-Gerät sicher zu verbinden, starte einen Cloudflare-Tunnel:",
   "dangerZone": "Gefahrenzone",
   "dangerZoneDesc": "Löschen Sie dauerhaft alle Notizen, Ordner und Vorlagen vom Datenträger. Diese Aktion kann nicht rückgängig gemacht werden.",
@@ -476,7 +476,7 @@
   "mcpClientCodexHint": "Zu ~/.codex/config.toml hinzufügen",
   "mcpAfterAdding": "Starten Sie den Client nach dem Bearbeiten seiner Konfiguration neu. Bitten Sie ihn dann: „Liste meine Noted-Notizen auf“.",
   "mcpSseAuthHeader": "Auth-Header (zu Ihrem MCP-Client hinzufügen)",
-  "mcpSseAuthHeaderHelp": "Der SSE-Server benötigt dieses Token bei jeder Anfrage. Senden Sie es als X-MCP-Token-Header.",
+  "mcpSseAuthHeaderHelp": "Der Server verlangt dieses Token bei jeder Anfrage. Sende es im Header X-MCP-Token oder als Authorization: Bearer <token>.",
   "ragSectionTitle": "Abruf (RAG)",
   "ragSectionBody": "Legen Sie fest, wie viel Notizkontext abgerufen und an das Modell gesendet wird.",
   "ragTopKLabel": "Relevanteste Notizen",
@@ -950,5 +950,7 @@
   "activityClient": "Assistent",
   "activityKind": "Art",
   "activityMore": "{n} ältere Einträge werden nicht angezeigt.",
-  "activityShowing": "{shown} von {total} angezeigt"
+  "activityShowing": "{shown} von {total} angezeigt",
+  "mcpLegacySseToggle": "Auch den älteren SSE-Endpunkt anbieten",
+  "mcpLegacySseHelp": "Der ältere HTTP+SSE-Transport, veraltet und für eine Version beibehalten, für Clients, die noch nicht auf Streamable HTTP (die URL oben) umgestellt sind. Schalte ihn aus, sobald deine Clients /mcp nutzen."
 }
