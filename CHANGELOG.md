@@ -8,6 +8,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **MCP graph tools and resources** (#82): `get_backlinks`, `get_outgoing_links`, `list_tags`, `list_by_tag`, `get_properties` and `query_notes`
+  (frontmatter queries with the same filters and sort as a table view), and every readable note as a resource at `noted://note/<path>`
+  (list, template, read). They follow the app's link rules (aliases, bare names) and the agent access policy: a hidden note is neither
+  linked from nor linked to, as far as an agent can tell.
 - **Agent journal and Agent activity** (#84): every change an assistant makes through MCP (create, update, edit, delete, restore, the workflow
   tools, and the approval of a staged change) is recorded in `.noted/journal/` with who, when, which tool and note, and the hash and text of
   the note before and after; a write that cannot be recorded is not made. A new **Agent activity** page lists the changes by session,
