@@ -22,6 +22,9 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
+  ReadResourceRequestSchema,
   type Tool,
   McpError,
   ErrorCode,
@@ -62,9 +65,14 @@ import { walkVaultSync } from '../shared/vault/walk.js';
 import type { NoteFormat } from '../shared/vault/format.js';
 import type { DomEnv } from '../shared/markdown/html.js';
 import { appendStored, describeStored, etagOf, storedToText, toStored, type StorageDeps } from './storage';
+import type { FieldValue } from '../shared/vault/fields.js';
 import { extractTasks, withoutTaskLines } from '../shared/tasks/parse.js';
 import { queryTasks, localDay, type NoteTask, type TaskFilter } from '../shared/tasks/query.js';
-import { extractTags } from '../shared/vault/extract.js';
+import { extractTags, extractFields } from '../shared/vault/extract.js';
+import { buildEntry, type NoteEntry as IndexEntry } from '../electron/vault-index.js';
+import { buildLinkResolver, linkPointsAtNote } from '../shared/vault/resolve.js';
+import { runView, type ViewRow } from '../shared/views/query.js';
+import { FILTER_OPS, MAX_FILTERS, MAX_SORTS, normalizeView } from '../shared/views/model.js';
 import { appendToSectionBody, findSection, replaceSectionBody } from '../shared/markdown/sections.js';
 import { parseFrontmatterBlock } from '../shared/markdown/yamlFrontmatter.js';
 import { extractMarkdownFrontmatter as splitFront } from '../shared/markdown/frontmatter.js';
@@ -517,6 +525,12 @@ const TOOL_NAME = {
   UPDATE_NOTE: 'update_note',
   EDIT_NOTE: 'edit_note',
   LIST_TASKS: 'list_tasks',
+  GET_BACKLINKS: 'get_backlinks',
+  GET_OUTGOING_LINKS: 'get_outgoing_links',
+  LIST_TAGS: 'list_tags',
+  LIST_BY_TAG: 'list_by_tag',
+  GET_PROPERTIES: 'get_properties',
+  QUERY_NOTES: 'query_notes',
   SEARCH_NOTES: 'search_notes',
   DELETE_NOTE: 'delete_note',
   RESTORE_NOTE: 'restore_note',
@@ -969,6 +983,70 @@ const TOOLS: Tool[] = [
         no_due: { type: 'boolean', description: 'Only tasks with no due date' },
         text: { type: 'string', description: 'Only tasks whose text contains this (case-insensitive)' },
         limit: { type: 'number', description: 'Most tasks to return (default 50, max 200)' },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: TOOL_NAME.GET_BACKLINKS,
+    description: 'The notes that link to a note, by [[wikilink]] (Obsidian rules: a bare name finds the note in any folder, aliases count), with how many links each has.',
+    inputSchema: { type: 'object', required: ['name'], properties: { name: { type: 'string', description: 'Note file name, e.g. "Projects/plan.md"' } }, additionalProperties: false },
+  },
+  {
+    name: TOOL_NAME.GET_OUTGOING_LINKS,
+    description: 'The [[wikilinks]] a note contains, each with the note it points to (null when there is no such note yet), and its heading or alias when it has one.',
+    inputSchema: { type: 'object', required: ['name'], properties: { name: { type: 'string', description: 'Note file name' } }, additionalProperties: false },
+  },
+  {
+    name: TOOL_NAME.LIST_TAGS,
+    description: 'Every #tag used in the vault with the number of notes that have it, most used first.',
+    inputSchema: { type: 'object', properties: { limit: { type: 'number', description: 'Most tags to return (default 100, max 500)' } }, additionalProperties: false },
+  },
+  {
+    name: TOOL_NAME.LIST_BY_TAG,
+    description: 'The notes that carry a tag (anywhere in the note), newest first.',
+    inputSchema: {
+      type: 'object',
+      required: ['tag'],
+      properties: {
+        tag: { type: 'string', description: 'The tag, with or without the #, e.g. "project/aurora"' },
+        limit: { type: 'number', description: 'Most notes to return (default 50, max 200)' },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: TOOL_NAME.GET_PROPERTIES,
+    description: 'A note\'s frontmatter properties as typed values (text, number, true/false, empty, lists; a date stays the text it was written as). Nested mappings are left out.',
+    inputSchema: { type: 'object', required: ['name'], properties: { name: { type: 'string', description: 'Note file name' } }, additionalProperties: false },
+  },
+  {
+    name: TOOL_NAME.QUERY_NOTES,
+    description:
+      'Find notes by their frontmatter properties, like a table view: optionally inside a folder or with a tag, filtered, sorted, and returned with the ' +
+      'properties asked for. A filter is { field, op, value }, op one of: ' + FILTER_OPS.join(', ') + '. "$name" and "$modified" can be used as fields. ' +
+      'A note with no value fails a positive test (equals, contains, gt...) and passes a negative one (not-equals, not-contains, not-has).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        folder: { type: 'string', description: 'Only notes under this folder (any depth)' },
+        tag: { type: 'string', description: 'Only notes with this tag' },
+        filters: {
+          type: 'array',
+          description: 'All must pass',
+          items: {
+            type: 'object',
+            required: ['field', 'op'],
+            properties: { field: { type: 'string' }, op: { type: 'string', enum: [...FILTER_OPS] }, value: { type: ['string', 'number', 'boolean'] } },
+            additionalProperties: false,
+          },
+        },
+        sort: {
+          type: 'array',
+          items: { type: 'object', required: ['field'], properties: { field: { type: 'string' }, dir: { type: 'string', enum: ['asc', 'desc'] } }, additionalProperties: false },
+        },
+        columns: { type: 'array', items: { type: 'string' }, description: 'Properties to return for each note' },
+        limit: { type: 'number', description: 'Most notes to return (default 50, max 200)' },
       },
       additionalProperties: false,
     },
@@ -1508,6 +1586,166 @@ export async function handleListTasks(args: Record<string, unknown>) {
   };
 }
 
+// ─── The links, tags and properties of the vault ─────────────────────────────
+
+interface GraphCacheEntry { mtimeMs: number; size: number; entry: IndexEntry }
+const graphCache = new Map<string, GraphCacheEntry>();
+
+/** What every readable note links to and is about, reading again only the notes that changed since the last call. */
+function vaultGraph(): { entries: Map<string, IndexEntry>; mtimes: Map<string, Date> } {
+  const entries = new Map<string, IndexEntry>();
+  const mtimes = new Map<string, Date>();
+  const format = vaultFormat();
+  for (const note of listAllNotes()) {
+    mtimes.set(note.name, note.mtime);
+    let cached = graphCache.get(note.name);
+    if (!cached || cached.mtimeMs !== note.mtime.getTime() || cached.size !== note.size) {
+      let raw = '';
+      let parsed = false;
+      try {
+        if (note.size <= 2 * 1024 * 1024) { raw = fs.readFileSync(safeNotePath(note.name), 'utf8'); parsed = true; }
+      } catch { /* unreadable: no links */ }
+      cached = { mtimeMs: note.mtime.getTime(), size: note.size, entry: buildEntry(note.name, raw, note.mtime.getTime(), note.size, 0, parsed, format) };
+      graphCache.set(note.name, cached);
+    }
+    entries.set(note.name, cached.entry);
+  }
+  for (const name of [...graphCache.keys()]) if (!entries.has(name)) graphCache.delete(name);
+  return { entries, mtimes };
+}
+
+const aliasesOf = (entries: Map<string, IndexEntry>): Record<string, string[]> =>
+  Object.fromEntries([...entries].filter(([, e]) => e.aliases.length > 0).map(([n, e]) => [n, e.aliases]));
+
+function limitArg(args: Record<string, unknown>, fallback: number, max: number): number {
+  const v = args.limit;
+  if (v === undefined) return fallback;
+  if (typeof v !== 'number' || !Number.isFinite(v)) throw new McpError(ErrorCode.InvalidParams, 'limit must be a number');
+  return Math.min(max, Math.max(1, Math.floor(v)));
+}
+
+const json = (value: unknown) => JSON.stringify(value, null, 2);
+
+/** A note that exists and that agents may read, or the same "not found" as for one that does not exist. */
+function readableNote(args: Record<string, unknown>): string {
+  const name = args.name;
+  validateNoteName(name);
+  guardedPath(name, 'read');
+  return name;
+}
+
+export async function handleGetBacklinks(args: Record<string, unknown>) {
+  const name = readableNote(args);
+  const { entries } = vaultGraph();
+  if (!entries.has(name)) throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name}`);
+  const resolver = buildLinkResolver(entries.keys(), aliasesOf(entries));
+  const found = [...entries]
+    .filter(([n, e]) => n !== name && e.linkTargets.some(t => linkPointsAtNote(resolver, t, name, n)))
+    .map(([n, e]) => ({ note: n, links: e.links.filter(l => linkPointsAtNote(resolver, l.target, name, n)).length }))
+    .sort((a, b) => (a.note < b.note ? -1 : 1));
+  return {
+    content: [{ type: 'text' as const, text: found.length === 0 ? `No note links to ${name}.` : `${found.length} note(s) link to ${name}:\n\n${found.map(f => `• ${f.note} (${f.links})`).join('\n')}` }],
+    structuredContent: { note: name, backlinks: found },
+  };
+}
+
+export async function handleGetOutgoingLinks(args: Record<string, unknown>) {
+  const name = readableNote(args);
+  const { entries } = vaultGraph();
+  const entry = entries.get(name);
+  if (!entry) throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name}`);
+  const resolver = buildLinkResolver(entries.keys(), aliasesOf(entries));
+  const seen = new Set<string>();
+  const links = entry.links.flatMap(l => {
+    const key = `${l.target}#${l.heading ?? ''}|${l.alias ?? ''}`;
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return [{ target: l.target, resolved: resolver.resolve(l.target, name), ...(l.heading ? { heading: l.heading } : {}), ...(l.alias ? { alias: l.alias } : {}) }];
+  });
+  return {
+    content: [{ type: 'text' as const, text: links.length === 0 ? `${name} has no links.` : `${links.length} link(s) in ${name}:\n\n${links.map(l => `• [[${l.target}${l.heading ? `#${l.heading}` : ''}]] → ${l.resolved ?? '(no such note)'}`).join('\n')}` }],
+    structuredContent: { note: name, links },
+  };
+}
+
+export async function handleListTags(args: Record<string, unknown>) {
+  const limit = limitArg(args, 100, 500);
+  const counts = new Map<string, number>();
+  for (const e of vaultGraph().entries.values()) for (const t of e.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
+  const tags = [...counts].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count || (a.tag < b.tag ? -1 : 1));
+  const shown = tags.slice(0, limit);
+  return {
+    content: [{ type: 'text' as const, text: tags.length === 0 ? 'No tags.' : `${tags.length} tag(s)${tags.length > shown.length ? `, showing ${shown.length}` : ''}:\n\n${shown.map(t => `• ${t.tag} (${t.count})`).join('\n')}` }],
+    structuredContent: { total: tags.length, tags: shown },
+  };
+}
+
+export async function handleListByTag(args: Record<string, unknown>) {
+  const raw = args.tag;
+  if (typeof raw !== 'string' || !raw.trim()) throw new McpError(ErrorCode.InvalidParams, 'tag must be a non-empty string');
+  const tag = (raw.trim().startsWith('#') ? raw.trim() : `#${raw.trim()}`).toLowerCase();
+  const limit = limitArg(args, 50, 200);
+  const { entries, mtimes } = vaultGraph();
+  const found = [...entries].filter(([, e]) => e.tags.includes(tag)).map(([n]) => n)
+    .sort((a, b) => (mtimes.get(b)?.getTime() ?? 0) - (mtimes.get(a)?.getTime() ?? 0) || (a < b ? -1 : 1));
+  const shown = found.slice(0, limit);
+  return {
+    content: [{ type: 'text' as const, text: found.length === 0 ? `No note has ${tag}.` : `${found.length} note(s) with ${tag}${found.length > shown.length ? `, showing ${shown.length}` : ''}:\n\n${shown.map(n => `• ${n}`).join('\n')}` }],
+    structuredContent: { tag, total: found.length, notes: shown },
+  };
+}
+
+export async function handleGetProperties(args: Record<string, unknown>) {
+  const name = readableNote(args);
+  const filePath = safeNotePath(name);
+  if (!fs.existsSync(filePath)) throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name}`);
+  const properties = extractFields(fs.readFileSync(filePath, 'utf8'), vaultFormat());
+  return {
+    content: [{ type: 'text' as const, text: Object.keys(properties).length === 0 ? `${name} has no properties.` : json(properties) }],
+    structuredContent: { note: name, properties },
+  };
+}
+
+export async function handleQueryNotes(args: Record<string, unknown>) {
+  const str = (k: string): string | undefined => {
+    const v = args[k];
+    if (v === undefined) return undefined;
+    if (typeof v !== 'string') throw new McpError(ErrorCode.InvalidParams, `${k} must be a string`);
+    return v.trim() === '' ? undefined : v;
+  };
+  const folder = str('folder');
+  const tag = str('tag');
+  if (args.filters !== undefined && (!Array.isArray(args.filters) || args.filters.length > MAX_FILTERS)) throw new McpError(ErrorCode.InvalidParams, `filters must be a list of at most ${MAX_FILTERS}`);
+  if (args.sort !== undefined && (!Array.isArray(args.sort) || args.sort.length > MAX_SORTS)) throw new McpError(ErrorCode.InvalidParams, `sort must be a list of at most ${MAX_SORTS}`);
+  if (args.columns !== undefined && (!Array.isArray(args.columns) || !args.columns.every(c => typeof c === 'string'))) throw new McpError(ErrorCode.InvalidParams, 'columns must be a list of property names');
+  const view = normalizeView({
+    name: 'query', source: folder ? { kind: 'folder', folder } : tag ? { kind: 'tag', tag } : { kind: 'all' },
+    filters: args.filters ?? [], sort: args.sort ?? [], columns: args.columns ?? [],
+  });
+  // Normalizing drops what is not valid; an agent should be told rather than silently get a wider result.
+  if (!view || view.filters.length !== ((args.filters as unknown[] | undefined)?.length ?? 0)) throw new McpError(ErrorCode.InvalidParams, `each filter needs a field and an op (${FILTER_OPS.join(', ')})`);
+  if (view.sort.length !== ((args.sort as unknown[] | undefined)?.length ?? 0)) throw new McpError(ErrorCode.InvalidParams, 'each sort needs a field');
+  const limit = limitArg(args, 50, 200);
+  const { entries, mtimes } = vaultGraph();
+  const tags: Record<string, string[]> = {};
+  const frontmatter: Record<string, Record<string, FieldValue>> = {};
+  for (const [n, e] of entries) {
+    for (const t of e.tags) (tags[t] ??= []).push(n);
+    if (Object.keys(e.fields).length > 0) frontmatter[n] = e.fields;
+  }
+  const rows: ViewRow[] = runView(view, { notes: [...mtimes].map(([n, m]) => ({ name: n, mtimeMs: m.getTime() })), frontmatter, tags });
+  const shown = rows.slice(0, limit);
+  const result = shown.map(r => ({
+    note: r.name,
+    modified: new Date(r.modified).toISOString(),
+    properties: view.columns.length > 0 ? Object.fromEntries(view.columns.filter(c => c in r.fields).map(c => [c, r.fields[c]])) : r.fields,
+  }));
+  return {
+    content: [{ type: 'text' as const, text: rows.length === 0 ? 'No note matches.' : `${rows.length} note(s)${rows.length > shown.length ? `, showing ${shown.length}` : ''}:\n\n${result.map(r => `• ${r.note}${Object.keys(r.properties).length > 0 ? ` ${JSON.stringify(r.properties)}` : ''}`).join('\n')}` }],
+    structuredContent: { total: rows.length, notes: result },
+  };
+}
+
 export async function handleSearchNotes(args: Record<string, unknown>) {
   const query = args.query;
   if (typeof query !== 'string' || !query.trim()) {
@@ -1855,6 +2093,12 @@ const TOOL_HANDLERS: Record<ToolName, ToolHandler> = {
   [TOOL_NAME.UPDATE_NOTE]: handleUpdateNote,
   [TOOL_NAME.EDIT_NOTE]: handleEditNote,
   [TOOL_NAME.LIST_TASKS]: handleListTasks,
+  [TOOL_NAME.GET_BACKLINKS]: handleGetBacklinks,
+  [TOOL_NAME.GET_OUTGOING_LINKS]: handleGetOutgoingLinks,
+  [TOOL_NAME.LIST_TAGS]: handleListTags,
+  [TOOL_NAME.LIST_BY_TAG]: handleListByTag,
+  [TOOL_NAME.GET_PROPERTIES]: handleGetProperties,
+  [TOOL_NAME.QUERY_NOTES]: handleQueryNotes,
   [TOOL_NAME.SEARCH_NOTES]: handleSearchNotes,
   [TOOL_NAME.DELETE_NOTE]: handleDeleteNote,
   [TOOL_NAME.LIST_TRASH]: handleListTrash,
@@ -1872,7 +2116,7 @@ function isToolName(value: string): value is ToolName {
 
 const server = new Server(
   { name: 'noted', version: pkg.version },
-  { capabilities: { tools: {} } },
+  { capabilities: { tools: {}, resources: {} } },
 );
 
 /** What the connected client calls itself (it says so when it connects; nothing verifies it). */
@@ -1881,6 +2125,46 @@ function serverClientName(): string {
 }
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
+
+// ─── Notes as resources (noted://note/<path>) ─────────────────────────────────
+
+const RESOURCE_PREFIX = 'noted://note/';
+const MAX_LISTED_RESOURCES = 1000;
+
+/** The address of a note as a resource: each part of its path encoded, the slashes kept. */
+export const resourceUri = (name: string): string => `${RESOURCE_PREFIX}${name.split('/').map(encodeURIComponent).join('/')}`;
+
+/** The note name an address stands for, or throws. */
+export function noteFromResourceUri(uri: string): string {
+  if (!uri.startsWith(RESOURCE_PREFIX)) throw new McpError(ErrorCode.InvalidParams, `Unknown resource: ${uri} (notes are ${RESOURCE_PREFIX}<path>)`);
+  let name: string;
+  try { name = decodeURIComponent(uri.slice(RESOURCE_PREFIX.length)); } catch { throw new McpError(ErrorCode.InvalidParams, `Invalid resource address: ${uri}`); }
+  validateNoteName(name);
+  return name;
+}
+
+/** The notes agents may read, newest first, as resources. A hidden note is not one. */
+export function handleListResources() {
+  const mime = vaultFormat() === 'markdown' ? 'text/markdown' : 'text/html';
+  return {
+    resources: listAllNotes().slice(0, MAX_LISTED_RESOURCES).map(n => ({
+      uri: resourceUri(n.name), name: n.name, description: `Modified ${n.mtime.toISOString()}`, mimeType: mime,
+    })),
+  };
+}
+
+export function handleReadResource(uri: string) {
+  const name = noteFromResourceUri(uri);
+  const filePath = guardedPath(name, 'read');
+  if (!fs.existsSync(filePath)) throw new McpError(ErrorCode.InvalidParams, `Note not found: ${name}`);
+  return { contents: [{ uri, mimeType: vaultFormat() === 'markdown' ? 'text/markdown' : 'text/html', text: fs.readFileSync(filePath, 'utf8') }] };
+}
+
+server.setRequestHandler(ListResourcesRequestSchema, async () => handleListResources());
+server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => ({
+  resourceTemplates: [{ uriTemplate: `${RESOURCE_PREFIX}{path}`, name: 'A note of the vault', description: 'The stored text of a note, by its path (for example noted://note/Projects/plan.md).', mimeType: vaultFormat() === 'markdown' ? 'text/markdown' : 'text/html' }],
+}));
+server.setRequestHandler(ReadResourceRequestSchema, async request => handleReadResource(request.params.uri));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args = {} } = request.params;

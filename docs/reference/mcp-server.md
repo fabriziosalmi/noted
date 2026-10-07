@@ -52,6 +52,12 @@ you need to reach it through a tunnel.
 | `update_note` | Overwrite a note, or append to it | `name`, `content`, `append` (optional), `expected_etag` (optional) |
 | `edit_note` | Change part of a note: replace exact text, or replace / append to the section under a heading; refused if the note changed since it was read | `name`, `operation`, `expected_etag` (or `expected_modified`), and `old_text`/`new_text`/`replace_all` or `heading`/`content`/`occurrence`/`whole` |
 | `list_tasks` | The `- [ ]` / `- [x]` tasks across the vault, soonest due first, with note and line (Markdown vaults) | `status`, `folder`, `tag`, `due_from`, `due_to`, `overdue`, `no_due`, `text`, `limit` (all optional) |
+| `get_backlinks` | The notes that link to a note, with how many links each has | `name` |
+| `get_outgoing_links` | The `[[links]]` in a note, each with the note it points to (`null` if none), heading and alias | `name` |
+| `list_tags` | Every `#tag` with the number of notes that have it | `limit` (optional) |
+| `list_by_tag` | The notes that carry a tag, newest first | `tag`, `limit` (optional) |
+| `get_properties` | A note's frontmatter properties, typed | `name` |
+| `query_notes` | Find notes by property like a table view: folder or tag, filters, sort, columns | `folder`, `tag`, `filters`, `sort`, `columns`, `limit` (all optional) |
 | `search_notes` | Full-text (BM25) search with excerpts | `query`, `max_results` (optional, default 10, max 50) |
 | `delete_note` | Move a note to the trash | `name` |
 | `list_trash` | List trashed notes, newest first, with deletion ids | — |
@@ -123,6 +129,20 @@ is refused and says so, and nothing is overwritten: reject it and let the agent 
 and for a change over 5 MB, the agent is told it could not be staged. `restore_note` and the agent-workflow tools cannot be staged
 and are refused in these folders. Policy is per folder, not per client: an MCP client names itself and nothing can check that name,
 so a rule keyed on it would protect nothing.
+
+### Links, tags, properties and resources
+
+`get_backlinks`, `get_outgoing_links`, `list_tags`, `list_by_tag`, `get_properties` and `query_notes` answer from the notes as the app
+sees them: `[[links]]` follow Obsidian's rules (case does not matter, a bare name finds a note in any folder, aliases count), tags are
+read from the whole note, and properties are the typed values of the frontmatter. `query_notes` takes the same filters as a table view
+(`equals`, `contains`, `is-empty`, `gt`/`lt`, `before`/`after`, `has`…, on any property and on `$name` and `$modified`) and sorts like
+one; a filter or sort it cannot understand is refused rather than answered with a wider result. All of them return text and a
+`structuredContent`. They respect the access policy: a hidden note links to nothing and is linked from nothing as far as an agent can
+tell (a link to it does not even resolve), and its tags and properties are not in any list.
+
+Every readable note is also an MCP **resource**, `noted://note/<path>` (each part of the path URL-encoded; `resources/list`, the
+template `noted://note/{path}` and `resources/read`), with the stored text as `text/markdown` (`text/html` in an HTML vault), so a
+client that attaches resources can pick notes without calling a tool. A hidden note is not listed and reads as not found.
 
 ### The agent journal
 
