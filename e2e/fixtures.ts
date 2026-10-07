@@ -2,6 +2,7 @@ import { test as base, _electron, type ElectronApplication, type Page } from '@p
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 
@@ -29,6 +30,15 @@ export interface Launched {
  * right after launch) used to cost the whole test timeout and fail whichever test happened to be running; the test is about the
  * app's behaviour, not about how fast the process exits, so it must not depend on that. A kill is noted in the log.
  */
+/**
+ * Ends the app and everything it started. On Windows a plain kill ends only the main process; Chromium's helper processes live on
+ * holding the pipes the test runner reads, and the runner then waits for them at the end of the whole run.
+ */
+function endProcessTree(proc: ReturnType<ElectronApplication['process']>): void {
+  if (process.platform === 'win32' && proc.pid) spawnSync('taskkill', ['/pid', String(proc.pid), '/T', '/F'], { stdio: 'ignore' });
+  else proc.kill();
+}
+
 export async function closeApp(app: ElectronApplication, graceMs = 20_000): Promise<void> {
   let proc: ReturnType<ElectronApplication['process']>;
   try { proc = app.process(); } catch { return; } // already closed (a test that relaunches again from an earlier handle)
@@ -39,7 +49,7 @@ export async function closeApp(app: ElectronApplication, graceMs = 20_000): Prom
   ]);
   if (outcome === 'late') {
     console.warn(`[e2e] the app had not exited ${graceMs / 1000}s after being asked to: ending it`);
-    proc.kill();
+    endProcessTree(proc);
     await Promise.race([exited, new Promise<void>(resolve => setTimeout(resolve, 10_000))]);
   }
 }
