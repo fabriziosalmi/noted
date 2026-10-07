@@ -33,6 +33,7 @@ export function buildAppMenu() {
       submenu: [
         { label: tr('menuNewNote'), accelerator: 'CmdOrCtrl+N', click: () => send('new-note') },
         { label: tr('menuDailyNote'), click: () => send('daily') },
+        { label: tr('ingestMenu'), click: () => send('ingest') },
         { label: tr('menuQuickCapture'), click: () => openCaptureWindow() },
         { type: 'separator' as const },
         { label: tr('menuPrint'), accelerator: 'CmdOrCtrl+P', click: () => send('print-note') },

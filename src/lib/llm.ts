@@ -170,7 +170,7 @@ async function apiFetch(
 // ==========================================
 
 /** localhost, loopback, or a name only this machine or the LAN resolves. */
-function isLocalHost(hostPart: string): boolean {
+export function isLocalHost(hostPart: string): boolean {
   const host = hostPart.split('/')[0].split(':')[0].toLowerCase();
   return host === 'localhost' || host === '0.0.0.0' || host === '[::1]' || host === '::1'
     || /^127\./.test(host) || host.endsWith('.local') || host.endsWith('.localhost');

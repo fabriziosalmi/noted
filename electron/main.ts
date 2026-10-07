@@ -20,6 +20,7 @@ import { registerCaptureHandlers } from './ipc/capture';
 import { registerGitHandlers } from './ipc/git';
 import { registerLlmHandlers } from './ipc/llm';
 import { registerEmbeddingHandlers } from './ipc/embeddings';
+import { registerIngestHandlers } from './ipc/ingest';
 import { registerNotesHandlers } from './ipc/notes';
 import { registerFoldersHandlers } from './ipc/folders';
 import { registerSecretsHandlers } from './ipc/secrets';
@@ -130,6 +131,7 @@ registerAttachmentsHandlers();
 registerGitHandlers();
 registerLlmHandlers();
 registerEmbeddingHandlers();
+registerIngestHandlers();
 registerMcpHandlers();
 registerSecretsHandlers();
 

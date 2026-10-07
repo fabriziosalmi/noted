@@ -2,7 +2,7 @@ import { useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   FileText, Plus, Trash2, Settings, Search, ArrowUpDown, Star, CalendarDays,
-  Tag, X, FolderOpen, Folder, FolderPlus, ChevronRight, ChevronDown
+  Tag, X, FolderOpen, Folder, FolderPlus, FileInput, ChevronRight, ChevronDown
 } from 'lucide-react';
 import type { NoteFile, FolderInfo } from '../store/useStore';
 import { ViewsSection } from './ViewsSection';
@@ -617,6 +617,11 @@ export function Sidebar({
           <Tooltip label={t('newFolder')}>
             <button type="button" onClick={() => { setNewFolderParent(''); setNewFolderMode(true); }} aria-label={t('newFolder')} className="hover:text-gray-800 dark:hover:text-gray-200 p-1 animate-spring-scale">
               <FolderPlus size={13} />
+            </button>
+          </Tooltip>
+          <Tooltip label={t('ingestMenu')}>
+            <button type="button" onClick={() => useStore.getState().openIngest()} aria-label={t('ingestMenu')} className="hover:text-gray-800 dark:hover:text-gray-200 p-1 animate-spring-scale">
+              <FileInput size={13} />
             </button>
           </Tooltip>
           <Tooltip label={t('dailyNote')}>

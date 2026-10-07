@@ -78,6 +78,7 @@ declare global {
       getMcpPolicy: (syncDir?: string) => Promise<{ success: boolean; data?: { policy?: McpPolicy; present?: boolean; error?: string }; error?: string }>;
       setMcpPolicy: (policy: McpPolicy, syncDir?: string) => Promise<{ success: boolean; data?: { policy: McpPolicy }; error?: string }>;
       listPendingChanges: (syncDir?: string) => Promise<{ success: boolean; data?: PendingChange[]; error?: string }>;
+      ingestFetch: (url: string) => Promise<{ success: boolean; data?: { url: string; title: string; text: string; truncated: boolean }; error?: string; code?: string }>;
       vaultLint: (opts: { staleDays?: number }, syncDir?: string) => Promise<{ success: boolean; data?: LintReport; error?: string }>;
       settlePendingChange: (id: string, approve: boolean, syncDir?: string, content?: string) => Promise<{ success: boolean; error?: string; conflict?: boolean }>;
       journalList: (syncDir?: string) => Promise<{ success: boolean; data?: { entries: JournalEntry[]; total: number; reverted: string[]; chain: { ok: true; entries: number } | { ok: false; at: number; reason: string } }; error?: string }>;

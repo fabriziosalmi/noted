@@ -166,6 +166,7 @@ function App() {
         case 'settings': panels.openSettings(); break;
         case 'new-note': void handleCreateNote(); break;
         case 'daily': void handleOpenDaily(); break;
+        case 'ingest': useStore.getState().openIngest(); break;
         case 'quick-open': panels.toggleQuickOpen(); break;
         case 'print-note': handlePrintNote(); break;
         case 'search': panels.toggleGlobalSearch(); break;

@@ -41,6 +41,17 @@ Studio or Ollama. Because it is an allowlist rather than a denylist, attempts to
 reach cloud metadata endpoints, private ranges, or rebindable hosts simply are not
 on the list and are refused. Requests are also capped in time and size.
 
+### Fetching a web page (notes from a source)
+
+The one place the app fetches an address a person typed, rather than a known AI provider, is [Notes from a source](/guide/sources), and
+it is done in the main process (`electron/ingest-fetch.ts`) because a page can lie about where it is. Every address a connection is
+made to is checked **at connect time** (a name that answers differently the second time is caught, which a check before the request
+would miss) against a block list: loopback, private ranges, link-local (the cloud-metadata address), CGNAT, multicast, reserved and
+documentation ranges, and IPv6 addresses that wrap an IPv4 one (mapped, NAT64, 6to4). A name with *any* blocked address is refused.
+Redirects are followed by hand, at most five, each hop checked again; only `http` and `https`, no user name or password in the
+address, no compressed bodies requested, 5 MB and 20 seconds at most, no cookies. The page is parsed with jsdom without running a
+script or loading anything it refers to.
+
 ## Secrets
 
 API keys and the GitHub token are stored with the macOS Keychain through

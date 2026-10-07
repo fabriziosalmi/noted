@@ -106,6 +106,7 @@ describe('IPC channels', () => {
     'git-unstage',
     'import-apple-notes',
     'import-vault',
+    'ingest-fetch',
     'inline-vault-images',
     'journal-diff',
     'journal-list',
