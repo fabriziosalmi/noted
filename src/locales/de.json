@@ -1078,5 +1078,12 @@
   "healthConfirmCopies": "{keep} behalten und {n} Kopie(n) in den Papierkorb legen? Dort kannst du sie zurückholen.",
   "healthNeedsModel": "Richte in den Einstellungen ein KI-Modell ein, um eine Zusammenfassung vorgeschlagen zu bekommen.",
   "healthReportFooter": "Erzeugt von Vault-Zustand. Starte es erneut für einen frischen Bericht; diese Notiz gehört nicht zur Prüfung.",
-  "healthFixFailed": "Das ging nicht: {error}"
+  "healthFixFailed": "Das ging nicht: {error}",
+  "promptsMenu": "Prompts",
+  "promptsNone": "Noch keine Prompts. Ein Prompt ist eine Notiz in prompts/ mit der Anweisung und {{selection}}, {{note}} oder {{date}} an den passenden Stellen.",
+  "promptsNew": "Neuer Prompt",
+  "promptsNeedSelection": "Wähle zuerst Text aus",
+  "promptEmpty": "Diese Prompt-Notiz enthält keine Anweisung.",
+  "promptsGroup": "Deine Prompts",
+  "promptsCreateFailed": "Der Prompt konnte nicht angelegt werden: {error}"
 }

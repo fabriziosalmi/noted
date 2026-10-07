@@ -185,3 +185,22 @@ describe('the older SSE endpoint, behind its flag', () => {
     await client.close();
   });
 });
+
+describe('prompts over the wire (#77)', () => {
+  it('a client sees the prompts capability, lists the prompts of the vault, and gets one filled in', async () => {
+    await start();
+    write('prompts/Make formal.md', '---\nname: Formal tone\nscope: selection\ndescription: Rewrite formally\n---\nRewrite formally:\n\n{{selection}}\n');
+    const client = await connectClient();
+    try {
+      expect(client.getServerCapabilities()).toMatchObject({ prompts: {} });
+      const listed = await client.listPrompts();
+      expect(listed.prompts).toEqual([{ name: 'make-formal', title: 'Formal tone', description: 'Rewrite formally', arguments: [{ name: 'selection', description: 'The text to work on', required: true }] }]);
+      const got = await client.getPrompt({ name: 'make-formal', arguments: { selection: 'hello' } });
+      expect(got.messages[0]).toMatchObject({ role: 'user', content: { type: 'text', text: 'Rewrite formally:\n\nhello' } });
+      await expect(client.getPrompt({ name: 'make-formal', arguments: {} })).rejects.toThrow(/selection/);
+    } finally {
+      await client.close();
+    }
+  });
+});
+

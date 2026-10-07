@@ -47,6 +47,11 @@ function bodyAndFrontmatter(raw: string, format?: NoteFormat): { body: string; f
   return { body, frontmatter };
 }
 
+/** The note's text without its frontmatter, as stored (Markdown stays Markdown, HTML stays HTML). */
+export function noteBody(raw: string, format?: NoteFormat): string {
+  return bodyAndFrontmatter(raw, format).body;
+}
+
 const WIKILINK_RE = /\[\[([^\]\n]+)\]\]/g;
 
 /**

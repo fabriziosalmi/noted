@@ -1078,5 +1078,12 @@
   "healthConfirmCopies": "Garder {keep} et mettre {n} copie(s) à la corbeille ? Vous pourrez les récupérer de là.",
   "healthNeedsModel": "Configurez un modèle d'IA dans les Réglages pour obtenir un résumé suggéré.",
   "healthReportFooter": "Généré par Santé du vault. Relancez-le pour un rapport à jour ; cette note ne fait pas partie de la vérification.",
-  "healthFixFailed": "Impossible de le faire : {error}"
+  "healthFixFailed": "Impossible de le faire : {error}",
+  "promptsMenu": "Prompts",
+  "promptsNone": "Aucun prompt pour l'instant. Un prompt est une note dans prompts/ avec l'instruction, et {{selection}}, {{note}} ou {{date}} là où il faut.",
+  "promptsNew": "Nouveau prompt",
+  "promptsNeedSelection": "Sélectionnez d'abord du texte",
+  "promptEmpty": "Cette note de prompt n'a pas d'instruction.",
+  "promptsGroup": "Vos prompts",
+  "promptsCreateFailed": "Impossible de créer le prompt : {error}"
 }

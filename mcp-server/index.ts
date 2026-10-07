@@ -25,6 +25,8 @@ import {
   ListToolsRequestSchema,
   ListResourcesRequestSchema,
   ListResourceTemplatesRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
   ReadResourceRequestSchema,
   isInitializeRequest,
   type Tool,
@@ -72,6 +74,7 @@ import type { FieldValue } from '../shared/vault/fields.js';
 import { extractTasks, withoutTaskLines } from '../shared/tasks/parse.js';
 import { queryTasks, localDay, type NoteTask, type TaskFilter } from '../shared/tasks/query.js';
 import { extractTags, extractFields } from '../shared/vault/extract.js';
+import { isPromptPath, isoDay, parsePrompt, PROMPTS_FOLDER, renderPrompt, slugOf, variablesIn, type UserPrompt } from '../shared/prompts/prompt.js';
 import { buildEntry, type NoteEntry as IndexEntry } from '../electron/vault-index.js';
 import { buildLinkResolver, linkPointsAtNote } from '../shared/vault/resolve.js';
 import { runView, type ViewRow } from '../shared/views/query.js';
@@ -2159,11 +2162,65 @@ export function handleReadResource(uri: string) {
   return { contents: [{ uri, mimeType: vaultFormat() === 'markdown' ? 'text/markdown' : 'text/html', text: fs.readFileSync(filePath, 'utf8') }] };
 }
 
+// ─── Prompts: the notes in prompts/ ──────────────────────────────────────────
+
+const MAX_PROMPT_BYTES = 100 * 1024;
+
+/** The prompts agents may read, by the name they are asked for with (the file name, lower case, dashes; a repeat gets -2, -3…). */
+function promptsByName(): Map<string, UserPrompt> {
+  const out = new Map<string, UserPrompt>();
+  const found = listAllNotes(PROMPTS_FOLDER).filter(n => isPromptPath(n.name) && n.size <= MAX_PROMPT_BYTES).map(n => n.name).sort();
+  for (const name of found) {
+    let prompt: UserPrompt | null = null;
+    try { prompt = parsePrompt(name, fs.readFileSync(guardedPath(name, 'read'), 'utf8')); } catch { /* not readable by agents, or gone */ }
+    if (!prompt) continue;
+    const slug = slugOf(name) || 'prompt';
+    let unique = slug;
+    for (let n = 2; out.has(unique); n++) unique = `${slug}-${n}`;
+    out.set(unique, prompt);
+  }
+  return out;
+}
+
+export function handleListPrompts() {
+  return {
+    prompts: [...promptsByName()].map(([name, p]) => {
+      const uses = variablesIn(p.template);
+      return {
+        name,
+        title: p.name,
+        ...(p.description ? { description: p.description } : {}),
+        arguments: [
+          ...(uses.includes('selection') ? [{ name: 'selection', description: p.scope === 'note' ? 'The text to work on (not used by this prompt)' : 'The text to work on', required: p.scope === 'selection' }] : []),
+          ...(uses.includes('note') ? [{ name: 'note', description: 'The whole note, if the prompt is about one', required: false }] : []),
+        ],
+      };
+    }),
+  };
+}
+
+/** A prompt filled in: {{selection}} and {{note}} are the arguments the agent gives, {{date}} is today. */
+export function handleGetPrompt(name: string, args: Record<string, string> | undefined) {
+  const prompt = promptsByName().get(name);
+  if (!prompt) throw new McpError(ErrorCode.InvalidParams, `Unknown prompt: ${name}`);
+  const given = args ?? {};
+  for (const key of Object.keys(given)) {
+    if (key !== 'selection' && key !== 'note') throw new McpError(ErrorCode.InvalidParams, `Unknown argument: ${key}`);
+    if (typeof given[key] !== 'string') throw new McpError(ErrorCode.InvalidParams, `${key} must be a string`);
+  }
+  const note = given.note ?? '';
+  if (prompt.scope === 'selection' && !(given.selection ?? '').trim()) throw new McpError(ErrorCode.InvalidParams, 'This prompt works on a selection: give the selection argument');
+  // As in the app: a prompt for any text takes the selection if there is one, else the note.
+  const selection = prompt.scope === 'note' ? '' : (given.selection ?? '').trim() ? given.selection : (prompt.scope === 'any' ? note : '');
+  const text = renderPrompt(prompt.template, { selection, note, date: isoDay(new Date()) });
+  return { ...(prompt.description ? { description: prompt.description } : {}), messages: [{ role: 'user' as const, content: { type: 'text' as const, text } }] };
+}
+
 /** One MCP server for one connection: its handlers, and who is on the other end. */
 function createMcpServer(sessionId?: string): Server {
   const srv = new Server(
     { name: 'noted', version: pkg.version },
-    { capabilities: { tools: {}, resources: {} } },
+    { capabilities: { tools: {}, resources: {}, prompts: {} } },
   );
   srv.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
   srv.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -2189,6 +2246,8 @@ function createMcpServer(sessionId?: string): Server {
     resourceTemplates: [{ uriTemplate: `${RESOURCE_PREFIX}{path}`, name: 'A note of the vault', description: 'The stored text of a note, by its path (for example noted://note/Projects/plan.md).', mimeType: vaultFormat() === 'markdown' ? 'text/markdown' : 'text/html' }],
   }));
   srv.setRequestHandler(ReadResourceRequestSchema, async request => handleReadResource(request.params.uri));
+  srv.setRequestHandler(ListPromptsRequestSchema, async () => handleListPrompts());
+  srv.setRequestHandler(GetPromptRequestSchema, async request => handleGetPrompt(request.params.name, request.params.arguments));
   return srv;
 }
 

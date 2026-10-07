@@ -1078,5 +1078,12 @@
   "healthConfirmCopies": "Manter {keep} e mover {n} cópia(s) para o lixo? Pode recuperá-las de lá.",
   "healthNeedsModel": "Configure um modelo de IA nas Definições para obter um resumo sugerido.",
   "healthReportFooter": "Gerado por Saúde do vault. Execute de novo para um relatório novo; esta nota não faz parte da verificação.",
-  "healthFixFailed": "Não foi possível fazer isso: {error}"
+  "healthFixFailed": "Não foi possível fazer isso: {error}",
+  "promptsMenu": "Prompts",
+  "promptsNone": "Ainda não há prompts. Um prompt é uma nota em prompts/ com a instrução e {{selection}}, {{note}} ou {{date}} onde forem precisos.",
+  "promptsNew": "Novo prompt",
+  "promptsNeedSelection": "Selecione primeiro algum texto",
+  "promptEmpty": "Essa nota de prompt não tem instrução.",
+  "promptsGroup": "Os seus prompts",
+  "promptsCreateFailed": "Não foi possível criar o prompt: {error}"
 }
