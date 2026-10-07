@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { Bot, Loader2, Database, RotateCcw, ShieldAlert, Square } from 'lucide-react';
 import { marked } from 'marked';
 import { streamLLM, AbortedError, describeLlmError } from '../lib/llm';
-import { findRelevantNotesHybrid, type NoteChunk, type RetrievalScoredNote } from '../lib/noteSearch';
+import { EMPTY_RAG, type RagResult } from '../lib/ragSearch';
+import type { RagChunk } from '../../shared/search/embeddingTypes';
 import { useI18n } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import { createMasker } from '../lib/piiMasker';
@@ -17,8 +18,8 @@ function renderMarkdown(src: string): string {
 
 interface AiChatProps {
   getEditorText: () => string;
-  /** Candidate notes for a question, from the whole vault (see lib/ragRetrieval). */
-  retrieveNotes?: (query: string) => Promise<NoteChunk[]>;
+  /** The sections of the vault that best answer a question (see lib/ragSearch). */
+  retrieve?: (query: string, topK: number) => Promise<RagResult>;
   /** How many notes the vault holds, for the "RAG active" badge. */
   noteCount?: number;
 }
@@ -45,17 +46,14 @@ function ChatBubble({ role, content }: ChatMessage) {
   );
 }
 
-export function AiChat({ getEditorText, retrieveNotes, noteCount = 0 }: AiChatProps) {
+export function AiChat({ getEditorText, retrieve, noteCount = 0 }: AiChatProps) {
   const { t } = useI18n();
   const lang = useStore(s => s.settings.language ?? 'en');
   const piiMasking = useStore(s => s.settings.piiMasking ?? false);
   const ragTopK = useStore(s => Math.max(1, Math.min(10, s.settings.ragTopK ?? 3)));
   const ragContextChars = useStore(s => Math.max(1500, Math.min(30000, s.settings.ragContextChars ?? 8000)));
   const ragDebug = useStore(s => s.settings.ragDebug ?? false);
-  const embeddingsEnabled = useStore(s => s.settings.embeddingsEnabled ?? false);
-  const embeddingProvider = useStore(s => s.settings.embeddingProvider ?? 'none');
-  const embeddingModel = useStore(s => s.settings.embeddingModel ?? '');
-  const lmStudioUrl = useStore(s => s.settings.lmStudioUrl ?? '');
+  const embeddingProgress = useStore(s => s.embeddingProgress);
   const llmApiKey = useStore(s => s.settings.llmApiKey ?? '');
   const llmProvider = useStore(s => s.settings.llmProvider ?? 'lmstudio');
   const llmModel = useStore(s => s.settings.llmModel ?? '');
@@ -78,7 +76,7 @@ export function AiChat({ getEditorText, retrieveNotes, noteCount = 0 }: AiChatPr
   const [aiInput, setAiInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [lastRetrievalMode, setLastRetrievalMode] = useState<'lexical' | 'hybrid'>('lexical');
-  const [lastRetrievalScores, setLastRetrievalScores] = useState<RetrievalScoredNote[]>([]);
+  const [lastRetrieved, setLastRetrieved] = useState<RagChunk[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   // The answer as it is being written. It lives in a ref and reaches the screen at most once a frame: a fast model sends
@@ -171,23 +169,14 @@ export function AiChat({ getEditorText, retrieveNotes, noteCount = 0 }: AiChatPr
       }
       if (masker && masker.count > 0) setPiiNotice(masker.count);
 
-      // RAG: find related notes from the full vault
-      const candidates = retrieveNotes ? await retrieveNotes(userMessage).catch(() => [] as NoteChunk[]) : [];
-      const retrieval = candidates.length > 0
-        ? await findRelevantNotesHybrid(userMessage, candidates, ragTopK, {
-          enabled: embeddingsEnabled,
-          provider: embeddingProvider,
-          model: embeddingModel,
-          apiKey: llmApiKey,
-          lmStudioUrl,
-        })
-        : { notes: [], mode: 'lexical' as const, scored: [] };
-      const relevant = retrieval.notes;
-      setLastRetrievalMode(retrieval.mode);
-      setLastRetrievalScores(retrieval.scored);
-      const ragContext = relevant.length > 0
-        ? relevant.map(n => `### ${n.name.replace('.md', '')}\n${n.text.slice(0, 1500)}`).join('\n\n---\n\n')
-        : '';
+      // RAG: the sections of the whole vault that best answer the question (words, and meaning when embeddings are on).
+      // A section is a few paragraphs under one heading, so a long note contributes the part that matters, not its first lines.
+      const retrieved = retrieve ? await retrieve(userMessage, ragTopK * 2).catch(() => EMPTY_RAG) : EMPTY_RAG;
+      setLastRetrievalMode(retrieved.mode);
+      setLastRetrieved(retrieved.chunks);
+      const ragContext = retrieved.chunks
+        .map(c => `### ${[c.title, ...c.headingPath].join(' › ')}\n${c.text}`)
+        .join('\n\n---\n\n');
 
       const activeNoteLabel = lang === 'it' ? 'Nota attiva' : 'Active note';
       const relatedLabel = lang === 'it' ? 'Note correlate dal vault' : 'Related notes from vault';
@@ -243,8 +232,8 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
           <span>{t('aiAssistant')}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          {noteCount > 0 && retrieveNotes && (
-            <span className="flex items-center gap-1 text-[10px] font-normal normal-case tracking-normal" style={{ color: 'var(--accent)' }} title={`${t('ragActive').replace('{n}', String(noteCount))} · ${embeddingsEnabled ? 'hybrid' : 'lexical'}`}>
+          {noteCount > 0 && retrieve && (
+            <span className="flex items-center gap-1 text-[10px] font-normal normal-case tracking-normal" style={{ color: 'var(--accent)' }} title={`${t('ragActive').replace('{n}', String(noteCount))} · ${embeddingProgress.state === 'off' ? 'lexical' : `hybrid ${embeddingProgress.embedded}/${embeddingProgress.chunks}`}`}>
               <Database size={10} />
               {t('ragActive').replace('{n}', String(noteCount))}
             </span>
@@ -276,15 +265,15 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
             {t('ragDebugTitle')} · {lastRetrievalMode}
           </p>
           <div className="mt-1 space-y-1">
-            {lastRetrievalScores.slice(0, 3).map((row) => (
-              <div key={row.note.name} className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center justify-between gap-2">
-                <span className="truncate">{row.note.name.replace('.md', '')}</span>
+            {lastRetrieved.slice(0, 4).map((row) => (
+              <div key={`${row.name}#${row.ord}`} className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center justify-between gap-2">
+                <span className="truncate">{[row.title, ...row.headingPath].join(' › ')}</span>
                 <span className="shrink-0">
-                  L {row.lexical.toFixed(2)} · D {row.dense.toFixed(2)} · C {row.combined.toFixed(2)}
+                  {t('ragRankWords')} {row.lexicalRank ?? '–'} · {t('ragRankMeaning')} {row.denseRank ?? '–'}
                 </span>
               </div>
             ))}
-            {lastRetrievalScores.length === 0 && (
+            {lastRetrieved.length === 0 && (
               <p className="text-[10px] text-gray-400 dark:text-gray-500">{t('ragNoScores')}</p>
             )}
           </div>

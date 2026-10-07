@@ -93,25 +93,48 @@ the error is shown after it. A stream that sends nothing for a minute is cut.
 
 ## Retrieval (RAG)
 
-When you send a question, the assistant retrieves the most relevant notes from
-**your whole vault** rather than sending everything — however many notes you have,
-and however old the one you need is.
+When you send a question, the assistant retrieves the most relevant **sections**
+from **your whole vault** rather than sending everything — however many notes you
+have, and however old the one you need is. A section is the text under one heading
+(long ones are cut at paragraph ends, at about 1,500 characters), so a long note
+contributes the part that matters instead of its first lines, and the assistant
+sees where each piece comes from (`Note › Heading › Subheading`).
 
-It works in two steps. First, the app's search index (BM25, kept in memory and
-kept current as notes change — including edits made outside Noted) picks the best
-**candidate** notes for your question. Then only those candidates are re-ranked
-and the top few are sent. Nothing is read from disk when you open the chat panel.
+Two rankings are merged:
 
-- By default the re-ranking is **lexical** (TF-IDF over the candidates) — fast
-  and fully local.
-- Optionally, enable **dense embeddings** (**Settings → Integrations**, labeled
-  **Beta**) for hybrid semantic re-ranking, using OpenAI, LM Studio, or Ollama to
-  compute embeddings. Only the candidates are embedded, never the whole vault.
+- **Words.** The app's search index (BM25, kept current as notes change, including
+  edits made outside Noted) picks the best notes, and their sections are ranked
+  against your question. Fast, fully local, and always on.
+- **Meaning** (optional, **Settings → Integrations → Embeddings**, **Beta**). Every
+  section of the vault has a vector made by OpenAI, LM Studio or Ollama; the
+  question is embedded too, and the most similar sections are found even when they
+  share no word with it ("car maintenance" finds a section about the oil change).
+
+The two lists are combined by **reciprocal rank fusion**, which needs no tuning
+between them: a section that both like comes first. If the question cannot be
+embedded (provider down, no vectors yet) the answer uses the words alone.
+
+### The index
+
+Vectors are kept in `.noted/embeddings/` inside the vault, one file per model, and
+survive restarts. A section is identified by its text, so **only what changed is
+embedded again**: editing one paragraph costs one section, moving a note to
+another folder costs nothing, renaming a note re-embeds its sections (the title is
+part of what is embedded). Sections are sent to the provider in batches, in the
+background, a few seconds after notes change; **Settings → Integrations** shows how
+far it has got and can rebuild it from scratch. For OpenAI, personal data is masked
+before text is sent (see [PII masking](#pii-masking)). The `.noted/` folder is
+never synced by Git.
+
+The index of one model may use up to 512 MB of memory (about 100,000 sections of
+1,536 dimensions); a vault beyond that keeps its first sections embedded and is
+searched by words for the rest, and the settings say so.
 
 Retrieval is tunable in **Settings → AI**: how many notes to send (Top-K,
-default 3), how many **candidate notes** to re-rank per question (5–100, default
-30), and how much of the active note to include (default 8000 characters). A
-debug toggle shows the per-note relevance scores.
+default 3; the chat sends twice as many sections), how many **candidate notes**
+the word ranking looks into (5–100, default 30), and how much of the active note
+to include (default 8000 characters). A debug toggle shows, for each section, its
+place in each ranking.
 
 ## PII masking
 

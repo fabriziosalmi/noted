@@ -197,6 +197,15 @@ export class FullTextSearchReadModel {
     return { candidates, truncated: state.truncated, indexed: state.index.size };
   }
 
+  /** Every indexed note with the time its text was last read (a change in it means the note changed). */
+  async docs(dir: string, validateFileName: (name: string) => void): Promise<{ id: string; title: string; mtimeMs: number }[]> {
+    const state = await this.ensureFresh(normalizeDir(dir), validateFileName);
+    return state.index.ids().map((id) => {
+      const doc = state.index.getDoc(id);
+      return { id, title: doc?.title ?? deriveTitleFromRelPath(id), mtimeMs: doc?.mtimeMs ?? 0 };
+    });
+  }
+
   private readonly refreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   /** Debounced refresh of one note from disk (the watcher fires several events per save). */

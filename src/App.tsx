@@ -6,9 +6,10 @@ import type { AgentUiAction } from './store/useStore';
 import { useToast } from './hooks/useToast';
 import { useTheme } from './hooks/useTheme';
 import { useNoteAdvisor } from './hooks/useNoteAdvisor';
-import { fetchRetrievalCandidates } from './lib/ragRetrieval';
+import { retrieveChunks } from './lib/ragSearch';
 import { useAppLifecycle } from './hooks/useAppLifecycle';
 import { useGitSync } from './hooks/useGitSync';
+import { useEmbeddingSync } from './hooks/useEmbeddingSync';
 import { useVaultIndex } from './hooks/useVaultIndex';
 import { useViews } from './hooks/useViews';
 import { useVaultFormatSync } from './hooks/useVaultFormatSync';
@@ -83,12 +84,15 @@ function App() {
     settings,
   });
 
-  // The AI chat asks the main process's index of the whole vault for candidates when a
-  // question is sent; nothing is read when the panel opens.
-  const retrieveNotes = useCallback(
-    (query: string) => fetchRetrievalCandidates(query, settings.ragMaxNotes, settings.syncDirectory || undefined),
-    [settings.ragMaxNotes, settings.syncDirectory],
+  // The AI chat asks the main process for the sections of the whole vault that best answer a question (words, and meaning
+  // when embeddings are on); nothing is read when the panel opens.
+  const retrieve = useCallback(
+    (query: string, topK: number) => retrieveChunks(query, topK, settings),
+    [settings],
   );
+
+  // Vectors for the vault's sections, kept current while embeddings are on.
+  useEmbeddingSync();
 
   // Background git sync: engine state mirror + the interval / idle / focus triggers.
   useGitSync(settings.syncDirectory || undefined);
@@ -333,7 +337,7 @@ function App() {
       allTags,
       activeTagFilter,
       suggestions,
-      retrieveNotes,
+      retrieve,
       ragNoteCount: notes.length,
       noteLinksIndex,
       allNoteNames,

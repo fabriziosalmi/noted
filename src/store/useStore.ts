@@ -42,6 +42,15 @@ export type AgentUiAction =
   | { kind: 'approve' }
   | { kind: 'reject'; reason?: string };
 
+export interface EmbeddingProgress {
+  state: 'off' | 'idle' | 'running' | 'error';
+  chunks: number;
+  embedded: number;
+  /** The store reached its memory limit: the rest of the vault is not embedded. */
+  capped: boolean;
+  error?: string;
+}
+
 export interface NoteFile {
   name: string;
   path: string;
@@ -211,6 +220,9 @@ interface NoteState {
   noteAliasesIndex: Record<string, string[]>;
   /** Note name -> its frontmatter as typed fields (the rows of a view), only for the notes that have any. */
   frontmatterIndex: Record<string, Record<string, FieldValue>>;
+  /** How far the vault's vectors are (see lib/embeddingSync): off while embeddings are not set up. Never persisted. */
+  embeddingProgress: EmbeddingProgress;
+  setEmbeddingProgress: (progress: EmbeddingProgress) => void;
   tagIndex: Record<string, string[]>;
   /** The vault's saved views (`.noted-views.json`): never persisted in the browser, the file is the truth. */
   views: View[];
@@ -430,6 +442,8 @@ export const useStore = create<NoteState>()(
       noteLinksIndex: {},
       noteAliasesIndex: {},
       frontmatterIndex: {},
+      embeddingProgress: { state: 'off', chunks: 0, embedded: 0, capped: false },
+      setEmbeddingProgress: (progress) => set({ embeddingProgress: progress }),
       views: [],
       activeViewId: null,
       openView: id => set(state => (state.views.some(v => v.id === id) ? { activeViewId: id, tasksOpen: false, activityOpen: false, workflowsOpen: false } : state)),

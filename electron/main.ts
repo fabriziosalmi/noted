@@ -19,6 +19,7 @@ import { registerAttachmentsHandlers } from './ipc/attachments';
 import { registerCaptureHandlers } from './ipc/capture';
 import { registerGitHandlers } from './ipc/git';
 import { registerLlmHandlers } from './ipc/llm';
+import { registerEmbeddingHandlers } from './ipc/embeddings';
 import { registerNotesHandlers } from './ipc/notes';
 import { registerFoldersHandlers } from './ipc/folders';
 import { registerSecretsHandlers } from './ipc/secrets';
@@ -128,6 +129,7 @@ registerMigrationHandlers();
 registerAttachmentsHandlers();
 registerGitHandlers();
 registerLlmHandlers();
+registerEmbeddingHandlers();
 registerMcpHandlers();
 registerSecretsHandlers();
 
