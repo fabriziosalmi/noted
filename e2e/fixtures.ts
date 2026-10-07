@@ -30,7 +30,8 @@ export interface Launched {
  * app's behaviour, not about how fast the process exits, so it must not depend on that. A kill is noted in the log.
  */
 export async function closeApp(app: ElectronApplication, graceMs = 20_000): Promise<void> {
-  const proc = app.process();
+  let proc: ReturnType<ElectronApplication['process']>;
+  try { proc = app.process(); } catch { return; } // already closed (a test that relaunches again from an earlier handle)
   const exited = new Promise<void>(resolve => { proc.once('exit', () => resolve()); });
   const outcome = await Promise.race([
     app.close().then(() => 'closed' as const, () => 'closed' as const),
