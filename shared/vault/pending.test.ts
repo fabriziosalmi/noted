@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,7 +8,7 @@ import { addPending, listPending, getPending, removePending, pendingDir } from '
 
 let dir: string;
 beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'noted-pending-')); });
-afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
+afterEach(() => { vi.useRealTimers(); fs.rmSync(dir, { recursive: true, force: true }); });
 
 const change = (over: Partial<Parameters<typeof addPending>[1]> = {}) => ({
   client: 'claude', tool: 'update_note', kind: 'update' as const, note: 'a.md', baseEtag: 'e1', before: 'old', after: 'new', ...over,
@@ -16,15 +16,25 @@ const change = (over: Partial<Parameters<typeof addPending>[1]> = {}) => ({
 
 describe('pending changes on disk', () => {
   it('are kept as files, listed oldest first, read back, and removed', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-07T10:00:00.000Z'));
     const a = addPending(dir, change());
+    vi.setSystemTime(new Date('2026-10-07T10:00:01.000Z'));
     const b = addPending(dir, change({ note: 'b.md', kind: 'create', baseEtag: null, before: null, after: 'x' }));
     expect(a.id).toMatch(/^[0-9a-f]{16}$/);
     expect(fs.readdirSync(pendingDir(dir)).sort()).toEqual([`${a.id}.json`, `${b.id}.json`].sort());
-    expect(listPending(dir).map(c => c.id)).toEqual([a.id, b.id].sort((x, y) => (listPending(dir).find(c => c.id === x)!.createdAt <= listPending(dir).find(c => c.id === y)!.createdAt ? -1 : 1)));
+    expect(listPending(dir).map(c => c.id)).toEqual([a.id, b.id]);
     expect(getPending(dir, a.id)).toEqual(a);
     removePending(dir, a.id);
     expect(getPending(dir, a.id)).toBeNull();
     expect(listPending(dir).map(c => c.id)).toEqual([b.id]);
+  });
+
+  it('two changes made in the same instant are listed by id, so the order is always the same', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-07T10:00:00.000Z'));
+    const ids = [addPending(dir, change()), addPending(dir, change({ note: 'b.md' }))].map(c => c.id);
+    expect(listPending(dir).map(c => c.id)).toEqual([...ids].sort());
   });
 
   it('a vault with none lists none, and an id that is not one reaches nothing', () => {
