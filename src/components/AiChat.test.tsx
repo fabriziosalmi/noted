@@ -5,6 +5,8 @@ import { useStore } from '../store/useStore';
 import { AbortedError } from '../lib/llm';
 
 const streamLLMMock = vi.fn(async () => 'ok');
+/** The sources block of the system prompt: what the model was shown, without the instructions around it. */
+const sourcesOf = (system: string): string => /Sources:\n"""\n([\s\S]*?)\n"""/.exec(system)?.[1] ?? '';
 const chunk = (over: Record<string, unknown> = {}) => ({ name: 'a.md', title: 'A', headingPath: ['Plan'], text: 'hello world', ord: 0, score: 0.03, lexicalRank: 1, denseRank: 2, ...over });
 
 vi.mock('../lib/llm', () => {
@@ -25,8 +27,10 @@ describe('AiChat retrieval mode wiring', () => {
     });
     useStore.setState((state) => ({
       ...state,
+      activeNoteName: 'Today.md',
       settings: {
         ...state.settings,
+        ragVaultOnly: false,
         llmProvider: 'lmstudio',
         llmModel: 'local',
         llmApiKey: 'k',
@@ -54,8 +58,9 @@ describe('AiChat retrieval mode wiring', () => {
     expect(retrieve).toHaveBeenCalledTimes(1);
     expect(retrieve).toHaveBeenCalledWith('what is quokka', 6); // twice the "notes" setting (3): sections are smaller than notes
     const system = (streamLLMMock.mock.calls.at(-1)?.[0] as { role: string; content: string }[])[0].content;
-    expect(system).toContain('### A › Plan\nhello world');
-    expect(system).toContain('### B › Risks › People\nholiday season');
+    expect(system).toContain('[1] Today\nhello');
+    expect(system).toContain('[2] A › Plan\nhello world');
+    expect(system).toContain('[3] B › Risks › People\nholiday season');
   });
 
   it('still answers, without related notes, when retrieval fails', async () => {
@@ -66,7 +71,7 @@ describe('AiChat retrieval mode wiring', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(retrieve).toHaveBeenCalled());
     await waitFor(() => expect(streamLLMMock).toHaveBeenCalled());
-    expect((streamLLMMock.mock.calls.at(-1)?.[0] as { content: string }[])[0].content).not.toContain('###');
+    expect(sourcesOf((streamLLMMock.mock.calls.at(-1)?.[0] as { content: string }[])[0].content)).not.toContain('[2]'); // only the open note was a source
   });
 
   it('clears chat history and aborts current query on clear click', async () => {
@@ -204,6 +209,96 @@ describe('AiChat retrieval mode wiring', () => {
     expect(second.filter(m => m.role === 'user').map(m => m.content)).toEqual(['mail [EMAIL_1]', 'and [EMAIL_2]']);
   });
 
+  describe('citations', () => {
+    const found = [chunk(), chunk({ name: 'b.md', title: 'B', headingPath: ['Risks'], text: 'holiday season', ord: 3, coverage: 0.5 })];
+    const ask = async (retrieve: ReturnType<typeof vi.fn>, onOpenSource = vi.fn(), question = 'when is it due') => {
+      render(<AiChat getEditorText={() => 'my note'} retrieve={retrieve as never} noteCount={5} onOpenSource={onOpenSource} />);
+      const input = screen.getByPlaceholderText(/ask something/i);
+      fireEvent.change(input, { target: { value: question } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      await waitFor(() => expect(streamLLMMock).toHaveBeenCalled());
+      return onOpenSource;
+    };
+
+    it('shows the sources an answer cites as chips, and a click on a marker or a chip opens that source', async () => {
+      streamLLMMock.mockResolvedValueOnce('It is due in October [2]. People are away in summer [3], see also [1].');
+      const onOpenSource = await ask(vi.fn(async () => ({ mode: 'hybrid' as const, chunks: found })));
+      const list = await screen.findByTestId('ai-sources');
+      expect([...list.querySelectorAll('button')].map(b => b.getAttribute('data-source'))).toEqual(['2', '3', '1']); // in the order cited
+      expect(list).toHaveTextContent('A › Plan');
+      expect(list).toHaveTextContent('B › Risks');
+
+      fireEvent.click(list.querySelector('[data-source="3"]') as HTMLElement);
+      expect(onOpenSource).toHaveBeenLastCalledWith(expect.objectContaining({ n: 3, name: 'b.md', headingPath: ['Risks'], text: 'holiday season' }));
+
+      const marker = screen.getAllByRole('link').find(a => a.getAttribute('href') === '#cite-2') as HTMLElement;
+      expect(marker).toHaveAttribute('title', 'A › Plan');
+      fireEvent.click(marker);
+      expect(onOpenSource).toHaveBeenLastCalledWith(expect.objectContaining({ n: 2, name: 'a.md', headingPath: ['Plan'] }));
+    });
+
+    it('a number that is no source is dropped from the answer, and the answer is not marked', async () => {
+      streamLLMMock.mockResolvedValueOnce('Real [2] and invented [9].');
+      await ask(vi.fn(async () => ({ mode: 'lexical' as const, chunks: found })));
+      expect(await screen.findByText(/Real/)).toHaveTextContent('Real 2 and invented.');
+      expect(screen.queryByText(/\[9\]/)).toBeNull();
+      expect(screen.queryByTestId('ai-uncited')).toBeNull();
+    });
+
+    it('the model gets only role and content of each message, and earlier answers without their markers', async () => {
+      streamLLMMock.mockResolvedValueOnce('First answer [2].').mockResolvedValueOnce('Second answer.');
+      render(<AiChat getEditorText={() => 'my note'} retrieve={async () => ({ mode: 'lexical' as const, chunks: found })} noteCount={5} />);
+      const input = () => screen.getByPlaceholderText(/ask something/i);
+      fireEvent.change(input(), { target: { value: 'one' } });
+      fireEvent.keyDown(input(), { key: 'Enter' });
+      await screen.findByText(/First answer/);
+      await waitFor(() => expect(input()).not.toBeDisabled());
+      fireEvent.change(input(), { target: { value: 'two' } });
+      fireEvent.keyDown(input(), { key: 'Enter' });
+      await waitFor(() => expect(streamLLMMock).toHaveBeenCalledTimes(2));
+      const sent = streamLLMMock.mock.calls[1][0] as Record<string, unknown>[];
+      expect(sent.map(m => Object.keys(m).sort())).toEqual(sent.map(() => ['content', 'role']));
+      expect(sent.find(m => m.role === 'assistant')?.content).toBe('First answer.');
+    });
+
+    it('vault only: with nothing in the notes that bears on the question, the model is not asked', async () => {
+      useStore.setState(state => ({ ...state, settings: { ...state.settings, ragVaultOnly: true } }));
+      render(<AiChat getEditorText={() => ''} retrieve={async () => ({ mode: 'lexical' as const, chunks: [chunk({ coverage: 0.1 }), chunk({ coverage: 0, similarity: 0.05, ord: 2 })] })} noteCount={5} />);
+      const input = screen.getByPlaceholderText(/ask something/i);
+      fireEvent.change(input, { target: { value: 'capital of France' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(await screen.findByText("I couldn't find anything about this in your notes.")).toBeInTheDocument();
+      expect(streamLLMMock).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.getByPlaceholderText(/ask something/i)).not.toBeDisabled());
+    });
+
+    it('vault only: the model is told to answer from the sources alone, and an answer citing none is marked', async () => {
+      useStore.setState(state => ({ ...state, settings: { ...state.settings, ragVaultOnly: true } }));
+      streamLLMMock.mockResolvedValueOnce('I believe it is October.');
+      await ask(vi.fn(async () => ({ mode: 'lexical' as const, chunks: found })));
+      expect((streamLLMMock.mock.calls.at(-1)?.[0] as { content: string }[])[0].content).toMatch(/Answer only from the sources/);
+      expect(await screen.findByTestId('ai-uncited')).toHaveTextContent('No source cited');
+      expect(screen.queryByTestId('ai-sources')).toBeNull();
+    });
+
+    it('vault only: a cited answer is not marked', async () => {
+      useStore.setState(state => ({ ...state, settings: { ...state.settings, ragVaultOnly: true } }));
+      streamLLMMock.mockResolvedValueOnce('October [2].');
+      await ask(vi.fn(async () => ({ mode: 'lexical' as const, chunks: found })));
+      await screen.findByTestId('ai-sources');
+      expect(screen.queryByTestId('ai-uncited')).toBeNull();
+    });
+
+    it('the header button turns vault only on and off', async () => {
+      render(<AiChat getEditorText={() => ''} noteCount={0} />);
+      const button = screen.getByRole('button', { name: 'Vault only' });
+      expect(button).toHaveAttribute('aria-pressed', 'false');
+      fireEvent.click(button);
+      expect(useStore.getState().settings.ragVaultOnly).toBe(true);
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Vault only' })).toHaveAttribute('aria-pressed', 'true'));
+    });
+  });
+
   it('displays friendly error when streamLLM throws a generic error', async () => {
     streamLLMMock.mockRejectedValueOnce(new Error('Unknown backend error'));
     render(<AiChat getEditorText={() => 'hello'} />);
@@ -262,7 +357,7 @@ describe('AiChat retrieval mode wiring', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     await waitFor(() => expect(streamLLMMock).toHaveBeenCalled());
-    const sysMsg = streamLLMMock.mock.calls.at(-1)?.[0]?.[0]?.content;
+    const sysMsg = sourcesOf(streamLLMMock.mock.calls.at(-1)?.[0]?.[0]?.content ?? '');
     
     // It should truncate at index 1000 (the last paragraph break)
     const expectedTruncated = 'a'.repeat(1000);
@@ -289,7 +384,7 @@ describe('AiChat retrieval mode wiring', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     await waitFor(() => expect(streamLLMMock).toHaveBeenCalled());
-    const sysMsg = streamLLMMock.mock.calls.at(-1)?.[0]?.[0]?.content;
+    const sysMsg = sourcesOf(streamLLMMock.mock.calls.at(-1)?.[0]?.[0]?.content ?? '');
     
     // It should truncate at index 1000 (the last newline)
     const expectedTruncated = 'a'.repeat(1000);
@@ -314,7 +409,7 @@ describe('AiChat retrieval mode wiring', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     await waitFor(() => expect(streamLLMMock).toHaveBeenCalled());
-    const sysMsg = streamLLMMock.mock.calls.at(-1)?.[0]?.[0]?.content;
+    const sysMsg = sourcesOf(streamLLMMock.mock.calls.at(-1)?.[0]?.[0]?.content ?? '');
     
     // It should truncate at 1500 characters
     const expectedTruncated = 'a'.repeat(1500);
@@ -376,6 +471,7 @@ describe('AiChat retrieval mode wiring', () => {
     // The language passed to describeLlmError should be 'it'
     const sysMsg = streamLLMMock.mock.calls.at(-1)?.[0]?.[0]?.content;
     expect(sysMsg).toContain('Sei un assistente integrato');
+    expect(sysMsg).toContain('Fonti:');
     
     // Friendly error should be populated with 'err_it'
     await waitFor(() => expect(screen.getByText(/Errore: err_it/i)).toBeInTheDocument());

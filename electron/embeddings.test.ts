@@ -181,6 +181,21 @@ describe('search', () => {
     expect(out.chunks[0]).toMatchObject({ name: 'Pets/Dogs.md', title: 'Dogs', headingPath: ['Training'], text: 'The dog learns to sit and to stay.' });
   });
 
+  it('says why a section came back: how much of the question\'s words it holds, and how close it is in meaning', async () => {
+    const both = (await search('car oil change')).chunks[0];
+    expect(both).toMatchObject({ name: 'Garage.md', headingPath: ['Car'], coverage: 1 });
+    expect(both.similarity).toBeGreaterThan(0.5);
+    const meaningOnly = (await search('automobile maintenance')).chunks[0];
+    expect(meaningOnly.coverage).toBe(0);
+    expect(meaningOnly.similarity).toBeGreaterThan(0.3);
+    // "the" and "of" do not count: a question that is all small words has no coverage to claim
+    const small = await service.search(dir, MODEL, 'what is the', null, 5, ok);
+    expect(small.chunks.every(c => c.coverage === 0)).toBe(true);
+    // half of the significant words ("garage", "wrench" are in different sections: one each)
+    const half = await service.search(dir, MODEL, 'wrench dolphin', null, 5, ok);
+    expect(half.chunks[0]).toMatchObject({ headingPath: ['Tools'], coverage: 0.5, similarity: null });
+  });
+
   it('with no question vector, or one of another size, it is the words alone', async () => {
     const none = await service.search(dir, MODEL, 'oil change', null, 5, ok);
     expect(none.mode).toBe('lexical');

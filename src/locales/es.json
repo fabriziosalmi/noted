@@ -1000,5 +1000,12 @@
   "embeddingsCapped": "El vault contiene más de lo que permite la memoria reservada para vectores: el resto se encuentra solo por palabras.",
   "embeddingsRebuild": "Reconstruir el índice",
   "embeddingsRebuildHint": "Descarta los vectores de este modelo y vuelve a indexar el vault.",
-  "embeddingsWaiting": "Preparando el índice…"
+  "embeddingsWaiting": "Preparando el índice…",
+  "aiVaultOnly": "Solo el vault",
+  "aiVaultOnlyHint": "Solo el vault: responde desde tus notas, las cita y lo dice cuando no tienen nada",
+  "aiVaultOnlyDesc": "Las respuestas salen solo de tus notas (la nota abierta y las secciones encontradas para la pregunta), cada afirmación cita su fuente y, si nada en tus notas tiene que ver con la pregunta, el asistente lo dice sin consultar al modelo.",
+  "aiNoSources": "No encontré nada sobre esto en tus notas.",
+  "aiUncited": "Ninguna fuente citada: esta respuesta no está respaldada por tus notas.",
+  "aiSources": "Fuentes",
+  "aiOpenSource": "Abrir {label}"
 }

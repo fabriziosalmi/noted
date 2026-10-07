@@ -1,5 +1,5 @@
 import type { AppChromeProps } from './types';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { parseAgentNote } from '../../lib/agentWorkflow';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { PanelLeft, PanelRight, Keyboard, LayoutTemplate, History, Focus } from 'lucide-react';
@@ -25,6 +25,8 @@ import { ErrorBoundary } from '../ErrorBoundary';
 import { Tooltip } from '../Tooltip';
 import { ShareMenu } from '../ShareMenu';
 import { useTablist } from '../../lib/useTablist';
+import { scrollToAnchor } from '../../lib/anchors';
+import type { Source } from '../../../shared/search/citations';
 import type { TranslationKey } from '../../lib/i18n';
 
 const RIGHT_TABS = ['ai', 'agent', 'analytics', 'graph', 'outline', 'properties'] as const;
@@ -95,6 +97,19 @@ export function AppChrome({
 
   // The Agent tab is dev-facing scaffolding; show it only when the open note is
   // actually an agent-workflow note, so a first-run stranger never sees it.
+  // A citation in the chat: open the note it points to at its heading and mark the passage (in the open note itself, scroll there).
+  const openSource = useCallback((source: Source) => {
+    const anchor = { heading: source.headingPath.join('#') || undefined, passage: source.text };
+    const store = useStore.getState();
+    if (source.name === store.activeNoteName && !store.workflowsOpen && !store.tasksOpen && !store.activityOpen && !store.activeViewId) {
+      const editor = editorRef.current;
+      if (editor) scrollToAnchor(editor, anchor);
+      return;
+    }
+    store.setPendingAnchor({ note: source.name, ...anchor });
+    onOpenNote(source.name);
+  }, [editorRef, onOpenNote]);
+
   const isAgentNote = useMemo(() => !!parseAgentNote(activeNoteContent).metadata, [activeNoteContent]);
   const visibleRightTabs = useMemo(
     () => (isAgentNote ? RIGHT_TABS : RIGHT_TABS.filter(t => t !== 'agent')),
@@ -296,7 +311,7 @@ export function AppChrome({
                 </div>
                 <div {...rightTabs.panelProps} className="flex-1 min-h-0 flex flex-col">
                   <ErrorBoundary>
-                    {rightTab === 'ai' && <AiChat getEditorText={onGetEditorText} retrieve={retrieve} noteCount={ragNoteCount} />}
+                    {rightTab === 'ai' && <AiChat getEditorText={onGetEditorText} retrieve={retrieve} noteCount={ragNoteCount} onOpenSource={openSource} />}
                     {rightTab === 'agent' && (
                       <AgentPanel
                         activeNoteName={activeNoteName}

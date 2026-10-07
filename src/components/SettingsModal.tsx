@@ -54,6 +54,7 @@ interface Settings {
   ragMaxNotes?: number;
   ragContextChars?: number;
   ragDebug?: boolean;
+  ragVaultOnly?: boolean;
   embeddingsEnabled?: boolean;
   embeddingProvider?: 'openai' | 'lmstudio' | 'ollama' | 'none';
   embeddingModel?: string;
@@ -828,6 +829,12 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                     onChange={(e) => onUpdate({ ragContextChars: Math.max(1500, Math.min(30000, Number(e.target.value) || 8000)) })}
                   />
                 </div>
+                <SegRow
+                  label={t('aiVaultOnly')}
+                  description={t('aiVaultOnlyDesc')}
+                  value={!!settings.ragVaultOnly}
+                  onChange={() => onUpdate({ ragVaultOnly: !settings.ragVaultOnly })}
+                />
                 <SegRow
                   label={t('ragDebugLabel')}
                   description={t('ragDebugDesc')}

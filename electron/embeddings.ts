@@ -10,7 +10,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { chunkNote, embedText } from '../shared/search/chunks.js';
-import { InvertedIndex } from '../shared/search/invertedIndex.js';
+import { InvertedIndex, tokenize } from '../shared/search/invertedIndex.js';
+import { STOPWORDS } from '../shared/search/stopwords.js';
 import { normalize, reciprocalRankFusion, topKDense } from '../shared/search/rank.js';
 import { chunkHash, DimensionMismatchError, EmbeddingStore, MAX_STORE_BYTES, storeFile } from './embedding-store.js';
 import type { FullTextSearchReadModel } from './fulltext-index.js';
@@ -208,10 +209,14 @@ export class EmbeddingService {
         lexical.add({ id, title: c.headingPath.join(' '), text: c.text, mtimeMs: 0 });
       }
     }
-    const lexicalIds = lexical.search(query, { limit: DENSE_CHUNKS, titleBoost: 2, allTermsBonus: 0 }).map(h => h.id);
+    const significant = [...new Set(tokenize(query).filter(w => !STOPWORDS.has(w)))];
+    const lexicalHits = lexical.search(query, { limit: DENSE_CHUNKS, titleBoost: 2, allTermsBonus: 0 });
+    const lexicalIds = lexicalHits.map(h => h.id);
+    const coverage = new Map(lexicalHits.map(h => [h.id, significant.length === 0 ? 0 : h.matchedTerms.filter(t => significant.includes(t)).length / significant.length]));
 
     // Meaning: every embedded section, by similarity to the question.
     let denseIds: string[] = [];
+    const similarity = new Map<string, number>();
     let usedDense = false;
     if (queryVector && queryVector.length > 0) {
       const state = await this.refreshTable(dir, validate);
@@ -219,10 +224,15 @@ export class EmbeddingService {
       const { ids, rows, dim } = store.matrix();
       if (store.size > 0 && dim === queryVector.length) {
         usedDense = true;
-        denseIds = topKDense(normalize(queryVector), ids, rows, dim, DENSE_CHUNKS)
-          .map(h => state.where.get(h.id))
-          .filter((w): w is { name: string; ord: number } => !!w)
-          .map(w => { const id = `${w.name}#${w.ord}`; if (!meta.has(id)) meta.set(id, w); return id; });
+        denseIds = [];
+        for (const hit of topKDense(normalize(queryVector), ids, rows, dim, DENSE_CHUNKS)) {
+          const w = state.where.get(hit.id);
+          if (!w) continue;
+          const id = `${w.name}#${w.ord}`;
+          if (!meta.has(id)) meta.set(id, w);
+          similarity.set(id, hit.score);
+          denseIds.push(id);
+        }
       }
     }
 
@@ -242,6 +252,7 @@ export class EmbeddingService {
       results.push({
         name: at.name, title: note.title, headingPath: chunk.headingPath, text: chunk.text, ord: chunk.ord,
         score: f.score, lexicalRank: f.ranks[0], denseRank: usedDense ? f.ranks[1] : null,
+        coverage: coverage.get(f.id) ?? 0, similarity: similarity.get(f.id) ?? null,
       });
     }
     return { chunks: results, mode: usedDense ? 'hybrid' : 'lexical' };

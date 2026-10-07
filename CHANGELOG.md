@@ -8,6 +8,7 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Citations in the chat, and a vault-only mode** (#74): the open note and the sections found for a question are numbered in what the model is shown, and it is asked to cite them as `[n]`. The markers become links and the cited sources are listed under the answer (`Note › Heading`); following one opens the note at that section and marks the passage for a few seconds (a marker, not a selection: typing cannot replace it). Numbers the model invents are removed. **Vault only** (book button in the chat header, and Settings → AI) tells the model to answer from the sources alone, offers only sections that share the question's words or are close in meaning, does not ask the model at all when nothing in the notes bears on the question, and marks an answer that cites nothing. Earlier answers are sent back without their markers.
 - **Retrieval by section, with embeddings that are kept** (#75): the chat now gets the sections (text under a heading, with its place: `Note › Heading`)
   that best answer a question, from the whole vault, instead of the first 1,500 characters of whole notes. Words (BM25) and meaning (embeddings) are
   merged by reciprocal rank fusion; without vectors it is the words alone. Vectors live in `.noted/embeddings/` (one append-only file per model, not

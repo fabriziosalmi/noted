@@ -26,6 +26,10 @@ export interface RagChunk {
   /** 1-based place in the word ranking and in the meaning ranking; null where that ranking did not have the chunk. */
   lexicalRank: number | null;
   denseRank: number | null;
+  /** Share (0..1) of the question's significant words (not "the", "of"...) that the section contains; 0 if the words did not find it. */
+  coverage: number;
+  /** Cosine similarity to the question, when the meaning ranking had the section; null otherwise. */
+  similarity: number | null;
 }
 
 export type IpcResult<T> = { success: true; data: T } | { success: false; error: string; mismatch?: boolean };

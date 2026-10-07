@@ -28,6 +28,7 @@ import { CodeBlockView } from './CodeBlockView';
 import { SlashCommands } from './SlashCommands';
 import { SmartTagSuggestion } from './SmartTagSuggestion';
 import { GhostTextExtension, ghostTextKey } from '../lib/ghostTextExtension';
+import { PassageHighlight } from '../lib/passageHighlight';
 import { deriveTitle } from '../lib/noteTitle';
 import { planExternalChange } from '../lib/externalChange';
 import { attachImage, DEFAULT_ATTACHMENTS_FOLDER } from '../lib/imageAttach';
@@ -383,6 +384,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       WikilinkPlugin,
       EmbedExtension,
       GhostTextExtension,
+      PassageHighlight,
     ],
     content: activeNoteContent,
     editable: !useStore.getState().vaultConverting,

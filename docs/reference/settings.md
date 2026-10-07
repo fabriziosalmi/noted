@@ -19,8 +19,9 @@ each feature behaves.
 - **Retrieval (RAG)** — **Top-K** notes to include (1–10, default 3),
   **Candidate notes per question** the word ranking looks into (5–100, default
   30), **Context characters** from the
-  active note (1500–30000, default 8000), and a **RAG debug** toggle that shows
-  relevance scores.
+  active note (1500–30000, default 8000), **Vault only** (answer from your notes,
+  with citations; see [AI assistant](/guide/ai#vault-only)), and a **RAG debug**
+  toggle that shows where each section ranked.
 - **Smart tags** — suggest tags after substantial edits (off by default).
 
 ## Appearance

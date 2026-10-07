@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Bot, Loader2, Database, RotateCcw, ShieldAlert, Square } from 'lucide-react';
+import { Bot, BookOpen, Loader2, Database, RotateCcw, ShieldAlert, Square } from 'lucide-react';
 import { marked } from 'marked';
 import { streamLLM, AbortedError, describeLlmError } from '../lib/llm';
 import { EMPTY_RAG, type RagResult } from '../lib/ragSearch';
 import type { RagChunk } from '../../shared/search/embeddingTypes';
+import { citationOfHref, linkCitations, sourceLabel, stripCitations, type Source } from '../../shared/search/citations';
+import { deriveTitleFromRelPath } from '../../shared/search/textExtract';
+import { assemblePrompt, finishAnswer } from '../lib/chatSources';
 import { useI18n } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import { createMasker } from '../lib/piiMasker';
@@ -22,21 +25,64 @@ interface AiChatProps {
   retrieve?: (query: string, topK: number) => Promise<RagResult>;
   /** How many notes the vault holds, for the "RAG active" badge. */
   noteCount?: number;
+  /** Open the note a citation points to, at its heading, with the passage marked. */
+  onOpenSource?: (source: Source) => void;
 }
 
-interface ChatMessage { role: 'assistant' | 'user'; content: string }
+interface ChatMessage {
+  role: 'assistant' | 'user';
+  content: string;
+  /** For an answer: the sources it cites. */
+  sources?: Source[];
+  /** Vault only mode, and the answer cites no source. */
+  uncited?: boolean;
+}
 
 const ASSISTANT_ROLE: ChatMessage['role'] = 'assistant';
 
-function ChatBubble({ role, content }: ChatMessage) {
-  const html = useMemo(() => role === 'assistant' ? renderMarkdown(content) : null, [role, content]);
+function ChatBubble({ role, content, sources, uncited, onOpenSource }: ChatMessage & { onOpenSource?: (source: Source) => void }) {
+  const { t } = useI18n();
+  const html = useMemo(
+    () => role === 'assistant' ? renderMarkdown(sources && sources.length > 0 ? linkCitations(content, sources) : content) : null,
+    [role, content, sources],
+  );
   const base = 'p-3 rounded-lg shadow-sm border';
   if (role === 'assistant') {
+    // A click on a [n] in the text (rendered as a link to #cite-n) opens its source, like the chip below the answer.
+    const onClick = (e: React.MouseEvent<HTMLDivElement>) => {
+      const n = citationOfHref((e.target as HTMLElement).closest('a')?.getAttribute('href'));
+      const source = n === null ? undefined : sources?.find(s => s.n === n);
+      if (!source) return;
+      e.preventDefault();
+      onOpenSource?.(source);
+    };
     return (
-      <div
-        className={`${base} ai-chat-md bg-white/80 dark:bg-gray-800/60 border-gray-100/40 dark:border-gray-700/40`}
-        dangerouslySetInnerHTML={{ __html: html ?? '' }}
-      />
+      <div className="flex flex-col gap-1.5">
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- the clickable things inside are links and buttons */}
+        <div
+          onClick={onClick}
+          className={`${base} ai-chat-md bg-white/80 dark:bg-gray-800/60 border-gray-100/40 dark:border-gray-700/40`}
+          dangerouslySetInnerHTML={{ __html: html ?? '' }}
+        />
+        {sources && sources.length > 0 && (
+          <ul aria-label={t('aiSources')} data-testid="ai-sources" className="flex flex-wrap gap-1 px-1">
+            {sources.map(s => (
+              <li key={s.n}>
+                <button
+                  type="button"
+                  data-source={s.n}
+                  onClick={() => onOpenSource?.(s)}
+                  title={t('aiOpenSource').replace('{label}', sourceLabel(s))}
+                  className="max-w-[16rem] truncate text-[11px] px-1.5 py-0.5 rounded border border-gray-200/70 dark:border-gray-700/70 text-gray-600 dark:text-gray-300 hover:text-[var(--accent)] hover:border-[var(--accent)]"
+                >
+                  <span className="font-mono text-gray-400 dark:text-gray-500 mr-1">{s.n}</span>{sourceLabel(s)}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {uncited && <p role="note" data-testid="ai-uncited" className="px-1 text-[11px] text-amber-700 dark:text-amber-400">{t('aiUncited')}</p>}
+      </div>
     );
   }
   return (
@@ -46,13 +92,15 @@ function ChatBubble({ role, content }: ChatMessage) {
   );
 }
 
-export function AiChat({ getEditorText, retrieve, noteCount = 0 }: AiChatProps) {
+export function AiChat({ getEditorText, retrieve, noteCount = 0, onOpenSource }: AiChatProps) {
   const { t } = useI18n();
   const lang = useStore(s => s.settings.language ?? 'en');
   const piiMasking = useStore(s => s.settings.piiMasking ?? false);
   const ragTopK = useStore(s => Math.max(1, Math.min(10, s.settings.ragTopK ?? 3)));
   const ragContextChars = useStore(s => Math.max(1500, Math.min(30000, s.settings.ragContextChars ?? 8000)));
   const ragDebug = useStore(s => s.settings.ragDebug ?? false);
+  const vaultOnly = useStore(s => s.settings.ragVaultOnly ?? false);
+  const activeNoteName = useStore(s => s.activeNoteName);
   const embeddingProgress = useStore(s => s.embeddingProgress);
   const llmApiKey = useStore(s => s.settings.llmApiKey ?? '');
   const llmProvider = useStore(s => s.settings.llmProvider ?? 'lmstudio');
@@ -174,32 +222,33 @@ export function AiChat({ getEditorText, retrieve, noteCount = 0 }: AiChatProps) 
       const retrieved = retrieve ? await retrieve(userMessage, ragTopK * 2).catch(() => EMPTY_RAG) : EMPTY_RAG;
       setLastRetrievalMode(retrieved.mode);
       setLastRetrieved(retrieved.chunks);
-      const ragContext = retrieved.chunks
-        .map(c => `### ${[c.title, ...c.headingPath].join(' › ')}\n${c.text}`)
-        .join('\n\n---\n\n');
-
-      const activeNoteLabel = lang === 'it' ? 'Nota attiva' : 'Active note';
-      const relatedLabel = lang === 'it' ? 'Note correlate dal vault' : 'Related notes from vault';
-      const systemInstructions = lang === 'it'
-        ? 'Sei un assistente integrato in un editor di note Markdown. Hai accesso al contenuto delle note dell\'utente.\n\nRispondi in modo conciso e utile. Se citi una nota specifica, indica il titolo.'
-        : 'You are an assistant integrated into a Markdown note editor. You have access to the user\'s note content.\n\nReply concisely and helpfully. If you cite a specific note, mention its title.';
+      const prompt = assemblePrompt({
+        lang,
+        active: activeNoteName && textContext.trim() ? { name: activeNoteName, title: deriveTitleFromRelPath(activeNoteName), text: textContext } : null,
+        chunks: retrieved.chunks,
+        vaultOnly,
+      });
+      if (prompt.refuse) {
+        // Vault only, and nothing in the notes bears on the question: say so, without asking a model that would answer from memory.
+        const refusal: ChatMessage = { role: 'assistant', content: t('aiNoSources') };
+        setDisplayHistory(prev => [...prev, refusal]);
+        setLlmHistory(prev => [...prev, refusal]);
+        return;
+      }
 
       resetStreamed();
+      // Earlier answers go back without their [n]: those numbers named the sources of that turn, not of this one.
+      const history = trimmedHistory.map(({ role, content }) => ({ role, content: role === 'assistant' ? stripCitations(content) : content }));
       const response = await streamLLM([
-        {
-          role: 'system',
-          content: `${systemInstructions}
-
-${textContext ? `${activeNoteLabel}:\n"""\n${textContext}\n"""` : ''}
-${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
-        },
-        ...trimmedHistory,
+        { role: 'system', content: prompt.system },
+        ...history,
       ], {
         signal: controller.signal,
         masker,
         onText: text => { streamedRef.current += text; scheduleShow(); },
       });
-      const assistantTurn: ChatMessage = { role: 'assistant', content: response };
+      const finished = finishAnswer(response, prompt.sources, vaultOnly);
+      const assistantTurn: ChatMessage = { role: 'assistant', content: finished.content, sources: finished.cited, uncited: finished.uncited };
       resetStreamed();
       setDisplayHistory(prev => [...prev, assistantTurn]);
       setLlmHistory(prev => [...prev, assistantTurn]);
@@ -238,6 +287,17 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
               {t('ragActive').replace('{n}', String(noteCount))}
             </span>
           )}
+          <Tooltip label={t('aiVaultOnlyHint')}>
+            <button
+              type="button"
+              onClick={() => useStore.getState().updateSettings({ ragVaultOnly: !vaultOnly })}
+              aria-pressed={vaultOnly}
+              aria-label={t('aiVaultOnly')}
+              className={`p-1 rounded transition-colors ${vaultOnly ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+            >
+              <BookOpen size={11} />
+            </button>
+          </Tooltip>
           <Tooltip label={t('clearChat')}>
             <button
               type="button"
@@ -282,7 +342,7 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
 
       <div className="flex-1 p-4 text-sm text-gray-600 dark:text-gray-300 overflow-y-auto flex flex-col space-y-3 scroll-fade-y">
         {displayHistory.map((msg, idx) => (
-          <ChatBubble key={idx} role={msg.role} content={msg.content} />
+          <ChatBubble key={idx} role={msg.role} content={msg.content} sources={msg.sources} uncited={msg.uncited} onOpenSource={onOpenSource} />
         ))}
         {streaming && <ChatBubble role={ASSISTANT_ROLE} content={streaming} />}
         {isLoading && !streaming && (
