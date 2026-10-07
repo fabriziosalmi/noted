@@ -68,7 +68,7 @@
     "html-to-docx": "^1.8.0",
     "jsdom": "^29.1.1",
     "jszip": "^3.10.2",
-    "katex": "^0.16.47",
+    "katex": "^0.19.0",
     "lowlight": "^3.3.0",
     "lucide-react": "^1.16.0",
     "markdown-it": "^15.0.2",
@@ -77,7 +77,7 @@
     "react-dom": "^19.2.6",
     "react-resizable-panels": "^2.1.9",
     "sax": "^1.6.1",
-    "simple-git": "^3.36.0",
+    "simple-git": "^4.0.1",
     "turndown": "^7.2.4",
     "yaml": "^2.9.1",
     "zustand": "^5.0.13"
