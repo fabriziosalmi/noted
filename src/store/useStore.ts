@@ -220,6 +220,10 @@ interface NoteState {
   tasksOpen: boolean;
   openTasks: () => void;
   closeTasks: () => void;
+  /** The agent activity page (what assistants changed, and undoing it) shown in the main area. */
+  activityOpen: boolean;
+  openActivity: () => void;
+  closeActivity: () => void;
   /** Replace the views with what the vault's file holds (on opening a vault, and when asked to look again). */
   loadViews: () => Promise<void>;
   createView: (name: string, patch?: Partial<Omit<View, 'id' | 'name'>>) => Promise<View | null>;
@@ -422,10 +426,13 @@ export const useStore = create<NoteState>()(
       frontmatterIndex: {},
       views: [],
       activeViewId: null,
-      openView: id => set(state => (state.views.some(v => v.id === id) ? { activeViewId: id, tasksOpen: false } : state)),
+      openView: id => set(state => (state.views.some(v => v.id === id) ? { activeViewId: id, tasksOpen: false, activityOpen: false } : state)),
       closeView: () => set({ activeViewId: null }),
       tasksOpen: false,
-      openTasks: () => set({ tasksOpen: true, activeViewId: null }),
+      openTasks: () => set({ tasksOpen: true, activeViewId: null, activityOpen: false }),
+      activityOpen: false,
+      openActivity: () => set({ activityOpen: true, tasksOpen: false, activeViewId: null }),
+      closeActivity: () => set({ activityOpen: false }),
       closeTasks: () => set({ tasksOpen: false }),
       tagIndex: {},
       vaultIndexSync: null,
@@ -620,6 +627,7 @@ export const useStore = create<NoteState>()(
           pendingSelfRename: null,
           activeViewId: null,
           tasksOpen: false,
+          activityOpen: false,
         });
       }
     }

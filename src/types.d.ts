@@ -3,6 +3,7 @@ export {};
 import type { GitSyncState, GitConflictResolution } from './lib/gitSyncTypes';
 import type { View } from '../shared/views/model';
 import type { FieldValue } from '../shared/vault/fields';
+import type { JournalEntry } from '../shared/vault/journalTypes';
 import type { PendingChange } from '../shared/vault/pending';
 import type { McpPolicy } from '../shared/vault/mcpPolicy';
 import type { NoteTask, TaskFilter } from '../shared/tasks/query';
@@ -67,6 +68,9 @@ declare global {
       setMcpPolicy: (policy: McpPolicy, syncDir?: string) => Promise<{ success: boolean; data?: { policy: McpPolicy }; error?: string }>;
       listPendingChanges: (syncDir?: string) => Promise<{ success: boolean; data?: PendingChange[]; error?: string }>;
       settlePendingChange: (id: string, approve: boolean, syncDir?: string) => Promise<{ success: boolean; error?: string; conflict?: boolean }>;
+      journalList: (syncDir?: string) => Promise<{ success: boolean; data?: { entries: JournalEntry[]; total: number; reverted: string[]; chain: { ok: true; entries: number } | { ok: false; at: number; reason: string } }; error?: string }>;
+      journalDiff: (id: string, syncDir?: string) => Promise<{ success: boolean; data?: { before: string; after: string; kept: boolean }; error?: string }>;
+      journalRevert: (ids: string[], syncDir?: string) => Promise<{ success: boolean; data?: { id: string; ok: boolean; conflict?: boolean; error?: string }[]; error?: string }>;
       listTasks: (filter: TaskFilter, syncDir?: string) => Promise<{ success: boolean; data?: { tasks: NoteTask[]; total: number; format: 'markdown' | 'html' }; error?: string }>;
       toggleTask: (name: string, line: number, text: string, done: boolean, syncDir?: string) => Promise<{ success: boolean; data?: { changed: boolean }; error?: string }>;
       loadViews: (syncDir?: string) => Promise<{ success: boolean; data?: View[]; error?: string }>;

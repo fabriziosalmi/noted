@@ -17,6 +17,8 @@ export interface PendingDeps {
   writeNote: (name: string, content: string) => Promise<void>;
   /** Move the note to the trash (recoverable). */
   trashNote: (name: string) => void;
+  /** Record the change in the agent journal before it is made; throws if it cannot be recorded. */
+  record?: (entry: { client: string; tool: string; kind: 'create' | 'update' | 'delete'; note: string; before: string | null; after: string | null }) => void;
 }
 
 export type Settled = { ok: true } | { ok: false; error: string; conflict?: boolean };
@@ -30,14 +32,17 @@ export async function approvePending(deps: PendingDeps, id: string): Promise<Set
   const current = await deps.readNote(change.note);
   if (change.kind === 'create') {
     if (current !== null) return { ok: false, error: 'a note with that name exists now', conflict: true };
+    deps.record?.({ client: change.client, tool: change.tool, kind: 'create', note: change.note, before: null, after: change.after });
     await deps.writeNote(change.note, change.after ?? '');
   } else if (change.kind === 'update') {
     if (current === null) return { ok: false, error: 'the note was deleted since', conflict: true };
     if (etagOf(current) !== change.baseEtag) return { ok: false, error: 'the note was changed since the agent saw it', conflict: true };
+    deps.record?.({ client: change.client, tool: change.tool, kind: 'update', note: change.note, before: current, after: change.after });
     await deps.snapshotBefore(change.note, current);
     await deps.writeNote(change.note, change.after ?? '');
   } else if (current !== null) {
     if (etagOf(current) !== change.baseEtag) return { ok: false, error: 'the note was changed since the agent saw it', conflict: true };
+    deps.record?.({ client: change.client, tool: change.tool, kind: 'delete', note: change.note, before: current, after: null });
     await deps.snapshotBefore(change.note, current);
     deps.trashNote(change.note);
   }

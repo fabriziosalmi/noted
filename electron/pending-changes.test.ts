@@ -10,6 +10,7 @@ import { etagOf } from '../shared/vault/etag';
 let dir: string;
 let snapshots: { name: string; previous: string }[];
 let trashed: string[];
+let recorded: { client: string; tool: string; kind: string; note: string; before: string | null; after: string | null }[];
 const abs = (n: string) => path.join(dir, n);
 const deps = (): PendingDeps => ({
   notesDir: dir,
@@ -17,8 +18,9 @@ const deps = (): PendingDeps => ({
   snapshotBefore: async (name, previous) => { snapshots.push({ name, previous }); },
   writeNote: async (n, c) => { await fs.promises.mkdir(path.dirname(abs(n)), { recursive: true }); await fs.promises.writeFile(abs(n), c); },
   trashNote: n => { trashed.push(n); fs.rmSync(abs(n)); },
+  record: entry => { recorded.push(entry); },
 });
-beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'noted-approve-')); snapshots = []; trashed = []; });
+beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'noted-approve-')); snapshots = []; trashed = []; recorded = []; });
 afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
 
 const stage = (kind: 'create' | 'update' | 'delete', note: string, before: string | null, after: string | null) =>
@@ -39,6 +41,27 @@ describe('approving', () => {
     expect(fs.readFileSync(abs('a.md'), 'utf8')).toBe('new');
     expect(snapshots).toEqual([{ name: 'a.md', previous: 'old' }]);
     expect(getPending(dir, c.id)).toBeNull();
+  });
+
+  it('every approval is put in the agent journal before it is made, naming the client that asked', async () => {
+    fs.writeFileSync(abs('a.md'), 'old');
+    const u = stage('update', 'a.md', 'old', 'new');
+    const c = stage('create', 'n.md', null, 'fresh');
+    await approvePending(deps(), u.id);
+    await approvePending(deps(), c.id);
+    expect(recorded).toEqual([
+      { client: 'claude', tool: 'x', kind: 'update', note: 'a.md', before: 'old', after: 'new' },
+      { client: 'claude', tool: 'x', kind: 'create', note: 'n.md', before: null, after: 'fresh' },
+    ]);
+  });
+
+  it('a change that cannot be recorded is not made', async () => {
+    fs.writeFileSync(abs('a.md'), 'old');
+    const u = stage('update', 'a.md', 'old', 'new');
+    const d = { ...deps(), record: () => { throw new Error('journal full'); } };
+    await expect(approvePending(d, u.id)).rejects.toThrow('journal full');
+    expect(fs.readFileSync(abs('a.md'), 'utf8')).toBe('old');
+    expect(getPending(dir, u.id)).not.toBeNull();
   });
 
   it('a deletion moves the note to the trash', async () => {

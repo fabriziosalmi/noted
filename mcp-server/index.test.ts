@@ -6,6 +6,9 @@ import * as os from 'node:os';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { readAgentMetadata } from '../shared/agent/index';
 
+// These tests run on a pretend file system; the journal has its own tests on a real one (journal.test.ts, agent-journal.test.ts).
+vi.mock('../shared/vault/journalFile.js', () => ({ appendEntry: vi.fn(() => ({})) }));
+
 const mockFiles = new Map<string, { content: string; mtime: Date; size: number }>();
 
 vi.mock('node:fs', async (importOriginal) => {
