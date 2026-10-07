@@ -4,13 +4,13 @@ import { AiChat } from './AiChat';
 import { useStore } from '../store/useStore';
 import { AbortedError } from '../lib/llm';
 
-const askLLMMock = vi.fn(async () => 'ok');
+const streamLLMMock = vi.fn(async () => 'ok');
 const hybridMock = vi.fn(async () => ({ notes: [], mode: 'lexical' as const, scored: [] }));
 
 vi.mock('../lib/llm', () => {
   class MockAbortedError extends Error {}
   return {
-    askLLM: (...args: unknown[]) => askLLMMock(...args),
+    streamLLM: (...args: unknown[]) => streamLLMMock(...args),
     AbortedError: MockAbortedError,
     describeLlmError: (err: unknown, lang: string) => `err_${lang}`,
   };
@@ -100,7 +100,7 @@ describe('AiChat retrieval mode wiring', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(retrieve).toHaveBeenCalled());
     expect(hybridMock).not.toHaveBeenCalled(); // nothing to rank
-    await waitFor(() => expect(askLLMMock).toHaveBeenCalled());
+    await waitFor(() => expect(streamLLMMock).toHaveBeenCalled());
   });
 
   it('clears chat history and aborts current query on clear click', async () => {
@@ -125,7 +125,7 @@ describe('AiChat retrieval mode wiring', () => {
   it('shows a Stop button while a query is in flight and aborts it when clicked', async () => {
     const abortSpy = vi.spyOn(AbortController.prototype, 'abort');
     // Never resolves, so the request stays in flight and the Stop button renders.
-    askLLMMock.mockImplementationOnce(() => new Promise(() => undefined));
+    streamLLMMock.mockImplementationOnce(() => new Promise(() => undefined));
     render(<AiChat getEditorText={() => 'ctx'} />);
 
     const input = screen.getByPlaceholderText(/ask something/i);
@@ -139,14 +139,14 @@ describe('AiChat retrieval mode wiring', () => {
   });
 
   it('handles AbortedError gracefully without adding error messages to chat', async () => {
-    askLLMMock.mockRejectedValueOnce(new AbortedError('Aborted'));
+    streamLLMMock.mockRejectedValueOnce(new AbortedError('Aborted'));
     render(<AiChat getEditorText={() => 'hello'} />);
     
     const input = screen.getByPlaceholderText(/ask something/i);
     fireEvent.change(input, { target: { value: 'fail query' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    await waitFor(() => expect(askLLMMock).toHaveBeenCalled());
+    await waitFor(() => expect(streamLLMMock).toHaveBeenCalled());
     
     // It should not show an error bubble or assistant text (except possibly thinking spinner going away)
     // Wait for the input to be enabled again
@@ -154,15 +154,99 @@ describe('AiChat retrieval mode wiring', () => {
     expect(screen.queryByText(/Error:/i)).not.toBeInTheDocument();
   });
 
-  it('displays friendly error when askLLM throws a generic error', async () => {
-    askLLMMock.mockRejectedValueOnce(new Error('Unknown backend error'));
+  it('shows the answer as it is written, then keeps it as the answer', async () => {
+    let finish: (text: string) => void = () => undefined;
+    streamLLMMock.mockImplementationOnce((_messages: unknown, opts: { onText: (t: string) => void }) => {
+      opts.onText('The first ');
+      opts.onText('words');
+      return new Promise<string>(resolve => { finish = resolve; });
+    });
+    render(<AiChat getEditorText={() => 'ctx'} />);
+    const input = screen.getByPlaceholderText(/ask something/i);
+    fireEvent.change(input, { target: { value: 'tell me' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(await screen.findByText('The first words')).toBeInTheDocument();
+    expect(screen.queryByText(/thinking/i)).not.toBeInTheDocument(); // text has started: no more spinner
+    expect(screen.getByRole('button', { name: /stop/i })).toBeInTheDocument();
+
+    finish('The first words, and the rest.');
+    expect(await screen.findByText('The first words, and the rest.')).toBeInTheDocument();
+    expect(screen.queryByText('The first words')).not.toBeInTheDocument(); // the streamed bubble was replaced, not kept beside it
+    await waitFor(() => expect(screen.getByPlaceholderText(/ask something/i)).not.toBeDisabled());
+  });
+
+  it('stopping keeps what the model had written, with no error', async () => {
+    streamLLMMock.mockImplementationOnce(async (_messages: unknown, opts: { onText: (t: string) => void }) => {
+      opts.onText('Half an ans');
+      throw new AbortedError('Aborted');
+    });
+    render(<AiChat getEditorText={() => 'ctx'} />);
+    const input = screen.getByPlaceholderText(/ask something/i);
+    fireEvent.change(input, { target: { value: 'tell me' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(await screen.findByText('Half an ans')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByPlaceholderText(/ask something/i)).not.toBeDisabled());
+    expect(screen.queryByText(/err_/)).not.toBeInTheDocument();
+  });
+
+  it('an answer that fails half way keeps the part there is, and says what went wrong', async () => {
+    streamLLMMock.mockImplementationOnce(async (_messages: unknown, opts: { onText: (t: string) => void }) => {
+      opts.onText('Partial text');
+      throw new Error('overloaded');
+    });
+    render(<AiChat getEditorText={() => 'ctx'} />);
+    const input = screen.getByPlaceholderText(/ask something/i);
+    fireEvent.change(input, { target: { value: 'tell me' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(await screen.findByText('Partial text')).toBeInTheDocument();
+    expect(await screen.findByText(/err_/)).toBeInTheDocument();
+  });
+
+  it('clearing the chat while an answer is arriving does not bring the answer back', async () => {
+    streamLLMMock.mockImplementationOnce((_messages: unknown, opts: { onText: (t: string) => void; signal: AbortSignal }) => {
+      opts.onText('Words that must go');
+      return new Promise((_resolve, reject) => opts.signal.addEventListener('abort', () => reject(new AbortedError('Aborted'))));
+    });
+    render(<AiChat getEditorText={() => 'ctx'} />);
+    const input = screen.getByPlaceholderText(/ask something/i);
+    fireEvent.change(input, { target: { value: 'tell me' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(await screen.findByText('Words that must go')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /clear/i }));
+    await waitFor(() => expect(screen.getByPlaceholderText(/ask something/i)).not.toBeDisabled());
+    expect(screen.queryByText('Words that must go')).not.toBeInTheDocument();
+  });
+
+  it('one masker serves the whole conversation, so a token means the same value in every turn', async () => {
+    useStore.setState(state => ({ settings: { ...state.settings, piiMasking: true } }));
+    const maskers: unknown[] = [];
+    streamLLMMock.mockImplementation(async (_messages: unknown, opts: { masker?: unknown }) => { maskers.push(opts.masker); return 'ok'; });
+    render(<AiChat getEditorText={() => ''} />);
+    const input = () => screen.getByPlaceholderText(/ask something/i);
+    fireEvent.change(input(), { target: { value: 'mail ana@example.com' } });
+    fireEvent.keyDown(input(), { key: 'Enter' });
+    await waitFor(() => expect(input()).not.toBeDisabled());
+    fireEvent.change(input(), { target: { value: 'and bob@example.org' } });
+    fireEvent.keyDown(input(), { key: 'Enter' });
+    await waitFor(() => expect(maskers).toHaveLength(2));
+    expect(maskers[0]).toBeDefined();
+    expect(maskers[1]).toBe(maskers[0]);
+    const second = streamLLMMock.mock.calls.at(-1)?.[0] as { role: string; content: string }[];
+    expect(second.filter(m => m.role === 'user').map(m => m.content)).toEqual(['mail [EMAIL_1]', 'and [EMAIL_2]']);
+  });
+
+  it('displays friendly error when streamLLM throws a generic error', async () => {
+    streamLLMMock.mockRejectedValueOnce(new Error('Unknown backend error'));
     render(<AiChat getEditorText={() => 'hello'} />);
     
     const input = screen.getByPlaceholderText(/ask something/i);
     fireEvent.change(input, { target: { value: 'error query' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    await waitFor(() => expect(askLLMMock).toHaveBeenCalled());
+    await waitFor(() => expect(streamLLMMock).toHaveBeenCalled());
     
     // Should display the error message populated with 'err_en' since default language is English
     await waitFor(() => expect(screen.getByText(/Error: err_en/i)).toBeInTheDocument());
@@ -224,8 +308,8 @@ describe('AiChat retrieval mode wiring', () => {
     fireEvent.change(input, { target: { value: 'trunc query' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    await waitFor(() => expect(askLLMMock).toHaveBeenCalled());
-    const sysMsg = askLLMMock.mock.calls.at(-1)?.[0]?.[0]?.content;
+    await waitFor(() => expect(streamLLMMock).toHaveBeenCalled());
+    const sysMsg = streamLLMMock.mock.calls.at(-1)?.[0]?.[0]?.content;
     
     // It should truncate at index 1000 (the last paragraph break)
     const expectedTruncated = 'a'.repeat(1000);
@@ -251,8 +335,8 @@ describe('AiChat retrieval mode wiring', () => {
     fireEvent.change(input, { target: { value: 'trunc query 2' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    await waitFor(() => expect(askLLMMock).toHaveBeenCalled());
-    const sysMsg = askLLMMock.mock.calls.at(-1)?.[0]?.[0]?.content;
+    await waitFor(() => expect(streamLLMMock).toHaveBeenCalled());
+    const sysMsg = streamLLMMock.mock.calls.at(-1)?.[0]?.[0]?.content;
     
     // It should truncate at index 1000 (the last newline)
     const expectedTruncated = 'a'.repeat(1000);
@@ -276,8 +360,8 @@ describe('AiChat retrieval mode wiring', () => {
     fireEvent.change(input, { target: { value: 'trunc query 3' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    await waitFor(() => expect(askLLMMock).toHaveBeenCalled());
-    const sysMsg = askLLMMock.mock.calls.at(-1)?.[0]?.[0]?.content;
+    await waitFor(() => expect(streamLLMMock).toHaveBeenCalled());
+    const sysMsg = streamLLMMock.mock.calls.at(-1)?.[0]?.[0]?.content;
     
     // It should truncate at 1500 characters
     const expectedTruncated = 'a'.repeat(1500);
@@ -297,11 +381,11 @@ describe('AiChat retrieval mode wiring', () => {
     fireEvent.change(input, { target: { value: 'Contact me at +39 02 1234567' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    await waitFor(() => expect(askLLMMock).toHaveBeenCalled());
+    await waitFor(() => expect(streamLLMMock).toHaveBeenCalled());
     
     // The user message in llm history should be masked
-    // Let's check askLLM calls:
-    const calls = askLLMMock.mock.calls.at(-1);
+    // Let's check streamLLM calls:
+    const calls = streamLLMMock.mock.calls.at(-1);
     const messages = calls?.[0] as { role: string; content: string }[];
     
     // System message should contain masked context
@@ -326,7 +410,7 @@ describe('AiChat retrieval mode wiring', () => {
       settings: { ...state.settings, language: 'it' },
     }));
 
-    askLLMMock.mockRejectedValueOnce(new Error('Italian error'));
+    streamLLMMock.mockRejectedValueOnce(new Error('Italian error'));
 
     render(<AiChat getEditorText={() => 'ciao'} />);
 
@@ -334,10 +418,10 @@ describe('AiChat retrieval mode wiring', () => {
     fireEvent.change(input, { target: { value: 'Chiedi' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    await waitFor(() => expect(askLLMMock).toHaveBeenCalled());
+    await waitFor(() => expect(streamLLMMock).toHaveBeenCalled());
     
     // The language passed to describeLlmError should be 'it'
-    const sysMsg = askLLMMock.mock.calls.at(-1)?.[0]?.[0]?.content;
+    const sysMsg = streamLLMMock.mock.calls.at(-1)?.[0]?.[0]?.content;
     expect(sysMsg).toContain('Sei un assistente integrato');
     
     // Friendly error should be populated with 'err_it'
@@ -348,7 +432,7 @@ describe('AiChat retrieval mode wiring', () => {
     let inputEl: HTMLInputElement | null = null;
     let askCount = 0;
     
-    askLLMMock.mockImplementation(async () => {
+    streamLLMMock.mockImplementation(async () => {
       askCount++;
       if (askCount === 1) {
         if (inputEl) {

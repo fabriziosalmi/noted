@@ -176,6 +176,18 @@ describe('AiActionsBar', () => {
     });
   });
 
+  it('gives askLLM the masker it masked with, so what was masked is restored in the text written into the note', async () => {
+    useStore.setState({ settings: { ...useStore.getState().settings, piiMasking: true } });
+    mockEditor.getText.mockReturnValue('Contact me at john.doe@example.com or 123-456-7890.');
+    vi.mocked(askLLM).mockResolvedValueOnce('Response text.');
+    render(<AiActionsBar {...defaultProps} />);
+    fireEvent.click(screen.getByLabelText('Continue'));
+
+    await waitFor(() => expect(askLLM).toHaveBeenCalled());
+    const opts = vi.mocked(askLLM).mock.calls.at(-1)?.[1] as { masker?: { unmask(text: string): string } };
+    expect(opts.masker?.unmask('Write to [EMAIL_1], not [PHONE_1].')).toBe('Write to john.doe@example.com, not 123-456-7890.');
+  });
+
   it('refuses to rewrite the whole note when nothing is selected (data-loss guard)', async () => {
     const onError = vi.fn();
     // No askLLM mock: the guard must short-circuit before any model call.

@@ -10,6 +10,22 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Answers stream in, with a Stop that stops the provider** (#73): the chat shows the answer as the model writes it, for OpenAI, Anthropic,
+  Gemini, OpenRouter, LM Studio, Ollama and OpenAI-compatible servers (Server-Sent Events, or JSON lines for Ollama). **Stop** closes the request at
+  the provider, not only the waiting, and keeps what had been written; an answer that fails half way keeps its part. The request is made by the
+  main process as before, with a 60 s limit on silence instead of on the whole answer.
+
+### Fixed
+
+- **Masked values are restored in the answer.** Until now the model's reply could contain `[EMAIL_1]` and it stayed that way, in the chat and in
+  the text written into your note by the AI actions and slash commands (a rewrite of a selection with an address in it left the placeholder in the
+  note). One masker now serves a whole conversation (a placeholder means one value, and counts across messages: before, `[EMAIL_1]` in two messages
+  could be two addresses) and the answer is restored locally, also when a placeholder is cut in two by the stream.
+
+## [1.6.0] - 2026-10-07
+
+### Added
+
 - **A board for agent workflows** (#88): **Workflows** in the sidebar shows a workflow's tasks by state, which task waits for which (and for what that is missing, or looped), and the gates that wait for you, with Approve and Reject (the reason is recorded). It uses the same engine and notes as the Agent panel and the MCP tools, and refuses a decision made on a board that is out of date. See [Agent workflows](https://fabriziosalmi.github.io/noted/reference/agent-workflows#the-workflows-board).
 - **A command line** (#87): `noted list | read | search | create | append | daily | tasks | tags | backlinks | properties`, with `--json` and clear exit codes. It runs the MCP tools' own handlers, so the access policy, the agent journal and staged changes apply to it as to an agent. Built by `npm run build:mcp` as `dist-mcp/noted-cli.cjs` (also the package `bin`); Settings → MCP shows a shell alias. It needs Node.js 20+: a single self-contained binary is not shipped (the app's `runAsNode` fuse stays off, and a Node single-executable build that was tried failed when creating a note). See [Command line](https://fabriziosalmi.github.io/noted/reference/cli).
 - **MCP over Streamable HTTP** (#83): the remote transport is now Streamable HTTP at `/mcp` (the 2025-03-26 specification), with one session per

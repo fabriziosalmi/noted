@@ -4,7 +4,7 @@ import { askLLM, AbortedError, describeLlmError } from '../lib/llm';
 import { Wand2, AlignLeft, List, Languages, Minimize2, Pencil, Loader2, Square } from 'lucide-react';
 import { useI18n, type TranslationKey } from '../lib/i18n';
 import { useStore } from '../store/useStore';
-import { maskPii } from '../lib/piiMasker';
+import { createMasker } from '../lib/piiMasker';
 
 interface SlashCommandsProps {
   editor: Editor;
@@ -126,13 +126,14 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
     const rawContext = needsFullContext
       ? editor.getText().slice(0, 6000)
       : (state.doc.textBetween(Math.max(0, curFrom - 800), curFrom, '\n').trim() || editor.getText().slice(-800));
-    const context = piiMasking ? maskPii(rawContext).maskedText : rawContext;
+    const masker = piiMasking ? createMasker() : undefined;
+    const context = masker ? masker.mask(rawContext) : rawContext;
 
     try {
       const result = await askLLM([
         { role: 'system', content: 'You are a professional writing assistant. Follow the instructions exactly.' },
         { role: 'user', content: cmd.prompt(context) },
-      ], { signal: controller.signal });
+      ], { signal: controller.signal, masker });
       // Insert with a newline if needed
       const needsNewline = cmd.id === 'summarize' || cmd.id === 'bullets' || cmd.id === 'continue' || cmd.id === 'expand';
       editor.chain().focus().insertContent(needsNewline ? `\n${result}` : result).run();

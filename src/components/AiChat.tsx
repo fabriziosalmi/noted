@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Bot, Loader2, Database, RotateCcw, ShieldAlert, Square } from 'lucide-react';
 import { marked } from 'marked';
-import { askLLM, AbortedError, describeLlmError } from '../lib/llm';
+import { streamLLM, AbortedError, describeLlmError } from '../lib/llm';
 import { findRelevantNotesHybrid, type NoteChunk, type RetrievalScoredNote } from '../lib/noteSearch';
 import { useI18n } from '../lib/i18n';
 import { useStore } from '../store/useStore';
-import { maskPii } from '../lib/piiMasker';
+import { createMasker } from '../lib/piiMasker';
 import { sanitizeHtml } from '../lib/sanitizeHtml';
 import { Tooltip } from './Tooltip';
 
@@ -24,6 +24,8 @@ interface AiChatProps {
 }
 
 interface ChatMessage { role: 'assistant' | 'user'; content: string }
+
+const ASSISTANT_ROLE: ChatMessage['role'] = 'assistant';
 
 function ChatBubble({ role, content }: ChatMessage) {
   const html = useMemo(() => role === 'assistant' ? renderMarkdown(content) : null, [role, content]);
@@ -79,20 +81,40 @@ export function AiChat({ getEditorText, retrieveNotes, noteCount = 0 }: AiChatPr
   const [lastRetrievalScores, setLastRetrievalScores] = useState<RetrievalScoredNote[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // The answer as it is being written. It lives in a ref and reaches the screen at most once a frame: a fast model sends
+  // dozens of pieces a second, and each one would otherwise parse and sanitize the whole answer again.
+  const [streaming, setStreaming] = useState('');
+  const streamedRef = useRef('');
+  const frameRef = useRef<number | null>(null);
+  // One masker for the whole conversation: a token means the same value in every message, and the answer is restored with it.
+  const maskerRef = useRef(createMasker());
+  // Bumped when the chat is cleared, so an answer that was stopped by it is not put back.
+  const generationRef = useRef(0);
+  const showStreamed = () => { frameRef.current = null; setStreaming(streamedRef.current); };
+  const scheduleShow = () => { if (frameRef.current === null) frameRef.current = requestAnimationFrame(showStreamed); };
+  const resetStreamed = () => {
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
+    streamedRef.current = '';
+    setStreaming('');
+  };
 
   // Abort any in-flight request when the component unmounts so it doesn't
   // resolve into a stale setState after navigation.
-  useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(() => () => { abortRef.current?.abort(); if (frameRef.current !== null) cancelAnimationFrame(frameRef.current); }, []);
 
   const handleClear = () => {
+    generationRef.current++;
     abortRef.current?.abort();
+    maskerRef.current = createMasker();
+    resetStreamed();
     setDisplayHistory([{ role: 'assistant', content: greeting }]);
     setLlmHistory([]);
   };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [displayHistory, isLoading]);
+  }, [displayHistory, isLoading, streaming]);
 
   const handleSubmit = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.nativeEvent.isComposing) return;
@@ -101,13 +123,8 @@ export function AiChat({ getEditorText, retrieveNotes, noteCount = 0 }: AiChatPr
     const rawUserMessage = aiInput.trim();
     setAiInput('');
 
-    let userMessage = rawUserMessage;
-    let piiCount = 0;
-    if (piiMasking) {
-      const r = maskPii(rawUserMessage);
-      userMessage = r.maskedText;
-      piiCount += r.count;
-    }
+    const masker = piiMasking ? maskerRef.current : undefined;
+    const userMessage = masker ? masker.mask(rawUserMessage) : rawUserMessage;
 
     const userTurn: ChatMessage = { role: 'user', content: rawUserMessage };
     const llmUserTurn: ChatMessage = { role: 'user', content: userMessage };
@@ -122,6 +139,8 @@ export function AiChat({ getEditorText, retrieveNotes, noteCount = 0 }: AiChatPr
     setLlmHistory(nextLlmHistory);
     setIsLoading(true);
 
+    const generation = generationRef.current;
+
     // Cancel any prior in-flight request before starting a new one.
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -130,11 +149,7 @@ export function AiChat({ getEditorText, retrieveNotes, noteCount = 0 }: AiChatPr
     try {
       const MAX_CONTEXT_CHARS = ragContextChars;
       let rawContext = getEditorText();
-      if (piiMasking) {
-        const r = maskPii(rawContext);
-        rawContext = r.maskedText;
-        piiCount += r.count;
-      }
+      if (masker) rawContext = masker.mask(rawContext);
       const isTruncated = rawContext.length > MAX_CONTEXT_CHARS;
       // Trim back to the last paragraph break before the cap so we don't split
       // a wikilink, markdown link, or code fence in half. Falls back to last
@@ -154,7 +169,7 @@ export function AiChat({ getEditorText, retrieveNotes, noteCount = 0 }: AiChatPr
       if (isTruncated) {
         setDisplayHistory(prev => [...prev, { role: 'assistant', content: t('contextTruncated') }]);
       }
-      if (piiMasking && piiCount > 0) setPiiNotice(piiCount);
+      if (masker && masker.count > 0) setPiiNotice(masker.count);
 
       // RAG: find related notes from the full vault
       const candidates = retrieveNotes ? await retrieveNotes(userMessage).catch(() => [] as NoteChunk[]) : [];
@@ -180,7 +195,8 @@ export function AiChat({ getEditorText, retrieveNotes, noteCount = 0 }: AiChatPr
         ? 'Sei un assistente integrato in un editor di note Markdown. Hai accesso al contenuto delle note dell\'utente.\n\nRispondi in modo conciso e utile. Se citi una nota specifica, indica il titolo.'
         : 'You are an assistant integrated into a Markdown note editor. You have access to the user\'s note content.\n\nReply concisely and helpfully. If you cite a specific note, mention its title.';
 
-      const response = await askLLM([
+      resetStreamed();
+      const response = await streamLLM([
         {
           role: 'system',
           content: `${systemInstructions}
@@ -189,11 +205,24 @@ ${textContext ? `${activeNoteLabel}:\n"""\n${textContext}\n"""` : ''}
 ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
         },
         ...trimmedHistory,
-      ], { signal: controller.signal });
+      ], {
+        signal: controller.signal,
+        masker,
+        onText: text => { streamedRef.current += text; scheduleShow(); },
+      });
       const assistantTurn: ChatMessage = { role: 'assistant', content: response };
+      resetStreamed();
       setDisplayHistory(prev => [...prev, assistantTurn]);
       setLlmHistory(prev => [...prev, assistantTurn]);
     } catch (error: unknown) {
+      const partial = streamedRef.current;
+      resetStreamed();
+      // Stopped, or failed half way: what the model had written stays, as an answer that ends there.
+      if (partial.trim() && generationRef.current === generation) {
+        const kept: ChatMessage = { role: 'assistant', content: partial };
+        setDisplayHistory(prev => [...prev, kept]);
+        setLlmHistory(prev => [...prev, kept]);
+      }
       if (error instanceof AbortedError) return; // user cancelled / superseded
       const friendly = describeLlmError(error, lang);
       setDisplayHistory(prev => [
@@ -266,7 +295,8 @@ ${ragContext ? `\n${relatedLabel}:\n"""\n${ragContext}\n"""` : ''}`,
         {displayHistory.map((msg, idx) => (
           <ChatBubble key={idx} role={msg.role} content={msg.content} />
         ))}
-        {isLoading && (
+        {streaming && <ChatBubble role={ASSISTANT_ROLE} content={streaming} />}
+        {isLoading && !streaming && (
           <div role="status" aria-live="polite" className="p-3 rounded-lg shadow-sm border border-gray-100/40 dark:border-gray-700/40 bg-white/80 dark:bg-gray-800/60 flex items-center space-x-2 text-gray-400 dark:text-gray-500 self-start">
             <Loader2 size={14} className="animate-spin" aria-hidden="true" />
             <span>{t('thinking')}</span>
