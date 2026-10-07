@@ -21,7 +21,8 @@ test('embeddings: sections are embedded once, found by meaning, an edit costs on
   fs.writeFileSync(path.join(noted.vault, 'Garage.md'), GARAGE);
   fs.mkdirSync(path.join(noted.vault, 'Pets'));
   fs.writeFileSync(path.join(noted.vault, 'Pets', 'Dogs.md'), '# Dogs\n\n## Training\n\nThe dog learns to sit and to stay.\n');
-  let { win } = await noted.relaunch();
+  let current = await noted.relaunch();
+  let { win } = current;
 
   // The toy embedder, in the page: words hashed into 64 dimensions, a few synonyms folded together.
   const install = () => win.evaluate(() => {
@@ -98,7 +99,8 @@ test('embeddings: sections are embedded once, found by meaning, an edit costs on
   expect((await sync()).sent).toBe(0);
 
   // And nothing is embedded again after a restart
-  ({ win } = await noted.relaunch());
+  current = await current.relaunch(); // from the app that is running, not from the first one, which is long closed
+  ({ win } = current);
   await install();
   const again = await sync();
   expect(again.sent).toBe(0);
