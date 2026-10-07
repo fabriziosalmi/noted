@@ -634,6 +634,13 @@ body {
 .ProseMirror .Tiptap-mathematics-render { cursor: pointer; }
 .ProseMirror .Tiptap-mathematics-render:hover { background: var(--accent-light); border-radius: 4px; }
 
+/* ─── A passage cited by the chat ───────────────────────────────────── */
+.cited-passage {
+  background: var(--accent-light);
+  box-shadow: 0 0 0 3px var(--accent-light);
+  border-radius: 2px;
+}
+
 /* ─── Ghost text (AI Tab completion) ────────────────────────────────── */
 .ghost-text {
   color: rgba(100, 100, 120, 0.45);

@@ -1000,5 +1000,12 @@
   "embeddingsCapped": "The vault holds more than the memory set aside for vectors allows: the rest is found by words only.",
   "embeddingsRebuild": "Rebuild index",
   "embeddingsRebuildHint": "Throws away the vectors of this model and embeds the vault again.",
-  "embeddingsWaiting": "Preparing the index…"
+  "embeddingsWaiting": "Preparing the index…",
+  "aiVaultOnly": "Vault only",
+  "aiVaultOnlyHint": "Vault only: answer from your notes, cite them, and say so when they have nothing",
+  "aiVaultOnlyDesc": "Answers come only from your notes (the open note and the sections found for the question), each claim cites its source, and when nothing in your notes bears on the question the assistant says so without asking the model.",
+  "aiNoSources": "I couldn't find anything about this in your notes.",
+  "aiUncited": "No source cited: this answer is not backed by your notes.",
+  "aiSources": "Sources",
+  "aiOpenSource": "Open {label}"
 }

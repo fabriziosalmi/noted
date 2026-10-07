@@ -1000,5 +1000,12 @@
   "embeddingsCapped": "Der Vault ist größer, als der für Vektoren reservierte Speicher erlaubt: der Rest wird nur über Wörter gefunden.",
   "embeddingsRebuild": "Index neu aufbauen",
   "embeddingsRebuildHint": "Verwirft die Vektoren dieses Modells und indexiert den Vault neu.",
-  "embeddingsWaiting": "Index wird vorbereitet…"
+  "embeddingsWaiting": "Index wird vorbereitet…",
+  "aiVaultOnly": "Nur Vault",
+  "aiVaultOnlyHint": "Nur Vault: antwortet aus deinen Notizen, zitiert sie und sagt es, wenn sie nichts enthalten",
+  "aiVaultOnlyDesc": "Antworten stammen nur aus deinen Notizen (der geöffneten Notiz und den zur Frage gefundenen Abschnitten), jede Aussage nennt ihre Quelle, und wenn nichts in deinen Notizen zur Frage passt, sagt der Assistent das, ohne das Modell zu fragen.",
+  "aiNoSources": "Dazu habe ich in deinen Notizen nichts gefunden.",
+  "aiUncited": "Keine Quelle genannt: Diese Antwort wird von deinen Notizen nicht gestützt.",
+  "aiSources": "Quellen",
+  "aiOpenSource": "{label} öffnen"
 }

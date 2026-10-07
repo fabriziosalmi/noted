@@ -108,6 +108,8 @@ export interface SettingsState {
   ragMaxNotes?: number;
   ragContextChars?: number;
   ragDebug?: boolean;
+  /** Chat answers come only from the notes, with citations; nothing in the notes about a question is said, not guessed. */
+  ragVaultOnly?: boolean;
   embeddingsEnabled?: boolean;
   embeddingProvider?: 'openai' | 'lmstudio' | 'ollama' | 'none';
   embeddingModel?: string;
@@ -261,7 +263,7 @@ interface NoteState {
   // reload/refocus (the content is already live in the editor).
   pendingSelfRename: string | null;
   /** Where a followed [[Note#Heading]] link goes once its note has opened; consumed by the editor. */
-  pendingAnchor: { note: string; heading?: string; block?: string } | null;
+  pendingAnchor: { note: string; heading?: string; block?: string; passage?: string } | null;
   // Set when the vault watcher reports that the OPEN note changed on disk behind
   // the editor's back. The editor reacts to it (see lib/externalChange.ts).
   externalChange: { name: string; seq: number } | null;
@@ -303,7 +305,7 @@ interface NoteState {
   renameNote: (oldName: string, newName: string, opts?: { reopen?: boolean }) => Promise<void>;
   syncActiveNoteTitle: (title: string) => Promise<void>;
   clearPendingSelfRename: () => void;
-  setPendingAnchor: (anchor: { note: string; heading?: string; block?: string } | null) => void;
+  setPendingAnchor: (anchor: { note: string; heading?: string; block?: string; passage?: string } | null) => void;
   // Apply the link rewrite for title-driven renames that were held back (see queueLinkRewrite).
   flushPendingLinkRewrite: (opts?: { quiet?: boolean }) => Promise<void>;
   /** A heading of the open note was renamed: move the [[Note#Heading]] links that point at it (Always / Ask / Never). */
@@ -502,6 +504,7 @@ export const useStore = create<NoteState>()(
         ragMaxNotes: 30,
         ragContextChars: 8000,
         ragDebug: false,
+        ragVaultOnly: false,
         embeddingsEnabled: false,
         embeddingProvider: 'none',
         embeddingModel: '',

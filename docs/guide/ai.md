@@ -114,6 +114,42 @@ The two lists are combined by **reciprocal rank fusion**, which needs no tuning
 between them: a section that both like comes first. If the question cannot be
 embedded (provider down, no vectors yet) the answer uses the words alone.
 
+### Sources and citations
+
+What the assistant is shown is numbered: the open note is source 1 and the sections
+found for your question follow. It is asked to put the number in brackets after
+each statement that comes from a source, like `[2]`. In the chat those markers
+become links, and the sources an answer cites are listed under it
+(`Note › Heading`). Click a marker or a source: the note opens at that section and
+the passage is marked for a few seconds (the mark is not a selection, so nothing
+you type can replace it, and it does not change the file). If the note has changed
+and the passage is gone, you land on the heading; if the heading is gone too, the
+note just opens.
+
+Numbers the model invents (a `[9]` with only four sources) are removed from the
+answer, and citations are only as good as the model: a source it cites supports the
+answer only as far as you check. Earlier answers are sent back without their
+markers, since the numbers belonged to that turn's sources.
+
+### Vault only
+
+The book button in the chat header (and **Settings → AI → Vault only**) makes the
+assistant answer from your notes and nothing else:
+
+- the model is told to answer only from the numbered sources, and to say so, in a
+  sentence, when they do not contain the answer;
+- sections that merely resemble the question are not offered unless they hold up
+  (they contain at least half of the question's significant words, or are close in
+  meaning; the similarity cut-off of 0.3 is a heuristic, and models differ);
+- when there is no open note and nothing in the vault bears on the question, the
+  model is not asked at all: you get "I couldn't find anything about this in your
+  notes";
+- an answer that cites no source is marked "No source cited: this answer is not
+  backed by your notes".
+
+This reduces answers from the model's memory, it does not prove an answer is right:
+a model can cite a source for something it does not say.
+
 ### The index
 
 Vectors are kept in `.noted/embeddings/` inside the vault, one file per model, and

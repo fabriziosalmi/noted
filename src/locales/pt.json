@@ -1000,5 +1000,12 @@
   "embeddingsCapped": "O vault tem mais do que a memória reservada para vetores permite: o resto só se encontra por palavras.",
   "embeddingsRebuild": "Reconstruir o índice",
   "embeddingsRebuildHint": "Descarta os vetores deste modelo e indexa o vault de novo.",
-  "embeddingsWaiting": "A preparar o índice…"
+  "embeddingsWaiting": "A preparar o índice…",
+  "aiVaultOnly": "Só o vault",
+  "aiVaultOnlyHint": "Só o vault: responde a partir das suas notas, cita-as e diz quando elas não têm nada",
+  "aiVaultOnlyDesc": "As respostas vêm só das suas notas (a nota aberta e as secções encontradas para a pergunta), cada afirmação cita a sua fonte e, se nada nas suas notas tem a ver com a pergunta, o assistente di-lo sem consultar o modelo.",
+  "aiNoSources": "Não encontrei nada sobre isto nas suas notas.",
+  "aiUncited": "Nenhuma fonte citada: esta resposta não é apoiada pelas suas notas.",
+  "aiSources": "Fontes",
+  "aiOpenSource": "Abrir {label}"
 }
