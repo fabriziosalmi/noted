@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'unsafe-inline'">
   <title>Quick Capture</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -64,41 +64,31 @@
       cursor: pointer;
     }
     .save-btn:hover { background: #4f46e5; }
+    .target { display: flex; align-items: center; gap: 6px; margin-right: auto; }
+    select {
+      background: #0f0f1a; border: 1px solid #374151; border-radius: 6px; color: #e5e7eb;
+      font-size: 12px; padding: 3px 6px; font-family: inherit; outline: none;
+    }
+    select:focus { border-color: #6366f1; }
   </style>
 </head>
 <body>
   <div class="header">
-    <span>⚡ Quick Capture</span>
-    <button onclick="close()">×</button>
+    <span>⚡ <span id="title">Quick Capture</span></span>
+    <button id="close" aria-label="Close">×</button>
   </div>
-  <textarea id="note" placeholder="Write here… (⌘↩ to save, Esc to close)" autofocus></textarea>
+  <textarea id="note" placeholder="Write here…" autofocus></textarea>
   <div class="footer">
-    <span>⌘↩ save · Esc close</span>
-    <button class="save-btn" onclick="save()">Save note</button>
+    <label class="target"><span id="target-label">Save to</span>
+      <select id="target">
+        <option value="new">A new note</option>
+        <option value="daily">Today's daily note</option>
+        <option value="inbox">Inbox note</option>
+      </select>
+    </label>
+    <span id="hint">⌘↩ save · Esc close</span>
+    <button class="save-btn" id="save">Save</button>
   </div>
-  <script>
-    const ta = document.getElementById('note');
-    ta.focus();
-
-    async function save() {
-      const text = ta.value.trim();
-      if (!text) return;
-      if (window.electronAPI?.saveCapture) {
-        const res = await window.electronAPI.saveCapture(text);
-        // Close on success (or when the handler reports no explicit failure) so a
-        // saved capture doesn't leave the window sitting open like a hang.
-        if (!res || res.success !== false) close();
-      }
-    }
-
-    function close() {
-      if (window.electronAPI?.closeCapture) window.electronAPI.closeCapture();
-    }
-
-    document.addEventListener('keydown', e => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); save(); }
-      if (e.key === 'Escape') close();
-    });
-  </script>
+  <script src="capture.js"></script>
 </body>
 </html>

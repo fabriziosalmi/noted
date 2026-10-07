@@ -1119,5 +1119,12 @@
   "ingestLabelPasted": "Texto pegado",
   "ingestLabelClipped": "Solo se resumió la primera parte de la fuente.",
   "ingestCancel": "Cancelar",
-  "ingestHint": "Convierte una página web o un texto en una nota breve, en sources/: un resumen, los puntos clave, de dónde viene y a qué notas tuyas se parece."
+  "ingestHint": "Convierte una página web o un texto en una nota breve, en sources/: un resumen, los puntos clave, de dónde viene y a qué notas tuyas se parece.",
+  "captureTargetLabel": "Guardar en",
+  "captureTargetNew": "Una nota nueva",
+  "captureTargetDaily": "Nota diaria de hoy",
+  "captureTargetInbox": "Nota Inbox",
+  "capturePlaceholder": "Escribe aquí…",
+  "captureHint": "{shortcut} guardar · Esc cerrar",
+  "captureSave": "Guardar"
 }

@@ -49,7 +49,7 @@ declare global {
       onLlmStream: (cb: (id: string, event: { text?: string; end?: boolean; error?: string }) => void) => () => void;
       getNoteHistory: (fileName: string, syncDir?: string) => Promise<{ success: boolean; data?: { name: string; ts: string }[]; error?: string }>;
       readNoteSnapshot: (fileName: string, snapshotName: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
-      saveCapture: (text: string) => Promise<{ success: boolean; fileName?: string; error?: string }>;
+      saveCapture: (text: string, target?: string) => Promise<{ success: boolean; fileName?: string; error?: string }>;
       closeCapture: () => Promise<void>;
       onRefreshNotes: (cb: () => void) => () => void;
       getNativeTheme: () => Promise<{ isDark: boolean }>;

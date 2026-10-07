@@ -1119,5 +1119,12 @@
   "ingestLabelPasted": "Texto colado",
   "ingestLabelClipped": "Só a primeira parte da fonte foi resumida.",
   "ingestCancel": "Cancelar",
-  "ingestHint": "Transforma uma página web ou um texto numa nota breve, em sources/: um resumo, os pontos-chave, de onde vem e de que notas suas está próxima."
+  "ingestHint": "Transforma uma página web ou um texto numa nota breve, em sources/: um resumo, os pontos-chave, de onde vem e de que notas suas está próxima.",
+  "captureTargetLabel": "Guardar em",
+  "captureTargetNew": "Uma nota nova",
+  "captureTargetDaily": "Nota diária de hoje",
+  "captureTargetInbox": "Nota Inbox",
+  "capturePlaceholder": "Escreva aqui…",
+  "captureHint": "{shortcut} guardar · Esc fechar",
+  "captureSave": "Guardar"
 }

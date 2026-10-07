@@ -31,10 +31,20 @@ switching to the app.
 
 - Open it with the global shortcut <kbd>⌘⇧Space</kbd> — it works even when Noted
   is not focused — or from **File → Quick Capture**.
-- Type your note, press <kbd>⌘↩</kbd> to save, or <kbd>Esc</kbd> to close.
+- Type your note, choose where it goes under **Save to**, press <kbd>⌘↩</kbd> (<kbd>Ctrl+Enter</kbd> on
+  Windows and Linux) to save, or <kbd>Esc</kbd> to close.
 
-Captured notes are saved into your vault root with a timestamped name like
-`Capture_2026-07-19_14-30-00.md` and are immediately available to search.
+| Save to | What happens |
+| --- | --- |
+| **A new note** | A note of its own in your vault root, with a timestamped name like `Capture_2026-07-19_14-30-00.md`. |
+| **Today's daily note** | A line, led by the time (**14:30**), at the end of the first section (Notes) of today's [daily note](/guide/organizing-notes#daily-notes). If there is no daily note yet, it is made first, with the same sections as when you open it yourself. |
+| **Inbox note** | A line, led by the time, at the end of `Inbox.md` in your vault root, made the first time. |
+
+The window opens on the last choice you made. Whatever you pick, the text is saved in your vault's own format
+(Markdown or HTML) and is immediately available to search.
+
+If the note you add to is open in the editor, it picks the new line up (the same way it does for a change from
+another app), so the next autosave cannot erase it. The version before the capture is kept in the note's history.
 
 ## Daily notes
 
