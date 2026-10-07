@@ -68,11 +68,9 @@
   "model": "Modell",
   "detectingModels": "Erkennung...",
   "detectModels": "Modelle erkennen",
-  "noModelsHelp": "Starte LM Studio / Ollama und klicke auf „Modelle erkennen\"",
+  "noModelsHelp": "Server starten und dann auf Modelle erkennen klicken.",
   "modelsFound_one": "Modell gefunden",
   "modelsFound_other": "Modelle gefunden",
-  "openrouterExample": "z. B. google/gemma-4-e2b, anthropic/claude-3.5-sonnet",
-  "defaultModelHelp": "Leer lassen, um das Standardmodell zu verwenden",
   "lmStudioUrl": "LM Studio API-URL",
   "lmStudioHelp": "Die lokale URL, unter der LM Studio läuft.",
   "apiKey": "API-Schlüssel",
@@ -1132,5 +1130,12 @@
   "importEvernoteDesc": "Importiert eine oder mehrere .enex-Dateien (Datei → Exportieren in Evernote). Jedes Notizbuch wird zu einem Ordner unter Evernote/, mit Tags, Daten und Quelladresse als Eigenschaften sowie Bildern und Dateien. Ein Bericht listet auf, was nicht vollständig ankam.",
   "importSummaryLossy": "{count} Notizen haben Inhalt, der nicht angekommen ist.",
   "importSummarySkipped": "{count} Elemente wurden nicht importiert.",
-  "importSummaryReport": "Vollständiger Bericht: {file}"
+  "importSummaryReport": "Vollständiger Bericht: {file}",
+  "providerGroupCloud": "Cloud-Dienste",
+  "providerGroupLocal": "Auf diesem Computer",
+  "providerGroupOther": "Andere",
+  "providerCustom": "OpenAI-kompatibel (eigene Adresse)",
+  "modelPlaceholder": "Modellname, wie der Dienst ihn schreibt",
+  "modelPlaceholderAuto": "Automatisch erkannt",
+  "modelDetectHelp": "API-Schlüssel eingeben, dann auf Modelle erkennen klicken, um aus dem heutigen Angebot des Dienstes zu wählen, oder einen Modellnamen eintippen."
 }

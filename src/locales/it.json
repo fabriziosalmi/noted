@@ -152,11 +152,9 @@
   "model": "Modello",
   "detectingModels": "Rilevamento...",
   "detectModels": "Rileva modelli",
-  "noModelsHelp": "Avvia LM Studio / Ollama e clicca \"Rileva modelli\"",
+  "noModelsHelp": "Avvia il server, poi premi Rileva modelli.",
   "modelsFound_one": "modello trovato",
   "modelsFound_other": "modelli trovati",
-  "openrouterExample": "Es. google/gemma-4-e2b, anthropic/claude-3.5-sonnet",
-  "defaultModelHelp": "Lascia vuoto per usare il modello predefinito",
   "lmStudioUrl": "LM Studio API URL",
   "lmStudioHelp": "L'URL locale dove gira LM Studio.",
   "apiKey": "API Key",
@@ -1132,5 +1130,12 @@
   "importEvernoteDesc": "Importa uno o più file .enex (File → Esporta in Evernote). Ogni taccuino diventa una cartella in Evernote/, con tag, date e indirizzo di origine conservati come proprietà, e con immagini e file. Un rapporto elenca ciò che non è arrivato intero.",
   "importSummaryLossy": "{count} note hanno contenuto che non è arrivato.",
   "importSummarySkipped": "{count} elementi non sono stati importati.",
-  "importSummaryReport": "Rapporto completo: {file}"
+  "importSummaryReport": "Rapporto completo: {file}",
+  "providerGroupCloud": "Servizi cloud",
+  "providerGroupLocal": "Su questo computer",
+  "providerGroupOther": "Altro",
+  "providerCustom": "Compatibile OpenAI (indirizzo tuo)",
+  "modelPlaceholder": "Nome del modello, come lo scrive il servizio",
+  "modelPlaceholderAuto": "Rilevato automaticamente",
+  "modelDetectHelp": "Inserisci la chiave API, poi premi Rileva modelli per scegliere tra quelli che il servizio offre oggi, oppure scrivi il nome di un modello."
 }

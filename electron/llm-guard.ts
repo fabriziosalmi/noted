@@ -28,6 +28,7 @@ const LLM_HOST_ALLOWLIST = new Set<string>([
   'api.deepinfra.com',
   'api.cerebras.ai',
   'api.sambanova.ai',
+  'router.huggingface.co',
 ]);
 // Hosts of the user's configured local/custom LLM endpoints (reported by the
 // renderer from settings, e.g. a LAN Ollama).

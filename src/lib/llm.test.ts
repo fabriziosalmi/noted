@@ -117,6 +117,51 @@ describe('llm API client', () => {
     await expect(fetchAvailableModels('ollama', '')).resolves.toEqual(['llama3.1']);
   });
 
+  it('asks for a model by name: a cloud service with none chosen fails at once, and no request is made with a name nobody chose', async () => {
+    for (const llmProvider of ['openai', 'anthropic', 'gemini', 'openrouter'] as const) {
+      useStore.setState({ settings: { llmProvider, llmApiKey: 'k', llmModel: '', lmStudioUrl: '', syncDirectory: null, showToolbar: true, showAiBar: true, theme: 'auto' as const, focusMode: false, editorFont: 'system' as const, editorFontSize: 'md' as const, typewriterMode: false, accentColor: '#6366f1' } as never });
+      await expect(askLLM([{ role: 'user', content: 'hi' }])).rejects.toThrow('Set a model name for this provider.');
+    }
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it('lists the models a service offers, with the right address and key, so none has to be written into the app', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValueOnce(mockFetchOk({ data: [{ id: 'chat-1' }, { id: 'text-embedding-x' }] }));
+    await expect(fetchAvailableModels('openai', '', 'sk-o')).resolves.toEqual(['chat-1']);
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.openai.com/v1/models');
+    expect((fetchMock.mock.calls[0][1] as { headers: Record<string, string> }).headers.Authorization).toBe('Bearer sk-o');
+
+    fetchMock.mockResolvedValueOnce(mockFetchOk({ data: [{ id: 'a-1' }] }));
+    await expect(fetchAvailableModels('anthropic', '', 'sk-a')).resolves.toEqual(['a-1']);
+    expect(fetchMock.mock.calls[1][0]).toContain('https://api.anthropic.com/v1/models');
+    expect((fetchMock.mock.calls[1][1] as { headers: Record<string, string> }).headers['x-api-key']).toBe('sk-a');
+
+    fetchMock.mockResolvedValueOnce(mockFetchOk({ models: [{ name: 'models/g-1', supportedGenerationMethods: ['generateContent'] }] }));
+    await expect(fetchAvailableModels('gemini', '', 'gk')).resolves.toEqual(['g-1']);
+    expect((fetchMock.mock.calls[2][1] as { headers: Record<string, string> }).headers['x-goog-api-key']).toBe('gk');
+
+    // Without a key there is nothing to ask with: no request, an empty list (OpenRouter's list is public)
+    fetchMock.mockClear();
+    await expect(fetchAvailableModels('openai', '', '')).resolves.toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    fetchMock.mockResolvedValueOnce(mockFetchOk({ data: [{ id: 'm/x' }] }));
+    await expect(fetchAvailableModels('openrouter', '', '')).resolves.toEqual(['m/x']);
+  });
+
+  it('treats an OpenAI-compatible server on this machine as local: the text is sent as written and no key is needed', async () => {
+    useStore.setState({ settings: { llmProvider: 'openai-compatible', llmApiKey: '', llmModel: 'any', lmStudioUrl: '', openaiCompatibleUrl: 'http://localhost:8888/v1', piiMasking: true, syncDirectory: null, showToolbar: true, showAiBar: true, theme: 'auto' as const, focusMode: false, editorFont: 'system' as const, editorFontSize: 'md' as const, typewriterMode: false, accentColor: '#6366f1' } as never });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockFetchOk({ choices: [{ message: { content: 'ok' } }] }));
+    await expect(askLLM([{ role: 'user', content: 'mail me at ada@example.com' }])).resolves.toBe('ok');
+    const call = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe('http://localhost:8888/v1/chat/completions');
+    expect(String((call[1] as { body: string }).body)).toContain('ada@example.com');
+
+    // the same text to a service in the cloud is masked, and needs its key
+    useStore.setState({ settings: { llmProvider: 'openai-compatible', llmApiKey: '', llmModel: 'any', lmStudioUrl: '', openaiCompatibleUrl: 'https://api.groq.com/openai/v1', syncDirectory: null, showToolbar: true, showAiBar: true, theme: 'auto' as const, focusMode: false, editorFont: 'system' as const, editorFontSize: 'md' as const, typewriterMode: false, accentColor: '#6366f1' } as never });
+    await expect(askLLM([{ role: 'user', content: 'mail me at ada@example.com' }])).rejects.toThrow('API key not configured');
+  });
+
   it('should call OpenRouter with normalized no-system payload for gemma models', async () => {
     useStore.setState({
       settings: { llmProvider: 'openrouter', llmApiKey: 'k', llmModel: 'google/gemma-2-9b-it', lmStudioUrl: '', syncDirectory: null, showToolbar: true, showAiBar: true, theme: 'auto' as const, focusMode: false, editorFont: 'system' as const, editorFontSize: 'md' as const, typewriterMode: false, accentColor: '#6366f1' }

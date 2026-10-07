@@ -68,11 +68,9 @@
   "model": "Modelo",
   "detectingModels": "A detetar...",
   "detectModels": "Detetar modelos",
-  "noModelsHelp": "Inicie o LM Studio / Ollama e clique em \"Detetar modelos\"",
+  "noModelsHelp": "Inicie o servidor e prima Detetar modelos.",
   "modelsFound_one": "modelo encontrado",
   "modelsFound_other": "modelos encontrados",
-  "openrouterExample": "ex. google/gemma-4-e2b, anthropic/claude-3.5-sonnet",
-  "defaultModelHelp": "Deixe vazio para usar o modelo predefinido",
   "lmStudioUrl": "URL da API do LM Studio",
   "lmStudioHelp": "O URL local onde o LM Studio está a correr.",
   "apiKey": "Chave API",
@@ -1132,5 +1130,12 @@
   "importEvernoteDesc": "Importa um ou mais ficheiros .enex (Ficheiro → Exportar no Evernote). Cada caderno torna-se uma pasta dentro de Evernote/, com etiquetas, datas e endereço de origem como propriedades, e com imagens e ficheiros. Um relatório lista o que não chegou completo.",
   "importSummaryLossy": "{count} notas têm conteúdo que não chegou.",
   "importSummarySkipped": "{count} itens não foram importados.",
-  "importSummaryReport": "Relatório completo: {file}"
+  "importSummaryReport": "Relatório completo: {file}",
+  "providerGroupCloud": "Serviços na nuvem",
+  "providerGroupLocal": "Neste computador",
+  "providerGroupOther": "Outro",
+  "providerCustom": "Compatível com OpenAI (endereço próprio)",
+  "modelPlaceholder": "Nome do modelo, como o serviço o escreve",
+  "modelPlaceholderAuto": "Detetado automaticamente",
+  "modelDetectHelp": "Introduza a chave de API e prima Detetar modelos para escolher entre os que o serviço oferece hoje, ou escreva o nome de um modelo."
 }

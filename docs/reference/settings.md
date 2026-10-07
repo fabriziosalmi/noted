@@ -9,12 +9,14 @@ Settings from the title bar, from **Quick Open → Settings**, or with the app m
 Configure the AI provider and retrieval. See [AI assistant](/guide/ai) for how
 each feature behaves.
 
-- **LLM provider** — OpenAI, Anthropic, Google Gemini, OpenRouter, LM Studio
-  (local), or Ollama (local).
-- **Model** — the model name. For local providers, a **Detect models** button
-  lists what the server offers; leaving it blank auto-selects one.
+- **LLM provider** — the cloud services (OpenAI, Anthropic, Google Gemini, OpenRouter, Groq, Mistral AI, DeepSeek, xAI,
+  Together AI, Fireworks AI, Cerebras, Hugging Face, Perplexity), the ones on this computer (LM Studio, Ollama, Unsloth
+  Studio, llama.cpp server, vLLM, Jan), or **OpenAI-compatible** with your own address. See [AI assistant](/guide/ai#providers).
+- **Model** — the model name. **Detect models** lists what the service offers today (for a server on this computer, as soon
+  as you choose it); no model is assumed for a cloud service.
+- **Base URL** — shown for the OpenAI-compatible services; filled in when you choose one from the list.
 - **LM Studio URL** — the endpoint for LM Studio (shown only for that provider).
-- **API key** — for cloud providers, with a reveal toggle. Stored with the macOS
+- **API key** — for cloud services (and for a local server set up with one), with a reveal toggle. Stored with the macOS
   Keychain when available; a warning appears if OS encryption is unavailable.
 - **Retrieval (RAG)** — **Top-K** notes to include (1–10, default 3),
   **Candidate notes per question** the word ranking looks into (5–100, default

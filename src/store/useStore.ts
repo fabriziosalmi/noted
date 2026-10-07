@@ -555,8 +555,9 @@ export const useStore = create<NoteState>()(
           newSettings = { ...newSettings, gitGhToken: '' };
         }
         if (newSettings.llmApiKey !== undefined && api) {
+          // Kept in memory as typed (the field shows it and the next request uses it); what is persisted is the encrypted copy in main,
+          // and `partialize` below keeps it out of localStorage. Blanking it here made the field reject every keystroke.
           api.storeApiKey(newSettings.llmApiKey);
-          newSettings = { ...newSettings, llmApiKey: '' };
         }
         set({ settings: { ...get().settings, ...newSettings } });
       },

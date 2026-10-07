@@ -155,10 +155,21 @@ describe('useStore', () => {
     expect(useStore.getState().activeNoteContent).toBe('');
   });
 
-  it('should store api key via electron and keep persisted key empty in settings', () => {
+  it('stores the api key via electron and keeps it in memory, but never in what is persisted', () => {
     useStore.getState().updateSettings({ llmApiKey: 'secret-key' });
     expect(window.electronAPI.storeApiKey).toHaveBeenCalledWith('secret-key');
-    expect(useStore.getState().settings.llmApiKey).toBe('');
+    // in memory it is what was typed: the settings field shows it and the next request uses it
+    expect(useStore.getState().settings.llmApiKey).toBe('secret-key');
+    // the persisted copy (localStorage) has none
+    const persisted = useStore.persist.getOptions().partialize!(useStore.getState()) as { settings: { llmApiKey: string } };
+    expect(persisted.settings.llmApiKey).toBe('');
+    expect(JSON.stringify(persisted)).not.toContain('secret-key');
+  });
+
+  it('keeps the whole key while it is typed, one character at a time', () => {
+    for (const typed of ['s', 'sk', 'sk-', 'sk-1']) useStore.getState().updateSettings({ llmApiKey: typed });
+    expect(useStore.getState().settings.llmApiKey).toBe('sk-1');
+    expect(window.electronAPI.storeApiKey).toHaveBeenLastCalledWith('sk-1');
   });
 
   it('should load api key from electron safe storage', async () => {
