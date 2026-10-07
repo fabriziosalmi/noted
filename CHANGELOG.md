@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-10-07
+
 ### Added
 
 - **Import from Evernote** (#91): **Settings → Import → Import from Evernote** reads one or more `.enex` exports. Each file becomes a folder `Evernote/<notebook>/` of Markdown notes (or HTML, in an HTML vault) with their dates, tags, source address and author as properties, check boxes as a task list, images stored once in the attachments folder, and other files kept there and linked. What did not come across whole is said: encrypted text, an attachment missing from the export, a file over the size limit, dropped styling. The dialog counts them and a report note `reports/Evernote import <date>.md` lists them. The export is read as a stream, so a very large notebook is not held in memory. Logseq follows in its own change.
@@ -439,7 +441,8 @@ The first cross-platform release, and the first that keeps itself up to date.
   backlinks, full-text search, multi-provider AI, Git integration, export, quick
   capture, and a built-in MCP server.
 
-[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.6.1...HEAD
+[1.6.1]: https://github.com/fabriziosalmi/noted/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/fabriziosalmi/noted/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/fabriziosalmi/noted/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/fabriziosalmi/noted/compare/v1.3.6...v1.4.0
