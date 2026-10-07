@@ -96,7 +96,10 @@ export const test = base.extend<{ noted: Launched }>({
     // Teardown must close and screenshot whichever instance is current, which
     // changes when a test relaunches.
     let current!: Launched;
-    await launch(vault, profile, l => { current = l; });
+    // Every instance this test starts, not only the last: a test that relaunches from an earlier handle leaves the one between
+    // running, and the test runner would otherwise wait for it at the end of the whole run.
+    const started: Launched[] = [];
+    await launch(vault, profile, l => { current = l; started.push(l); });
 
     await use(current);
 
@@ -109,7 +112,7 @@ export const test = base.extend<{ noted: Launched }>({
       // Also in the CI log itself, where it is read first.
       console.warn(`[app-log tail] ${testInfo.title}\n${appLog.slice(-3000)}`);
     }
-    await closeApp(current.app);
+    for (const l of started) await closeApp(l.app);
     // On Windows the browser keeps a file in the profile (DIPS) open for a moment after the app has closed. A temp
     // folder left behind is harmless; failing a test that passed over it is not.
     try { fs.rmSync(base, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }); } catch { /* left for the OS to clean */ }
