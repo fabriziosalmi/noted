@@ -100,6 +100,8 @@ can read and write your notes.
 ## Import
 
 - **Obsidian / Markdown folder** — import an existing folder of Markdown notes.
+- **Evernote** — import one or more `.enex` exports; see [Import from Evernote](/guide/import-evernote).
 - **Apple Notes** — import your notes from Apple Notes.
 
-Each importer has a run button and reports success or failure inline.
+Each importer has a run button and reports success or failure inline. The Evernote importer also says how many notes
+have content that did not come across, and saves a report note.

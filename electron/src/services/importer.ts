@@ -11,6 +11,12 @@ import { readVaultFormat } from '../../../shared/vault/formatFile.js';
 import { normalizeMarkdown } from '../../../shared/markdown/codec.js';
 import { tr } from '../../core/language.js';
 import { checkFolderPath } from '../../../shared/vault/paths.js';
+import { convertMarkdownNoteToHtml } from '../../../shared/markdown/migrate.js';
+import { mergeReports, reportToMarkdown, summarize, createReport, addFinding, type ImportSummary } from '../../../shared/import/report.js';
+import { importEnex, vaultWriter } from '../../import-enex.js';
+import { dom } from '../../core/dom.js';
+import { attachmentsFolderFor } from '../../core/rewrite.js';
+import { safeResolve } from '../../core/paths.js';
 
 /** One folder name made safe to create: no reserved characters, no trailing dot or space. */
 const cleanSegment = (segment: string): string =>
@@ -100,6 +106,53 @@ export function registerImporterHandlers(
       return { success: true, data: importedCount };
     } catch (err) {
       logEvent('error', 'import_vault_failed', { reqId, error: (err as Error).message });
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('import-enex', async (_, targetDir?: string, attachmentsFolder?: string) => {
+    const reqId = newRequestId('import-enex');
+    try {
+      assertNotMigrating();
+      const { filePaths, canceled } = await dialog.showOpenDialog({
+        title: tr('dlgImportEnex'),
+        properties: ['openFile', 'multiSelections'],
+        filters: [{ name: 'Evernote export', extensions: ['enex'] }],
+      });
+      if (canceled || !filePaths.length) return { success: false, error: 'Cancelled' };
+      const dest = resolveTargetDir(targetDir);
+      const format = readVaultFormat(dest);
+      const env = await dom();
+      const writer = vaultWriter(dest, safeResolve);
+      const deps = { format, dom: env, attachmentsFolder: attachmentsFolderFor(dest, attachmentsFolder), ...writer };
+      const reports = [];
+      const failures = createReport('files');
+      for (const file of filePaths) {
+        try { reports.push(await importEnex(deps, file)); }
+        catch (err) {
+          // One bad file (not an export, cut short, unreadable) does not stop the others; it is reported
+          addFinding(failures, { note: path.basename(file), level: 'skipped', message: `the file was not imported: ${(err as Error).message}` });
+        }
+      }
+      const report = mergeReports(filePaths.map((f) => path.basename(f)).join(', '), [...reports, failures]);
+      if (report.imported === 0 && failures.findings.length > 0) return { success: false, error: failures.findings[0].message };
+      const stamp = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const day = `${stamp.getFullYear()}-${pad(stamp.getMonth() + 1)}-${pad(stamp.getDate())}`;
+      let reportFile: string | null = `reports/Evernote import ${day} ${pad(stamp.getHours())}-${pad(stamp.getMinutes())}-${pad(stamp.getSeconds())}.md`;
+      try {
+        const md = reportToMarkdown(report, day);
+        await writer.write(reportFile, format === 'markdown' ? md : convertMarkdownNoteToHtml(md, env));
+      } catch (err) {
+        logEvent('warn', 'import_enex_report_failed', { reqId, error: (err as Error).message });
+        reportFile = null;
+      }
+      fullTextSearchIndex.markDirty(dest);
+      logEvent('info', 'import_enex_completed', { reqId, importedCount: report.imported, files: filePaths.length, findings: report.findings.length, destDir: dest });
+      const summary: ImportSummary = summarize(report, reportFile);
+      return { success: true, data: report.imported, summary };
+    } catch (err) {
+      logEvent('error', 'import_enex_failed', { reqId, error: (err as Error).message });
       return { success: false, error: (err as Error).message };
     }
   });

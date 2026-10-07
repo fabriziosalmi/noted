@@ -1126,5 +1126,11 @@
   "captureTargetInbox": "Inbox note",
   "capturePlaceholder": "Write here…",
   "captureHint": "{shortcut} save · Esc close",
-  "captureSave": "Save"
+  "captureSave": "Save",
+  "dlgImportEnex": "Import Evernote export (.enex)",
+  "importEvernote": "Import from Evernote",
+  "importEvernoteDesc": "Import one or more .enex files (File → Export in Evernote). Each notebook becomes a folder under Evernote/, with tags, dates and source address kept as properties, and images and files kept. A report lists anything that did not come across whole.",
+  "importSummaryLossy": "{count} notes have content that did not come across.",
+  "importSummarySkipped": "{count} items were not imported.",
+  "importSummaryReport": "Full report: {file}"
 }

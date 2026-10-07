@@ -140,6 +140,7 @@ declare global {
       gitSaveAsGist: (params: { fileName: string; content: string; isPublic: boolean; token: string }) => Promise<GitResult<string>>;
       searchNotesFulltext: (query: string, syncDir?: string) => Promise<{ success: boolean; data?: { relPath: string; title: string; snippet: string; score: number; terms: string[] }[]; truncated?: boolean; error?: string }>;
       setupClaudeMcp: () => Promise<{ success: boolean; error?: string }>;
+      importEnex: (targetDir?: string, attachmentsFolder?: string) => Promise<{ success: boolean; data?: number; summary?: { lossy: number; skipped: number; formatting: number; attachments: number; reportFile: string | null }; error?: string }>;
       importAppleNotes: (targetDir?: string) => Promise<{ success: boolean; data?: number; error?: string }>;
       updateMcpSseConfig: (config: { enabled: boolean; port: number; syncDir?: string; legacySse?: boolean }) => Promise<{ success: boolean; error?: string }>;
       getAppVersion: () => Promise<string>;
