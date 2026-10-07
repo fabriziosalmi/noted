@@ -80,6 +80,17 @@ describe('initial scan', () => {
     expect(index.backlinks(dir, 'Other.md')).toEqual(['Task.md']);
   });
 
+  it('lists tasks in note order whatever order the notes were indexed in', async () => {
+    write('.noted-vault.json', '{"format":"markdown"}');
+    await index.ensure(dir);
+    // Indexed Z first, then Sub/B, then A: the order a file system may list them in
+    for (const [name, text] of [['Z.md', '- [ ] z\n'], ['Sub/B.md', '- [ ] b\n'], ['A.md', '- [ ] a1\n- [ ] a2\n']] as const) {
+      write(name, text);
+      index.upsertFromRaw(dir, name, text);
+    }
+    expect(index.tasks(dir).map(t => `${t.note}:${t.text}`)).toEqual(['A.md:a1', 'A.md:a2', 'Sub/B.md:b', 'Z.md:z']);
+  });
+
   it('lists the tasks of a Markdown vault with their note and its tags, and follows an edit; an HTML vault has none', async () => {
     write('.noted-vault.json', '{"format":"markdown"}');
     write('A.md', '# A #work\n\n- [ ] one 📅 2026-10-10\n- [x] two\n');
