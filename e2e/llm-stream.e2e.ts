@@ -5,12 +5,12 @@ import { test, expect } from './fixtures';
 // A streamed answer through the real app: the preload bridge, the main process, and a provider on loopback. The text reaches
 // the page piece by piece, and stopping closes the connection to the provider (so it stops generating) instead of only
 // ceasing to wait for it.
-type Event = { id: string; text?: string; end?: boolean; error?: string };
-type StreamApi = {
+interface Event { id: string; text?: string; end?: boolean; error?: string }
+interface StreamApi {
   llmStreamStart: (id: string, url: string, o: { method: string; headers: Record<string, string>; body: string }) => Promise<{ ok: boolean; status: number; text?: string }>;
   llmStreamAbort: (id: string) => void;
   onLlmStream: (cb: (id: string, e: Omit<Event, 'id'>) => void) => () => void;
-};
+}
 
 test('llm stream: the text arrives in pieces, and stopping closes the provider connection', async ({ noted }) => {
   const sockets = { closed: 0 };
