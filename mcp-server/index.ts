@@ -54,6 +54,7 @@ import { readVaultConfig } from '../shared/vault-config.js';
 import { accessFor, canRead, canWrite, isStaged, lessAccess, type Access, type McpPolicy } from '../shared/vault/mcpPolicy.js';
 import type { PendingChange } from '../shared/vault/pending.js';
 import { addPending } from '../shared/vault/pendingFile.js';
+import { appendEntry } from '../shared/vault/journalFile.js';
 import { loadPolicy, policyStamp, type LoadedPolicy } from '../shared/vault/mcpPolicyFile.js';
 import { isMigrationLocked, readVaultFormat } from '../shared/vault/formatFile.js';
 import { checkFolderPath, checkNotePath } from '../shared/vault/paths.js';
@@ -371,9 +372,34 @@ function assertNotMigrating(): void {
 
 // ─── Atomic file write ────────────────────────────────────────────────────────
 
-function atomicWrite(filePath: string, content: string): void {
+/** One run of this server: all it does is one "session" in the journal, so it can be undone together. */
+const SESSION_ID = crypto.randomBytes(6).toString('hex');
+
+/** The name of a note in the vault, from where its file is. */
+function noteNameOf(filePath: string): string {
+  const root = path.resolve(NOTES_DIR);
+  const rootReal = fs.existsSync(root) ? fs.realpathSync(root) : root;
+  return path.relative(rootReal, filePath).split(path.sep).join('/');
+}
+
+/**
+ * Record a change in the agent journal. It is written BEFORE the change, and a change that cannot be recorded is not made:
+ * nothing an agent does to a note goes unrecorded.
+ */
+function journalChange(tool: string, note: string, kind: 'create' | 'update' | 'delete', before: string | null, after: string | null): void {
+  try {
+    appendEntry(NOTES_DIR, { client: serverClientName(), session: SESSION_ID, tool, via: 'direct', kind, note, before, after });
+  } catch (err) {
+    throw new McpError(ErrorCode.InternalError, `The change was not made: it could not be recorded in the agent journal (${(err as Error).message})`);
+  }
+}
+
+function atomicWrite(filePath: string, content: string, tool: string): void {
   assertNotMigrating();
   const dir = path.dirname(filePath);
+  let before: string | null = null;
+  try { before = fs.readFileSync(filePath, 'utf8'); } catch { /* a new note */ }
+  if (before !== content) journalChange(tool, noteNameOf(filePath), before === null ? 'create' : 'update', before, content);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const tmp = filePath + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
   fs.writeFileSync(tmp, content, 'utf8');
@@ -1251,7 +1277,7 @@ export async function handleCreateNote(args: Record<string, unknown>) {
   }
   const stored = await toStoredNote(rawContent);
   if (target.staged) return stageChange({ tool: TOOL_NAME.CREATE_NOTE, kind: 'create', note: name as string, baseEtag: null, before: null, after: stored });
-  atomicWrite(filePath, stored);
+  atomicWrite(filePath, stored, TOOL_NAME.CREATE_NOTE);
   indexUpsert(name as string, stored);
   return {
     content: [{
@@ -1288,7 +1314,7 @@ export async function handleUpdateNote(args: Record<string, unknown>) {
     const current = fs.readFileSync(filePath, 'utf8');
     return stageChange({ tool: TOOL_NAME.UPDATE_NOTE, kind: 'update', note: name as string, baseEtag: etagOf(current), before: current, after: final });
   }
-  atomicWrite(filePath, final);
+  atomicWrite(filePath, final, TOOL_NAME.UPDATE_NOTE);
   indexUpsert(name as string, final);
   const action = append ? 'appended to' : 'updated';
   return {
@@ -1404,7 +1430,7 @@ export async function handleEditNote(args: Record<string, unknown>) {
     throw new McpError(ErrorCode.InvalidParams, "the edit would break the note's frontmatter (it must stay valid YAML between its --- lines)");
   }
   if (target.staged) return stageChange({ tool: TOOL_NAME.EDIT_NOTE, kind: 'update', note: name as string, baseEtag: etagOf(stored), before: stored, after: edit.stored });
-  atomicWrite(filePath, edit.stored);
+  atomicWrite(filePath, edit.stored, TOOL_NAME.EDIT_NOTE);
   indexUpsert(name as string, edit.stored);
   const newEtag = etagOf(edit.stored);
   return {
@@ -1524,6 +1550,7 @@ export async function handleDeleteNote(args: Record<string, unknown>) {
     return stageChange({ tool: TOOL_NAME.DELETE_NOTE, kind: 'delete', note: name as string, baseEtag: etagOf(current), before: current, after: null });
   }
   assertNotMigrating();
+  journalChange(TOOL_NAME.DELETE_NOTE, name as string, 'delete', fs.readFileSync(filePath, 'utf8'), null);
   purgeTrash(NOTES_DIR, new Date(), trashRetentionDays());
   const item = moveToTrash(NOTES_DIR, name as string);
   indexRemove(name as string);
@@ -1556,7 +1583,14 @@ export async function handleRestoreNote(args: Record<string, unknown>) {
   purgeTrash(NOTES_DIR, new Date(), trashRetentionDays());
   try {
     const item = restoreFromTrash(NOTES_DIR, name as string, id as string | undefined);
-    indexUpsert(name as string, fs.readFileSync(safeNotePath(name as string), 'utf8'));
+    const restored = fs.readFileSync(safeNotePath(name as string), 'utf8');
+    try {
+      journalChange(TOOL_NAME.RESTORE_NOTE, name as string, 'create', null, restored);
+    } catch (err) {
+      moveToTrash(NOTES_DIR, name as string); // not recorded, so not kept: put it back where it was
+      throw err;
+    }
+    indexUpsert(name as string, restored);
     return { content: [{ type: 'text', text: `Note restored: ${name as string} (deleted ${formatLocal(item.trashedAt, true)})` }] };
   } catch (err) {
     if (err instanceof TrashError) throw new McpError(ErrorCode.InvalidParams, err.message);
@@ -1581,7 +1615,7 @@ export async function handleCreateAgentWorkflow(args: Record<string, unknown>) {
 
   // Converted first: a note that cannot be converted must not leave half a scaffold behind.
   const stored = await Promise.all(paths.map(file => toStoredNote(file.content)));
-  paths.forEach((file, i) => atomicWrite(file.filePath, stored[i]));
+  paths.forEach((file, i) => atomicWrite(file.filePath, stored[i], TOOL_NAME.CREATE_AGENT_WORKFLOW));
 
   return {
     content: [{
@@ -1632,7 +1666,7 @@ export async function handleAppendAgentEvent(args: Record<string, unknown>) {
     codeBlockJson(event),
   ].join('\n');
   const existing = fs.readFileSync(filePath, 'utf8');
-  atomicWrite(filePath, await appendToStored(existing, eventMd));
+  atomicWrite(filePath, await appendToStored(existing, eventMd), TOOL_NAME.APPEND_AGENT_EVENT);
 
   return {
     content: [{
@@ -1711,19 +1745,20 @@ function runEngine(fn: () => EngineResult): EngineResult {
   }
 }
 
-async function persistAgentNote(note: LoadedAgentNote, meta: AgentMetadata, event: unknown): Promise<void> {
+async function persistAgentNote(tool: string, note: LoadedAgentNote, meta: AgentMetadata, event: unknown): Promise<void> {
   const rewritten = writeAgentMetadata(note.html, meta);
   if (!rewritten) {
     throw new McpError(ErrorCode.InternalError, `Failed to update Agent Metadata in ${note.name}`);
   }
   const eventMd = [`## Event ${(event as { type: string }).type}`, '', codeBlockJson(event)].join('\n');
   const final = await appendToStored(rewritten, eventMd);
-  atomicWrite(note.filePath, final);
+  atomicWrite(note.filePath, final, tool);
   indexUpsert(note.name, final);
 }
 
 // Keep the workflow note's tasks[] mirror consistent after a task transition.
 function syncWorkflowMirror(
+  tool: string,
   workflow: LoadedAgentNote | null,
   note: LoadedAgentNote,
   newStatus: string,
@@ -1734,7 +1769,7 @@ function syncWorkflowMirror(
   if (mirrored === workflow.meta) return;
   const rewritten = writeAgentMetadata(workflow.html, mirrored);
   if (rewritten) {
-    atomicWrite(workflow.filePath, rewritten);
+    atomicWrite(workflow.filePath, rewritten, tool);
     indexUpsert(workflow.name, rewritten);
   }
 }
@@ -1770,8 +1805,8 @@ export async function handleAdvanceAgentState(args: Record<string, unknown>) {
   const to = validateNonEmptyString(args.to, 'to');
   const { ctx, workflow } = buildAgentContext(note, args);
   const result = runEngine(() => advance(note.meta, to, ctx));
-  await persistAgentNote(note, result.metadata, result.event);
-  syncWorkflowMirror(workflow, note, result.metadata.status as string, ctx.now);
+  await persistAgentNote(TOOL_NAME.ADVANCE_AGENT_STATE, note, result.metadata, result.event);
+  syncWorkflowMirror(TOOL_NAME.ADVANCE_AGENT_STATE, workflow, note, result.metadata.status as string, ctx.now);
   return {
     content: [{
       type: 'text',
@@ -1784,8 +1819,8 @@ export async function handleApproveAgentGate(args: Record<string, unknown>) {
   const note = loadAgentNote(args.name);
   const { ctx, workflow } = buildAgentContext(note, args);
   const result = runEngine(() => approveGate(note.meta, ctx));
-  await persistAgentNote(note, result.metadata, result.event);
-  syncWorkflowMirror(workflow, note, result.metadata.status as string, ctx.now);
+  await persistAgentNote(TOOL_NAME.APPROVE_AGENT_GATE, note, result.metadata, result.event);
+  syncWorkflowMirror(TOOL_NAME.APPROVE_AGENT_GATE, workflow, note, result.metadata.status as string, ctx.now);
   return {
     content: [{
       type: 'text',
@@ -1799,8 +1834,8 @@ export async function handleRejectAgentGate(args: Record<string, unknown>) {
   const { ctx, workflow } = buildAgentContext(note, args);
   const reason = args.reason === undefined ? undefined : validateNonEmptyString(args.reason, 'reason');
   const result = runEngine(() => rejectGate(note.meta, { ...ctx, reason }));
-  await persistAgentNote(note, result.metadata, result.event);
-  syncWorkflowMirror(workflow, note, result.metadata.status as string, ctx.now);
+  await persistAgentNote(TOOL_NAME.REJECT_AGENT_GATE, note, result.metadata, result.event);
+  syncWorkflowMirror(TOOL_NAME.REJECT_AGENT_GATE, workflow, note, result.metadata.status as string, ctx.now);
   return {
     content: [{
       type: 'text',

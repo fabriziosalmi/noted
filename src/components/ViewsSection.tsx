@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { CheckSquare, ChevronDown, ChevronRight, Copy, Pencil, Plus, Table2, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { getElectronApi } from '../lib/electronApi';
+import { Bot, CheckSquare, ChevronDown, ChevronRight, Copy, Pencil, Plus, Table2, Trash2 } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import { useConfirm, usePrompt } from './ConfirmProvider';
@@ -16,6 +17,17 @@ export function ViewsSection() {
   const views = useStore(s => s.views);
   const activeViewId = useStore(s => s.activeViewId);
   const tasksOpen = useStore(s => s.tasksOpen);
+  const activityOpen = useStore(s => s.activityOpen);
+  const syncDir = useStore(s => s.settings.syncDirectory) || undefined;
+  const [agentsActive, setAgentsActive] = useState(false);
+
+  // The Agent activity page is offered once an assistant has changed something in this vault.
+  useEffect(() => {
+    const ask = () => { void getElectronApi()?.journalList?.(syncDir).then(res => { if (res.success && res.data) setAgentsActive(res.data.total > 0); }).catch(() => undefined); };
+    ask();
+    window.addEventListener('focus', ask);
+    return () => window.removeEventListener('focus', ask);
+  }, [syncDir]);
   const [open, setOpen] = useState(readOpen);
   const confirm = useConfirm();
   const prompt = usePrompt();
@@ -63,6 +75,17 @@ export function ViewsSection() {
         <CheckSquare size={13} className="shrink-0 text-gray-400" aria-hidden="true" />
         {t('tasksTitle')}
       </button>
+      {agentsActive && (
+        <button
+          type="button"
+          onClick={() => useStore.getState().openActivity()}
+          aria-current={activityOpen ? 'page' : undefined}
+          className={`w-full flex items-center gap-2 px-2 py-1 rounded-md text-sm text-left ${activityOpen ? 'bg-[var(--accent-light)] text-[var(--accent)] font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-gray-700/40'}`}
+        >
+          <Bot size={13} className="shrink-0 text-gray-400" aria-hidden="true" />
+          {t('activityTitle')}
+        </button>
+      )}
       <div className="flex items-center justify-between px-1 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
         <button type="button" onClick={toggle} aria-expanded={open} className="flex items-center gap-1 py-1 hover:text-gray-800 dark:hover:text-gray-200">
           {open ? <ChevronDown size={11} aria-hidden="true" /> : <ChevronRight size={11} aria-hidden="true" />}

@@ -124,6 +124,28 @@ and for a change over 5 MB, the agent is told it could not be staged. `restore_n
 and are refused in these folders. Policy is per folder, not per client: an MCP client names itself and nothing can check that name,
 so a rule keyed on it would protect nothing.
 
+### The agent journal
+
+Every change an assistant makes to a note through MCP is written to a journal in `.noted/journal/` (one file a day, JSON lines), and
+an approved staged change is recorded when you approve it. An entry says **who** (the name the client gave itself), **when**, which
+tool, which note, whether it created, changed or deleted it, and the **SHA-256 of the note before and after**; the text of both
+versions is kept beside it by hash (a version that is both the "after" of one change and the "before" of the next is stored once).
+Reading, searching and listing are not recorded, and neither is a write that changes nothing. **A change that cannot be recorded is
+not made**: the journal is written before the note, and the assistant is told why.
+
+The sidebar shows **Agent activity** as soon as an assistant has changed something. The page lists the changes by
+session (one run of an MCP server), newest first, filterable by assistant, kind and note, each with its difference on demand.
+**Undo** puts a change back; **Undo this session** puts the whole session back, newest change first. An undo is refused, and the
+note left alone, when the note is no longer exactly what the assistant left (you, a sync or another assistant changed it since); a
+change cannot be undone twice, an undo cannot be undone, and a change whose text was over 5 MB is recorded by hash only. The version
+an undo replaces is kept in the note's history, a creation is undone by moving the note to the trash, and every undo is itself in
+the journal.
+
+**Tamper evidence.** Each entry holds the hash of the one before it and a hash of everything it says, so changing, removing,
+reordering or forging an entry breaks the chain from there, and the page says so ("the journal was changed after it was written:
+entry N"). This shows that something changed; it does not prevent it, since anyone who can edit your files can edit the journal and
+its content. The journal is not Git-synced (it lives in `.noted/`) and is never pruned by the app.
+
 ### Editing without overwriting each other
 
 `update_note` replaces a whole note, so an agent that read a note a minute ago can erase what you typed since. `edit_note`

@@ -9,6 +9,10 @@ import { readViews, writeViews } from '../../shared/views/file';
 import { setProperty } from '../note-properties';
 import { toggleTask } from '../note-tasks';
 import { approvePending, rejectPending } from '../pending-changes';
+import { revertEntries } from '../journal-revert';
+import { appendEntry, readBlob, readEntries } from '../../shared/vault/journalFile';
+import { verifyChain } from '../../shared/vault/journal';
+import { revertedIds } from '../../shared/vault/journalTypes';
 import { listPending } from '../../shared/vault/pendingFile';
 import { moveToTrash } from '../../mcp-server/trash';
 import { isAccess, parsePolicy, serializePolicy, MAX_POLICY_FOLDERS, type McpPolicy } from '../../shared/vault/mcpPolicy';
@@ -26,6 +30,7 @@ import { startVaultWatch } from '../core/watcher';
 import { rewriteLinks, parseRenames, linkRewriteDeps, rewriteHeadingLinksIn, previewHeadingLinks, parseHeadingChange } from '../core/rewrite';
 
 const MAX_LISTED_TASKS = 2000;
+const MAX_LISTED_JOURNAL = 1000;
 
 /** The filter a renderer sent, kept to what it may contain (untrusted). */
 function parseTaskFilter(input: unknown): TaskFilter {
@@ -222,8 +227,55 @@ export function registerVaultHandlers(): void {
         snapshotBefore: files.snapshotBefore,
         writeNote: files.writeNote,
         trashNote: name => { moveToTrash(dir, name); fullTextSearchIndex.deleteDoc(dir, name); vaultIndex.deleteDoc(dir, name); },
+        record: entry => { appendEntry(dir, { ...entry, session: `approval-${id}`, via: 'approval' }); },
       }, id);
       return out.ok ? { success: true } : { success: false, error: out.error, conflict: out.conflict };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  // The agent journal: what assistants changed, who, when; look at one, and undo.
+  ipcMain.handle('journal-list', (_, syncDir?: string) => {
+    try {
+      const dir = getTargetDir(syncDir);
+      const { entries, damaged } = readEntries(dir);
+      const check = damaged > 0 ? { ok: false as const, at: 0, reason: `${damaged} line(s) are not entries` } : verifyChain(entries);
+      return { success: true, data: { entries: entries.slice(-MAX_LISTED_JOURNAL).reverse(), total: entries.length, reverted: [...revertedIds(entries)], chain: check } };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('journal-diff', (_, id: unknown, syncDir?: string) => {
+    try {
+      if (typeof id !== 'string') throw new Error('Invalid entry');
+      const dir = getTargetDir(syncDir);
+      const entry = readEntries(dir).entries.find(e => e.id === id);
+      if (!entry) throw new Error('no such entry');
+      const blob = (hash: string | null) => (hash === null ? { text: '', kept: true } : { text: readBlob(dir, hash) ?? '', kept: readBlob(dir, hash) !== null });
+      const before = blob(entry.beforeHash);
+      const after = blob(entry.afterHash);
+      return { success: true, data: { before: before.text, after: after.text, kept: before.kept && after.kept } };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('journal-revert', async (_, ids: unknown, syncDir?: string) => {
+    try {
+      assertNotMigrating();
+      if (!Array.isArray(ids) || ids.length === 0 || ids.length > 500 || !ids.every(i => typeof i === 'string')) throw new Error('Invalid entries');
+      const dir = getTargetDir(syncDir);
+      const files = linkRewriteDeps(dir);
+      const results = await revertEntries({
+        notesDir: dir,
+        readNote: async name => { try { return await files.readNote(name); } catch { return null; } },
+        snapshotBefore: files.snapshotBefore,
+        writeNote: files.writeNote,
+        trashNote: name => { moveToTrash(dir, name); fullTextSearchIndex.deleteDoc(dir, name); vaultIndex.deleteDoc(dir, name); },
+      }, ids as string[]);
+      return { success: true, data: results };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

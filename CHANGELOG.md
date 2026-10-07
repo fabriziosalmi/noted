@@ -8,6 +8,12 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Agent journal and Agent activity** (#84): every change an assistant makes through MCP (create, update, edit, delete, restore, the workflow
+  tools, and the approval of a staged change) is recorded in `.noted/journal/` with who, when, which tool and note, and the hash and text of
+  the note before and after; a write that cannot be recorded is not made. A new **Agent activity** page lists the changes by session,
+  filterable by assistant, kind and note, with each difference, and can **undo** one change or a whole session (refused, with the note left
+  alone, if the note has changed since the assistant left it; the version replaced is kept in history, and the undo is recorded too). Entries
+  are hash-chained, so an edited, removed or forged entry is shown.
 - **Staged writes: approve what an agent changes** (#85): a folder can be set to *staged* (Settings → MCP → Agent access). There an
   assistant can read, but `create_note`, `update_note`, `edit_note` and `delete_note` are held instead of made, and the agent is told
   they are staged, not applied. A badge in the title bar counts what waits; the review shows each change as a difference with Approve /
