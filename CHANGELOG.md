@@ -6,8 +6,6 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [1.6.0] - 2026-10-07
-
 ### Added
 
 - **Answers stream in, with a Stop that stops the provider** (#73): the chat shows the answer as the model writes it, for OpenAI, Anthropic,
