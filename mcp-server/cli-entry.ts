@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // The entry of the `noted` command line bundle.
 import { runCli } from './cli';
 
