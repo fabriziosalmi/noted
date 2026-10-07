@@ -53,6 +53,7 @@ describe('importWorkflowReducer', () => {
     const done = importWorkflowReducer(busy, { type: 'IMPORT_SUCCESS', count: 40, summary });
     expect(done.status).toEqual({ success: true, count: 40, summary });
     // an import that has no summary leaves none
-    expect(run([{ type: 'START_IMPORT_VAULT' }, { type: 'IMPORT_SUCCESS', count: 1 }]).status).toEqual({ success: true, count: 1 });
+    const plain = run([{ type: 'START_IMPORT_VAULT' }, { type: 'IMPORT_SUCCESS', count: 1 }]);
+    expect(plain.status).toEqual({ success: true, count: 1 });
   });
 });

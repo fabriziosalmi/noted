@@ -1,3 +1,5 @@
+import type { ImportSummary } from '../../shared/import/report';
+
 export type ImportWorkflowStage =
   | 'idle'
   | 'activatingCloud'
@@ -12,7 +14,7 @@ export interface ImportStatus {
   count: number;
   error?: string;
   /** What did not come across whole, when the importer says (Evernote does). */
-  summary?: { lossy: number; skipped: number; formatting: number; attachments: number; reportFile: string | null };
+  summary?: ImportSummary;
 }
 
 export interface ImportWorkflowState {
