@@ -246,6 +246,10 @@ interface NoteState {
   workflowsOpen: boolean;
   openWorkflows: () => void;
   closeWorkflows: () => void;
+  /** The vault health page (broken links, isolated and repeated notes, with fixes) shown in the main area. */
+  healthOpen: boolean;
+  openHealth: () => void;
+  closeHealth: () => void;
   /** Replace the views with what the vault's file holds (on opening a vault, and when asked to look again). */
   loadViews: () => Promise<void>;
   createView: (name: string, patch?: Partial<Omit<View, 'id' | 'name'>>) => Promise<View | null>;
@@ -450,16 +454,19 @@ export const useStore = create<NoteState>()(
       setEmbeddingProgress: (progress) => set({ embeddingProgress: progress }),
       views: [],
       activeViewId: null,
-      openView: id => set(state => (state.views.some(v => v.id === id) ? { activeViewId: id, tasksOpen: false, activityOpen: false, workflowsOpen: false } : state)),
+      openView: id => set(state => (state.views.some(v => v.id === id) ? { activeViewId: id, tasksOpen: false, activityOpen: false, workflowsOpen: false, healthOpen: false } : state)),
       closeView: () => set({ activeViewId: null }),
       tasksOpen: false,
-      openTasks: () => set({ tasksOpen: true, activeViewId: null, activityOpen: false, workflowsOpen: false }),
+      openTasks: () => set({ tasksOpen: true, activeViewId: null, activityOpen: false, workflowsOpen: false, healthOpen: false }),
       activityOpen: false,
-      openActivity: () => set({ activityOpen: true, tasksOpen: false, activeViewId: null, workflowsOpen: false }),
+      openActivity: () => set({ activityOpen: true, tasksOpen: false, activeViewId: null, workflowsOpen: false, healthOpen: false }),
       closeActivity: () => set({ activityOpen: false }),
       workflowsOpen: false,
-      openWorkflows: () => set({ workflowsOpen: true, activityOpen: false, tasksOpen: false, activeViewId: null }),
+      openWorkflows: () => set({ workflowsOpen: true, activityOpen: false, tasksOpen: false, activeViewId: null, healthOpen: false }),
       closeWorkflows: () => set({ workflowsOpen: false }),
+      healthOpen: false,
+      openHealth: () => set({ healthOpen: true, workflowsOpen: false, activityOpen: false, tasksOpen: false, activeViewId: null }),
+      closeHealth: () => set({ healthOpen: false }),
       closeTasks: () => set({ tasksOpen: false }),
       tagIndex: {},
       vaultIndexSync: null,
@@ -657,6 +664,7 @@ export const useStore = create<NoteState>()(
           tasksOpen: false,
           activityOpen: false,
           workflowsOpen: false,
+          healthOpen: false,
         });
       }
     }

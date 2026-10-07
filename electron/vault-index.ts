@@ -249,6 +249,12 @@ export class VaultIndex {
     return out;
   }
 
+  /** Every note's entry, by name: what a whole-vault check reads. Valid until the next change. */
+  entries(dir: string): readonly NoteEntry[] {
+    const st = this.byDir.get(this.key(dir));
+    return st ? [...st.notes.values()] : [];
+  }
+
   /** Note name -> its aliases, for the notes that have any. */
   aliases(dir: string): Record<string, string[]> {
     const st = this.byDir.get(this.key(dir));

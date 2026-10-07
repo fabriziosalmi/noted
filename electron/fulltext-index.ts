@@ -197,6 +197,12 @@ export class FullTextSearchReadModel {
     return { candidates, truncated: state.truncated, indexed: state.index.size };
   }
 
+  /** The plain text of every indexed note, by name (for checks that compare notes with each other). */
+  async plainTexts(dir: string, validateFileName: (name: string) => void): Promise<Map<string, string>> {
+    const state = await this.ensureFresh(normalizeDir(dir), validateFileName);
+    return new Map(state.index.ids().map((id) => [id, state.index.getDoc(id)?.text ?? '']));
+  }
+
   /** Every indexed note with the time its text was last read (a change in it means the note changed). */
   async docs(dir: string, validateFileName: (name: string) => void): Promise<{ id: string; title: string; mtimeMs: number }[]> {
     const state = await this.ensureFresh(normalizeDir(dir), validateFileName);

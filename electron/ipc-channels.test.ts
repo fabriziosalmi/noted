@@ -159,6 +159,7 @@ describe('IPC channels', () => {
     'update-mcp-sse-config',
     'vault-index-note',
     'vault-index-snapshot',
+    'vault-lint',
     'views-load',
     'views-save',
     'wipe-all-notes',
