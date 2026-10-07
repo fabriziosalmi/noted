@@ -3,6 +3,7 @@ export {};
 import type { GitSyncState, GitConflictResolution } from './lib/gitSyncTypes';
 import type { View } from '../shared/views/model';
 import type { FieldValue } from '../shared/vault/fields';
+import type { ImportSummary } from '../shared/import/report';
 import type { JournalEntry } from '../shared/vault/journalTypes';
 import type { PendingChange } from '../shared/vault/pending';
 import type { McpPolicy } from '../shared/vault/mcpPolicy';
@@ -140,6 +141,8 @@ declare global {
       gitSaveAsGist: (params: { fileName: string; content: string; isPublic: boolean; token: string }) => Promise<GitResult<string>>;
       searchNotesFulltext: (query: string, syncDir?: string) => Promise<{ success: boolean; data?: { relPath: string; title: string; snippet: string; score: number; terms: string[] }[]; truncated?: boolean; error?: string }>;
       setupClaudeMcp: () => Promise<{ success: boolean; error?: string }>;
+      importEnex: (targetDir?: string, attachmentsFolder?: string) =>
+        Promise<{ success: boolean; data?: number; summary?: ImportSummary; error?: string }>;
       importAppleNotes: (targetDir?: string) => Promise<{ success: boolean; data?: number; error?: string }>;
       updateMcpSseConfig: (config: { enabled: boolean; port: number; syncDir?: string; legacySse?: boolean }) => Promise<{ success: boolean; error?: string }>;
       getAppVersion: () => Promise<string>;

@@ -166,6 +166,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gitSaveAsGist: (params: { fileName: string; content: string; isPublic: boolean; token: string }) => ipcRenderer.invoke('git-save-as-gist', params),
   searchNotesFulltext: (query: string, syncDir?: string) => ipcRenderer.invoke('search-notes-fulltext', query, syncDir),
   setupClaudeMcp: () => ipcRenderer.invoke('setup-claude-mcp'),
+  importEnex: (targetDir?: string, attachmentsFolder?: string) => ipcRenderer.invoke('import-enex', targetDir, attachmentsFolder),
   importAppleNotes: (targetDir?: string) => ipcRenderer.invoke('import-apple-notes', targetDir),
   updateMcpSseConfig: (config: { enabled: boolean; port: number; syncDir?: string; legacySse?: boolean }) =>
     ipcRenderer.invoke('update-mcp-sse-config', config),

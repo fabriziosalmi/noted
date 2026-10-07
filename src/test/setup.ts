@@ -62,6 +62,7 @@ window.electronAPI = {
   exportHtml: vi.fn().mockResolvedValue({ success: true }),
   exportDocx: vi.fn().mockResolvedValue({ success: true }),
   importVault: vi.fn().mockResolvedValue({ success: true, data: 0 }),
+  importEnex: vi.fn().mockResolvedValue({ success: true, data: 0 }),
   getICloudPath: vi.fn().mockResolvedValue({ success: true, data: '/mock/icloud' }),
   getNotesTree: vi.fn().mockResolvedValue({ success: true, data: { rootNotes: [], folders: [] } }),
   createFolder: vi.fn().mockResolvedValue({ success: true }),

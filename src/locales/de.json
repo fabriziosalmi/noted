@@ -1126,5 +1126,11 @@
   "captureTargetInbox": "Inbox-Notiz",
   "capturePlaceholder": "Hier schreiben…",
   "captureHint": "{shortcut} speichern · Esc schließen",
-  "captureSave": "Speichern"
+  "captureSave": "Speichern",
+  "dlgImportEnex": "Evernote-Export importieren (.enex)",
+  "importEvernote": "Aus Evernote importieren",
+  "importEvernoteDesc": "Importiert eine oder mehrere .enex-Dateien (Datei → Exportieren in Evernote). Jedes Notizbuch wird zu einem Ordner unter Evernote/, mit Tags, Daten und Quelladresse als Eigenschaften sowie Bildern und Dateien. Ein Bericht listet auf, was nicht vollständig ankam.",
+  "importSummaryLossy": "{count} Notizen haben Inhalt, der nicht angekommen ist.",
+  "importSummarySkipped": "{count} Elemente wurden nicht importiert.",
+  "importSummaryReport": "Vollständiger Bericht: {file}"
 }

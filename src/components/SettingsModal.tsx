@@ -574,6 +574,26 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
     }
   }, [settings.syncDirectory, fetchNotes, importWorkflow.stage, t]);
 
+  const handleImportEvernote = useCallback(async () => {
+    if (isImportWorkflowBusy(importWorkflow.stage)) return;
+    const api = getElectronApi();
+    if (!api) return;
+    dispatchImportWorkflow({ type: 'START_IMPORT_EVERNOTE' });
+    try {
+      const res = await api.importEnex(settings.syncDirectory ?? undefined, settings.attachmentsFolder);
+      if (res.success) {
+        dispatchImportWorkflow({ type: 'IMPORT_SUCCESS', count: res.data ?? 0, summary: res.summary });
+        void fetchNotes();
+      } else if (res.error !== 'Cancelled') {
+        dispatchImportWorkflow({ type: 'FAILED', message: res.error ?? t('importFailed') });
+      } else {
+        dispatchImportWorkflow({ type: 'RESET' });
+      }
+    } catch (err) {
+      dispatchImportWorkflow({ type: 'FAILED', message: (err as Error).message });
+    }
+  }, [settings.syncDirectory, settings.attachmentsFolder, fetchNotes, importWorkflow.stage, t]);
+
   useEffect(() => {
     const api = getElectronApi();
     api?.safeStorageStatus?.()
@@ -1271,6 +1291,31 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                     </div>
                   </div>
 
+                  {/* Evernote */}
+                  <div className="rounded-lg border border-gray-200/40 dark:border-gray-700/40 bg-gray-50/40 dark:bg-gray-800/25 p-3 flex flex-col justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <Info size={14} className="text-emerald-500 dark:text-emerald-400" />
+                        <span className="text-xs font-medium text-gray-700 dark:text-gray-200">
+                          Evernote
+                        </span>
+                      </div>
+                      <p className="text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">
+                        {t('importEvernoteDesc')}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleImportEvernote}
+                        disabled={importWorkflow.stage === 'importingEvernote'}
+                        className="btn-primary text-xs py-1.5 px-3 rounded-md transition-all font-medium disabled:opacity-50"
+                      >
+                        {importWorkflow.stage === 'importingEvernote' ? t('importing') : t('importEvernote')}
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Apple Notes */}
                   <div className="rounded-lg border border-gray-200/40 dark:border-gray-700/40 bg-gray-50/40 dark:bg-gray-800/25 p-3 flex flex-col justify-between gap-3">
                     <div className="space-y-1">
@@ -1306,7 +1351,18 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                     {importWorkflow.status.success ? (
                       <>
                         <CheckCircle2 size={13} className="text-emerald-500" />
-                        <span>{t('importSuccess').replace('{count}', String(importWorkflow.status.count))}</span>
+                        <span>
+                          {t('importSuccess').replace('{count}', String(importWorkflow.status.count))}
+                          {importWorkflow.status.summary && importWorkflow.status.summary.lossy > 0 && (
+                            <> {t('importSummaryLossy').replace('{count}', String(importWorkflow.status.summary.lossy))}</>
+                          )}
+                          {importWorkflow.status.summary && importWorkflow.status.summary.skipped > 0 && (
+                            <> {t('importSummarySkipped').replace('{count}', String(importWorkflow.status.summary.skipped))}</>
+                          )}
+                          {importWorkflow.status.summary?.reportFile && (
+                            <> {t('importSummaryReport').replace('{file}', importWorkflow.status.summary.reportFile)}</>
+                          )}
+                        </span>
                       </>
                     ) : (
                       <>

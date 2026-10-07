@@ -42,6 +42,18 @@ describe('importWorkflowReducer', () => {
     expect(isImportWorkflowBusy('activatingCloud')).toBe(true);
     expect(isImportWorkflowBusy('importingVault')).toBe(true);
     expect(isImportWorkflowBusy('importingAppleNotes')).toBe(true);
+    expect(isImportWorkflowBusy('importingEvernote')).toBe(true);
     expect(isImportWorkflowBusy('idle')).toBe(false);
+  });
+
+  it('carries what did not come across whole from an Evernote import to the result', () => {
+    const summary = { lossy: 2, skipped: 1, formatting: 5, attachments: 3, reportFile: 'reports/Evernote import.md' };
+    const busy = run([{ type: 'START_IMPORT_EVERNOTE' }]);
+    expect(busy.stage).toBe('importingEvernote');
+    const done = importWorkflowReducer(busy, { type: 'IMPORT_SUCCESS', count: 40, summary });
+    expect(done.status).toEqual({ success: true, count: 40, summary });
+    // an import that has no summary leaves none
+    const plain = run([{ type: 'START_IMPORT_VAULT' }, { type: 'IMPORT_SUCCESS', count: 1 }]);
+    expect(plain.status).toEqual({ success: true, count: 1 });
   });
 });

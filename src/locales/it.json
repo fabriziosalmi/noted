@@ -1126,5 +1126,11 @@
   "captureTargetInbox": "Nota Inbox",
   "capturePlaceholder": "Scrivi qui…",
   "captureHint": "{shortcut} salva · Esc chiude",
-  "captureSave": "Salva"
+  "captureSave": "Salva",
+  "dlgImportEnex": "Importa un'esportazione di Evernote (.enex)",
+  "importEvernote": "Importa da Evernote",
+  "importEvernoteDesc": "Importa uno o più file .enex (File → Esporta in Evernote). Ogni taccuino diventa una cartella in Evernote/, con tag, date e indirizzo di origine conservati come proprietà, e con immagini e file. Un rapporto elenca ciò che non è arrivato intero.",
+  "importSummaryLossy": "{count} note hanno contenuto che non è arrivato.",
+  "importSummarySkipped": "{count} elementi non sono stati importati.",
+  "importSummaryReport": "Rapporto completo: {file}"
 }

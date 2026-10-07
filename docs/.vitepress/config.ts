@@ -95,6 +95,7 @@ export default defineConfig({
             { text: 'Notes from a source', link: '/guide/sources' },
             { text: 'AI assistant', link: '/guide/ai' },
             { text: 'Git integration', link: '/guide/git' },
+            { text: 'Import from Evernote', link: '/guide/import-evernote' },
             { text: 'Export & capture', link: '/guide/export-and-capture' },
           ],
         },

@@ -1126,5 +1126,11 @@
   "captureTargetInbox": "Nota Inbox",
   "capturePlaceholder": "Escribe aquí…",
   "captureHint": "{shortcut} guardar · Esc cerrar",
-  "captureSave": "Guardar"
+  "captureSave": "Guardar",
+  "dlgImportEnex": "Importar una exportación de Evernote (.enex)",
+  "importEvernote": "Importar desde Evernote",
+  "importEvernoteDesc": "Importa uno o más archivos .enex (Archivo → Exportar en Evernote). Cada libreta se convierte en una carpeta dentro de Evernote/, con etiquetas, fechas y dirección de origen como propiedades, y con imágenes y archivos. Un informe enumera lo que no llegó completo.",
+  "importSummaryLossy": "{count} notas tienen contenido que no llegó.",
+  "importSummarySkipped": "{count} elementos no se importaron.",
+  "importSummaryReport": "Informe completo: {file}"
 }

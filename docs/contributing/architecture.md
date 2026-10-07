@@ -84,7 +84,8 @@ from the main process:
 
 - **`cloud-detector.ts`** — detect and activate cloud vault locations (iCloud,
   Dropbox, and others).
-- **`importer.ts`** — import an Obsidian/Markdown folder, or Apple Notes.
+- **`importer.ts`** — import an Obsidian/Markdown folder, Apple Notes, or Evernote exports (`import-enex.ts` and
+  `enex-stream.ts` read the export one note at a time; `shared/import/` holds the conversion and the report).
 - **`exporter.ts`** — export to Markdown, PDF, HTML, and DOCX, and print. Every
   export path sanitizes HTML first.
 

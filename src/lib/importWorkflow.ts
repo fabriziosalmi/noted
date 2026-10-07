@@ -1,8 +1,11 @@
+import type { ImportSummary } from '../../shared/import/report';
+
 export type ImportWorkflowStage =
   | 'idle'
   | 'activatingCloud'
   | 'importingVault'
   | 'importingAppleNotes'
+  | 'importingEvernote'
   | 'completed'
   | 'failed';
 
@@ -10,6 +13,8 @@ export interface ImportStatus {
   success: boolean;
   count: number;
   error?: string;
+  /** What did not come across whole, when the importer says (Evernote does). */
+  summary?: ImportSummary;
 }
 
 export interface ImportWorkflowState {
@@ -23,8 +28,9 @@ export type ImportWorkflowEvent =
   | { type: 'START_ACTIVATE_CLOUD'; path: string }
   | { type: 'START_IMPORT_VAULT' }
   | { type: 'START_IMPORT_APPLE' }
+  | { type: 'START_IMPORT_EVERNOTE' }
   | { type: 'ACTIVATE_SUCCESS' }
-  | { type: 'IMPORT_SUCCESS'; count: number }
+  | { type: 'IMPORT_SUCCESS'; count: number; summary?: ImportStatus['summary'] }
   | { type: 'FAILED'; message: string }
   | { type: 'RESET' };
 
@@ -61,6 +67,13 @@ export function importWorkflowReducer(
         status: null,
         error: null,
       };
+    case 'START_IMPORT_EVERNOTE':
+      return {
+        stage: 'importingEvernote',
+        activeProviderPath: null,
+        status: null,
+        error: null,
+      };
     case 'ACTIVATE_SUCCESS':
       return {
         ...state,
@@ -73,7 +86,7 @@ export function importWorkflowReducer(
         ...state,
         stage: 'completed',
         activeProviderPath: null,
-        status: { success: true, count: event.count },
+        status: { success: true, count: event.count, ...(event.summary ? { summary: event.summary } : {}) },
         error: null,
       };
     case 'FAILED':
@@ -92,5 +105,5 @@ export function importWorkflowReducer(
 }
 
 export function isImportWorkflowBusy(stage: ImportWorkflowStage): boolean {
-  return ['activatingCloud', 'importingVault', 'importingAppleNotes'].includes(stage);
+  return ['activatingCloud', 'importingVault', 'importingAppleNotes', 'importingEvernote'].includes(stage);
 }
