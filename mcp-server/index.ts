@@ -2448,7 +2448,7 @@ export async function main() {
   }
 }
 
-main().catch(err => {
-  process.stderr.write(`[noted-mcp] fatal: ${err instanceof Error ? err.message : String(err)}\n`);
-  process.exit(1);
-});
+/** Run a piece of work as a named client (the CLI), so the journal and staged changes say who asked. */
+export function runAsClient<T>(client: string, work: () => T): T {
+  return callContext.run({ client, session: SESSION_ID }, work);
+}

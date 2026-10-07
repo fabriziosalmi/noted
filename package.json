@@ -20,7 +20,7 @@
   "scripts": {
     "build:main": "esbuild electron/main.ts --bundle --platform=node --format=cjs --outfile=dist-electron/main.cjs --external:electron --external:fsevents --packages=external",
     "build:preload": "esbuild electron/preload.ts --bundle --platform=node --format=cjs --outfile=dist-electron/preload.js --external:electron",
-    "build:mcp": "esbuild mcp-server/index.ts --bundle --platform=node --format=cjs --outfile=dist-mcp/index.cjs --external:fsevents --external:jsdom && npm install jsdom@^29.1.1 --prefix dist-mcp --no-save --no-package-lock --omit=dev",
+    "build:mcp": "esbuild mcp-server/entry.ts --bundle --platform=node --format=cjs --outfile=dist-mcp/index.cjs --external:fsevents --external:jsdom && esbuild mcp-server/cli-entry.ts --bundle --platform=node --format=cjs --outfile=dist-mcp/noted-cli.cjs --external:fsevents --external:jsdom --banner:js='#!/usr/bin/env node' && npm install jsdom@^29.1.1 --prefix dist-mcp --no-save --no-package-lock --omit=dev",
     "dev": "npm run build:main && npm run build:preload && vite",
     "build": "tsc -b && vite build && npm run build:main && npm run build:preload && npm run build:mcp && electron-builder",
     "build:bundles": "tsc -b && vite build && npm run build:main && npm run build:preload && npm run build:mcp",
@@ -234,5 +234,8 @@
         }
       }
     }
+  },
+  "bin": {
+    "noted": "dist-mcp/noted-cli.cjs"
   }
 }

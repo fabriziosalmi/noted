@@ -952,5 +952,7 @@
   "activityMore": "{n} entrées plus anciennes ne sont pas affichées.",
   "activityShowing": "{shown} affichées sur {total}",
   "mcpLegacySseToggle": "Servir aussi l'ancien point d'accès SSE",
-  "mcpLegacySseHelp": "L'ancien transport HTTP+SSE, obsolète et conservé pour une version pour les clients qui ne sont pas passés à Streamable HTTP (l'URL ci-dessus). Désactivez-le quand vos clients utilisent /mcp."
+  "mcpLegacySseHelp": "L'ancien transport HTTP+SSE, obsolète et conservé pour une version pour les clients qui ne sont pas passés à Streamable HTTP (l'URL ci-dessus). Désactivez-le quand vos clients utilisent /mcp.",
+  "mcpCliTitle": "Ligne de commande",
+  "mcpCliHelp": "La commande noted (list, read, search, create, append, daily, tasks…) suit les mêmes règles que le serveur MCP : la politique d'accès, le journal, les modifications en attente. Elle nécessite Node.js 20 ou plus récent. Ajoutez cet alias à votre shell, puis lancez noted --help."
 }
