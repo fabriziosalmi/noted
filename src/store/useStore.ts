@@ -226,6 +226,10 @@ interface NoteState {
   activityOpen: boolean;
   openActivity: () => void;
   closeActivity: () => void;
+  /** The agent workflows board (a workflow's tasks by state, and its approvals) shown in the main area. */
+  workflowsOpen: boolean;
+  openWorkflows: () => void;
+  closeWorkflows: () => void;
   /** Replace the views with what the vault's file holds (on opening a vault, and when asked to look again). */
   loadViews: () => Promise<void>;
   createView: (name: string, patch?: Partial<Omit<View, 'id' | 'name'>>) => Promise<View | null>;
@@ -428,13 +432,16 @@ export const useStore = create<NoteState>()(
       frontmatterIndex: {},
       views: [],
       activeViewId: null,
-      openView: id => set(state => (state.views.some(v => v.id === id) ? { activeViewId: id, tasksOpen: false, activityOpen: false } : state)),
+      openView: id => set(state => (state.views.some(v => v.id === id) ? { activeViewId: id, tasksOpen: false, activityOpen: false, workflowsOpen: false } : state)),
       closeView: () => set({ activeViewId: null }),
       tasksOpen: false,
-      openTasks: () => set({ tasksOpen: true, activeViewId: null, activityOpen: false }),
+      openTasks: () => set({ tasksOpen: true, activeViewId: null, activityOpen: false, workflowsOpen: false }),
       activityOpen: false,
-      openActivity: () => set({ activityOpen: true, tasksOpen: false, activeViewId: null }),
+      openActivity: () => set({ activityOpen: true, tasksOpen: false, activeViewId: null, workflowsOpen: false }),
       closeActivity: () => set({ activityOpen: false }),
+      workflowsOpen: false,
+      openWorkflows: () => set({ workflowsOpen: true, activityOpen: false, tasksOpen: false, activeViewId: null }),
+      closeWorkflows: () => set({ workflowsOpen: false }),
       closeTasks: () => set({ tasksOpen: false }),
       tagIndex: {},
       vaultIndexSync: null,
@@ -630,6 +637,7 @@ export const useStore = create<NoteState>()(
           activeViewId: null,
           tasksOpen: false,
           activityOpen: false,
+          workflowsOpen: false,
         });
       }
     }

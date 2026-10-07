@@ -27,3 +27,5 @@ export {
   AgentEngineError,
 } from './engine';
 export type { EngineContext, EngineResult, EngineErrorCode } from './engine';
+export { buildBoard, BOARD_COLUMNS, UNKNOWN_COLUMN } from './board';
+export type { BoardCard, BoardColumn, BoardDependency, WorkflowBoard } from './board';

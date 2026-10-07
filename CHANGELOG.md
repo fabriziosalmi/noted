@@ -8,6 +8,7 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A board for agent workflows** (#88): **Workflows** in the sidebar shows a workflow's tasks by state, which task waits for which (and for what that is missing, or looped), and the gates that wait for you, with Approve and Reject (the reason is recorded). It uses the same engine and notes as the Agent panel and the MCP tools, and refuses a decision made on a board that is out of date. See [Agent workflows](https://fabriziosalmi.github.io/noted/reference/agent-workflows#the-workflows-board).
 - **A command line** (#87): `noted list | read | search | create | append | daily | tasks | tags | backlinks | properties`, with `--json` and clear exit codes. It runs the MCP tools' own handlers, so the access policy, the agent journal and staged changes apply to it as to an agent. Built by `npm run build:mcp` as `dist-mcp/noted-cli.cjs` (also the package `bin`); Settings → MCP shows a shell alias. It needs Node.js 20+: a single self-contained binary is not shipped (the app's `runAsNode` fuse stays off, and a Node single-executable build that was tried failed when creating a note). See [Command line](https://fabriziosalmi.github.io/noted/reference/cli).
 - **MCP over Streamable HTTP** (#83): the remote transport is now Streamable HTTP at `/mcp` (the 2025-03-26 specification), with one session per
   connection, the same bearer token (now also as `Authorization: Bearer`), loopback binding and Host/Origin checks. The older `/sse`

@@ -9,6 +9,7 @@ import { NoteEditor } from '../NoteEditor';
 import { ViewPage } from '../ViewPage';
 import { TasksPage } from '../TasksPage';
 import { AgentActivityPage } from '../AgentActivityPage';
+import { WorkflowsPage } from '../WorkflowsPage';
 import { PendingChangesBadge } from '../PendingChanges';
 import { useStore } from '../../store/useStore';
 import { AiChat } from '../AiChat';
@@ -87,7 +88,8 @@ export function AppChrome({
   const activeView = useStore(s => s.views.find(v => v.id === s.activeViewId) ?? null);
   const tasksOpen = useStore(s => s.tasksOpen);
   const activityOpen = useStore(s => s.activityOpen);
-  const pageTitle = tasksOpen ? t('tasksTitle') : activityOpen ? t('activityTitle') : undefined;
+  const workflowsOpen = useStore(s => s.workflowsOpen);
+  const pageTitle = tasksOpen ? t('tasksTitle') : activityOpen ? t('activityTitle') : workflowsOpen ? t('workflowsTitle') : undefined;
   const shown = activeView?.name ?? pageTitle ?? activeNoteName?.replace('.md', '');
   const windowTitle = shown ? `Noted — ${shown}` : 'Noted';
 
@@ -211,7 +213,8 @@ export function AppChrome({
             {activeView && <ViewPage view={activeView} onOpenNote={onOpenNote} onNotice={onToast} />}
             {tasksOpen && !activeView && <TasksPage onOpenNote={onOpenNote} onNotice={onToast} />}
             {activityOpen && !activeView && !tasksOpen && <AgentActivityPage onOpenNote={onOpenNote} onNotice={onToast} />}
-            {activeNoteName && !activeView && !tasksOpen && !activityOpen && (
+            {workflowsOpen && !activeView && !tasksOpen && !activityOpen && <WorkflowsPage onOpenNote={onOpenNote} onNotice={onToast} />}
+            {activeNoteName && !activeView && !tasksOpen && !activityOpen && !workflowsOpen && (
               <EditorToolbar
                 editor={activeEditor}
                 showToolbar={settings.showToolbar}
@@ -240,7 +243,7 @@ export function AppChrome({
               />
             )}
 
-            <div className={`flex-1 overflow-y-auto relative scroll-fade-bottom ${focusClass} ${typewriterClass} ${activeView || tasksOpen || activityOpen ? 'hidden' : ''}`}>
+            <div className={`flex-1 overflow-y-auto relative scroll-fade-bottom ${focusClass} ${typewriterClass} ${activeView || tasksOpen || activityOpen || workflowsOpen ? 'hidden' : ''}`}>
               <div className={`mx-auto px-12 py-10 ${
                 settings.editorWidth === 'narrow' ? 'max-w-[560px]' :
                 settings.editorWidth === 'wide' ? 'max-w-5xl' :
