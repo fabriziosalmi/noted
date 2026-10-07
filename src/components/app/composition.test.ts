@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createAppComposition } from './composition';
 import type { Suggestion } from '../../lib/noteAdvisor';
-import type { NoteChunk } from '../../lib/noteSearch';
 import type { NoteTemplate } from '../../lib/templates';
 import type { AppPanelsApi } from '../../hooks/contracts';
 import type { NoteFile, SettingsState } from '../../store/useStore';
@@ -69,8 +68,7 @@ describe('createAppComposition', () => {
       icon: 'custom',
       content: '<p>hello</p>',
     };
-    const chunk: NoteChunk = { name: 'test.md', text: 'hello world' };
-    const retrieve = async () => [chunk];
+    const retrieve = async () => ({ chunks: [], mode: 'lexical' as const });
     const settings = {
       llmProvider: 'lmstudio',
       llmApiKey: '',
@@ -117,7 +115,7 @@ describe('createAppComposition', () => {
         allTags: ['tag1'],
         activeTagFilter: 'tag1',
         suggestions: [suggestion],
-        retrieveNotes: retrieve,
+        retrieve,
         ragNoteCount: 7,
         noteLinksIndex: { 'test.md': ['other'] },
         allNoteNames: ['test'],
@@ -157,7 +155,7 @@ describe('createAppComposition', () => {
 
     expect(composition.chrome.notes[0]).toBe(note);
     expect(composition.chrome.suggestions[0]).toBe(suggestion);
-    expect(composition.chrome.retrieveNotes).toBe(retrieve);
+    expect(composition.chrome.retrieve).toBe(retrieve);
     expect(composition.chrome.ragNoteCount).toBe(7);
     expect(composition.chrome.settings).toBe(settings);
     expect(composition.chrome.panels).toBe(panels);

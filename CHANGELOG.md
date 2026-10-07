@@ -8,6 +8,12 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Retrieval by section, with embeddings that are kept** (#75): the chat now gets the sections (text under a heading, with its place: `Note › Heading`)
+  that best answer a question, from the whole vault, instead of the first 1,500 characters of whole notes. Words (BM25) and meaning (embeddings) are
+  merged by reciprocal rank fusion; without vectors it is the words alone. Vectors live in `.noted/embeddings/` (one append-only file per model, not
+  synced by Git), keyed by the hash of each section's text: editing a paragraph re-embeds that paragraph, moving a note re-embeds nothing, and nothing
+  is embedded again after a restart. Sections go to the provider in batches (before: one request per note, every session), in the background, with a
+  status line and **Rebuild index** in Settings. A model swapped under the same name (vectors of another size) is detected and starts over. **Candidate notes per question** now sets how many notes the word ranking looks into; the renderer's own per-note TF-IDF re-ranking is gone.
 - **Answers stream in, with a Stop that stops the provider** (#73): the chat shows the answer as the model writes it, for OpenAI, Anthropic,
   Gemini, OpenRouter, LM Studio, Ollama and OpenAI-compatible servers (Server-Sent Events, or JSON lines for Ollama). **Stop** closes the request at
   the provider, not only the waiting, and keeps what had been written; an answer that fails half way keeps its part. The request is made by the

@@ -1,11 +1,15 @@
 import path from 'node:path';
 import { FullTextSearchReadModel } from '../fulltext-index';
+import { EmbeddingService } from '../embeddings';
 import { VaultIndex } from '../vault-index';
 import { validateFileName } from '../ipc-utils';
 import { getActiveVaultDir, getTargetDir } from './paths';
 import { getMainWindow } from './windows';
 
 export const fullTextSearchIndex = new FullTextSearchReadModel();
+
+// Chunks of the notes, their vectors on disk, and the ranking that uses both (see embeddings.ts).
+export const embeddingService = new EmbeddingService(fullTextSearchIndex);
 
 // Links, tags, headings and frontmatter keys for the whole vault, kept current
 // incrementally. The renderer gets a snapshot (vault-index-snapshot) and then

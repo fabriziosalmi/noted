@@ -18,6 +18,7 @@ import { useTablist } from '../lib/useTablist';
 import { AttachmentsSettings } from './AttachmentsSettings';
 import { NoteFormatSettings } from './NoteFormatSettings';
 import { AgentAccessSettings } from './AgentAccessSettings';
+import { EmbeddingsStatus } from './EmbeddingsStatus';
 
 type SettingsTab = 'ai' | 'appearance' | 'editor' | 'sync' | 'mcp' | 'git' | 'import';
 
@@ -1140,6 +1141,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                         placeholder="text-embedding-3-small"
                       />
                     </div>
+                    <EmbeddingsStatus />
                     <p className="text-[11px] text-amber-600 dark:text-amber-300">{t('embeddingsBetaNote')}</p>
                   </div>
                 )}

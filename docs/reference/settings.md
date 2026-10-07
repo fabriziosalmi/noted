@@ -17,8 +17,8 @@ each feature behaves.
 - **API key** — for cloud providers, with a reveal toggle. Stored with the macOS
   Keychain when available; a warning appears if OS encryption is unavailable.
 - **Retrieval (RAG)** — **Top-K** notes to include (1–10, default 3),
-  **Candidate notes per question** to re-rank from the whole vault (5–100,
-  default 30), **Context characters** from the
+  **Candidate notes per question** the word ranking looks into (5–100, default
+  30), **Context characters** from the
   active note (1500–30000, default 8000), and a **RAG debug** toggle that shows
   relevance scores.
 - **Smart tags** — suggest tags after substantial edits (off by default).
@@ -90,7 +90,9 @@ can read and write your notes.
 ## Integrations
 
 - **Embeddings (Beta)** — enable dense/semantic retrieval and choose the provider
-  (OpenAI, LM Studio, or Ollama) and model.
+  (OpenAI, LM Studio, or Ollama) and model. A status line shows how many sections
+  of the vault are indexed, and **Rebuild index** throws the vectors away and
+  embeds the vault again.
 - **Git** — enable [Git integration](/guide/git), then set the remote URL, GitHub
   token, default base branch, and auto-commit.
 

@@ -2,7 +2,7 @@ import type { Editor } from '@tiptap/react';
 import type { AppPanelsApi } from '../../hooks/contracts';
 import type { TranslationKey } from '../../lib/i18n';
 import type { Suggestion } from '../../lib/noteAdvisor';
-import type { NoteChunk } from '../../lib/noteSearch';
+import type { RagResult } from '../../lib/ragSearch';
 import type { NoteTemplate } from '../../lib/templates';
 import type { NoteFile, SettingsState, AgentUiAction } from '../../store/useStore';
 import type { RefObject } from 'react';
@@ -39,7 +39,7 @@ export interface AppChromeProps extends AppSharedProps {
   allTags: string[];
   activeTagFilter: string | null;
   suggestions: Suggestion[];
-  retrieveNotes: (query: string) => Promise<NoteChunk[]>;
+  retrieve: (query: string, topK: number) => Promise<RagResult>;
   ragNoteCount: number;
   noteLinksIndex: Record<string, string[]>;
   allNoteNames: string[];

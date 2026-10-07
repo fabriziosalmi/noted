@@ -1,6 +1,6 @@
 import type { Editor } from '@tiptap/react';
 import type { Suggestion } from '../../lib/noteAdvisor';
-import type { NoteChunk } from '../../lib/noteSearch';
+import type { RagResult } from '../../lib/ragSearch';
 import type { NoteTemplate } from '../../lib/templates';
 import type { NoteFile, SettingsState } from '../../store/useStore';
 import type { TranslationKey } from '../../lib/i18n';
@@ -20,7 +20,7 @@ interface AppCompositionState {
   allTags: string[];
   activeTagFilter: string | null;
   suggestions: Suggestion[];
-  retrieveNotes: (query: string) => Promise<NoteChunk[]>;
+  retrieve: (query: string, topK: number) => Promise<RagResult>;
   ragNoteCount: number;
   noteLinksIndex: Record<string, string[]>;
   allNoteNames: string[];
@@ -80,7 +80,7 @@ export function createAppComposition(
     allTags: state.allTags,
     activeTagFilter: state.activeTagFilter,
     suggestions: state.suggestions,
-    retrieveNotes: state.retrieveNotes,
+    retrieve: state.retrieve,
     ragNoteCount: state.ragNoteCount,
     noteLinksIndex: state.noteLinksIndex,
     allNoteNames: state.allNoteNames,

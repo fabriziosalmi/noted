@@ -18,6 +18,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   llmStreamStart: (id: string, url: string, options: { method: string; headers: Record<string, string>; body: string }) =>
     ipcRenderer.invoke('llm-stream-start', id, url, options),
   llmStreamAbort: (id: string) => ipcRenderer.send('llm-stream-abort', id),
+  embeddingsStatus: (model: { provider: string; model: string }, syncDir?: string) => ipcRenderer.invoke('embeddings-status', model, syncDir),
+  embeddingsPending: (model: { provider: string; model: string }, limit: number, syncDir?: string) => ipcRenderer.invoke('embeddings-pending', model, limit, syncDir),
+  embeddingsPut: (model: { provider: string; model: string }, entries: { hash: string; vector: Float32Array }[], syncDir?: string) => ipcRenderer.invoke('embeddings-put', model, entries, syncDir),
+  embeddingsClear: (model: { provider: string; model: string }, syncDir?: string) => ipcRenderer.invoke('embeddings-clear', model, syncDir),
+  ragSearch: (query: string, vector: Float32Array | null, topK: number, model: { provider: string; model: string }, syncDir?: string, pool?: number) => ipcRenderer.invoke('rag-search', query, vector, topK, model, syncDir, pool),
   onLlmStream: (cb: (id: string, event: { text?: string; end?: boolean; error?: string }) => void) => {
     const chunk = (_e: unknown, id: string, text: string) => cb(id, { text });
     const end = (_e: unknown, id: string, info: { error?: string }) => cb(id, { end: true, ...(info?.error ? { error: info.error } : {}) });

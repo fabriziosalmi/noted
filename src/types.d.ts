@@ -7,6 +7,7 @@ import type { JournalEntry } from '../shared/vault/journalTypes';
 import type { PendingChange } from '../shared/vault/pending';
 import type { McpPolicy } from '../shared/vault/mcpPolicy';
 import type { NoteTask, TaskFilter } from '../shared/tasks/query';
+import type { EmbeddingModelRef, EmbeddingStatus, RagChunk, IpcResult } from '../shared/search/embeddingTypes';
 import type { VaultIndexSnapshot, VaultIndexDelta, VaultIndexNote } from './lib/vaultIndexTypes';
 
 interface NoteFileBase {
@@ -39,6 +40,11 @@ declare global {
       /** Starts a streamed request; resolves once the provider has answered (ok), the text then arrives through onLlmStream. */
       llmStreamStart: (id: string, url: string, options: { method: string; headers: Record<string, string>; body: string }) => Promise<{ ok: boolean; status: number; text?: string }>;
       llmStreamAbort: (id: string) => void;
+      embeddingsStatus: (model: EmbeddingModelRef, syncDir?: string) => Promise<IpcResult<EmbeddingStatus>>;
+      embeddingsPending: (model: EmbeddingModelRef, limit: number, syncDir?: string) => Promise<IpcResult<{ items: { hash: string; text: string }[]; remaining: number; status: EmbeddingStatus }>>;
+      embeddingsPut: (model: EmbeddingModelRef, entries: { hash: string; vector: Float32Array }[], syncDir?: string) => Promise<IpcResult<number>>;
+      embeddingsClear: (model: EmbeddingModelRef, syncDir?: string) => Promise<IpcResult<boolean>>;
+      ragSearch: (query: string, vector: Float32Array | null, topK: number, model: EmbeddingModelRef, syncDir?: string, pool?: number) => Promise<IpcResult<{ chunks: RagChunk[]; mode: 'hybrid' | 'lexical' }>>;
       onLlmStream: (cb: (id: string, event: { text?: string; end?: boolean; error?: string }) => void) => () => void;
       getNoteHistory: (fileName: string, syncDir?: string) => Promise<{ success: boolean; data?: { name: string; ts: string }[]; error?: string }>;
       readNoteSnapshot: (fileName: string, snapshotName: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;

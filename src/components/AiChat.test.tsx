@@ -5,7 +5,7 @@ import { useStore } from '../store/useStore';
 import { AbortedError } from '../lib/llm';
 
 const streamLLMMock = vi.fn(async () => 'ok');
-const hybridMock = vi.fn(async () => ({ notes: [], mode: 'lexical' as const, scored: [] }));
+const chunk = (over: Record<string, unknown> = {}) => ({ name: 'a.md', title: 'A', headingPath: ['Plan'], text: 'hello world', ord: 0, score: 0.03, lexicalRank: 1, denseRank: 2, ...over });
 
 vi.mock('../lib/llm', () => {
   class MockAbortedError extends Error {}
@@ -15,10 +15,6 @@ vi.mock('../lib/llm', () => {
     describeLlmError: (err: unknown, lang: string) => `err_${lang}`,
   };
 });
-
-vi.mock('../lib/noteSearch', () => ({
-  findRelevantNotesHybrid: (...args: unknown[]) => hybridMock(...args),
-}));
 
 describe('AiChat retrieval mode wiring', () => {
   beforeEach(() => {
@@ -44,40 +40,9 @@ describe('AiChat retrieval mode wiring', () => {
     }));
   });
 
-  it('passes lexical config when embeddings are disabled', async () => {
-    render(<AiChat getEditorText={() => 'hello'} retrieveNotes={async () => [{ name: 'a.md', text: 'hello world' }]} noteCount={1} />);
-    const input = screen.getByPlaceholderText(/ask something/i);
-    fireEvent.change(input, { target: { value: 'query test' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-
-    await waitFor(() => expect(hybridMock).toHaveBeenCalled());
-    const lastCall = hybridMock.mock.calls.at(-1);
-    const cfg = lastCall?.[3] as { enabled: boolean };
-    expect(cfg.enabled).toBe(false);
-  });
-
-  it('passes hybrid config when embeddings are enabled', async () => {
-    useStore.setState((state) => ({
-      ...state,
-      settings: { ...state.settings, embeddingsEnabled: true },
-    }));
-
-    render(<AiChat getEditorText={() => 'hello'} retrieveNotes={async () => [{ name: 'a.md', text: 'hello world' }]} noteCount={1} />);
-    const input = screen.getByPlaceholderText(/ask something/i);
-    fireEvent.change(input, { target: { value: 'query test' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-
-    await waitFor(() => expect(hybridMock).toHaveBeenCalled());
-    const lastCall = hybridMock.mock.calls.at(-1);
-    const cfg = lastCall?.[3] as { enabled: boolean; provider: string; model: string };
-    expect(cfg.enabled).toBe(true);
-    expect(cfg.provider).toBe('openai');
-    expect(cfg.model).toBe('text-embedding-3-small');
-  });
-
-  it('asks for candidates only when a question is sent (not on mount), with that question, and ranks only those', async () => {
-    const retrieve = vi.fn(async (_q: string) => [{ name: 'a.md', text: 'hello world' }, { name: 'b.md', text: 'other' }]);
-    render(<AiChat getEditorText={() => 'hello'} retrieveNotes={retrieve} noteCount={812} />);
+  it('asks for sections only when a question is sent (not on mount), with that question, and puts them in the context with their place', async () => {
+    const retrieve = vi.fn(async (_q: string, _k: number) => ({ mode: 'hybrid' as const, chunks: [chunk(), chunk({ name: 'b.md', title: 'B', headingPath: ['Risks', 'People'], text: 'holiday season', ord: 3 })] }));
+    render(<AiChat getEditorText={() => 'hello'} retrieve={retrieve} noteCount={812} />);
     expect(retrieve).not.toHaveBeenCalled(); // opening the panel reads nothing
     expect(screen.getByText(/812/)).toBeTruthy(); // the badge reports the vault size, not a capped sample
 
@@ -85,22 +50,23 @@ describe('AiChat retrieval mode wiring', () => {
     fireEvent.change(input, { target: { value: 'what is quokka' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    await waitFor(() => expect(hybridMock).toHaveBeenCalled());
+    await waitFor(() => expect(streamLLMMock).toHaveBeenCalled());
     expect(retrieve).toHaveBeenCalledTimes(1);
-    expect(retrieve).toHaveBeenCalledWith('what is quokka');
-    // The re-ranker receives exactly the candidates, nothing else.
-    expect(hybridMock.mock.calls.at(-1)?.[1]).toEqual([{ name: 'a.md', text: 'hello world' }, { name: 'b.md', text: 'other' }]);
+    expect(retrieve).toHaveBeenCalledWith('what is quokka', 6); // twice the "notes" setting (3): sections are smaller than notes
+    const system = (streamLLMMock.mock.calls.at(-1)?.[0] as { role: string; content: string }[])[0].content;
+    expect(system).toContain('### A › Plan\nhello world');
+    expect(system).toContain('### B › Risks › People\nholiday season');
   });
 
   it('still answers, without related notes, when retrieval fails', async () => {
     const retrieve = vi.fn(async () => { throw new Error('index busy'); });
-    render(<AiChat getEditorText={() => 'hello'} retrieveNotes={retrieve} noteCount={3} />);
+    render(<AiChat getEditorText={() => 'hello'} retrieve={retrieve} noteCount={3} />);
     const input = screen.getByPlaceholderText(/ask something/i);
     fireEvent.change(input, { target: { value: 'question' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(retrieve).toHaveBeenCalled());
-    expect(hybridMock).not.toHaveBeenCalled(); // nothing to rank
     await waitFor(() => expect(streamLLMMock).toHaveBeenCalled());
+    expect((streamLLMMock.mock.calls.at(-1)?.[0] as { content: string }[])[0].content).not.toContain('###');
   });
 
   it('clears chat history and aborts current query on clear click', async () => {
@@ -252,34 +218,21 @@ describe('AiChat retrieval mode wiring', () => {
     await waitFor(() => expect(screen.getByText(/Error: err_en/i)).toBeInTheDocument());
   });
 
-  it('renders RAG debug info when enabled and shows retrieval scores', async () => {
+  it('renders RAG debug info when enabled: which section, and where each ranking put it', async () => {
     useStore.setState((state) => ({
       ...state,
       settings: { ...state.settings, ragDebug: true },
     }));
 
-    hybridMock.mockResolvedValueOnce({
-      notes: [{ name: 'note-a.md', text: 'content a' }],
-      mode: 'hybrid',
-      scored: [
-        {
-          note: { name: 'note-a.md', text: 'content a' },
-          lexical: 0.75,
-          dense: 0.85,
-          combined: 0.80,
-        },
-      ],
-    });
+    render(<AiChat getEditorText={() => 'hello'} retrieve={async () => ({ mode: 'hybrid' as const, chunks: [chunk({ name: 'note-a.md', title: 'note-a', headingPath: ['Goals'], lexicalRank: 1, denseRank: null })] })} noteCount={1} />);
 
-    render(<AiChat getEditorText={() => 'hello'} retrieveNotes={async () => [{ name: 'note-a.md', text: 'content a' }]} noteCount={1} />);
-    
     const input = screen.getByPlaceholderText(/ask something/i);
     fireEvent.change(input, { target: { value: 'rag test query' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
     await waitFor(() => expect(screen.getByText(/RAG Debug · hybrid/i)).toBeInTheDocument());
-    expect(screen.getByText(/note-a/i)).toBeInTheDocument();
-    expect(screen.getByText(/L 0.75 · D 0.85 · C 0.80/i)).toBeInTheDocument();
+    expect(screen.getByText('note-a › Goals')).toBeInTheDocument();
+    expect(screen.getByText(/Words 1 · Meaning –/)).toBeInTheDocument();
   });
 
   it('renders standard RAG debug empty state when no retrieval scores exist', async () => {

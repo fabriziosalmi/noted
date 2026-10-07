@@ -51,7 +51,7 @@ export function AppChrome({
   allTags,
   activeTagFilter,
   suggestions,
-  retrieveNotes,
+  retrieve,
   ragNoteCount,
   allNoteNames,
   backlinks,
@@ -296,7 +296,7 @@ export function AppChrome({
                 </div>
                 <div {...rightTabs.panelProps} className="flex-1 min-h-0 flex flex-col">
                   <ErrorBoundary>
-                    {rightTab === 'ai' && <AiChat getEditorText={onGetEditorText} retrieveNotes={retrieveNotes} noteCount={ragNoteCount} />}
+                    {rightTab === 'ai' && <AiChat getEditorText={onGetEditorText} retrieve={retrieve} noteCount={ragNoteCount} />}
                     {rightTab === 'agent' && (
                       <AgentPanel
                         activeNoteName={activeNoteName}

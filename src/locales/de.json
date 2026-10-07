@@ -991,5 +991,14 @@
   "workflowsDepMet": "erledigt",
   "workflowsDepOpen": "noch nicht erledigt",
   "workflowsAfter": "nach",
-  "workflowsBlocks": "Hält zurück:"
+  "workflowsBlocks": "Hält zurück:",
+  "ragRankWords": "Wörter",
+  "ragRankMeaning": "Bedeutung",
+  "embeddingsProgress": "{done} von {total} Abschnitten indexiert",
+  "embeddingsRunning": "Indexierung… {done} von {total} Abschnitten",
+  "embeddingsError": "Indexierung angehalten: {error}. Neuer Versuch in ein paar Minuten.",
+  "embeddingsCapped": "Der Vault ist größer, als der für Vektoren reservierte Speicher erlaubt: der Rest wird nur über Wörter gefunden.",
+  "embeddingsRebuild": "Index neu aufbauen",
+  "embeddingsRebuildHint": "Verwirft die Vektoren dieses Modells und indexiert den Vault neu.",
+  "embeddingsWaiting": "Index wird vorbereitet…"
 }
