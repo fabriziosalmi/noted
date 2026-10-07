@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-07
+
 ### Added
 
 - **A board for agent workflows** (#88): **Workflows** in the sidebar shows a workflow's tasks by state, which task waits for which (and for what that is missing, or looped), and the gates that wait for you, with Approve and Reject (the reason is recorded). It uses the same engine and notes as the Agent panel and the MCP tools, and refuses a decision made on a board that is out of date. See [Agent workflows](https://fabriziosalmi.github.io/noted/reference/agent-workflows#the-workflows-board).
@@ -406,7 +408,8 @@ The first cross-platform release, and the first that keeps itself up to date.
   backlinks, full-text search, multi-provider AI, Git integration, export, quick
   capture, and a built-in MCP server.
 
-[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/fabriziosalmi/noted/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/fabriziosalmi/noted/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/fabriziosalmi/noted/compare/v1.3.6...v1.4.0
 [1.3.6]: https://github.com/fabriziosalmi/noted/compare/v1.3.5...v1.3.6
