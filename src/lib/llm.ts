@@ -3,6 +3,7 @@ import { getElectronApi } from './electronApi';
 import { createMasker, type PiiMasker } from './piiMasker';
 import { createStreamReader, type StreamKind } from './llmStream';
 import { translate, type TranslationKey } from './i18n';
+import { parseModelList, type ModelListKind } from '../../shared/llm/models';
 
 /** Localize a key to the current user language — for errors surfaced to the user via toast/chat. */
 function tr(key: TranslationKey): string {
@@ -176,6 +177,12 @@ export function isLocalHost(hostPart: string): boolean {
     || /^127\./.test(host) || host.endsWith('.local') || host.endsWith('.localhost');
 }
 
+/** An OpenAI-compatible address that is this computer (Unsloth, llama.cpp, vLLM, Jan...): sent verbatim, and a key is only as needed as the server says. */
+function isThisMachine(url: string | undefined): boolean {
+  const u = (url ?? '').trim().replace(/^https?:\/\//i, '');
+  return u !== '' && isLocalHost(u);
+}
+
 function normalizeBaseUrl(url: string): string {
   const trimmed = url.trim().replace(/\/+$/, '');
   if (!trimmed) return 'http://localhost:1234/v1';
@@ -197,22 +204,37 @@ export async function fetchAvailableModels(provider: string, baseUrl: string, ap
       if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
       const res = await apiFetch(`${base}/models`, { method: 'GET', headers, body: '' });
       if (!res.ok) return [];
-      const data = JSON.parse(await res.text()) as { data: { id: string }[] };
-      return data.data.map(m => m.id);
+      const data: unknown = JSON.parse(await res.text());
+      return parseModelList('openai-compatible', data);
+    }
+    // The four a person has a key for: what the service itself lists today, so no model name has to be written into the app
+    const cloud: Record<string, { url: string; headers: Record<string, string> }> = {
+      openai: { url: 'https://api.openai.com/v1/models', headers: { Authorization: `Bearer ${apiKey ?? ''}` } },
+      anthropic: { url: 'https://api.anthropic.com/v1/models?limit=1000', headers: { 'x-api-key': apiKey ?? '', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' } },
+      gemini: { url: 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000', headers: { 'x-goog-api-key': apiKey ?? '' } },
+      openrouter: { url: 'https://openrouter.ai/api/v1/models', headers: { Authorization: `Bearer ${apiKey ?? ''}` } },
+    };
+    if (cloud[provider]) {
+      if (!apiKey && provider !== 'openrouter') return [];
+      const res = await apiFetch(cloud[provider].url, { method: 'GET', headers: { 'Content-Type': 'application/json', ...cloud[provider].headers }, body: '' });
+      if (!res.ok) return [];
+      return parseModelList(provider as ModelListKind, JSON.parse(await res.text()));
     }
     if (provider === 'ollama') {
       const res = await apiFetch('http://localhost:11434/api/tags', { method: 'GET', headers: { 'Content-Type': 'application/json' }, body: '' });
       if (!res.ok) return [];
-      const data = JSON.parse(await res.text()) as { models: { name: string }[] };
-      return data.models.map(m => m.name);
+      return parseModelList('ollama', JSON.parse(await res.text()));
     }
   } catch { /* server not running */ }
   return [];
 }
 
-// Auto-resolve model: if llmModel is empty for local providers, fetch and use first available
+// Auto-resolve model: if llmModel is empty for local providers, fetch and use first available. A service in the cloud has no "first":
+// it is asked for by name, and a name written into the app would be one the service retires, so none is assumed.
+const NATIVE_CLOUD = ['openai', 'anthropic', 'gemini', 'openrouter'];
 async function resolveModel(provider: string, llmModel: string | undefined, lmStudioUrl: string): Promise<string> {
   if (llmModel && typeof llmModel === 'string' && llmModel.trim()) return llmModel.trim();
+  if (NATIVE_CLOUD.includes(provider)) throw new Error(tr('errModelRequired'));
   if (provider === 'lmstudio' || provider === 'ollama') {
     const models = await fetchAvailableModels(provider, lmStudioUrl);
     if (models.length > 0) return models[0];
@@ -236,7 +258,8 @@ function prepare(messages: ChatMessage[], given?: PiiMasker) {
   const { llmProvider, llmApiKey, piiMasking } = settings;
   // 'openai-compatible' is a remote endpoint (Regolo et al.) — treat it as cloud
   // so PII masking applies and a missing key is caught early.
-  const isCloud = ['openai', 'anthropic', 'gemini', 'openrouter', 'openai-compatible'].includes(llmProvider);
+  const isCloud = ['openai', 'anthropic', 'gemini', 'openrouter', 'openai-compatible'].includes(llmProvider)
+    && !(llmProvider === 'openai-compatible' && isThisMachine(settings.openaiCompatibleUrl));
   if (isCloud && !llmApiKey) {
     throw new Error(tr('errApiKeyMissing'));
   }
@@ -252,13 +275,13 @@ async function askRaw(out: ChatMessage[], settings: ReturnType<typeof prepare>['
     const resolvedModel = await resolveModel(llmProvider, llmModel, lmStudioUrl);
     switch (llmProvider) {
       case 'openai':
-        return await fetchOpenAI(out, llmApiKey, resolvedModel || 'gpt-4o', signal);
+        return await fetchOpenAI(out, llmApiKey, resolvedModel, signal);
       case 'anthropic':
-        return await fetchAnthropic(out, llmApiKey, resolvedModel || 'claude-3-5-sonnet-20241022', signal);
+        return await fetchAnthropic(out, llmApiKey, resolvedModel, signal);
       case 'gemini':
-        return await fetchGemini(out, llmApiKey, resolvedModel || 'gemini-1.5-pro', signal);
+        return await fetchGemini(out, llmApiKey, resolvedModel, signal);
       case 'openrouter':
-        return await fetchOpenRouter(out, llmApiKey, resolvedModel || 'anthropic/claude-3.5-sonnet', signal);
+        return await fetchOpenRouter(out, llmApiKey, resolvedModel, signal);
       case 'openai-compatible':
         return await fetchOpenAICompatible(out, llmApiKey, llmModel?.trim() ?? '', openaiCompatibleUrl, signal);
       case 'lmstudio':
@@ -310,9 +333,9 @@ function streamRequestFor(settings: ReturnType<typeof prepare>['settings'], mess
   switch (llmProvider) {
     case 'openai':
       return { ...post('https://api.openai.com/v1/chat/completions', { Authorization: `Bearer ${llmApiKey}` },
-        { model: model || 'gpt-4o', messages, temperature: 0.7, stream: true }), kind: 'openai', empty: 'errEmptyRespOpenai' };
+        { model, messages, temperature: 0.7, stream: true }), kind: 'openai', empty: 'errEmptyRespOpenai' };
     case 'openrouter': {
-      const m = model || 'anthropic/claude-3.5-sonnet';
+      const m = model;
       return { ...post('https://openrouter.ai/api/v1/chat/completions',
         { Authorization: `Bearer ${llmApiKey}`, 'HTTP-Referer': 'http://localhost:8066', 'X-Title': 'Noted App' },
         { model: m, messages: supportsSystemRole(m) ? messages : normalizeForNoSystemRole(messages), temperature: 0.7, stream: true }), kind: 'openai', empty: 'errEmptyRespOpenrouter' };
@@ -332,7 +355,7 @@ function streamRequestFor(settings: ReturnType<typeof prepare>['settings'], mess
     case 'anthropic':
       return { ...post('https://api.anthropic.com/v1/messages',
         { 'x-api-key': llmApiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-        { model: model || 'claude-3-5-sonnet-20241022', max_tokens: 4096, system: messages.find(m => m.role === 'system')?.content, messages: messages.filter(m => m.role !== 'system'), stream: true }),
+        { model, max_tokens: 4096, system: messages.find(m => m.role === 'system')?.content, messages: messages.filter(m => m.role !== 'system'), stream: true }),
       kind: 'anthropic', empty: 'errEmptyRespAnthropic' };
     case 'gemini': {
       const body: Record<string, unknown> = {
@@ -340,7 +363,7 @@ function streamRequestFor(settings: ReturnType<typeof prepare>['settings'], mess
       };
       const system = messages.find(m => m.role === 'system')?.content;
       if (system) body.systemInstruction = { parts: [{ text: system }] };
-      return { ...post(`https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-1.5-pro'}:streamGenerateContent?alt=sse`, { 'x-goog-api-key': llmApiKey }, body),
+      return { ...post(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`, { 'x-goog-api-key': llmApiKey }, body),
         kind: 'gemini', empty: 'errEmptyRespGemini' };
     }
     default:

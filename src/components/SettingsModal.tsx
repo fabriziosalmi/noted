@@ -10,7 +10,8 @@ import { claudeDesktopConfigPath, revealLabelKey } from '../lib/platform';
 import { useConfirm } from './ConfirmProvider';
 import { useStore } from '../store/useStore';
 import type { LLMProvider } from '../store/useStore';
-import { fetchAvailableModels } from '../lib/llm';
+import { fetchAvailableModels, isLocalHost } from '../lib/llm';
+import { COMPAT_PRESETS, presetById, presetForUrl } from '../../shared/llm/providers';
 import { useI18n, type TranslationKey } from '../lib/i18n';
 import { getElectronApi } from '../lib/electronApi';
 import { importWorkflowReducer, initialImportWorkflowState, isImportWorkflowBusy } from '../lib/importWorkflow';
@@ -92,8 +93,11 @@ const TABS: { id: SettingsTab; labelKey: TranslationKey; icon: LucideIcon }[] = 
 const SETTINGS_TAB_IDS = TABS.map((tab) => tab.id);
 
 const isLocalProvider = (p: LLMProvider) => p === 'lmstudio' || p === 'ollama';
-// Providers that expose an OpenAI-style GET /models list we can auto-detect.
-const canDetectModels = (p: LLMProvider) => isLocalProvider(p) || p === 'openai-compatible';
+// Every provider can say which models it has; a local one is asked as soon as it is chosen, a service in the cloud only when asked
+// (the key goes to it either way, but not before the person has pressed the button).
+const canDetectModels = (_p: LLMProvider) => true;
+const isThisMachine = (url: string | undefined) => { const u = (url ?? '').trim().replace(/^https?:\/\//i, ''); return u !== '' && isLocalHost(u); };
+const asksAtOnce = (p: LLMProvider, compatUrl: string | undefined) => isLocalProvider(p) || (p === 'openai-compatible' && isThisMachine(compatUrl));
 
 function Toggle({ value, onChange, label }: { value: boolean; onChange: () => void; label?: string }) {
   return (
@@ -611,12 +615,12 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
   }, [settings.llmProvider, settings.lmStudioUrl, settings.openaiCompatibleUrl, settings.llmApiKey, onUpdate]);
 
   useEffect(() => {
-    if (isLocalProvider(settings.llmProvider)) {
+    if (asksAtOnce(settings.llmProvider, settings.openaiCompatibleUrl)) {
       void discoverModels();
     } else {
       setDiscoveredModels([]);
     }
-  }, [settings.llmProvider, settings.lmStudioUrl, discoverModels]);
+  }, [settings.llmProvider, settings.lmStudioUrl, settings.openaiCompatibleUrl, discoverModels]);
 
   useEffect(() => {
     const api = getElectronApi();
@@ -727,14 +731,32 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                     <Info size={12} />
                   </span>
                 </div>
-                <Select aria-label={t('llmProvider')} value={settings.llmProvider} onChange={(e) => onUpdate({ llmProvider: e.target.value as LLMProvider })}>
-                  <option value="openai">OpenAI (GPT-4o)</option>
-                  <option value="anthropic">Anthropic (Claude 3)</option>
-                  <option value="gemini">Google Gemini</option>
-                  <option value="openrouter">OpenRouter</option>
-                  <option value="openai-compatible">OpenAI-compatible (Regolo, …)</option>
-                  <option value="lmstudio">LM Studio (Local)</option>
-                  <option value="ollama">Ollama (Local)</option>
+                <Select
+                  aria-label={t('llmProvider')}
+                  value={settings.llmProvider === 'openai-compatible' ? (presetForUrl(settings.openaiCompatibleUrl) ? `preset:${presetForUrl(settings.openaiCompatibleUrl)!.id}` : 'openai-compatible') : settings.llmProvider}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    const preset = v.startsWith('preset:') ? presetById(v.slice(7)) : undefined;
+                    // A service is an address on the OpenAI protocol; its models are not another service's, so the model is asked for again
+                    if (preset) onUpdate({ llmProvider: 'openai-compatible', openaiCompatibleUrl: preset.baseUrl, llmModel: '' });
+                    else onUpdate({ llmProvider: v as LLMProvider });
+                  }}
+                >
+                  <optgroup label={t('providerGroupCloud')}>
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic (Claude)</option>
+                    <option value="gemini">Google Gemini</option>
+                    <option value="openrouter">OpenRouter</option>
+                    {COMPAT_PRESETS.filter(p => !p.local).map(p => <option key={p.id} value={`preset:${p.id}`}>{p.label}</option>)}
+                  </optgroup>
+                  <optgroup label={t('providerGroupLocal')}>
+                    <option value="lmstudio">LM Studio</option>
+                    <option value="ollama">Ollama</option>
+                    {COMPAT_PRESETS.filter(p => p.local).map(p => <option key={p.id} value={`preset:${p.id}`}>{p.label}</option>)}
+                  </optgroup>
+                  <optgroup label={t('providerGroupOther')}>
+                    <option value="openai-compatible">{t('providerCustom')}</option>
+                  </optgroup>
                 </Select>
               </div>
 
@@ -755,22 +777,15 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                   </Select>
                 ) : (
                   <Input aria-label={t('model')} type="text" value={settings.llmModel} onChange={(e) => onUpdate({ llmModel: e.target.value })}
-                    placeholder={
-                      settings.llmProvider === 'openai' ? 'gpt-4o' :
-                      settings.llmProvider === 'anthropic' ? 'claude-3-5-sonnet-20241022' :
-                      settings.llmProvider === 'gemini' ? 'gemini-1.5-pro' :
-                      settings.llmProvider === 'openrouter' ? 'anthropic/claude-3.5-sonnet' :
-                      settings.llmProvider === 'openai-compatible' ? 'e.g. llama-3.3-70b' :
-                      settings.llmProvider === 'ollama' ? 'llama3' : 'auto-detect'
-                    }
+                    placeholder={isLocalProvider(settings.llmProvider) ? t('modelPlaceholderAuto') : t('modelPlaceholder')}
                   />
                 )}
                 <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
                   {canDetectModels(settings.llmProvider)
                     ? discoveredModels.length > 0
                       ? `${discoveredModels.length} ${t(discoveredModels.length === 1 ? 'modelsFound_one' : 'modelsFound_other')}`
-                      : settings.llmProvider === 'openai-compatible' ? t('openaiCompatModelHelp') : t('noModelsHelp')
-                    : settings.llmProvider === 'openrouter' ? t('openrouterExample') : t('defaultModelHelp')}
+                      : asksAtOnce(settings.llmProvider, settings.openaiCompatibleUrl) ? t('noModelsHelp') : t('modelDetectHelp')
+                    : t('modelDetectHelp')}
                 </p>
               </div>
 
@@ -790,7 +805,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
                 </div>
               )}
 
-              {['openai', 'anthropic', 'gemini', 'openrouter'].includes(settings.llmProvider) && (
+              {['openai', 'anthropic', 'gemini', 'openrouter', 'openai-compatible'].includes(settings.llmProvider) && (
                 <div>
                   <FieldLabel>{t('apiKey')}</FieldLabel>
                   {!encryptionAvailable && (

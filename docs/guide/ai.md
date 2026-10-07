@@ -8,22 +8,30 @@ are masked for personal data first (see [PII masking](#pii-masking)).
 
 Configure your provider in **Settings → AI**.
 
-**Cloud**
+**Cloud services**
 
-- OpenAI
-- Anthropic
-- Google Gemini
-- OpenRouter
+- OpenAI, Anthropic (Claude), Google Gemini and OpenRouter
+- Groq, Mistral AI, DeepSeek, xAI (Grok), Together AI, Fireworks AI, Cerebras, Hugging Face and Perplexity
 
-**Local**
+**On this computer**
 
-- LM Studio (OpenAI-compatible, default `http://localhost:1234/v1`)
-- Ollama (default `http://localhost:11434`)
+- LM Studio (default `http://localhost:1234/v1`) and Ollama (default `http://localhost:11434`)
+- Unsloth Studio (`http://localhost:8888/v1`), llama.cpp server (`http://localhost:8080/v1`), vLLM
+  (`http://localhost:8000/v1`) and Jan (`http://localhost:1337/v1`)
 
-For local providers, if you leave the model blank Noted auto-detects one by
-querying the running server; you can also press **Detect models** to pick from
-the list. For cloud providers you enter an API key (stored with the macOS
-Keychain via `safeStorage` when available) and a model name.
+**Other**
+
+- **OpenAI-compatible (your own address)**: any service or server that speaks the OpenAI chat protocol, at the address you give.
+
+Every service in the lists above except the first four, LM Studio and Ollama is an address on the OpenAI protocol: choosing
+one fills in its address and you can change it (a different port, a server on another machine). Unsloth Studio asks for the
+key you create in its **Settings → API**; put it in **API key**.
+
+The list names no model, because models are replaced faster than any list: after you enter your key press **Detect models**
+and pick from what the service offers today, or type a model name. A model is never assumed: with none chosen, a cloud service
+says so instead of using a name that may have been retired. For a server on this computer the models are listed as soon as
+you choose it, and leaving the model blank picks the first one (LM Studio and Ollama). Keys are stored with the macOS
+Keychain via `safeStorage` when available.
 
 A provider counts as **configured** when a cloud provider has an API key, or a
 local provider has a model available. Until then, the assistant shows a setup
@@ -199,8 +207,8 @@ place in each ranking.
 Masking is **on by default**. Before any request goes to a **cloud** provider,
 Noted replaces detected personal data — emails, phone numbers, card numbers, and
 similar patterns — with typed placeholders such as `[EMAIL_1]`. Requests to
-**local** providers (LM Studio, Ollama) are sent verbatim, since they never leave
-your machine.
+**local** providers (LM Studio, Ollama and any OpenAI-compatible server at `localhost`) are sent verbatim, since they
+never leave your machine.
 
 The placeholders are turned back into the original values **on your machine**, in
 the answer, as it arrives: what the model says about `[EMAIL_1]` reads as the

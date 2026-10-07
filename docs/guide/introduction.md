@@ -31,7 +31,7 @@ takes the opposite stance:
   syntax highlighting, math, images, and typography.
 - `[[Wikilinks]]`, backlinks, and a per-note connections panel.
 - A fast note switcher and global full-text search.
-- Multi-provider AI (OpenAI, Anthropic, Gemini, OpenRouter, LM Studio, Ollama)
+- Multi-provider AI (OpenAI, Anthropic, Gemini, OpenRouter, Groq, Mistral, DeepSeek and more; LM Studio, Ollama, Unsloth Studio, llama.cpp, vLLM and Jan on your own machine)
   with inline suggestions, slash commands, an actions bar, and a chat panel —
   plus optional PII masking before any request leaves your machine.
 - Git integration for status, commit, push, and pull-request flows.
