@@ -8,6 +8,11 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Staged writes: approve what an agent changes** (#85): a folder can be set to *staged* (Settings → MCP → Agent access). There an
+  assistant can read, but `create_note`, `update_note`, `edit_note` and `delete_note` are held instead of made, and the agent is told
+  they are staged, not applied. A badge in the title bar counts what waits; the review shows each change as a difference with Approve /
+  Reject (and all at once). Approving makes the change (version before kept in history, deletion to the trash); a note changed since
+  the agent saw it refuses the approval, so nothing is overwritten.
 - **Per-folder MCP access** (#86): Settings → MCP → Agent access (and `.noted/mcp-policy.yaml`) gives assistants *hidden*, *read-only* or
   *read-write* access to the vault and to each folder, the most specific winning. Every MCP tool enforces it: hidden notes are not
   listed, searched (nor excerpted), counted among tasks or trash, and read or change as "not found", like a note that is not there;

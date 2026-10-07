@@ -909,5 +909,21 @@
   "mcpAccessRemove": "Remove rule for {name}",
   "mcpAccessInvalid": "The policy file is invalid: {error}. Assistants can reach nothing until it is fixed.",
   "mcpAccessReset": "Reset to open access",
-  "mcpAccessSaveFailed": "Could not save the policy: {error}"
+  "mcpAccessSaveFailed": "Could not save the policy: {error}",
+  "mcpAccessStaged": "Staged (changes need approval)",
+  "pendingBadge": "{n} change(s) from assistants waiting for approval",
+  "pendingTitle": "Changes from assistants",
+  "pendingHelp": "An assistant asked for these changes in folders where you approve them. Nothing has been changed yet.",
+  "pendingEmpty": "Nothing is waiting for approval.",
+  "pendingNew": "New note",
+  "pendingChanged": "Changed",
+  "pendingDelete": "Delete",
+  "pendingBy": "by {client} · {time}",
+  "pendingApprove": "Approve",
+  "pendingReject": "Reject",
+  "pendingApproveAll": "Approve all",
+  "pendingRejectAll": "Reject all",
+  "pendingConflict": "The note was changed since the assistant saw it, so this change cannot be applied. Reject it and ask again.",
+  "pendingFailed": "Could not settle the change: {error}",
+  "pendingClose": "Close"
 }

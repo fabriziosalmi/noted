@@ -5,7 +5,7 @@ import { useStore } from '../store/useStore';
 import { getElectronApi } from '../lib/electronApi';
 import { ACCESS_LEVELS, DEFAULT_POLICY, normalizePolicyPath, type Access, type McpPolicy } from '../../shared/vault/mcpPolicy';
 
-const LABEL: Record<Access, TranslationKey> = { hidden: 'mcpAccessHidden', 'read-only': 'mcpAccessReadOnly', 'read-write': 'mcpAccessReadWrite' };
+const LABEL: Record<Access, TranslationKey> = { hidden: 'mcpAccessHidden', 'read-only': 'mcpAccessReadOnly', staged: 'mcpAccessStaged', 'read-write': 'mcpAccessReadWrite' };
 const control = 'px-2 py-1 text-xs border border-gray-300/40 dark:border-gray-600/40 rounded bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]';
 
 /**

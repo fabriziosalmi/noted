@@ -909,5 +909,21 @@
   "mcpAccessRemove": "Retirer la règle de {name}",
   "mcpAccessInvalid": "Le fichier de politique est invalide : {error}. Les assistants n'atteignent rien tant qu'il n'est pas corrigé.",
   "mcpAccessReset": "Revenir à l'accès ouvert",
-  "mcpAccessSaveFailed": "Impossible d'enregistrer la politique : {error}"
+  "mcpAccessSaveFailed": "Impossible d'enregistrer la politique : {error}",
+  "mcpAccessStaged": "En attente (les modifications doivent être approuvées)",
+  "pendingBadge": "{n} modification(s) d'assistants en attente d'approbation",
+  "pendingTitle": "Modifications d'assistants",
+  "pendingHelp": "Un assistant a demandé ces modifications dans des dossiers où vous les approuvez. Rien n'a encore été modifié.",
+  "pendingEmpty": "Rien n'attend d'approbation.",
+  "pendingNew": "Nouvelle note",
+  "pendingChanged": "Modifiée",
+  "pendingDelete": "Supprimer",
+  "pendingBy": "par {client} · {time}",
+  "pendingApprove": "Approuver",
+  "pendingReject": "Rejeter",
+  "pendingApproveAll": "Tout approuver",
+  "pendingRejectAll": "Tout rejeter",
+  "pendingConflict": "La note a changé depuis que l'assistant l'a vue : cette modification ne peut pas être appliquée. Rejetez-la et redemandez.",
+  "pendingFailed": "Impossible de traiter la modification : {error}",
+  "pendingClose": "Fermer"
 }

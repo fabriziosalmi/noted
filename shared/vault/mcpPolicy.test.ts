@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { loadPolicy, savePolicy, policyPath } from './mcpPolicyFile';
-import { parsePolicy, accessFor, serializePolicy, lessAccess, canRead, canWrite, normalizePolicyPath, DEFAULT_POLICY, type McpPolicy } from './mcpPolicy';
+import { parsePolicy, accessFor, serializePolicy, lessAccess, canRead, canWrite, isStaged, normalizePolicyPath, DEFAULT_POLICY, type McpPolicy } from './mcpPolicy';
 
 const parse = (text: string): McpPolicy => {
   const r = parsePolicy(text);
@@ -64,6 +64,15 @@ describe('accessFor', () => {
     const unicode = parse('folders:\n  "Résumé": hidden\n'); // written with combining accents
     expect(accessFor(unicode, 'Résumé/cv.md')).toBe('hidden'); // asked with the composed form
     expect(normalizePolicyPath('/A//B\\C/')).toBe('a/b/c');
+  });
+
+  it('staged sits between read-only and read-write: it can be read, and proposes changes instead of making them', () => {
+    const st = parse('default: read-only\nfolders:\n  drafts: staged\n');
+    expect(accessFor(st, 'drafts/a.md')).toBe('staged');
+    expect([canRead('staged'), canWrite('staged'), isStaged('staged'), isStaged('read-write'), isStaged('read-only')]).toEqual([true, false, true, false, false]);
+    expect(lessAccess('staged', 'read-write')).toBe('staged');
+    expect(lessAccess('staged', 'read-only')).toBe('read-only');
+    expect(lessAccess('staged', 'hidden')).toBe('hidden');
   });
 
   it('lessAccess, canRead and canWrite', () => {

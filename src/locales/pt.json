@@ -909,5 +909,21 @@
   "mcpAccessRemove": "Remover a regra de {name}",
   "mcpAccessInvalid": "O ficheiro de política é inválido: {error}. Os assistentes não alcançam nada até ser corrigido.",
   "mcpAccessReset": "Voltar ao acesso aberto",
-  "mcpAccessSaveFailed": "Não foi possível guardar a política: {error}"
+  "mcpAccessSaveFailed": "Não foi possível guardar a política: {error}",
+  "mcpAccessStaged": "Em espera (as alterações precisam de aprovação)",
+  "pendingBadge": "{n} alteração(ões) de assistentes à espera de aprovação",
+  "pendingTitle": "Alterações de assistentes",
+  "pendingHelp": "Um assistente pediu estas alterações em pastas onde as aprova. Ainda nada foi alterado.",
+  "pendingEmpty": "Nada à espera de aprovação.",
+  "pendingNew": "Nota nova",
+  "pendingChanged": "Alterada",
+  "pendingDelete": "Eliminar",
+  "pendingBy": "por {client} · {time}",
+  "pendingApprove": "Aprovar",
+  "pendingReject": "Rejeitar",
+  "pendingApproveAll": "Aprovar tudo",
+  "pendingRejectAll": "Rejeitar tudo",
+  "pendingConflict": "A nota foi alterada desde que o assistente a viu, pelo que esta alteração não pode ser aplicada. Rejeite-a e peça de novo.",
+  "pendingFailed": "Não foi possível concluir a alteração: {error}",
+  "pendingClose": "Fechar"
 }
