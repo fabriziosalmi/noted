@@ -71,7 +71,7 @@ export function openCaptureWindow() {
     captureWin.focus();
     return;
   }
-  captureWin = new BrowserWindow({
+  const w = new BrowserWindow({
     width: 480,
     height: 210,
     frame: false,
@@ -85,11 +85,17 @@ export function openCaptureWindow() {
       sandbox: true,
     },
   });
-  captureWin.on('closed', () => { captureWin = null; });
+  captureWin = w;
+  // Forgotten as soon as it starts closing, not when it is gone: in between it is not destroyed yet, and a Quick Capture asked for
+  // in that moment (Escape, then the shortcut again) only focused the window that was going away. A window only forgets itself, so
+  // one still closing cannot clear the reference to a new one.
+  const forget = () => { if (captureWin === w) captureWin = null; };
+  w.on('close', forget);
+  w.on('closed', forget);
   // The window has no frame, so its own page is the only way to close it. Escape is also answered here, in the main process, so a page
   // that fails to run its script (as it did when a content-security policy refused it) can never leave a window that cannot be closed.
-  captureWin.webContents.on('before-input-event', (event, input) => {
-    if (input.type === 'keyDown' && input.key === 'Escape') { event.preventDefault(); closeCaptureWindow(); }
+  w.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown' && input.key === 'Escape') { event.preventDefault(); w.close(); }
   });
   // The page is static and has no store, so what it says reaches it in the address: in the language of the app.
   const labels = encodeURIComponent(JSON.stringify({
@@ -100,8 +106,8 @@ export function openCaptureWindow() {
   const captureUrl = VITE_DEV_SERVER_URL
     ? `${VITE_DEV_SERVER_URL}capture.html?l=${labels}`
     : `app://./capture.html?l=${labels}`;
-  captureWin.loadURL(captureUrl);
-  applyNavigationGuards(captureWin);
+  w.loadURL(captureUrl);
+  applyNavigationGuards(w);
 }
 
 /** The main window, or null before it exists / after it is closed. */

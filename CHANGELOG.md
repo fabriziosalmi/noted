@@ -17,6 +17,7 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Closing the Save dialog of an export is not an error.** It showed a red "Export cancelled" for ten seconds; now nothing is said. Markdown and PDF exports suggest the note's title as the file name instead of `Note`, and an HTML export writes the title into the page as text.
 - **Callouts keep their colour in the dark theme.** Warning, danger and tip callouts were all purple.
 - The AI settings explanation said the provider is "above"; it is below.
+- **Quick Capture opens when asked again right after closing it.** Asked for while its window was still closing (Escape, then the shortcut again), it only focused the window that was going away, and nothing opened.
 
 ## [1.6.2] - 2026-10-16
 
