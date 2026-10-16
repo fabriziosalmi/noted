@@ -625,8 +625,8 @@ export const useStore = create<NoteState>()(
     const optimisticNote = createOptimisticNote(fileName, content);
     set(state => ({
       ...upsertOptimisticNote(state.notes, state.noteFolders, optimisticNote),
+      // Placed first for the custom order; the sort the user chose stays as it is.
       customNotesOrder: newOrder,
-      sortBy: 'custom',
     }));
 
     await get().openNote(fileName);
@@ -1140,7 +1140,6 @@ export const useStore = create<NoteState>()(
     const newOrder = [name, ...currentFoldersOrder.filter(f => f !== name)];
     set({
       customFoldersOrder: newOrder,
-      sortBy: 'custom',
     });
     
     await get().fetchNotes();

@@ -7,10 +7,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteNote: (fileName: string, syncDir?: string) => ipcRenderer.invoke('delete-note', fileName, syncDir),
   wipeAllNotes: (syncDir?: string) => ipcRenderer.invoke('wipe-all-notes', syncDir),
   selectSyncFolder: () => ipcRenderer.invoke('select-sync-folder'),
-  exportPdf: (htmlContent: string) => ipcRenderer.invoke('export-pdf', htmlContent),
+  exportPdf: (htmlContent: string, title?: string) => ipcRenderer.invoke('export-pdf', htmlContent, title),
   printNote: (htmlContent: string, title?: string) => ipcRenderer.invoke('print-note', htmlContent, title),
   renameNote: (oldName: string, newName: string, syncDir?: string, opts?: { updateLinks?: boolean }) => ipcRenderer.invoke('rename-note', oldName, newName, syncDir, opts),
-  exportMarkdown: (content: string) => ipcRenderer.invoke('export-markdown', content),
+  exportMarkdown: (content: string, title?: string) => ipcRenderer.invoke('export-markdown', content, title),
   storeApiKey: (key: string) => ipcRenderer.invoke('store-api-key', key),
   getApiKey: () => ipcRenderer.invoke('get-api-key'),
   llmFetch: (url: string, options: { method: string; headers: Record<string, string>; body: string }) =>

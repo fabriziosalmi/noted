@@ -56,6 +56,25 @@ describe('useModalStack hook', () => {
     expect(queryByTestId('modal-m1')).not.toBeInTheDocument();
   });
 
+  it('a modal re-rendered with a new onClose stays under a dialog opened over it', () => {
+    const closeSettings = vi.fn();
+    const closeConfirm = vi.fn();
+    const Both = ({ tick }: { tick: number }) => (
+      <div data-tick={tick}>
+        {/* a fresh function on every render, as App passes it */}
+        <TestModal id="settings" open={true} onClose={() => closeSettings()} />
+        <TestModal id="confirm" open={true} onClose={closeConfirm} />
+      </div>
+    );
+    const { rerender, unmount } = render(<Both tick={0} />);
+    rerender(<Both tick={1} />); // e.g. a notes refresh re-renders the parent
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(closeConfirm).toHaveBeenCalledTimes(1);
+    expect(closeSettings).not.toHaveBeenCalled();
+    unmount();
+  });
+
   it('ignores other keys than Escape', () => {
     const closeSpy = vi.fn();
     render(<TestModal id="test" open={true} onClose={closeSpy} />);
@@ -129,7 +148,7 @@ describe('useModalStack hook', () => {
     let cleanup: (() => void) | undefined;
     
     (globalThis as any).__mockUseEffect = (effect: any) => {
-      cleanup = effect();
+      cleanup = effect() ?? cleanup; // the hook's second effect (the closer) has no cleanup
     };
 
     useModalStack('not-found-id', true, vi.fn());

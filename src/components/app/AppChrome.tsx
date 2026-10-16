@@ -1,5 +1,5 @@
 import type { AppChromeProps } from './types';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { parseAgentNote } from '../../lib/agentWorkflow';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { PanelLeft, PanelRight, Keyboard, LayoutTemplate, History, Focus } from 'lucide-react';
@@ -82,6 +82,8 @@ export function AppChrome({
   onEditorReady,
   onAgentAction,
 }: AppChromeProps) {
+  // The editor pane's bottom-right corner, where NoteEditor puts the word count and save status.
+  const [statusHost, setStatusHost] = useState<HTMLDivElement | null>(null);
   // Focus mode is supposed to remove distractions, not merely dim the prose:
   // while it's on the side panels step aside, and turning it off brings back
   // exactly what was open before (derived, so there's no state to resync).
@@ -228,7 +230,7 @@ export function AppChrome({
             </>
           )}
 
-          <Panel id="editor-center" order={2} minSize={30} role="main" className="editor-canvas bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
+          <Panel id="editor-center" order={2} minSize={30} role="main" className="editor-canvas relative bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
             {activeView && <ViewPage view={activeView} onOpenNote={onOpenNote} onNotice={onToast} />}
             {tasksOpen && !activeView && <TasksPage onOpenNote={onOpenNote} onNotice={onToast} />}
             {activityOpen && !activeView && !tasksOpen && <AgentActivityPage onOpenNote={onOpenNote} onNotice={onToast} />}
@@ -288,10 +290,15 @@ export function AppChrome({
                     onOpenDaily={() => { void onHandleOpenDaily(); }}
                     onOpenSettings={panels.openSettings}
                     onOpenShortcuts={panels.openShortcuts}
+                    statusHost={statusHost}
                   />
                 </ErrorBoundary>
               </div>
             </div>
+            <div
+              ref={setStatusHost}
+              className={`absolute bottom-4 right-6 z-20 ${activeView || tasksOpen || activityOpen || workflowsOpen || healthOpen ? 'hidden' : ''}`}
+            />
           </Panel>
 
           {showRightPanel && (

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useI18n } from '../lib/i18n';
 import { useEditor, EditorContent, ReactNodeViewRenderer, type Editor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
@@ -30,6 +31,7 @@ import { SlashCommands } from './SlashCommands';
 import { SmartTagSuggestion } from './SmartTagSuggestion';
 import { GhostTextExtension, ghostTextKey } from '../lib/ghostTextExtension';
 import { PassageHighlight } from '../lib/passageHighlight';
+import { FindHighlight } from '../lib/findHighlight';
 import { deriveTitle } from '../lib/noteTitle';
 import { planExternalChange } from '../lib/externalChange';
 import { attachImage, DEFAULT_ATTACHMENTS_FOLDER } from '../lib/imageAttach';
@@ -89,6 +91,8 @@ interface NoteEditorProps {
   onOpenShortcuts?: () => void;
   // Tell the user something happened to the open note behind their back.
   onNotice?: (text: string, variant?: 'success' | 'error') => void;
+  /** Where the word count and save status go: a corner of the editor pane, so they never sit over the side panel. */
+  statusHost?: HTMLElement | null;
 }
 
 function hasShortcutModifier(event: KeyboardEvent | globalThis.KeyboardEvent): boolean {
@@ -97,7 +101,7 @@ function hasShortcutModifier(event: KeyboardEvent | globalThis.KeyboardEvent): b
   return event.ctrlKey && !event.altKey;
 }
 
-export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError, allNoteNames = [], allTags = [], backlinks = [], onSelectNote, notesCount = 0, onCreateNote, onOpenDaily, onOpenSettings, onOpenShortcuts, onNotice }: NoteEditorProps) {
+export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError, allNoteNames = [], allTags = [], backlinks = [], onSelectNote, notesCount = 0, onCreateNote, onOpenDaily, onOpenSettings, onOpenShortcuts, onNotice, statusHost }: NoteEditorProps) {
   const { t } = useI18n();
   const prompt = usePrompt();
   const llmProvider = useStore(s => s.settings.llmProvider);
@@ -396,6 +400,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       EmbedExtension,
       GhostTextExtension,
       PassageHighlight,
+      FindHighlight,
     ],
     content: activeNoteContent,
     editable: !useStore.getState().vaultConverting,
@@ -782,6 +787,41 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     );
   }
 
+  // Word count and save status, in the editor pane's corner (statusHost) or, without one, the window's.
+  const statusBar = (
+    <div className={`flex items-center gap-3 ${statusHost ? '' : 'fixed bottom-4 right-4 z-20'}`}>
+      {ghostLoading && !ghostActive && (
+        <span role="status" aria-live="polite" className="text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-current animate-pulse" aria-hidden="true" />
+          {t('ghostThinking')}
+        </span>
+      )}
+      {ghostActive && (
+        <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-full px-2.5 py-1">
+          <kbd className="font-mono text-[10px] bg-gray-200 dark:bg-gray-700 rounded px-1">Tab</kbd>
+          {t('tabAccept')}
+        </span>
+      )}
+      {wordCount > 0 && (
+        <span className="text-xs text-gray-500 dark:text-gray-400">{wordCount} {t(wordCount === 1 ? 'word' : 'words')}</span>
+      )}
+      {saveStatus !== 'idle' && (
+        <div aria-hidden="true" className={`text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5 ${
+          saveStatus === 'saving' ? 'text-gray-400 dark:text-gray-500'
+            : saveStatus === 'error' ? 'text-red-600 dark:text-red-400 bg-red-500/10 font-medium'
+            : 'text-emerald-600 dark:text-emerald-400'
+        }`}>
+          {saveStatus === 'saving' ? <span>{t('saving')}</span>
+            : saveStatus === 'error' ? <><AlertTriangle size={13} /><span>{t('saveFailed')}</span></>
+            : <><CheckCheck size={13} /><span>{t('saved')}</span></>}
+        </div>
+      )}
+      {/* SR live regions: "Saved" milestone (polite), save failure (assertive). */}
+      <span className="sr-only" role="status" aria-live="polite">{saveStatus === 'saved' ? t('saved') : ''}</span>
+      <span className="sr-only" role="alert">{saveStatus === 'error' ? t('saveFailed') : ''}</span>
+    </div>
+  );
+
   return (
     <>
       {/* Bubble menu for inline selection formatting */}
@@ -886,37 +926,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
 
 
       {/* Status bar */}
-      <div className="fixed bottom-4 right-4 flex items-center gap-3 z-20">
-        {ghostLoading && !ghostActive && (
-          <span role="status" aria-live="polite" className="text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-current animate-pulse" aria-hidden="true" />
-            {t('ghostThinking')}
-          </span>
-        )}
-        {ghostActive && (
-          <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-full px-2.5 py-1">
-            <kbd className="font-mono text-[10px] bg-gray-200 dark:bg-gray-700 rounded px-1">Tab</kbd>
-            {t('tabAccept')}
-          </span>
-        )}
-        {wordCount > 0 && (
-          <span className="text-xs text-gray-500 dark:text-gray-400">{wordCount} {t(wordCount === 1 ? 'word' : 'words')}</span>
-        )}
-        {saveStatus !== 'idle' && (
-          <div aria-hidden="true" className={`text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5 ${
-            saveStatus === 'saving' ? 'text-gray-400 dark:text-gray-500'
-              : saveStatus === 'error' ? 'text-red-600 dark:text-red-400 bg-red-500/10 font-medium'
-              : 'text-emerald-600 dark:text-emerald-400'
-          }`}>
-            {saveStatus === 'saving' ? <span>{t('saving')}</span>
-              : saveStatus === 'error' ? <><AlertTriangle size={13} /><span>{t('saveFailed')}</span></>
-              : <><CheckCheck size={13} /><span>{t('saved')}</span></>}
-          </div>
-        )}
-        {/* SR live regions: "Saved" milestone (polite), save failure (assertive). */}
-        <span className="sr-only" role="status" aria-live="polite">{saveStatus === 'saved' ? t('saved') : ''}</span>
-        <span className="sr-only" role="alert">{saveStatus === 'error' ? t('saveFailed') : ''}</span>
-      </div>
+      {statusHost ? createPortal(statusBar, statusHost) : statusBar}
     </>
   );
 }

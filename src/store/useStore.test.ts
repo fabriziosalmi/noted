@@ -83,6 +83,20 @@ describe('useStore', () => {
     expect(state.customNotesOrder[0]).toBe('instant.md');
   });
 
+  it('keeps the sort the user chose when a note or a folder is created', async () => {
+    window.electronAPI.saveNote = vi.fn().mockResolvedValue({ success: true });
+    window.electronAPI.readNote = vi.fn().mockResolvedValue({ success: true, data: '<h1>New</h1>' });
+    window.electronAPI.createFolder = vi.fn().mockResolvedValue({ success: true });
+    window.electronAPI.getNotesTree = vi.fn().mockResolvedValue({ success: true, data: { rootNotes: [], folders: [] } });
+    useStore.getState().setSortBy('name');
+
+    await useStore.getState().createNote('sorted.md', '<h1>New</h1>');
+    expect(useStore.getState().sortBy).toBe('name');
+    await useStore.getState().createFolder('sorted-folder');
+    expect(useStore.getState().sortBy).toBe('name');
+    expect(useStore.getState().customNotesOrder[0]).toBe('sorted.md');
+  });
+
   it('shows a note created several folders deep at once, with the folders above it', async () => {
     window.electronAPI.saveNote = vi.fn().mockResolvedValue({ success: true });
     window.electronAPI.readNote = vi.fn().mockResolvedValue({ success: true, data: '<h1>New</h1>' });

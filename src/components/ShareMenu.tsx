@@ -3,7 +3,7 @@ import {
   Share2, Cloud, FolderOpen, FileDown, Wifi, Code2, Check, Globe, Lock,
   FileText as PdfIcon, FileCode, FileText as DocxIcon, Printer,
 } from 'lucide-react';
-import { useI18n } from '../lib/i18n';
+import { useI18n, type TranslationKey } from '../lib/i18n';
 import { getElectronApi } from '../lib/electronApi';
 import { printNoteFromHtml } from '../lib/printNote';
 import { inlineVaultImages } from '../lib/exportContent';
@@ -98,6 +98,19 @@ export function ShareMenu({
   };
 
   // ── Current note: format exports ──────────────────────────────────────
+  // Closing the Save dialog is not a failure: nothing is said.
+  const finishExport = (res: { success: boolean; canceled?: boolean; error?: string }, done: TranslationKey, failed: TranslationKey) => {
+    if (res.success) {
+      onToast(t(done), 'success');
+      dispatchWorkflow({ type: 'ACTION_SUCCESS' });
+    } else if (res.canceled) {
+      dispatchWorkflow({ type: 'ACTION_SUCCESS' });
+    } else {
+      onToast(res.error ?? t(failed), 'error');
+      dispatchWorkflow({ type: 'ACTION_FAILED', message: res.error ?? t(failed) });
+    }
+  };
+
   const handleExportMd = async () => {
     if (isShareWorkflowBusy(workflow.stage)) return;
     const api = getElectronApi();
@@ -110,14 +123,7 @@ export function ShareMenu({
       dispatchWorkflow({ type: 'ACTION_FAILED', message: t('noActiveNote') });
       return;
     }
-    const res = await api.exportMarkdown(content);
-    if (res.success) {
-      onToast(t('markdownExported'), 'success');
-      dispatchWorkflow({ type: 'ACTION_SUCCESS' });
-    } else {
-      onToast(res.error ?? t('markdownExportError'), 'error');
-      dispatchWorkflow({ type: 'ACTION_FAILED', message: res.error ?? t('markdownExportError') });
-    }
+    finishExport(await api.exportMarkdown(content, getCurrentNoteTitle()), 'markdownExported', 'markdownExportError');
   };
 
   const handleExportPdf = async () => {
@@ -132,14 +138,7 @@ export function ShareMenu({
       dispatchWorkflow({ type: 'ACTION_FAILED', message: t('noActiveNote') });
       return;
     }
-    const res = await api.exportPdf(html);
-    if (res.success) {
-      onToast(t('pdfExported'), 'success');
-      dispatchWorkflow({ type: 'ACTION_SUCCESS' });
-    } else {
-      onToast(res.error ?? t('pdfExportError'), 'error');
-      dispatchWorkflow({ type: 'ACTION_FAILED', message: res.error ?? t('pdfExportError') });
-    }
+    finishExport(await api.exportPdf(html, getCurrentNoteTitle()), 'pdfExported', 'pdfExportError');
   };
 
   const handleExportHtml = async () => {
@@ -155,14 +154,7 @@ export function ShareMenu({
       return;
     }
     const title = getCurrentNoteTitle() || t('untitledExportTitle');
-    const res = await api.exportHtml(html, title);
-    if (res.success) {
-      onToast(t('htmlExported'), 'success');
-      dispatchWorkflow({ type: 'ACTION_SUCCESS' });
-    } else {
-      onToast(res.error ?? t('htmlExportError'), 'error');
-      dispatchWorkflow({ type: 'ACTION_FAILED', message: res.error ?? t('htmlExportError') });
-    }
+    finishExport(await api.exportHtml(html, title), 'htmlExported', 'htmlExportError');
   };
 
   const handleExportDocx = async () => {
@@ -178,14 +170,7 @@ export function ShareMenu({
       return;
     }
     const title = getCurrentNoteTitle() || t('untitledExportTitle');
-    const res = await api.exportDocx(html, title);
-    if (res.success) {
-      onToast(t('docxExported'), 'success');
-      dispatchWorkflow({ type: 'ACTION_SUCCESS' });
-    } else {
-      onToast(res.error ?? t('docxExportError'), 'error');
-      dispatchWorkflow({ type: 'ACTION_FAILED', message: res.error ?? t('docxExportError') });
-    }
+    finishExport(await api.exportDocx(html, title), 'docxExported', 'docxExportError');
   };
 
   const handlePrint = async () => {

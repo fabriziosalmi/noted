@@ -7,27 +7,10 @@ import {
   Table as TableIcon, Code, Search, X, ChevronUp, ChevronDown,
   List, ListOrdered, ListChecks, Quote, Sparkles, Highlighter, Link2, Undo2, Redo2,
 } from 'lucide-react';
-import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
+import { findHighlightKey, type FindMeta } from '../lib/findHighlight';
 import { AiActionsBar } from './AiActionsBar';
 import { Tooltip } from './Tooltip';
 import { usePrompt } from './ConfirmProvider';
-
-interface Match { from: number; to: number }
-
-function findInDoc(doc: ProseMirrorNode, searchText: string): Match[] {
-  const results: Match[] = [];
-  if (!searchText.trim()) return results;
-  const regex = new RegExp(searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-  doc.nodesBetween(0, doc.content.size, (node, pos) => {
-    if (node.isText && node.text) {
-      let m;
-      while ((m = regex.exec(node.text)) !== null) {
-        results.push({ from: pos + m.index, to: pos + m.index + m[0].length });
-      }
-    }
-  });
-  return results;
-}
 
 const btnBase = 'p-1.5 rounded transition-colors';
 const btnActive = 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white';
@@ -69,8 +52,10 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
   const { t } = useI18n();
   const prompt = usePrompt();
   const [findQuery, setFindQuery] = useState('');
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [matchIndex, setMatchIndex] = useState(0);
+  // Mirrors the find plugin (lib/findHighlight), which keeps the matches right while the note is edited.
+  const [findInfo, setFindInfo] = useState({ count: 0, current: 0 });
+  const matchCount = findInfo.count;
+  const matchIndex = findInfo.current;
   const findInputRef = useRef<HTMLInputElement>(null);
 
   // Insert/edit/remove a link on the current selection via the in-app prompt.
@@ -86,33 +71,52 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
     editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
   }, [editor, prompt, t]);
 
-  const runFind = useCallback((q: string) => {
+  const showMatch = useCallback((meta: FindMeta) => {
     if (!editor) return;
-    const found = findInDoc(editor.state.doc, q);
-    setMatches(found);
-    setMatchIndex(0);
-    if (found.length > 0) {
-      editor.commands.setTextSelection(found[0]);
+    editor.view.dispatch(editor.state.tr.setMeta(findHighlightKey, meta));
+    const state = findHighlightKey.getState(editor.state);
+    const match = state?.matches[state.current];
+    if (match) {
+      editor.commands.setTextSelection(match);
       editor.commands.scrollIntoView();
     }
   }, [editor]);
 
+  const runFind = useCallback((q: string) => showMatch({ query: q, current: 0 }), [showMatch]);
+
   const goToMatch = useCallback((idx: number) => {
-    if (!editor || matches.length === 0) return;
-    const next = (idx + matches.length) % matches.length;
-    setMatchIndex(next);
-    editor.commands.setTextSelection(matches[next]);
-    editor.commands.scrollIntoView();
-  }, [editor, matches]);
+    if (matchCount === 0) return;
+    showMatch({ current: (idx + matchCount) % matchCount });
+  }, [matchCount, showMatch]);
+
+  useEffect(() => {
+    if (!editor || !findOpen) return;
+    const sync = () => {
+      const state = findHighlightKey.getState(editor.state);
+      const count = state?.matches.length ?? 0;
+      const current = state?.current ?? 0;
+      setFindInfo(prev => (prev.count === count && prev.current === current ? prev : { count, current }));
+    };
+    sync();
+    editor.on('transaction', sync);
+    return () => { editor.off('transaction', sync); };
+  }, [editor, findOpen]);
 
   useEffect(() => {
     if (findOpen) findInputRef.current?.focus();
   }, [findOpen]);
 
+  // Closed from outside the bar (Cmd+F again): take the marks away too.
+  useEffect(() => {
+    if (findOpen || !editor || editor.isDestroyed || !findHighlightKey.getState(editor.state)?.query) return;
+    editor.view.dispatch(editor.state.tr.setMeta(findHighlightKey, { query: '', current: 0 }));
+    setFindQuery('');
+  }, [editor, findOpen]);
+
   const handleClose = useCallback(() => {
     setFindQuery('');
-    setMatches([]);
-    setMatchIndex(0);
+    editor?.view.dispatch(editor.state.tr.setMeta(findHighlightKey, { query: '', current: 0 }));
+    setFindInfo({ count: 0, current: 0 });
     onCloseFind();
     editor?.commands.focus();
   }, [editor, onCloseFind]);
@@ -241,14 +245,14 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
           />
           {findQuery && (
             <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
-              {matches.length > 0 ? `${matchIndex + 1}/${matches.length}` : t('noResults')}
+              {matchCount > 0 ? `${matchIndex + 1}/${matchCount}` : t('noResults')}
             </span>
           )}
-          <button type="button" onClick={() => goToMatch(matchIndex - 1)} disabled={matches.length === 0}
+          <button type="button" onClick={() => goToMatch(matchIndex - 1)} disabled={matchCount === 0}
             className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 disabled:opacity-30" aria-label={t('previous')}>
             <ChevronUp size={14} />
           </button>
-          <button type="button" onClick={() => goToMatch(matchIndex + 1)} disabled={matches.length === 0}
+          <button type="button" onClick={() => goToMatch(matchIndex + 1)} disabled={matchCount === 0}
             className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 disabled:opacity-30" aria-label={t('next')}>
             <ChevronDown size={14} />
           </button>
