@@ -6,6 +6,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Undo no longer reaches into another note.** One editor shows every note, and its undo history went on across a note switch: Cmd+Z in the note just opened brought back the previous note's text (or an empty page), autosave wrote it to the open note's file, and the title sync renamed that file after the other note, so the open note's own text was lost. The same happened after a note was reloaded because it changed on disk (a Git pull, an MCP client): undo put the replaced version back and saved it over the new one. The undo history now starts over when a note is opened or reloaded, and a test covers both.
+
 ## [1.6.1] - 2026-10-07
 
 ### Added
