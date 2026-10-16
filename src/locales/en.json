@@ -1139,5 +1139,11 @@
   "providerCustom": "OpenAI-compatible (your own address)",
   "modelPlaceholder": "Model name, as the service writes it",
   "modelPlaceholderAuto": "Detected automatically",
-  "modelDetectHelp": "Enter your API key, then press Detect models to choose from what the service offers today, or type a model name."
+  "modelDetectHelp": "Enter your API key, then press Detect models to choose from what the service offers today, or type a model name.",
+  "autoCommitFailed": "Auto-commit failed: {error}",
+  "tasksLoadFailed": "The tasks could not be read: {error}",
+  "searchFailed": "The search failed: {error}",
+  "searchMinChars": "Type at least 2 characters",
+  "activityLoadFailed": "The agent journal could not be read: {error}",
+  "activityDiffFailed": "This change could not be shown: {error}"
 }

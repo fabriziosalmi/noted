@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { AppLifecycleArgs } from './contracts';
 import { useStore, type SettingsState } from '../store/useStore';
 import { detectLocalLLMs } from '../lib/llmAutoDetect';
@@ -20,6 +20,7 @@ export function useAppLifecycle({
   activeNoteName,
   fetchNotes,
   loadApiKey,
+  onAutoCommitError,
 }: AppLifecycleArgs): void {
   const syncDirectory = useStore((state) => state.settings.syncDirectory);
 
@@ -112,12 +113,16 @@ export function useAppLifecycle({
   const autoCommitInterval = useStore((state) => state.settings.autoCommitInterval);
   const gitEnabled = useStore((state) => state.settings.gitEnabled);
 
+  const onAutoCommitErrorRef = useRef(onAutoCommitError);
+  useEffect(() => { onAutoCommitErrorRef.current = onAutoCommitError; });
+
   useEffect(() => {
     const api = getElectronApi();
     if (!gitEnabled || !enableAutoCommit || !api?.gitCommitAll) {
       return;
     }
     let isCommitting = false;
+    let lastError: string | null = null;
     const intervalMs = (autoCommitInterval || 5) * 60 * 1000;
     const intervalId = setInterval(() => {
       if (isCommitting) {
@@ -126,7 +131,17 @@ export function useAppLifecycle({
       }
       isCommitting = true;
       api.gitCommitAll('Auto-commit: update notes', syncDirectory || undefined)
-        .catch((err) => console.error('Auto-commit failed:', err))
+        .then(res => {
+          if (res.success) { lastError = null; return; }
+          throw new Error(res.error ?? 'unknown error');
+        })
+        .catch((err: unknown) => {
+          // It runs on a timer: the same failure is said once, not at every interval.
+          const message = err instanceof Error ? err.message : String(err);
+          console.error('Auto-commit failed:', message);
+          if (message !== lastError) onAutoCommitErrorRef.current?.(message);
+          lastError = message;
+        })
         .finally(() => {
           isCommitting = false;
         });

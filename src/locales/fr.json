@@ -1139,5 +1139,11 @@
   "providerCustom": "Compatible OpenAI (votre propre adresse)",
   "modelPlaceholder": "Nom du modèle, tel que le service l'écrit",
   "modelPlaceholderAuto": "Détecté automatiquement",
-  "modelDetectHelp": "Saisissez votre clé d'API puis appuyez sur Détecter les modèles pour choisir parmi ceux que le service propose aujourd'hui, ou saisissez un nom de modèle."
+  "modelDetectHelp": "Saisissez votre clé d'API puis appuyez sur Détecter les modèles pour choisir parmi ceux que le service propose aujourd'hui, ou saisissez un nom de modèle.",
+  "autoCommitFailed": "Le commit automatique a échoué : {error}",
+  "tasksLoadFailed": "Impossible de lire les tâches : {error}",
+  "searchFailed": "La recherche a échoué : {error}",
+  "searchMinChars": "Saisissez au moins 2 caractères",
+  "activityLoadFailed": "Impossible de lire le journal des agents : {error}",
+  "activityDiffFailed": "Impossible d'afficher cette modification : {error}"
 }

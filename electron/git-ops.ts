@@ -275,7 +275,9 @@ export async function commitAll(
       validateCommitMessage(message);
       const g = git(dir);
       await g.add('.');
-      const result = await g.commit(message, { '--allow-empty': null });
+      // Nothing changed: no commit (this runs on a timer, and used to add an empty commit at every interval).
+      if (!(await g.raw(['diff', '--cached', '--name-only'])).trim()) return { success: true, data: { hash: '' } };
+      const result = await g.commit(message);
       return { success: true, data: { hash: result.commit } };
     } catch (err) {
       return { success: false, error: sanitizeGitError((err as Error).message) };

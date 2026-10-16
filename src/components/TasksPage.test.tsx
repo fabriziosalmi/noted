@@ -91,6 +91,16 @@ describe('TasksPage', () => {
     expect(await screen.findByText(/read from Markdown notes/)).toBeInTheDocument();
   });
 
+  it('says so when the tasks could not be read, instead of an empty page', async () => {
+    listTasks.mockResolvedValue({ success: false, error: 'vault not found' });
+    const { unmount } = page();
+    expect(await screen.findByRole('alert')).toHaveTextContent('The tasks could not be read: vault not found');
+    unmount();
+    listTasks.mockRejectedValue(new Error('ipc gone'));
+    page();
+    expect(await screen.findByRole('alert')).toHaveTextContent('ipc gone');
+  });
+
   it('asks again when the notes change', async () => {
     page();
     await waitFor(() => expect(listTasks).toHaveBeenCalledTimes(1));

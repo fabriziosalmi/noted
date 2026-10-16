@@ -31,6 +31,7 @@ export function TasksPage({ onOpenNote, onNotice }: {
   const [total, setTotal] = useState(0);
   const [markdown, setMarkdown] = useState(true);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const request = useRef(0);
   const today = localDay(new Date());
 
@@ -45,12 +46,17 @@ export function TasksPage({ onOpenNote, onNotice }: {
     if (!api?.listTasks) return;
     const timer = setTimeout(() => {
       void api.listTasks(filter, syncDir).then(res => {
-        if (mine !== request.current || !res.success || !res.data) return;
+        if (mine !== request.current) return;
+        // A failure is said: the page used to stay empty, with neither tasks nor "No tasks match".
+        if (!res.success || !res.data) { setLoadError(res.error ?? 'failed'); return; }
+        setLoadError(null);
         setTasks(res.data.tasks);
         setTotal(res.data.total);
         setMarkdown(res.data.format === 'markdown');
         setLoaded(true);
-      }).catch(() => undefined);
+      }).catch((err: unknown) => {
+        if (mine === request.current) setLoadError(err instanceof Error ? err.message : String(err));
+      });
     }, REFRESH_MS);
     return () => clearTimeout(timer);
   }, [filter, syncDir, seq]);
@@ -111,6 +117,7 @@ export function TasksPage({ onOpenNote, onNotice }: {
       </div>
 
       <div className="flex-1 overflow-y-auto">
+        {loadError && <p className="p-6 text-sm text-red-600 dark:text-red-400" role="alert">{t('tasksLoadFailed').replace('{error}', loadError)}</p>}
         {!markdown && <p className="p-6 text-sm text-gray-500">{t('tasksNeedsMarkdown')}</p>}
         {markdown && loaded && tasks.length === 0 && <p className="p-6 text-sm text-gray-400" role="status">{t('tasksEmpty')}</p>}
         <ul>

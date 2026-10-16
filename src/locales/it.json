@@ -1139,5 +1139,11 @@
   "providerCustom": "Compatibile OpenAI (indirizzo tuo)",
   "modelPlaceholder": "Nome del modello, come lo scrive il servizio",
   "modelPlaceholderAuto": "Rilevato automaticamente",
-  "modelDetectHelp": "Inserisci la chiave API, poi premi Rileva modelli per scegliere tra quelli che il servizio offre oggi, oppure scrivi il nome di un modello."
+  "modelDetectHelp": "Inserisci la chiave API, poi premi Rileva modelli per scegliere tra quelli che il servizio offre oggi, oppure scrivi il nome di un modello.",
+  "autoCommitFailed": "Commit automatico non riuscito: {error}",
+  "tasksLoadFailed": "Impossibile leggere le attività: {error}",
+  "searchFailed": "La ricerca non è riuscita: {error}",
+  "searchMinChars": "Scrivi almeno 2 caratteri",
+  "activityLoadFailed": "Impossibile leggere il registro degli agenti: {error}",
+  "activityDiffFailed": "Impossibile mostrare questa modifica: {error}"
 }

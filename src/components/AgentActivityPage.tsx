@@ -32,10 +32,14 @@ export function AgentActivityPage({ onOpenNote, onNotice }: {
   const [filter, setFilter] = useState<ActivityFilter>({});
   const [open, setOpen] = useState<Record<string, { before: string; after: string; kept: boolean } | 'loading'>>({});
   const [messages, setMessages] = useState<Record<string, string>>({});
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await getElectronApi()?.journalList?.(syncDir).catch(() => null);
+    const res = await getElectronApi()?.journalList?.(syncDir).catch((err: unknown) => ({ success: false as const, error: err instanceof Error ? err.message : String(err) }));
+    // A journal that cannot be read is said, not shown as "no activity".
+    if (res && !res.success) setLoadError(res.error ?? 'failed');
     if (res?.success && res.data) {
+      setLoadError(null);
       setEntries(res.data.entries);
       setTotal(res.data.total);
       setReverted(new Set(res.data.reverted));
@@ -51,8 +55,10 @@ export function AgentActivityPage({ onOpenNote, onNotice }: {
   const toggleDiff = async (entry: JournalEntry) => {
     if (open[entry.id]) { setOpen(o => { const next = { ...o }; delete next[entry.id]; return next; }); return; }
     setOpen(o => ({ ...o, [entry.id]: 'loading' }));
-    const res = await getElectronApi()?.journalDiff?.(entry.id, syncDir).catch(() => null);
+    const res = await getElectronApi()?.journalDiff?.(entry.id, syncDir).catch((err: unknown) => ({ success: false as const, data: undefined, error: err instanceof Error ? err.message : String(err) }));
     setOpen(o => ({ ...o, [entry.id]: res?.success && res.data ? res.data : { before: '', after: '', kept: false } }));
+    // "Show" used to open nothing at all when the change could not be read.
+    if (!res?.success || !res.data) setMessages(m => ({ ...m, [entry.id]: t('activityDiffFailed').replace('{error}', res?.error ?? 'failed') }));
   };
 
   const undo = async (ids: string[]) => {
@@ -104,7 +110,8 @@ export function AgentActivityPage({ onOpenNote, onNotice }: {
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-6">
-        {entries.length === 0 && <p className="py-8 text-sm text-gray-400" role="status">{t('activityEmpty')}</p>}
+        {loadError && <p className="py-8 text-sm text-red-600 dark:text-red-400" role="alert">{t('activityLoadFailed').replace('{error}', loadError)}</p>}
+        {!loadError && entries.length === 0 && <p className="py-8 text-sm text-gray-400" role="status">{t('activityEmpty')}</p>}
         {total > entries.length && <p className="pt-3 text-[11px] text-gray-400">{t('activityMore').replace('{n}', String(total - entries.length))}</p>}
         {sessions.map(session => {
           const undoable = session.entries.filter(e => canUndo(e, reverted));

@@ -1139,5 +1139,11 @@
   "providerCustom": "OpenAI-kompatibel (eigene Adresse)",
   "modelPlaceholder": "Modellname, wie der Dienst ihn schreibt",
   "modelPlaceholderAuto": "Automatisch erkannt",
-  "modelDetectHelp": "API-Schlüssel eingeben, dann auf Modelle erkennen klicken, um aus dem heutigen Angebot des Dienstes zu wählen, oder einen Modellnamen eintippen."
+  "modelDetectHelp": "API-Schlüssel eingeben, dann auf Modelle erkennen klicken, um aus dem heutigen Angebot des Dienstes zu wählen, oder einen Modellnamen eintippen.",
+  "autoCommitFailed": "Automatischer Commit fehlgeschlagen: {error}",
+  "tasksLoadFailed": "Die Aufgaben konnten nicht gelesen werden: {error}",
+  "searchFailed": "Die Suche ist fehlgeschlagen: {error}",
+  "searchMinChars": "Mindestens 2 Zeichen eingeben",
+  "activityLoadFailed": "Das Agenten-Journal konnte nicht gelesen werden: {error}",
+  "activityDiffFailed": "Diese Änderung konnte nicht angezeigt werden: {error}"
 }
