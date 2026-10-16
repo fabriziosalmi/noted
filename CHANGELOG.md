@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-10-16
+
 ### Fixed
 
 - **Undo no longer reaches into another note.** One editor shows every note, and its undo history went on across a note switch: Cmd+Z in the note just opened brought back the previous note's text (or an empty page), autosave wrote it to the open note's file, and the title sync renamed that file after the other note, so the open note's own text was lost. The same happened after a note was reloaded because it changed on disk (a Git pull, an MCP client): undo put the replaced version back and saved it over the new one. The undo history now starts over when a note is opened or reloaded, and a test covers both.
@@ -445,7 +447,8 @@ The first cross-platform release, and the first that keeps itself up to date.
   backlinks, full-text search, multi-provider AI, Git integration, export, quick
   capture, and a built-in MCP server.
 
-[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.6.1...HEAD
+[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.6.2...HEAD
+[1.6.2]: https://github.com/fabriziosalmi/noted/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/fabriziosalmi/noted/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/fabriziosalmi/noted/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/fabriziosalmi/noted/compare/v1.4.0...v1.5.0
