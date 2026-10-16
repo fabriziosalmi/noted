@@ -1,5 +1,5 @@
 import { getElectronApi } from '../lib/electronApi';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { X, RotateCcw, Clock } from 'lucide-react';
 import { Modal } from './Modal';
 import { useConfirm } from './ConfirmProvider';
@@ -19,10 +19,14 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
   const { t } = useI18n();
   const confirm = useConfirm();
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
-  const [preview, setPreview] = useState<string | null>(null);
   const [selected, setSelected] = useState<Snapshot | null>(null);
+  // The text shown, with the version it was read from: Restore writes only what is on screen for the selected version.
+  const [preview, setPreview] = useState<{ name: string; content: string } | null>(null);
+  const [previewState, setPreviewState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const requested = useRef<string | null>(null);
   const [loading, setLoading] = useState(!!window.electronAPI);
-  const previewHtml = useMemo(() => preview ? sanitizeHtml(preview) : null, [preview]);
+  const current = preview && selected && preview.name === selected.name ? preview.content : null;
+  const previewHtml = useMemo(() => current ? sanitizeHtml(current) : null, [current]);
 
   useEffect(() => {
     if (!window.electronAPI) return;
@@ -36,21 +40,30 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
 
   const loadPreview = useCallback(async (snap: Snapshot) => {
     setSelected(snap);
+    setPreview(null);
+    setPreviewState('loading');
+    requested.current = snap.name;
     // through getElectronApi: a snapshot of a Markdown note is Markdown, the preview is HTML
     const api = getElectronApi();
     if (!api) return;
-    const res = await api.readNoteSnapshot(fileName, snap.name, syncDir ?? undefined);
-    if (res.success && res.data) setPreview(res.data);
+    const res = await api.readNoteSnapshot(fileName, snap.name, syncDir ?? undefined).catch(() => null);
+    if (requested.current !== snap.name) return; // another version was picked while this one was read
+    if (res?.success && res.data) {
+      setPreview({ name: snap.name, content: res.data });
+      setPreviewState('idle');
+    } else {
+      setPreviewState('error');
+    }
   }, [fileName, syncDir]);
 
   const handleRestore = useCallback(async () => {
-    if (!preview) return;
+    if (!current || !selected) return;
     // Restoring overwrites the live note — confirm first, like delete/wipe/merge.
-    if (await confirm({ message: t('restoreVersion'), confirmLabel: t('restoreVersion'), danger: true })) {
-      onRestore(preview);
+    if (await confirm({ message: t('restoreVersionAt').replace('{time}', selected.ts), confirmLabel: t('restoreVersion'), danger: true })) {
+      onRestore(current);
       onClose();
     }
-  }, [preview, onRestore, onClose, confirm, t]);
+  }, [current, selected, onRestore, onClose, confirm, t]);
 
   return (
     <Modal id="history" onClose={onClose} labelledBy="history-title" className="w-[700px] max-w-[92vw] max-h-[80vh]">
@@ -83,14 +96,18 @@ export function NoteHistoryModal({ fileName, syncDir, onRestore, onClose }: Note
           {/* Preview */}
           <div className="flex-1 overflow-y-auto p-4">
             {previewHtml ? (
-              <div className="prose prose-sm dark:prose-invert max-w-none text-xs" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+              <div className="ProseMirror note-preview" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+            ) : previewState === 'loading' ? (
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-8 text-center">{t('loading')}</p>
+            ) : previewState === 'error' ? (
+              <p role="alert" className="text-xs text-red-600 dark:text-red-400 mt-8 text-center">{t('versionReadError')}</p>
             ) : (
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-8 text-center">{t('selectVersion')}</p>
             )}
           </div>
         </div>
 
-        {selected && preview && (
+        {selected && current && (
           <div className="px-5 py-3 border-t border-gray-100/40 dark:border-gray-700/40 flex justify-end">
             <button
               type="button"

@@ -6,6 +6,19 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Find in note shows what it found.** Every match is now marked in the note, and the one the find bar is on is marked more strongly. Before, only the current match was selected, and the selection is not drawn while typing in the find field, so "1/5" pointed at nothing visible. A phrase that is partly bold or partly a link is now found, and the matches follow edits made while the bar is open.
+- **Creating a note or a folder keeps the sort you chose.** It used to switch the note list to the custom order, and that choice was saved.
+- **The keyboard shortcuts window fits the window.** It was taller than an 800-pixel window, so its title, its close button and its last rows could not be reached. It now scrolls.
+- **The word count and save status stay in the editor.** They were placed against the window, so with the side panel open they sat over the chat's input and its Stop button and caught their clicks. They now sit in the corner of the editor, and are hidden on Tasks, Vault health and the other pages.
+- **History never restores a version other than the one selected.** Picking a version cleared nothing, so a version that could not be read, or was read slowly, left the previous one on screen under the new selection, and Restore wrote that. The preview now belongs to the selected version, a read error is said, and the confirmation names the version's time. The preview also has the editor's formatting (lists, headings, callouts), which it had lost.
+- **Escape closes the dialog on top.** With a confirmation open over Settings or History, a refresh of the app could put Settings or History back on top, and Escape then closed it and left the confirmation alone.
+- **Closing the Save dialog of an export is not an error.** It showed a red "Export cancelled" for ten seconds; now nothing is said. Markdown and PDF exports suggest the note's title as the file name instead of `Note`, and an HTML export writes the title into the page as text.
+- **Callouts keep their colour in the dark theme.** Warning, danger and tip callouts were all purple.
+- The AI settings explanation said the provider is "above"; it is below.
+- **Quick Capture opens when asked again right after closing it.** Asked for while its window was still closing (Escape, then the shortcut again), it only focused the window that was going away, and nothing opened.
+
 ## [1.6.2] - 2026-10-16
 
 ### Fixed

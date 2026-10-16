@@ -50,7 +50,6 @@ export function useModalStack(id: string, open: boolean, onClose: () => void) {
   useEffect(() => {
     if (!open) return;
     stack.push(id);
-    closers.set(id, onClose);
     ensureListener();
     return () => {
       const i = stack.lastIndexOf(id);
@@ -58,5 +57,11 @@ export function useModalStack(id: string, open: boolean, onClose: () => void) {
       closers.delete(id);
       teardownIfEmpty();
     };
+  }, [id, open]);
+
+  // Parents often pass a new onClose on every render. That only replaces the closer: it must not move the modal back
+  // to the top of the stack, above a dialog opened over it (Escape would then close the one underneath).
+  useEffect(() => {
+    if (open) closers.set(id, onClose);
   }, [id, open, onClose]);
 }

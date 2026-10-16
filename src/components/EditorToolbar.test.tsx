@@ -1,6 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { act } from 'react';
+import { Editor } from '@tiptap/core';
 import { render, screen, fireEvent } from '../test/test-utils';
+import { documentExtensions } from '../../shared/markdown/schema';
+import { FindHighlight } from '../lib/findHighlight';
 import { EditorToolbar } from './EditorToolbar';
+
+const editors: Editor[] = [];
+afterEach(() => { for (const e of editors.splice(0)) { e.destroy(); e.options.element?.remove(); } });
+// jsdom has no layout: give ProseMirror's scroll-into-view the rectangles it asks for.
+const emptyRects = () => Object.assign([], { item: () => null }) as unknown as DOMRectList;
+const zeroRect = () => ({ x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0, toJSON: () => ({}) }) as DOMRect;
+Range.prototype.getClientRects ??= emptyRects;
+Range.prototype.getBoundingClientRect ??= zeroRect;
 
 const mockEditor = {
   isActive: vi.fn().mockReturnValue(false),
@@ -122,51 +134,46 @@ describe('EditorToolbar', () => {
     expect(aiRow?.contains(shareSlot)).toBe(true);
   });
 
+  // Find runs on a real editor: the matches live in the find plugin (lib/findHighlight).
+  const findEditor = (html = '<p>hello world hello</p>') => {
+    const element = document.createElement('div');
+    document.body.appendChild(element);
+    const editor = new Editor({ element, extensions: [...documentExtensions(), FindHighlight], content: html });
+    editors.push(editor);
+    return editor;
+  };
+  const selected = (editor: Editor) => ({ from: editor.state.selection.from, to: editor.state.selection.to });
+
   it('focuses search input when opened', () => {
-    render(<EditorToolbar {...defaultProps} findOpen={true} />);
+    render(<EditorToolbar {...defaultProps} editor={findEditor()} findOpen={true} />);
     const input = screen.getByPlaceholderText('Find in document...');
     expect(input).toBeInTheDocument();
     expect(document.activeElement).toBe(input);
   });
 
-  it('runs find and updates selection and highlights matches count', async () => {
-    mockEditor.state.doc = {
-      content: { size: 20 },
-      nodesBetween: (from: number, to: number, cb: any) => {
-        cb({ isText: true, text: 'hello world hello' }, 0);
-      }
-    } as any;
-
-
-    render(<EditorToolbar {...defaultProps} findOpen={true} />);
+  it('marks every match, selects the current one, and steps through them', () => {
+    const editor = findEditor();
+    render(<EditorToolbar {...defaultProps} editor={editor} findOpen={true} />);
     const input = screen.getByPlaceholderText('Find in document...');
 
     fireEvent.change(input, { target: { value: 'hello' } });
-
     expect(screen.getByText('1/2')).toBeInTheDocument();
-    expect(mockEditor.commands.setTextSelection).toHaveBeenCalledWith({ from: 0, to: 5 });
-    expect(mockEditor.commands.scrollIntoView).toHaveBeenCalled();
+    expect(selected(editor)).toEqual({ from: 1, to: 6 });
+    expect(editor.view.dom.querySelectorAll('.find-match')).toHaveLength(2);
+    expect(editor.view.dom.querySelectorAll('.find-match-current')).toHaveLength(1);
 
-    const nextBtn = screen.getByRole('button', { name: 'Next' });
-    fireEvent.click(nextBtn);
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(screen.getByText('2/2')).toBeInTheDocument();
-    expect(mockEditor.commands.setTextSelection).toHaveBeenCalledWith({ from: 12, to: 17 });
+    expect(selected(editor)).toEqual({ from: 13, to: 18 });
 
-    const prevBtn = screen.getByRole('button', { name: 'Previous' });
-    fireEvent.click(prevBtn);
+    fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
     expect(screen.getByText('1/2')).toBeInTheDocument();
   });
 
   it('handles Enter, Shift+Enter, and Escape keydowns in input', () => {
-    mockEditor.state.doc = {
-      content: { size: 20 },
-      nodesBetween: (from: number, to: number, cb: any) => {
-        cb({ isText: true, text: 'hello world hello' }, 0);
-      }
-    } as any;
-
-
-    render(<EditorToolbar {...defaultProps} findOpen={true} />);
+    const editor = findEditor();
+    const onCloseFind = vi.fn();
+    render(<EditorToolbar {...defaultProps} editor={editor} onCloseFind={onCloseFind} findOpen={true} />);
     const input = screen.getByPlaceholderText('Find in document...');
 
     fireEvent.change(input, { target: { value: 'hello' } });
@@ -179,48 +186,43 @@ describe('EditorToolbar', () => {
     expect(screen.getByText('1/2')).toBeInTheDocument();
 
     fireEvent.keyDown(input, { key: 'Escape', code: 'Escape' });
-    expect(defaultProps.onCloseFind).toHaveBeenCalled();
-    expect(mockEditor.commands.focus).toHaveBeenCalled();
+    expect(onCloseFind).toHaveBeenCalled();
+    expect(editor.view.dom.querySelectorAll('.find-match')).toHaveLength(0);
+  });
+
+  it('counts again when the note is edited while the bar is open', () => {
+    const editor = findEditor();
+    render(<EditorToolbar {...defaultProps} editor={editor} findOpen={true} />);
+    fireEvent.change(screen.getByPlaceholderText('Find in document...'), { target: { value: 'hello' } });
+    expect(screen.getByText('1/2')).toBeInTheDocument();
+    act(() => { editor.commands.insertContentAt(editor.state.doc.content.size - 1, ' hello'); });
+    expect(screen.getByText('1/3')).toBeInTheDocument();
   });
 
   it('shows noResults text when query matches nothing', () => {
-    mockEditor.state.doc = {
-      content: { size: 20 },
-      nodesBetween: (from: number, to: number, cb: any) => {
-        cb({ isText: true, text: 'hello world hello' }, 0);
-      }
-    } as any;
-
-
-    render(<EditorToolbar {...defaultProps} findOpen={true} />);
-    const input = screen.getByPlaceholderText('Find in document...');
-
-    fireEvent.change(input, { target: { value: 'nonexistent' } });
+    render(<EditorToolbar {...defaultProps} editor={findEditor()} findOpen={true} />);
+    fireEvent.change(screen.getByPlaceholderText('Find in document...'), { target: { value: 'nonexistent' } });
     expect(screen.getByText('0 results')).toBeInTheDocument();
   });
 
   it('handles empty query', () => {
-    mockEditor.state.doc = {
-      content: { size: 20 },
-      nodesBetween: (from: number, to: number, cb: any) => {
-        cb({ isText: true, text: 'hello world hello' }, 0);
-      }
-    } as any;
-
-
-    render(<EditorToolbar {...defaultProps} findOpen={true} />);
-    const input = screen.getByPlaceholderText('Find in document...');
-
-    fireEvent.change(input, { target: { value: '' } });
+    render(<EditorToolbar {...defaultProps} editor={findEditor()} findOpen={true} />);
+    fireEvent.change(screen.getByPlaceholderText('Find in document...'), { target: { value: '' } });
     expect(screen.queryByText('0 results')).toBeNull();
   });
 
-  it('supports close button click', () => {
+  it('supports close button click, and closing from outside takes the marks away too', () => {
+    const editor = findEditor();
+    const onCloseFind = vi.fn();
+    const { rerender } = render(<EditorToolbar {...defaultProps} editor={editor} onCloseFind={onCloseFind} findOpen={true} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Close find' }));
+    expect(onCloseFind).toHaveBeenCalled();
 
-    render(<EditorToolbar {...defaultProps} findOpen={true} />);
-    const closeBtn = screen.getByRole('button', { name: 'Close find' });
-    fireEvent.click(closeBtn);
-    expect(defaultProps.onCloseFind).toHaveBeenCalled();
+    rerender(<EditorToolbar {...defaultProps} editor={editor} findOpen={true} />);
+    fireEvent.change(screen.getByPlaceholderText('Find in document...'), { target: { value: 'hello' } });
+    expect(editor.view.dom.querySelectorAll('.find-match')).toHaveLength(2);
+    rerender(<EditorToolbar {...defaultProps} editor={editor} findOpen={false} />); // Cmd+F again
+    expect(editor.view.dom.querySelectorAll('.find-match')).toHaveLength(0);
   });
 
   it('calls editor commands when formatting buttons are clicked', () => {

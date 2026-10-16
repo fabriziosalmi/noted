@@ -148,3 +148,27 @@ test('quick capture window: closes with Escape and with the close button, nothin
 
   expect(fs.readdirSync(vault).filter(f => f !== 'Anchor.md' && !f.startsWith('.'))).toEqual([]);
 });
+
+test('quick capture asked for while its window is still closing opens a new window', async ({ noted }) => {
+  const { app } = await noted.relaunch();
+  // Closes the capture window first when asked to, then clicks File → Quick Capture, in one turn of the main process.
+  const quickCapture = (closeFirst: boolean) => app.evaluate(({ BrowserWindow, Menu }, closeFirst) => {
+    if (closeFirst) BrowserWindow.getAllWindows().find(w => w.webContents.getURL().includes('capture.html'))!.close();
+    const find = (items: Electron.MenuItem[]): Electron.MenuItem | undefined => {
+      for (const i of items) { if (i.label === 'Quick Capture') return i; const f = i.submenu && find(i.submenu.items); if (f) return f; }
+      return undefined;
+    };
+    find(Menu.getApplicationMenu()!.items)!.click();
+  }, closeFirst);
+
+  const first = app.waitForEvent('window');
+  await quickCapture(false);
+  await (await first).waitForLoadState('domcontentloaded');
+
+  // The window is closing, not yet destroyed: before, the request only focused it, and no window was left.
+  const second = app.waitForEvent('window', { timeout: 10_000 });
+  await quickCapture(true);
+  const reopened = await second;
+  await reopened.waitForLoadState('domcontentloaded');
+  expect(reopened.isClosed()).toBe(false);
+});

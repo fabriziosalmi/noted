@@ -4,16 +4,30 @@ import { stripUnsafeHtml } from '../../ipc-utils.js';
 import { logEvent } from '../../structured-log.js';
 import { tr } from '../../core/language.js';
 
+/** A closed Save dialog: not a failure, so the app says nothing. */
+const CANCELED = { success: false, canceled: true } as const;
+
+/** The name the Save dialog suggests: the note's title (its last path segment), without characters a file name cannot hold. */
+export function exportFileName(title: unknown, ext: string): string {
+  const base = typeof title === 'string'
+    // eslint-disable-next-line no-control-regex
+    ? (title.split('/').pop() ?? '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-').trim()
+    : '';
+  return `${base || 'Note'}.${ext}`;
+}
+
+const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
 export function registerExporterHandlers() {
-  ipcMain.handle('export-markdown', async (_, markdownContent: string) => {
+  ipcMain.handle('export-markdown', async (_, markdownContent: string, noteTitle?: string) => {
     try {
       if (typeof markdownContent !== 'string') throw new Error('Content must be a string');
       const { filePath } = await dialog.showSaveDialog({
         title: tr('dlgExportMarkdown'),
-        defaultPath: 'Note.md',
+        defaultPath: exportFileName(noteTitle, 'md'),
         filters: [{ name: 'Markdown', extensions: ['md'] }],
       });
-      if (!filePath) return { success: false, error: 'Export cancelled' };
+      if (!filePath) return CANCELED;
       fs.writeFileSync(filePath, markdownContent, 'utf-8');
       return { success: true, data: filePath };
     } catch (error: unknown) {
@@ -22,20 +36,18 @@ export function registerExporterHandlers() {
     }
   });
 
-  ipcMain.handle('export-pdf', async (_event, htmlContent: string) => {
+  ipcMain.handle('export-pdf', async (_event, htmlContent: string, noteTitle?: string) => {
     try {
       if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
       if (htmlContent.length > 5_000_000) throw new Error('Content too large for PDF export');
       // Show save dialog
       const { filePath } = await dialog.showSaveDialog({
         title: tr('dlgExportPdf'),
-        defaultPath: 'Note.pdf',
+        defaultPath: exportFileName(noteTitle, 'pdf'),
         filters: [{ name: 'PDF', extensions: ['pdf'] }]
       });
 
-      if (!filePath) {
-        return { success: false, error: 'Export cancelled' };
-      }
+      if (!filePath) return CANCELED;
 
       // Create a hidden browser window to render the HTML
       const pdfWin = new BrowserWindow({
@@ -156,17 +168,17 @@ export function registerExporterHandlers() {
       if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
       const { filePath } = await dialog.showSaveDialog({
         title: tr('dlgExportHtml'),
-        defaultPath: `${noteTitle || 'Note'}.html`,
+        defaultPath: exportFileName(noteTitle, 'html'),
         filters: [{ name: 'HTML', extensions: ['html'] }],
       });
-      if (!filePath) return { success: false, error: 'Export cancelled' };
+      if (!filePath) return CANCELED;
       const safe = stripUnsafeHtml(htmlContent);
       const full = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${noteTitle}</title>
+  <title>${escapeHtml(String(noteTitle ?? ''))}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; max-width: 800px; margin: 60px auto; padding: 0 24px; line-height: 1.7; color: #1a1a1a; }
     h1,h2,h3 { font-weight: 700; margin-top: 1.5em; }
@@ -193,10 +205,10 @@ export function registerExporterHandlers() {
       if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
       const { filePath } = await dialog.showSaveDialog({
         title: tr('dlgExportDocx'),
-        defaultPath: `${noteTitle || 'Note'}.docx`,
+        defaultPath: exportFileName(noteTitle, 'docx'),
         filters: [{ name: tr('dlgFilterWord'), extensions: ['docx'] }],
       });
-      if (!filePath) return { success: false, error: 'Export cancelled' };
+      if (!filePath) return CANCELED;
 
       const safe = stripUnsafeHtml(htmlContent);
       // Dynamic import — html-to-docx is CJS

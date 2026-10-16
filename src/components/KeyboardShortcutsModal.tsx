@@ -67,7 +67,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
   ];
 
   return (
-    <Modal id="shortcuts" onClose={onClose} labelledBy="shortcuts-title" className="w-full max-w-md mx-4">
+    <Modal id="shortcuts" onClose={onClose} labelledBy="shortcuts-title" className="w-full max-w-md mx-4 max-h-[85vh]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100/40 dark:border-gray-700/40">
           <h2 id="shortcuts-title" className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('keyboardShortcuts')}</h2>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded" aria-label={t('close')}>
@@ -75,7 +75,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-5">
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-5">
           {SECTIONS.map(section => (
             <div key={section.titleKey}>
               <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t(section.titleKey)}</p>

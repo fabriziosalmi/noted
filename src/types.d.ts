@@ -32,10 +32,10 @@ declare global {
       deleteNote: (fileName: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       wipeAllNotes: (syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       selectSyncFolder: () => Promise<{ success: boolean; data?: string }>;
-      exportPdf: (htmlContent: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+      exportPdf: (htmlContent: string, title?: string) => Promise<{ success: boolean; data?: string; error?: string; canceled?: boolean }>;
       printNote: (htmlContent: string, title?: string) => Promise<{ success: boolean; error?: string }>;
       renameNote: (oldName: string, newName: string, syncDir?: string, opts?: LinkUpdateOptions) => Promise<{ success: boolean; links?: LinkUpdateResult; error?: string }>;
-      exportMarkdown: (content: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+      exportMarkdown: (content: string, title?: string) => Promise<{ success: boolean; data?: string; error?: string; canceled?: boolean }>;
       storeApiKey: (key: string) => Promise<{ success: boolean; error?: string }>;
       getApiKey: () => Promise<{ success: boolean; data?: string; error?: string }>;
       llmFetch: (url: string, options: { method: string; headers: Record<string, string>; body: string }) => Promise<{ ok: boolean; status: number; text: string }>;
@@ -61,8 +61,8 @@ declare global {
       setActiveVaultDir?: (dir: string | null) => void;
       setLlmHosts?: (hosts: string[]) => void;
       onNoteChangedExternally?: (cb: (fileName: string) => void) => () => void;
-      exportHtml: (htmlContent: string, title: string) => Promise<{ success: boolean; data?: string; error?: string }>;
-      exportDocx: (htmlContent: string, title: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+      exportHtml: (htmlContent: string, title: string) => Promise<{ success: boolean; data?: string; error?: string; canceled?: boolean }>;
+      exportDocx: (htmlContent: string, title: string) => Promise<{ success: boolean; data?: string; error?: string; canceled?: boolean }>;
       importVault: (targetDir?: string) => Promise<{ success: boolean; data?: number; error?: string }>;
       getICloudPath: () => Promise<{ success: boolean; data?: string; error?: string }>;
       detectCloudProviders: () => Promise<{ success: boolean; data?: { id: string; name: string; basePath: string; notedPath: string; available: boolean }[]; error?: string }>;

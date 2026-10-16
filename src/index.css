@@ -289,6 +289,8 @@ body {
   caret-color: var(--accent);
 }
 .dark .ProseMirror { color: #e8e8ed; }
+/* The editor's look for read-only HTML (a version in History): not the editor's full-page height. */
+.ProseMirror.note-preview { min-height: 0; padding-bottom: 0; font-size: 0.875rem; }
 
 .ProseMirror > * + * { margin-top: 0.75em; }
 
@@ -596,6 +598,11 @@ body {
 .ProseMirror div[data-callout="tip"]::before, .ProseMirror div[data-callout="success"]::before, .ProseMirror div[data-callout="check"]::before { color: #2f9e44; }
 .dark .ProseMirror div[data-callout]::before { color: #bf5af2; }
 .dark .ProseMirror div[data-callout] { border-left-color: #bf5af2; background: rgba(191, 90, 242, 0.1); }
+/* The dark rule above outranks the light per-type colours, so each type gets its dark colour here. */
+.dark .ProseMirror div[data-callout="warning"], .dark .ProseMirror div[data-callout="caution"], .dark .ProseMirror div[data-callout="danger"], .dark .ProseMirror div[data-callout="error"] { border-left-color: #ff8a4c; background: rgba(255, 138, 76, 0.12); }
+.dark .ProseMirror div[data-callout="warning"]::before, .dark .ProseMirror div[data-callout="caution"]::before, .dark .ProseMirror div[data-callout="danger"]::before, .dark .ProseMirror div[data-callout="error"]::before { color: #ff8a4c; }
+.dark .ProseMirror div[data-callout="tip"], .dark .ProseMirror div[data-callout="success"], .dark .ProseMirror div[data-callout="check"] { border-left-color: #51cf66; background: rgba(81, 207, 102, 0.1); }
+.dark .ProseMirror div[data-callout="tip"]::before, .dark .ProseMirror div[data-callout="success"]::before, .dark .ProseMirror div[data-callout="check"]::before { color: #51cf66; }
 
 /* Markdown the editor cannot show as rich text is kept as written, in a plain box. */
 .ProseMirror pre[data-raw-block] {
@@ -640,6 +647,18 @@ body {
   box-shadow: 0 0 0 3px var(--accent-light);
   border-radius: 2px;
 }
+
+/* Find in note: every match, and the one the find bar is on. */
+.find-match {
+  background: rgba(250, 204, 21, 0.35);
+  border-radius: 2px;
+}
+.find-match-current {
+  background: rgba(249, 115, 22, 0.55);
+  box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.9);
+}
+.dark .find-match { background: rgba(250, 204, 21, 0.28); }
+.dark .find-match-current { background: rgba(249, 115, 22, 0.5); }
 
 /* ─── Ghost text (AI Tab completion) ────────────────────────────────── */
 .ghost-text {
