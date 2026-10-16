@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render as rtlRender, screen, waitFor, within } from '@testing-library/react';
-import type { ReactElement } from 'react';
-import { ConfirmProvider } from './ConfirmProvider';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { render } from '../test/test-utils';
 import { PendingChangesBadge } from './PendingChanges';
 import { useStore } from '../store/useStore';
 import type { PendingChange } from '../../shared/vault/pending';
@@ -24,9 +23,6 @@ beforeEach(() => {
   useStore.setState({ settings: { ...useStore.getState().settings, language: 'en' } });
 });
 afterEach(() => { window.electronAPI = original; notice.mockClear(); });
-
-// As in the app: under the provider of the in-app confirm.
-const render = (ui: ReactElement) => rtlRender(<ConfirmProvider>{ui}</ConfirmProvider>);
 
 const open = async () => {
   render(<PendingChangesBadge onNotice={notice} />);

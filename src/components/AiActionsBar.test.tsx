@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
+import { screen, fireEvent, waitFor, act, within } from '@testing-library/react';
+import { render } from '../test/test-utils';
 import { AiActionsBar } from './AiActionsBar';
 import { askLLM, AbortedError } from '../lib/llm';
 import { useStore } from '../store/useStore';
