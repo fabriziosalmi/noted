@@ -24,6 +24,7 @@ import { EmbedExtension, setEmbedContext } from '../lib/EmbedExtension';
 import { TagSuggestion } from './TagSuggestion';
 import { BacklinksPanel } from './BacklinksPanel';
 import { Extension, getMarkRange } from '@tiptap/core';
+import { EditorState } from '@tiptap/pm/state';
 import { CodeBlockView } from './CodeBlockView';
 import { SlashCommands } from './SlashCommands';
 import { SmartTagSuggestion } from './SmartTagSuggestion';
@@ -52,6 +53,16 @@ const currentFormat = () => peekVaultFormat(useStore.getState().settings.syncDir
  * it as written, which is not how it reads HTML by default.
  */
 const parseOptionsFor = (format: ReturnType<typeof currentFormat>) => (format === 'markdown' ? { preserveWhitespace: 'full' as const } : undefined);
+
+/**
+ * Starts the undo history over on the document now in the editor. One editor shows every note, so without this, undo
+ * walks back past a note switch or a reload from disk and brings the replaced text into the note on screen, where
+ * autosave writes it to the file.
+ */
+function resetUndoHistory(editor: Editor): void {
+  const { doc, selection, plugins } = editor.state;
+  editor.view.updateState(EditorState.create({ doc, selection, plugins }));
+}
 
 const WikilinkPlugin = Extension.create({
   name: 'wikilinkPlugin',
@@ -526,6 +537,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       flushPending();
       prevNoteNameRef.current = activeNoteName;
       editor.commands.setContent(activeNoteContent, { parseOptions: parseOptionsFor(currentFormat()) });
+      resetUndoHistory(editor);
       baselineHtmlRef.current = editor.getHTML();
       headingBaselineRef.current = activeNoteName ? { note: activeNoteName, headings: extractOutline(editor.state.doc).map(item => item.text) } : null;
       headingEditedRef.current = false;
@@ -602,6 +614,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       cur.applyExternalContent(name, plan.disk.content, plan.disk.frontmatter);
       const { from, to } = editor.state.selection;
       editor.commands.setContent(plan.disk.content, { emitUpdate: false, parseOptions: parseOptionsFor(currentFormat()) });
+      resetUndoHistory(editor);
       baselineHtmlRef.current = editor.getHTML();
       // The headings that arrived from elsewhere are the new starting point, not a rename.
       headingBaselineRef.current = { note: name, headings: extractOutline(editor.state.doc).map(item => item.text) };
