@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.6.3] - 2026-10-16
+
 ### Fixed
 
 - **Find in note shows what it found.** Every match is now marked in the note, and the one the find bar is on is marked more strongly. Before, only the current match was selected, and the selection is not drawn while typing in the find field, so "1/5" pointed at nothing visible. A phrase that is partly bold or partly a link is now found, and the matches follow edits made while the bar is open.
@@ -460,7 +462,8 @@ The first cross-platform release, and the first that keeps itself up to date.
   backlinks, full-text search, multi-provider AI, Git integration, export, quick
   capture, and a built-in MCP server.
 
-[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.6.2...HEAD
+[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.6.3...HEAD
+[1.6.3]: https://github.com/fabriziosalmi/noted/compare/v1.6.2...v1.6.3
 [1.6.2]: https://github.com/fabriziosalmi/noted/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/fabriziosalmi/noted/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/fabriziosalmi/noted/compare/v1.5.0...v1.6.0
