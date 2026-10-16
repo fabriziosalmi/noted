@@ -134,7 +134,7 @@ function NoteRow({
           title={renameHint}
           className={`flex items-start space-x-2 w-full text-left p-2 pl-4 rounded text-sm cursor-pointer transition-all duration-150 ease-out ${
             isActive
-              ? 'bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] text-[var(--accent)] font-medium'
+              ? 'bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] text-[var(--accent-text)] font-medium'
               : 'hover:bg-gray-200/50 dark:hover:bg-gray-800/40 text-gray-700 dark:text-gray-300'
           }`}
         >

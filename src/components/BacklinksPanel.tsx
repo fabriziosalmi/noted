@@ -26,7 +26,7 @@ export function BacklinksPanel({ activeNoteName, backlinks, onSelectNote }: Back
             key={name}
             onClick={() => onSelectNote(name)}
             className="text-xs px-2.5 py-1 rounded-full transition-colors hover:opacity-80"
-            style={{ background: 'var(--accent-light)', color: 'var(--accent)' } as React.CSSProperties}
+            style={{ background: 'var(--accent-light)', color: 'var(--accent-text)' } as React.CSSProperties}
           >
             [[{name.replace(/\.md$/, '')}]]
           </button>
