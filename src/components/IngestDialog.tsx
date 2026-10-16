@@ -4,6 +4,7 @@ import { useI18n } from '../lib/i18n';
 import { useStore } from '../store/useStore';
 import { buildNote, IngestError, prepareSource, writeSourceNote, type IngestInput, type IngestStage, type Prepared } from '../lib/ingest';
 import { Modal } from './Modal';
+import { useConfirm } from './ConfirmProvider';
 import { ReviewDiff } from './ReviewDiff';
 
 const field = 'w-full text-sm rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 outline-none focus:border-[var(--accent)]';
@@ -60,6 +61,13 @@ export function IngestDialog({ onOpenNote, onNotice }: {
   };
 
   const cancelWork = () => { controller.current?.abort(); setStage(null); };
+  const confirm = useConfirm();
+  // Escape on a prepared note asks first: it used to throw away the summary, the edited title and the links kept.
+  const requestClose = async () => {
+    if (prepared && !(await confirm({ message: t('ingestDiscardConfirm'), confirmLabel: t('reviewDiscard'), danger: true }))) return;
+    cancelWork();
+    close();
+  };
 
   const create = async () => {
     if (!prepared) return;
@@ -80,7 +88,7 @@ export function IngestDialog({ onOpenNote, onNotice }: {
 
   const working = stage !== null;
   return (
-    <Modal id="ingest" onClose={() => { cancelWork(); close(); }} labelledBy={titleId} solid dismissOnBackdrop={false} className="w-[760px] max-w-[94vw] max-h-[88vh]">
+    <Modal id="ingest" onClose={() => { void requestClose(); }} labelledBy={titleId} solid dismissOnBackdrop={false} className="w-[760px] max-w-[94vw] max-h-[88vh]">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200/60 dark:border-gray-700/60">
         <h2 id={titleId} className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('ingestTitle')}</h2>
       </div>

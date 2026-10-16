@@ -124,7 +124,7 @@
   "dailySectionNotes": "Note",
   "dailySectionTodo": "Da fare",
   "dailySectionIdeas": "Idee",
-  "renameHint": "Doppio clic per rinominare",
+  "renameHint": "Doppio clic o F2 per rinominare",
   "selectNote": "Seleziona una nota o creane una nuova",
   "editorPlaceholder": "Scrivi qualcosa...",
   "smartPaste": "Incolla intelligente...",
@@ -1145,5 +1145,13 @@
   "searchFailed": "La ricerca non è riuscita: {error}",
   "searchMinChars": "Scrivi almeno 2 caratteri",
   "activityLoadFailed": "Impossibile leggere il registro degli agenti: {error}",
-  "activityDiffFailed": "Impossibile mostrare questa modifica: {error}"
+  "activityDiffFailed": "Impossibile mostrare questa modifica: {error}",
+  "ingestDiscardConfirm": "Chiudere e scartare la nota preparata?",
+  "reviewDiscardConfirm": "Chiudere e scartare le modifiche proposte?",
+  "pendingApproveAllConfirm": "Approvare tutte le {n} modifiche? Vengono scritte nelle tue note.",
+  "pendingApproveAllDeletes": "{n} di queste eliminano una nota.",
+  "pendingRejectAllConfirm": "Rifiutare tutte le {n} modifiche? Non viene scritto nulla.",
+  "pendingProgress": "In corso: {done} di {total}…",
+  "pendingSomeFailed": "{n} di {total} modifiche non sono state concluse: {error}",
+  "deleteTemplateConfirm": "Eliminare il modello \"{name}\"? Non si può annullare."
 }

@@ -204,6 +204,25 @@ describe('Sidebar', () => {
     });
   });
 
+  it('renames a note and a folder from the keyboard with F2', async () => {
+    const onRenameNote = vi.fn().mockResolvedValue(undefined);
+    const onRenameFolder = vi.fn().mockResolvedValue(undefined);
+    const foldered = [{ name: 'docs', notes: [makeNote('docs/zeta.md', 1000)] }];
+    render(<Sidebar {...defaults} notes={[makeNote('alpha.md', 2000), makeNote('docs/zeta.md', 1000)]} noteFolders={foldered} onRenameNote={onRenameNote} onRenameFolder={onRenameFolder} />);
+
+    fireEvent.keyDown(screen.getByText('alpha').closest('[role="button"]')!, { key: 'F2' });
+    const noteInput = screen.getByDisplayValue('alpha');
+    fireEvent.change(noteInput, { target: { value: 'alpha-new' } });
+    fireEvent.keyDown(noteInput, { key: 'Enter' });
+    await waitFor(() => expect(onRenameNote).toHaveBeenCalledWith('alpha.md', 'alpha-new.md'));
+
+    fireEvent.keyDown(screen.getByText('docs').closest('button')!, { key: 'F2' });
+    const folderInput = screen.getByDisplayValue('docs');
+    fireEvent.change(folderInput, { target: { value: 'docs-new' } });
+    fireEvent.keyDown(folderInput, { key: 'Enter' });
+    await waitFor(() => expect(onRenameFolder).toHaveBeenCalledWith('docs', 'docs-new'));
+  });
+
   it('moves note to folder via drag and drop', async () => {
     const onMoveNote = vi.fn().mockResolvedValue(undefined);
     const rootNote = makeNote('root.md', 1000);

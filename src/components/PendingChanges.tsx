@@ -5,6 +5,7 @@ import { useStore } from '../store/useStore';
 import { getElectronApi } from '../lib/electronApi';
 import { usePendingChanges } from '../hooks/usePendingChanges';
 import { Modal } from './Modal';
+import { useConfirm } from './ConfirmProvider';
 import { NoteDiffView } from './NoteDiffView';
 import { ReviewDiff } from './ReviewDiff';
 import { compose, reviewable } from '../../shared/diff/hunks';
@@ -32,11 +33,14 @@ export function PendingChangesBadge({ onNotice }: { onNotice?: (message: string,
     () => new Map(changes.filter(c => c.kind === 'update').map(c => [c.id, reviewable(c.before ?? '', c.after ?? '')])),
     [changes],
   );
+  const confirm = useConfirm();
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const keptOf = (change: PendingChange): Set<number> => kept[change.id] ?? new Set(models.get(change.id)?.changes.map(c => c.id));
 
   if (changes.length === 0 && !open) return null;
 
-  const settle = async (change: PendingChange, approve: boolean) => {
+  /** Settles one change. `bulk`: no toast and no refresh of its own; the caller reports once and refreshes once. */
+  const settle = async (change: PendingChange, approve: boolean, bulk = false): Promise<string | null> => {
     // Some of the agent's changes kept, some dropped: what is written is the note with only the kept ones made.
     const model = models.get(change.id);
     const choice = keptOf(change);
@@ -44,18 +48,49 @@ export function PendingChangesBadge({ onNotice }: { onNotice?: (message: string,
     const content = partial && model ? compose(change.before ?? '', change.after ?? '', model, choice) : undefined;
     const api = getElectronApi();
     const res = await (content === undefined ? api?.settlePendingChange?.(change.id, approve, syncDir) : api?.settlePendingChange?.(change.id, approve, syncDir, content))?.catch(() => null);
+    let failure: string | null = null;
     if (res?.success) {
       setConflicts(c => { const next = new Set(c); next.delete(change.id); return next; });
     } else if (res?.conflict) {
       setConflicts(c => new Set(c).add(change.id));
     } else {
-      onNotice?.(t('pendingFailed').replace('{error}', res?.error ?? 'failed'), 'error');
+      failure = res?.error ?? 'failed';
+      if (!bulk) onNotice?.(t('pendingFailed').replace('{error}', failure), 'error');
     }
-    await refresh();
-    // The note on screen may be the one that changed; the app's own change detection reloads it.
-    void useStore.getState().fetchNotes();
+    if (!bulk) {
+      await refresh();
+      // The note on screen may be the one that changed; the app's own change detection reloads it.
+      void useStore.getState().fetchNotes();
+    }
+    return failure;
   };
-  const settleAll = async (approve: boolean) => { for (const change of changes) await settle(change, approve); };
+
+  // Every change at once, after asking (approving can delete notes), with progress, and one report for the failures.
+  const settleAll = async (approve: boolean) => {
+    if (progress) return;
+    const list = [...changes];
+    const deletes = list.filter(c => c.kind === 'delete').length;
+    const message = approve
+      ? [t('pendingApproveAllConfirm').replace('{n}', String(list.length)), deletes ? t('pendingApproveAllDeletes').replace('{n}', String(deletes)) : ''].filter(Boolean).join(' ')
+      : t('pendingRejectAllConfirm').replace('{n}', String(list.length));
+    if (!(await confirm({ message, confirmLabel: t(approve ? 'pendingApproveAll' : 'pendingRejectAll'), danger: approve && deletes > 0 }))) return;
+    const failures: string[] = [];
+    setProgress({ done: 0, total: list.length });
+    try {
+      for (const [i, change] of list.entries()) {
+        const failure = await settle(change, approve, true);
+        if (failure) failures.push(failure);
+        setProgress({ done: i + 1, total: list.length });
+      }
+    } finally {
+      setProgress(null);
+      await refresh();
+      void useStore.getState().fetchNotes();
+    }
+    if (failures.length) {
+      onNotice?.(t('pendingSomeFailed').replace('{n}', String(failures.length)).replace('{total}', String(list.length)).replace('{error}', failures[0]), 'error');
+    }
+  };
 
   return (
     <>
@@ -80,10 +115,15 @@ export function PendingChangesBadge({ onNotice }: { onNotice?: (message: string,
           <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200/60 dark:border-gray-700/60">
             <h2 id={titleId} className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('pendingTitle')}</h2>
             <div className="ml-auto flex gap-2">
+              {progress && (
+                <span role="status" className="self-center text-[11px] text-gray-500 dark:text-gray-400">
+                  {t('pendingProgress').replace('{done}', String(progress.done)).replace('{total}', String(progress.total))}
+                </span>
+              )}
               {changes.length > 1 && (
                 <>
-                  <button type="button" onClick={() => { void settleAll(true); }} className={`${button} text-green-700 dark:text-green-400`}>{t('pendingApproveAll')}</button>
-                  <button type="button" onClick={() => { void settleAll(false); }} className={`${button} text-gray-600 dark:text-gray-300`}>{t('pendingRejectAll')}</button>
+                  <button type="button" disabled={!!progress} onClick={() => { void settleAll(true); }} className={`${button} text-green-700 dark:text-green-400 disabled:opacity-40`}>{t('pendingApproveAll')}</button>
+                  <button type="button" disabled={!!progress} onClick={() => { void settleAll(false); }} className={`${button} text-gray-600 dark:text-gray-300 disabled:opacity-40`}>{t('pendingRejectAll')}</button>
                 </>
               )}
               <button type="button" onClick={() => setOpen(false)} className={`${button} text-gray-600 dark:text-gray-300`}>{t('pendingClose')}</button>

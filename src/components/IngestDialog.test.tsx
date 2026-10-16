@@ -128,4 +128,14 @@ describe('IngestDialog', () => {
     expect(useStore.getState().ingestOpen).toBe(false);
     expect(saveNote).not.toHaveBeenCalled();
   });
+
+  it('Escape on a prepared note asks before throwing it away', async () => {
+    await prepare();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(await screen.findByText('Close and discard the note that was prepared?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByText('Close and discard the note that was prepared?')).toBeNull());
+    expect(screen.getByTestId('ingest-preview')).toBeInTheDocument();
+    expect(useStore.getState().ingestOpen).toBe(true);
+  });
 });

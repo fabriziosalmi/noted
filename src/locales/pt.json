@@ -54,7 +54,7 @@
   "dailySectionNotes": "Notas",
   "dailySectionTodo": "A fazer",
   "dailySectionIdeas": "Ideias",
-  "renameHint": "Duplo clique para renomear",
+  "renameHint": "Duplo clique ou F2 para renomear",
   "selectNote": "Selecione uma nota ou crie uma nova",
   "editorPlaceholder": "Escreva algo...",
   "smartPaste": "Colar inteligente...",
@@ -1145,5 +1145,13 @@
   "searchFailed": "A pesquisa falhou: {error}",
   "searchMinChars": "Escreva pelo menos 2 caracteres",
   "activityLoadFailed": "Não foi possível ler o registo dos agentes: {error}",
-  "activityDiffFailed": "Não foi possível mostrar esta alteração: {error}"
+  "activityDiffFailed": "Não foi possível mostrar esta alteração: {error}",
+  "ingestDiscardConfirm": "Fechar e descartar a nota preparada?",
+  "reviewDiscardConfirm": "Fechar e descartar as alterações propostas?",
+  "pendingApproveAllConfirm": "Aprovar todas as {n} alterações? São escritas nas suas notas.",
+  "pendingApproveAllDeletes": "{n} delas eliminam uma nota.",
+  "pendingRejectAllConfirm": "Rejeitar todas as {n} alterações? Nada é escrito.",
+  "pendingProgress": "Em curso: {done} de {total}…",
+  "pendingSomeFailed": "{n} de {total} alterações não puderam ser concluídas: {error}",
+  "deleteTemplateConfirm": "Eliminar o modelo \"{name}\"? Não pode ser anulado."
 }

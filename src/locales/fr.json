@@ -54,7 +54,7 @@
   "dailySectionNotes": "Notes",
   "dailySectionTodo": "À faire",
   "dailySectionIdeas": "Idées",
-  "renameHint": "Double-cliquez pour renommer",
+  "renameHint": "Double-cliquez ou appuyez sur F2 pour renommer",
   "selectNote": "Sélectionnez une note ou créez-en une nouvelle",
   "editorPlaceholder": "Écrivez quelque chose...",
   "smartPaste": "Collage intelligent...",
@@ -1145,5 +1145,13 @@
   "searchFailed": "La recherche a échoué : {error}",
   "searchMinChars": "Saisissez au moins 2 caractères",
   "activityLoadFailed": "Impossible de lire le journal des agents : {error}",
-  "activityDiffFailed": "Impossible d'afficher cette modification : {error}"
+  "activityDiffFailed": "Impossible d'afficher cette modification : {error}",
+  "ingestDiscardConfirm": "Fermer et abandonner la note préparée ?",
+  "reviewDiscardConfirm": "Fermer et abandonner les modifications proposées ?",
+  "pendingApproveAllConfirm": "Approuver les {n} modifications ? Elles sont écrites dans vos notes.",
+  "pendingApproveAllDeletes": "{n} d'entre elles suppriment une note.",
+  "pendingRejectAllConfirm": "Refuser les {n} modifications ? Rien n'est écrit.",
+  "pendingProgress": "En cours : {done} sur {total}…",
+  "pendingSomeFailed": "{n} modifications sur {total} n'ont pas pu être traitées : {error}",
+  "deleteTemplateConfirm": "Supprimer le modèle « {name} » ? Cette action est irréversible."
 }
