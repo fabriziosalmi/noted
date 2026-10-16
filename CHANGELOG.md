@@ -6,6 +6,19 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The auto-commit no longer adds an empty commit every few minutes.** It committed at every interval even when no note had changed; it now commits only when something did (a deleted or renamed note included). When it fails, the app says so once, instead of only writing to its log.
+- **Menus stay inside the window.** The share menu opened past the right edge of the window; the `/`, `[[` and `#` menus ran off the bottom on the last lines of a note (they now open above the line when there is no room below, and scroll); a tooltip at the edge of the window moves back inside it; Settings fits a window at its smallest height, with its title and Done visible.
+- **The side panel's tabs are icons with their names as tooltips.** Their labels were cut ("AI Ass…", "Analyti…") in a panel that can be a fifth of the window.
+- **Failures are said.** Tasks, global search and agent activity say when something could not be read, instead of an empty page, a spinner that never stops, or "no activity". Global search asks for two characters instead of showing nothing, and a note deep in folders keeps its title readable.
+- **Git panel errors stay until you close them.** They vanished after six seconds, and an earlier timer could take away a newer error.
+- **Escape no longer throws work away.** On a note prepared from a web page, or on AI changes under review, Escape now asks first; Cancel and Discard still close at once.
+- **Approve all and Reject all ask first,** saying how many notes approving would delete, show their progress, and report failures in one message instead of one per change. Deleting a template of your own asks first too.
+- **The sidebar works from the keyboard:** F2 renames the selected note or folder, and a folder's actions show when the keyboard is on it.
+- **Readable colours.** In the dark theme, secondary text, the editor's placeholder and links were below the WCAG AA contrast of 4.5:1 (as low as 2.2:1); so were the light placeholder, sepia's secondary text and the success toast. Links now read at 5.2:1 or more with every accent colour in Settings, in both themes. Wikilinks, callouts and embeds follow the accent colour instead of a fixed purple.
+- **Toasts no longer pile up:** at most three at once, the same message is not repeated, and they sit above the save status instead of covering it.
+
 ## [1.6.3] - 2026-10-16
 
 ### Fixed
