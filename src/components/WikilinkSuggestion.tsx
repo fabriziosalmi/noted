@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { FileText, Hash } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
+import { popupPosition, type PopupStyle } from '../lib/popupPosition';
 import { getElectronApi } from '../lib/electronApi';
 import { useStore } from '../store/useStore';
 import { headingLinkText, normalizeHeading, plainHeading } from '../../shared/vault/wikilink';
@@ -21,7 +22,8 @@ interface Heading { level: number; text: string }
 export function WikilinkSuggestion({ editor, notes, resolve }: WikilinkSuggestionProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [pos, setPos] = useState<PopupStyle>({ top: 0, left: 0, maxHeight: 360 });
+  const menuRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState(0);
   const startPosRef = useRef<number | null>(null);
 
@@ -82,7 +84,7 @@ export function WikilinkSuggestion({ editor, notes, resolve }: WikilinkSuggestio
         if (startPosRef.current === null) {
           startPosRef.current = from - match[0].length;
           const coords = editor.view.coordsAtPos(from);
-          setPos({ top: coords.bottom + 6, left: coords.left });
+          setPos(popupPosition(coords, 256));
         }
         setOpen(true);
       } else {
@@ -114,16 +116,23 @@ export function WikilinkSuggestion({ editor, notes, resolve }: WikilinkSuggestio
     return () => window.removeEventListener('keydown', onKey, true);
   }, [open, items, selected, insert]);
 
+  // Arrow keys move the active item; keep it in view when the menu scrolls.
+  useEffect(() => {
+    menuRef.current?.querySelector('[data-active]')?.scrollIntoView?.({ block: 'nearest' });
+  }, [selected, open]);
+
   if (!open || items.length === 0) return null;
 
   return (
     <div
-      style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}
-      className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl w-64 overflow-hidden"
+      ref={menuRef}
+      style={{ position: 'fixed', zIndex: 9999, ...pos }}
+      className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl w-64 overflow-y-auto"
     >
       {items.map((item, i) => (
         <button
           key={item.key}
+          data-active={i === selected || undefined}
           onMouseDown={e => { e.preventDefault(); insert(item.note, item.fragment); }}
           className={`w-full text-left flex items-center gap-2 px-3 py-2 text-sm transition-colors ${i === selected ? 'bg-[var(--accent-light)] text-[var(--accent)] font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
         >

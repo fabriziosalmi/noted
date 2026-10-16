@@ -2,7 +2,7 @@ import type { AppChromeProps } from './types';
 import { useCallback, useMemo, useState } from 'react';
 import { parseAgentNote } from '../../lib/agentWorkflow';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { PanelLeft, PanelRight, Keyboard, LayoutTemplate, History, Focus } from 'lucide-react';
+import { PanelLeft, PanelRight, Keyboard, LayoutTemplate, History, Focus, Bot, Workflow, ChartColumn, Network, ListTree, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 import { getMarkdownFromHtml } from '../../lib/htmlToMarkdown';
 import { Sidebar } from '../Sidebar';
 import { NoteEditor } from '../NoteEditor';
@@ -40,6 +40,17 @@ const TAB_LABEL: Record<(typeof RIGHT_TABS)[number], TranslationKey> = {
   graph: 'connectionsTab',
   outline: 'outlineTab',
   properties: 'propsTab',
+};
+
+// The tabs are icons: up to six labels do not fit a panel that can be a fifth of the window. The name is the tooltip
+// and the accessible name, and the open tab's content shows it as its heading.
+const TAB_ICON: Record<(typeof RIGHT_TABS)[number], LucideIcon> = {
+  ai: Bot,
+  agent: Workflow,
+  analytics: ChartColumn,
+  graph: Network,
+  outline: ListTree,
+  properties: SlidersHorizontal,
 };
 
 export function AppChrome({
@@ -307,19 +318,25 @@ export function AppChrome({
               <Panel id="sidebar-right" order={3} defaultSize={25} minSize={20} maxSize={40} role="complementary" aria-label={t('toolsPanel')} className="vibrancy-sidebar flex flex-col border-l border-gray-200/60 dark:border-gray-700/60">
                 <div className="p-2 border-b border-gray-200/40 dark:border-gray-700/40 shrink-0">
                   <div {...rightTabs.tablistProps} aria-label={t('rightPanelTools')} className="flex bg-gray-200/40 dark:bg-gray-900/40 p-0.5 rounded-lg">
-                    {visibleRightTabs.map((tab) => (
-                      <button key={tab} type="button"
-                        {...rightTabs.getTabProps(tab)}
-                        onClick={() => panels.setRightTab(tab)}
-                        className={`flex-1 min-w-0 truncate px-1 py-2 text-xs font-medium rounded-md transition-all duration-150 ${
-                          rightTab === tab
-                            ? 'bg-white/80 dark:bg-gray-700/60 text-gray-800 dark:text-gray-100 shadow-sm font-semibold'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
-                        }`}
-                      >
-                        {t(TAB_LABEL[tab])}
-                      </button>
-                    ))}
+                    {visibleRightTabs.map((tab) => {
+                      const Icon = TAB_ICON[tab];
+                      return (
+                        <Tooltip key={tab} label={t(TAB_LABEL[tab])} className="flex-1 min-w-0 flex">
+                          <button type="button"
+                            {...rightTabs.getTabProps(tab)}
+                            aria-label={t(TAB_LABEL[tab])}
+                            onClick={() => panels.setRightTab(tab)}
+                            className={`w-full flex justify-center px-1 py-2 rounded-md transition-all duration-150 ${
+                              rightTab === tab
+                                ? 'bg-white/80 dark:bg-gray-700/60 text-gray-800 dark:text-gray-100 shadow-sm'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                            }`}
+                          >
+                            <Icon size={15} aria-hidden="true" />
+                          </button>
+                        </Tooltip>
+                      );
+                    })}
                   </div>
                 </div>
                 <div {...rightTabs.panelProps} className="flex-1 min-h-0 flex flex-col">

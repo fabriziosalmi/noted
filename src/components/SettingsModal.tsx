@@ -673,7 +673,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
   }, []);
 
   return (
-    <Modal id="settings" onClose={onClose} labelledBy="settings-title" className="w-[520px]" solid>
+    <Modal id="settings" onClose={onClose} labelledBy="settings-title" className="w-[520px] max-h-[calc(100vh-2rem)]" solid>
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-gray-100/40 dark:border-gray-700/40 flex justify-between items-center">
           <h2 id="settings-title" className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{t('settingsTitle')}</h2>
@@ -701,8 +701,8 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
           ))}
         </div>
 
-        {/* Tab content — fixed height, no scroll */}
-        <div {...tabsNav.panelProps} className="p-5 overflow-y-auto" style={{ minHeight: 320, maxHeight: 420 }}>
+        {/* Tab content: a steady height between tabs, and it scrolls; in a short window it shrinks so the header and Done stay visible. */}
+        <div {...tabsNav.panelProps} className="p-5 overflow-y-auto" style={{ minHeight: 'min(320px, 30vh)', maxHeight: 420 }}>
 
           {/* ── AI Tab ── */}
           {tab === 'ai' && (

@@ -257,7 +257,7 @@ export function ShareMenu({
       </Tooltip>
 
       {open && (
-        <div className="absolute left-0 top-full mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden py-1">
+        <div className="absolute right-0 top-full mt-1 w-64 max-h-[calc(100vh-7rem)] overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 py-1">
 
           {/* Current note — format exports */}
           <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('shareExportNote')}</div>
