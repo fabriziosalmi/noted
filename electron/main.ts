@@ -3,7 +3,7 @@ import path from 'node:path';
 import { registerCloudDetectorHandlers } from './src/services/cloud-detector';
 import { registerImporterHandlers } from './src/services/importer';
 import { registerExporterHandlers } from './src/services/exporter';
-import { logEvent } from './structured-log';
+import { logEvent, setLogFile } from './structured-log';
 import { scheduleStartupUpdateCheck } from './updater';
 import { installStdioEpipeGuard } from './stdio-guard';
 import { initNotesDir, getTargetDir, blessVaultRoot } from './core/paths';
@@ -75,6 +75,9 @@ app.on('activate', () => {
 });
 
 app.whenReady().then(async () => {
+  // ~/Library/Logs/Noted on macOS, %APPDATA%\Noted\logs on Windows, ~/.config/Noted/logs on Linux.
+  setLogFile(path.join(app.getPath('logs'), 'main.log'));
+  logEvent('info', 'app_started', { version: app.getVersion(), platform: process.platform });
   registerAppProtocol();
   installContentSecurityPolicy();
   initNotesDir();

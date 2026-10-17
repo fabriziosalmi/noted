@@ -2,6 +2,7 @@ import { app, Menu, shell } from 'electron';
 import { checkForUpdates } from './updater';
 import { getMainWindow, openCaptureWindow } from './core/windows';
 import { tr } from './core/language';
+import { getLogFile } from './structured-log';
 
 // A native macOS menu: gives ⌘, Preferences and self-documents the app's
 // shortcuts in the menu bar. Custom items relay to the renderer over IPC (the
@@ -70,6 +71,8 @@ export function buildAppMenu() {
         { label: tr('menuDocumentation'), click: () => void shell.openExternal('https://fabriziosalmi.github.io/noted/') },
         { label: tr('menuReleaseNotes'), click: () => void shell.openExternal('https://github.com/fabriziosalmi/noted/releases') },
         { label: tr('menuReportIssue'), click: () => void shell.openExternal('https://github.com/fabriziosalmi/noted/issues/new') },
+        // What to attach to a report: the main process's events (stdout goes nowhere in an installed app).
+        { label: tr('menuShowLogs'), click: () => { const file = getLogFile(); if (file) shell.showItemInFolder(file); } },
         // On macOS this lives in the app menu, where the platform expects it.
         ...(isMac ? [] : [
           { type: 'separator' as const },
