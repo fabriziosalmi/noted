@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-17
+
 ### Changed
 
 - **Noted needs macOS 13 Ventura or later.** The app moves to Electron 44 (Chromium 152, Node 24.21), which no longer runs on macOS 12 Monterey. The documentation said macOS 11, which had not been true since Electron 42 (macOS 12). A Mac on Monterey keeps the version it has: the macOS update feed now states the oldest system each release opens on, so it is not offered an update it cannot open.
@@ -546,7 +548,8 @@ The first cross-platform release, and the first that keeps itself up to date.
   backlinks, full-text search, multi-provider AI, Git integration, export, quick
   capture, and a built-in MCP server.
 
-[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/fabriziosalmi/noted/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/fabriziosalmi/noted/compare/v1.7.1...v1.8.0
 [1.7.1]: https://github.com/fabriziosalmi/noted/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/fabriziosalmi/noted/compare/v1.6.3...v1.7.0
