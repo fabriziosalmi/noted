@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 // branch checks out other branches in the user's folder, and doing that in the middle of a sync commits on the wrong one.
 const log: string[] = [];
 vi.mock('simple-git', () => ({
-  default: () => ({
+  simpleGit: () => ({
     add: async () => { log.push('add'); },
     commit: async () => { log.push('commit'); return { commit: 'abc' }; },
     status: async () => ({ staged: [], current: 'main' }),
