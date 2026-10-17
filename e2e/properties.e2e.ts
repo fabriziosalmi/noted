@@ -46,6 +46,9 @@ test('properties: edit by type, add a typed property, follow a link property tha
   await panel.getByLabel('Property name').fill('reviewed');
   await panel.getByLabel('Type').selectOption('checkbox');
   await panel.getByRole('button', { name: 'Add property' }).click();
+  // Toggled once the new property is in the file: a change made against a value the file does not hold yet is
+  // refused as a conflict (seen once on the Windows runner).
+  await expect.poll(() => fs.readFileSync(file, 'utf8'), { timeout: 15_000 }).toContain('reviewed: false\n');
   await panel.locator('[data-property="reviewed"]').getByRole('checkbox').click();
   await expect.poll(() => fs.readFileSync(file, 'utf8'), { timeout: 15_000 }).toContain('reviewed: true\n');
 
