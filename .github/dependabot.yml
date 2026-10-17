@@ -10,6 +10,9 @@ updates:
     groups:
       tiptap:
         patterns: ['@tiptap/*']
+      # react-dom requires the same react, and the types follow them.
+      react:
+        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
     ignore:
       # jsdom 30 needs Node 22.22.2 or later, and the MCP server for Claude Desktop runs on the user's own `node`.
       - dependency-name: jsdom
