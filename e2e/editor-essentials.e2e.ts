@@ -195,6 +195,13 @@ test.describe('editor essentials', () => {
       sel.addRange(r);
     });
     await expect.poll(() => win.evaluate(() => window.getSelection()?.toString())).toBe('plan');
+    // ⌘K links only when the note has the focus, and a window that is not in front of the system has none: on the
+    // macOS runner it was sometimes behind, and ⌘K opened Quick Open. Bring it to the front first, as a person would be.
+    await app.evaluate(({ app: electronApp, BrowserWindow }) => {
+      electronApp.focus({ steal: true });
+      BrowserWindow.getAllWindows()[0].focus();
+    });
+    await expect.poll(() => win.evaluate(() => document.hasFocus())).toBe(true);
     await win.keyboard.press(`${MOD}+KeyK`);
     const input = win.getByPlaceholder('https://example.com');
     await input.fill('https://example.com/plan');
