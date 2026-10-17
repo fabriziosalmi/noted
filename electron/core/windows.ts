@@ -1,6 +1,8 @@
-import { BrowserWindow, nativeTheme, shell } from 'electron';
+import { BrowserWindow, app, nativeTheme, screen, shell } from 'electron';
 import path from 'node:path';
 import { tr } from './language';
+import { attachContextMenu } from './contextMenu';
+import { MIN_SIZE, readPlacementFile, restorePlacement, writePlacementFile } from './windowState';
 
 let win: BrowserWindow | null;
 export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
@@ -21,13 +23,18 @@ export function applyNavigationGuards(w: BrowserWindow) {
   });
 }
 
+const placementFile = () => path.join(app.getPath('userData'), 'window-state.json');
+
 export function createWindow() {
   const isMac = process.platform === 'darwin';
+  // As the window was left (size, place, maximized, full screen), when that still fits the screens there are now.
+  const placement = restorePlacement(readPlacementFile(placementFile()), screen.getAllDisplays().map(d => d.workArea));
   win = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 720,
-    minHeight: 500,
+    width: placement.width,
+    height: placement.height,
+    ...(placement.x !== undefined && placement.y !== undefined ? { x: placement.x, y: placement.y } : {}),
+    minWidth: MIN_SIZE.width,
+    minHeight: MIN_SIZE.height,
     // macOS-only chrome: hidden-inset title bar + vibrancy filling a transparent
     // background. On Windows/Linux these are ignored, and a transparent window
     // with no titleBarOverlay leaves the user *no* native caption controls — so
@@ -58,6 +65,27 @@ export function createWindow() {
     win.loadURL('app://./index.html');
   }
   applyNavigationGuards(win);
+  attachContextMenu(win);
+  rememberPlacement(win, placement);
+}
+
+/** Restores maximized / full screen, and saves the window's place when it closes and, shortly after, when it moves or is resized. */
+function rememberPlacement(w: BrowserWindow, placement: { maximized: boolean; fullScreen: boolean }): void {
+  if (placement.maximized) w.maximize();
+  if (placement.fullScreen) w.setFullScreen(true);
+  const save = () => {
+    if (w.isDestroyed()) return;
+    writePlacementFile(placementFile(), { bounds: w.getNormalBounds(), maximized: w.isMaximized(), fullScreen: w.isFullScreen() });
+  };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const later = () => { clearTimeout(timer); timer = setTimeout(save, 500); };
+  w.on('resize', later);
+  w.on('move', later);
+  w.on('maximize', later);
+  w.on('unmaximize', later);
+  w.on('enter-full-screen', later);
+  w.on('leave-full-screen', later);
+  w.on('close', () => { clearTimeout(timer); save(); });
 }
 
 // ==========================================
@@ -108,6 +136,7 @@ export function openCaptureWindow() {
     : `app://./capture.html?l=${labels}`;
   w.loadURL(captureUrl);
   applyNavigationGuards(w);
+  attachContextMenu(w);
 }
 
 /** The main window, or null before it exists / after it is closed. */

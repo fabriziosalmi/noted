@@ -66,6 +66,29 @@ function resetUndoHistory(editor: Editor): void {
   editor.view.updateState(EditorState.create({ doc, selection, plugins }));
 }
 
+/** Where the caret and the scroll were in each note this session, so going back to a note lands where it was left. */
+const notePositions = new Map<string, { from: number; to: number; scrollTop: number }>();
+const MAX_REMEMBERED_POSITIONS = 200;
+const scrollerOf = (editor: Editor) => editor.view.dom.closest('.overflow-y-auto') as HTMLElement | null;
+
+function rememberPosition(name: string, editor: Editor): void {
+  const { from, to } = editor.state.selection;
+  notePositions.delete(name); // most recent last, so the oldest is the one dropped
+  notePositions.set(name, { from, to, scrollTop: scrollerOf(editor)?.scrollTop ?? 0 });
+  if (notePositions.size > MAX_REMEMBERED_POSITIONS) notePositions.delete(notePositions.keys().next().value as string);
+}
+
+/** Puts the caret and the scroll back where they were in this note; false when the note was not open before. */
+function restorePosition(name: string, editor: Editor): boolean {
+  const saved = notePositions.get(name);
+  if (!saved) return false;
+  const max = editor.state.doc.content.size; // the note may have changed since: never past its end
+  editor.chain().setTextSelection({ from: Math.min(saved.from, max), to: Math.min(saved.to, max) }).focus(undefined, { scrollIntoView: false }).run();
+  const scroller = scrollerOf(editor);
+  if (scroller) scroller.scrollTop = saved.scrollTop;
+  return true;
+}
+
 const WikilinkPlugin = Extension.create({
   name: 'wikilinkPlugin',
   addProseMirrorPlugins() { return [createWikilinkHighlightPlugin()]; },
@@ -95,7 +118,7 @@ interface NoteEditorProps {
   statusHost?: HTMLElement | null;
 }
 
-function hasShortcutModifier(event: KeyboardEvent | globalThis.KeyboardEvent): boolean {
+function hasShortcutModifier(event: Pick<MouseEvent, 'metaKey' | 'ctrlKey' | 'altKey'>): boolean {
   if (event.metaKey) return true;
   // Avoid AltGr (Ctrl+Alt) false positives on intl keyboard layouts.
   return event.ctrlKey && !event.altKey;
@@ -380,7 +403,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
         // External links open in the system browser: a click hits main's
         // setWindowOpenHandler, which routes https to shell.openExternal (the
         // renderer itself can't navigate). rel hardening blocks window.opener.
-        link: Link.configure({ openOnClick: true, autolink: true, HTMLAttributes: { rel: 'noopener noreferrer nofollow', target: '_blank' } }),
+        link: Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { rel: 'noopener noreferrer nofollow', target: '_blank' } }),
         wikilink: WikilinkMark,
       }),
       Typography,
@@ -461,6 +484,16 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
         }
         return false;
       },
+      // A web link opens with ⌘/Ctrl+click; a plain click puts the caret in it to edit it, as in other editors.
+      // Before, any click on a link left the note for the browser. Wikilinks keep opening on a click (in-app, and
+      // Back returns).
+      handleClick: (_view, _pos, event) => {
+        if (!hasShortcutModifier(event)) return false;
+        const href = (event.target as HTMLElement | null)?.closest('a[href]')?.getAttribute('href');
+        if (!href || !/^(https?:|mailto:)/i.test(href)) return false;
+        window.open(href, '_blank', 'noopener'); // the main process hands it to the system browser
+        return true;
+      },
       handlePaste: (_view, event) => {
         // Image paste: stored as a file in the attachments folder, the note keeps the path
         const items = Array.from(event.clipboardData?.items ?? []);
@@ -517,6 +550,16 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [editor, flushSave]);
 
+  // While ⌘/Ctrl is held, web links show the pointer: that is when a click opens them.
+  useEffect(() => {
+    const sync = (e: KeyboardEvent) => document.body.classList.toggle('link-modifier', hasShortcutModifier(e));
+    const clear = () => document.body.classList.remove('link-modifier');
+    window.addEventListener('keydown', sync);
+    window.addEventListener('keyup', sync);
+    window.addEventListener('blur', clear);
+    return () => { window.removeEventListener('keydown', sync); window.removeEventListener('keyup', sync); window.removeEventListener('blur', clear); clear(); };
+  }, []);
+
   useEffect(() => {
     editorRef.current = editor ?? null;
     onEditorReady(editor ?? null);
@@ -540,6 +583,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       // so its last <debounce edits are never dropped.
       settleHeadingRenames(editor);
       flushPending();
+      if (prevNoteNameRef.current) rememberPosition(prevNoteNameRef.current, editor);
       prevNoteNameRef.current = activeNoteName;
       editor.commands.setContent(activeNoteContent, { parseOptions: parseOptionsFor(currentFormat()) });
       resetUndoHistory(editor);
@@ -552,12 +596,12 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       lastTitleRef.current = deriveTitle(activeNoteContent);
       setHintTitle(lastTitleRef.current);
       setDismissedProjects(new Set());
-      // Auto-focus editor at start of content when switching notes
-      // (or, for a link that named a heading or a block, at that place)
+      // Focus the note: at the heading or block a link named, else where it was left this session, else at the start.
       const anchor = useStore.getState().pendingAnchor;
       useStore.getState().setPendingAnchor(null);
       setTimeout(() => {
         if (anchor && anchor.note === activeNoteName && scrollToAnchor(editor, anchor)) return;
+        if (activeNoteName && restorePosition(activeNoteName, editor)) return;
         editor.commands.focus('start');
       }, 0);
     }

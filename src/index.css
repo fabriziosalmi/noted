@@ -479,8 +479,9 @@ body {
   color: var(--accent-text);
   text-decoration: underline;
   text-underline-offset: 2px;
-  cursor: pointer;
+  cursor: text; /* a click edits the link; ⌘/Ctrl+click opens it, and only then is it a pointer */
 }
+.link-modifier .ProseMirror a[href^="http"], .link-modifier .ProseMirror a[href^="mailto:"] { cursor: pointer; }
 /* Typewriter: keep cursor vertically centred */
 .typewriter-mode {
   scroll-padding-top: 40vh;

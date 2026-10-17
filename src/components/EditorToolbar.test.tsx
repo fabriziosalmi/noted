@@ -225,6 +225,42 @@ describe('EditorToolbar', () => {
     expect(editor.view.dom.querySelectorAll('.find-match')).toHaveLength(0);
   });
 
+  it('replaces the current match and moves on, or every match in one step to undo', () => {
+    const editor = findEditor('<p>cat and Cat and <strong>cat</strong></p>');
+    render(<EditorToolbar {...defaultProps} editor={editor} findOpen={true} replaceRequest={1} />);
+    fireEvent.change(screen.getByPlaceholderText('Find in document...'), { target: { value: 'cat' } });
+    expect(screen.getByText('1/3')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Replace with…'), { target: { value: 'dog' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Replace' }));
+    expect(editor.getText()).toBe('dog and Cat and cat');
+    expect(screen.getByText('1/2')).toBeInTheDocument(); // on to the next one
+
+    fireEvent.click(screen.getByRole('button', { name: 'Replace all' }));
+    expect(editor.getText()).toBe('dog and dog and dog');
+    expect(editor.getHTML()).toContain('<strong>dog</strong>'); // keeps its formatting
+    expect(screen.getByText('2 replaced')).toBeInTheDocument();
+    editor.commands.undo();
+    expect(editor.getText()).toBe('dog and Cat and cat'); // replace all is one step
+  });
+
+  it('matches case when asked to', () => {
+    const editor = findEditor('<p>cat and Cat</p>');
+    render(<EditorToolbar {...defaultProps} editor={editor} findOpen={true} />);
+    fireEvent.change(screen.getByPlaceholderText('Find in document...'), { target: { value: 'Cat' } });
+    expect(screen.getByText('1/2')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Match case' }));
+    expect(screen.getByText('1/1')).toBeInTheDocument();
+    expect(selected(editor)).toEqual({ from: 9, to: 12 });
+  });
+
+  it('shows the replace row when Find and replace is asked for', () => {
+    const { rerender } = render(<EditorToolbar {...defaultProps} editor={findEditor()} findOpen={true} />);
+    expect(screen.queryByLabelText('Replace with…')).toBeNull();
+    rerender(<EditorToolbar {...defaultProps} editor={findEditor()} findOpen={true} replaceRequest={1} />);
+    expect(screen.getByLabelText('Replace with…')).toBeInTheDocument();
+  });
+
   it('calls editor commands when formatting buttons are clicked', () => {
 
     render(<EditorToolbar {...defaultProps} showToolbar={true} />);

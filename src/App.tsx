@@ -28,6 +28,7 @@ import { getElectronApi } from './lib/electronApi';
 import { printNoteFromHtml } from './lib/printNote';
 import { initialMergeWorkflowState, mergeWorkflowReducer } from './lib/mergeWorkflow';
 import { useConfirm, usePrompt } from './components/ConfirmProvider';
+import { promptForLink } from './lib/linkPrompt';
 
 function App() {
   const { t } = useI18n();
@@ -148,11 +149,19 @@ function App() {
     void printNoteFromHtml(html, title, { t, onToast: toast });
   }, [activeNoteName, t, toast]);
 
+  // ⌘K links the text selected in the note (as in most editors); with nothing selected it is Quick Open, as before.
+  const quickOpenOrLink = useCallback(() => {
+    const editor = editorRef.current;
+    if (editor && editor.isFocused && !editor.state.selection.empty) { void promptForLink(editor, prompt, t); return; }
+    panels.toggleQuickOpen();
+  }, [panels, prompt, t]);
+
   useGlobalShortcuts({
     onToggleShortcuts: panels.toggleShortcuts,
-    onToggleQuickOpen: panels.toggleQuickOpen,
+    onToggleQuickOpen: quickOpenOrLink,
     onPrintNote: handlePrintNote,
     onToggleFind: panels.toggleFind,
+    onOpenReplace: panels.openReplace,
     onToggleGlobalSearch: panels.toggleGlobalSearch,
     onToggleFocusMode: () => updateSettings({ focusMode: !settings.focusMode }),
     onCreateNote: () => { void handleCreateNote(); },
@@ -168,14 +177,27 @@ function App() {
         case 'new-note': void handleCreateNote(); break;
         case 'daily': void handleOpenDaily(); break;
         case 'ingest': useStore.getState().openIngest(); break;
-        case 'quick-open': panels.toggleQuickOpen(); break;
+        case 'quick-open': quickOpenOrLink(); break;
         case 'print-note': handlePrintNote(); break;
         case 'search': panels.toggleGlobalSearch(); break;
         case 'focus-mode': updateSettings({ focusMode: !settings.focusMode }); break;
         case 'shortcuts': panels.toggleShortcuts(); break;
+        case 'nav-back': void useStore.getState().navigate('back'); break;
+        case 'nav-forward': void useStore.getState().navigate('forward'); break;
       }
     });
-  }, [panels, handleCreateNote, handleOpenDaily, handlePrintNote, updateSettings, settings.focusMode]);
+  }, [panels, handleCreateNote, handleOpenDaily, handlePrintNote, updateSettings, settings.focusMode, quickOpenOrLink]);
+
+  // The mouse's side buttons go Back and Forward through the notes, as in a browser.
+  useEffect(() => {
+    const onMouseUp = (e: MouseEvent) => {
+      if (e.button !== 3 && e.button !== 4) return;
+      e.preventDefault();
+      void useStore.getState().navigate(e.button === 3 ? 'back' : 'forward');
+    };
+    window.addEventListener('mouseup', onMouseUp);
+    return () => window.removeEventListener('mouseup', onMouseUp);
+  }, []);
 
   const handleEditorReady = useCallback((editor: Editor | null) => {
     editorRef.current = editor;

@@ -6,6 +6,20 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **A right-click menu.** Right-click did nothing anywhere in the app. In a note it now offers Cut, Copy, Paste, Paste as Plain Text and Select All; on a misspelled word, the spelling suggestions (picking one replaces the word) and Add to Dictionary; on a web link, Open Link and Copy Link. The quick-capture window has it too.
+- **Zoom:** View → Zoom In, Zoom Out and Actual Size, with ⌘+ (or ⌘=), ⌘− and ⌘0.
+- **Back and Forward** through the notes you opened: View → Back / Forward, ⌘[ and ⌘], and the mouse's side buttons. A note deleted since is skipped, and a renamed or moved note is followed.
+- **Coming back to a note lands where you left it:** the caret and the scroll are put back (for the notes opened since the app started), instead of the top of the note every time.
+- **The window reopens as you left it:** its size and place, maximized or full screen. A place on a screen that is no longer connected is not used; the window is centred instead.
+- **Find and replace:** ⌘⌥F on macOS, Ctrl+H on Windows and Linux, or the arrow in the find bar. Replace changes the current match and moves to the next; Replace all (or ⌘↩) changes every match as one step to undo; each replaced word keeps its formatting. **Aa** matches upper and lower case.
+- **⌘K links the selected text.** With nothing selected it is still Quick Open.
+
+### Changed
+
+- **A web link in a note opens with ⌘-click (Ctrl+click on Windows and Linux).** A plain click puts the caret in the link, to edit it, as in other editors; before, any click left the note for the browser. The pointer shows over a link while ⌘ or Ctrl is held. Links to your own notes (`[[…]]`) still open with a click.
+
 ### Fixed
 
 - **The auto-commit no longer adds an empty commit every few minutes.** It committed at every interval even when no note had changed; it now commits only when something did (a deleted or renamed note included). When it fails, the app says so once, instead of only writing to its log.

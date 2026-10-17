@@ -4,10 +4,11 @@ import { modKey, shiftKey } from '../lib/platform';
 import type { Editor } from '@tiptap/react';
 import {
   Bold, Italic, Strikethrough, Heading1, Heading2, Heading3,
-  Table as TableIcon, Code, Search, X, ChevronUp, ChevronDown,
+  Table as TableIcon, Code, Search, X, ChevronUp, ChevronDown, ChevronRight,
   List, ListOrdered, ListChecks, Quote, Sparkles, Highlighter, Link2, Undo2, Redo2,
 } from 'lucide-react';
-import { findHighlightKey, type FindMeta } from '../lib/findHighlight';
+import { findHighlightKey, replaceMatches, type FindMeta } from '../lib/findHighlight';
+import { promptForLink } from '../lib/linkPrompt';
 import { AiActionsBar } from './AiActionsBar';
 import { Tooltip } from './Tooltip';
 import { usePrompt } from './ConfirmProvider';
@@ -46,12 +47,19 @@ interface EditorToolbarProps {
   onToggleAiBar?: () => void;
   /** Slot rendered after AI actions for share/export menu. */
   shareSlot?: React.ReactNode;
+  /** Goes up each time Find and replace is asked for (⌘⌥F / Ctrl+H): the bar opens with its replace row. */
+  replaceRequest?: number;
 }
 
-export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findOpen, onCloseFind, onOpenFind, onOpenGlobalSearch, shareSlot, onToggleAiBar }: EditorToolbarProps) {
+export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findOpen, onCloseFind, onOpenFind, onOpenGlobalSearch, shareSlot, onToggleAiBar, replaceRequest = 0 }: EditorToolbarProps) {
   const { t } = useI18n();
   const prompt = usePrompt();
   const [findQuery, setFindQuery] = useState('');
+  const [replacement, setReplacement] = useState('');
+  const [showReplace, setShowReplace] = useState(false);
+  const [caseSensitive, setCaseSensitive] = useState(false);
+  const [replacedCount, setReplacedCount] = useState<number | null>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
   // Mirrors the find plugin (lib/findHighlight), which keeps the matches right while the note is edited.
   const [findInfo, setFindInfo] = useState({ count: 0, current: 0 });
   const matchCount = findInfo.count;
@@ -62,13 +70,7 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
   // Empty input clears the link; the mark range is extended so editing works
   // even when the caret merely sits inside an existing link.
   const handleLink = useCallback(async () => {
-    if (!editor) return;
-    const prev = (editor.getAttributes('link').href as string | undefined) ?? '';
-    const url = await prompt({ title: t('linkPromptTitle'), placeholder: 'https://example.com', defaultValue: prev, confirmLabel: t('linkApply') });
-    if (url === null) return; // cancelled
-    const href = url.trim();
-    if (!href) { editor.chain().focus().extendMarkRange('link').unsetLink().run(); return; }
-    editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
+    if (editor) await promptForLink(editor, prompt, t);
   }, [editor, prompt, t]);
 
   const showMatch = useCallback((meta: FindMeta) => {
@@ -113,8 +115,26 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
     setFindQuery('');
   }, [editor, findOpen]);
 
+  useEffect(() => {
+    if (replaceRequest > 0) setShowReplace(true);
+  }, [replaceRequest]);
+
+  const toggleCase = useCallback(() => {
+    const next = !caseSensitive;
+    setCaseSensitive(next);
+    showMatch({ caseSensitive: next, current: 0 });
+  }, [caseSensitive, showMatch]);
+
+  const replace = useCallback((all: boolean) => {
+    if (!editor) return;
+    const n = replaceMatches(editor.view, replacement, all);
+    setReplacedCount(all ? n : null);
+    if (!all) showMatch({}); // on to the next match, which is now at the same index
+  }, [editor, replacement, showMatch]);
+
   const handleClose = useCallback(() => {
     setFindQuery('');
+    setReplacedCount(null);
     editor?.view.dispatch(editor.state.tr.setMeta(findHighlightKey, { query: '', current: 0 }));
     setFindInfo({ count: 0, current: 0 });
     onCloseFind();
@@ -228,13 +248,18 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
 
       {/* Find bar */}
       {findOpen && (
-        <div className="flex items-center gap-2 px-4 py-1.5 border-t border-gray-100 dark:border-gray-700">
+        <div className="border-t border-gray-100 dark:border-gray-700">
+        <div className="flex items-center gap-2 px-4 py-1.5">
+          <button type="button" onClick={() => setShowReplace(v => !v)} aria-expanded={showReplace} aria-label={t('findToggleReplace')}
+            className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400">
+            <ChevronRight size={13} className={`transition-transform ${showReplace ? 'rotate-90' : ''}`} />
+          </button>
           <Search size={13} className="text-gray-400 dark:text-gray-500 shrink-0" />
           <input
             ref={findInputRef}
             type="text"
             value={findQuery}
-            onChange={e => { setFindQuery(e.target.value); runFind(e.target.value); }}
+            onChange={e => { setFindQuery(e.target.value); setReplacedCount(null); runFind(e.target.value); }}
             onKeyDown={e => {
               if (e.nativeEvent.isComposing || e.repeat) return;
               if (e.key === 'Enter') { e.preventDefault(); goToMatch(e.shiftKey ? matchIndex - 1 : matchIndex + 1); }
@@ -243,9 +268,13 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
             placeholder={t('findPlaceholder')}
             className="flex-1 text-sm bg-transparent outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-600"
           />
+          <button type="button" onClick={toggleCase} aria-pressed={caseSensitive} aria-label={t('findMatchCase')}
+            className={`px-1 rounded text-[11px] font-semibold ${caseSensitive ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
+            Aa
+          </button>
           {findQuery && (
-            <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
-              {matchCount > 0 ? `${matchIndex + 1}/${matchCount}` : t('noResults')}
+            <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0" role="status">
+              {replacedCount !== null ? t('findReplacedCount').replace('{n}', String(replacedCount)) : matchCount > 0 ? `${matchIndex + 1}/${matchCount}` : t('noResults')}
             </span>
           )}
           <button type="button" onClick={() => goToMatch(matchIndex - 1)} disabled={matchCount === 0}
@@ -259,6 +288,33 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
           <button type="button" onClick={handleClose} className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400" aria-label={t('closeFind')}>
             <X size={14} />
           </button>
+        </div>
+        {showReplace && (
+          <div className="flex items-center gap-2 pl-[3.25rem] pr-4 pb-1.5">
+            <input
+              ref={replaceInputRef}
+              type="text"
+              value={replacement}
+              aria-label={t('findReplacePlaceholder')}
+              onChange={e => setReplacement(e.target.value)}
+              onKeyDown={e => {
+                if (e.nativeEvent.isComposing || e.repeat) return;
+                if (e.key === 'Enter') { e.preventDefault(); replace(e.metaKey || e.ctrlKey); } // ⌘↩ replaces all
+                if (e.key === 'Escape') handleClose();
+              }}
+              placeholder={t('findReplacePlaceholder')}
+              className="flex-1 text-sm bg-transparent outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-600"
+            />
+            <button type="button" onClick={() => replace(false)} disabled={matchCount === 0}
+              className="text-xs px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40">
+              {t('findReplace')}
+            </button>
+            <button type="button" onClick={() => replace(true)} disabled={matchCount === 0}
+              className="text-xs px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40">
+              {t('findReplaceAll')}
+            </button>
+          </div>
+        )}
         </div>
       )}
     </div>

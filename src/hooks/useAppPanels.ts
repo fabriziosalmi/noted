@@ -15,6 +15,7 @@ export function useAppPanels(): AppPanelsApi {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isGitOpen, setIsGitOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
+  const [replaceRequest, setReplaceRequest] = useState(0);
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
 
@@ -29,6 +30,7 @@ export function useAppPanels(): AppPanelsApi {
     isHistoryOpen,
     isGitOpen,
     findOpen,
+    replaceRequest,
     quickOpenOpen,
     globalSearchOpen,
 
@@ -40,6 +42,7 @@ export function useAppPanels(): AppPanelsApi {
     toggleShortcuts: () => setIsShortcutsOpen(v => !v),
     toggleQuickOpen: () => setQuickOpenOpen(v => !v),
     toggleFind: () => setFindOpen(v => !v),
+    openReplace: () => { setFindOpen(true); setReplaceRequest(n => n + 1); },
     toggleGlobalSearch: () => setGlobalSearchOpen(v => !v),
     toggleTemplates: () => setIsTemplatesOpen(v => !v),
     toggleAdvisor: () => setIsAdvisorOpen(v => !v),

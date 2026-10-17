@@ -18,6 +18,7 @@ export function useGlobalShortcuts({
   onToggleQuickOpen,
   onPrintNote,
   onToggleFind,
+  onOpenReplace,
   onToggleGlobalSearch,
   onToggleFocusMode,
   onCreateNote,
@@ -41,6 +42,13 @@ export function useGlobalShortcuts({
       if (accel && key === 'k') {
         e.preventDefault();
         onToggleQuickOpen();
+      }
+      // Find and replace: ⌘⌥F on macOS (Alt turns the key into ƒ, so the physical key is read), Ctrl+H elsewhere,
+      // where Ctrl+Alt is left alone for AltGr.
+      if ((e.metaKey && e.altKey && e.code === 'KeyF') || (!e.metaKey && e.ctrlKey && !e.altKey && !e.shiftKey && key === 'h')) {
+        e.preventDefault();
+        onOpenReplace?.();
+        return;
       }
       if (accel && key === 'f' && !e.shiftKey) {
         e.preventDefault();
@@ -68,6 +76,7 @@ export function useGlobalShortcuts({
     onToggleQuickOpen,
     onPrintNote,
     onToggleFind,
+    onOpenReplace,
     onToggleGlobalSearch,
     onToggleFocusMode,
     onCreateNote,

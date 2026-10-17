@@ -30,6 +30,7 @@ export interface GlobalShortcutsArgs {
   onToggleQuickOpen: () => void;
   onPrintNote: () => void;
   onToggleFind: () => void;
+  onOpenReplace?: () => void;
   onToggleGlobalSearch: () => void;
   onToggleFocusMode: () => void;
   onCreateNote: () => void;
@@ -83,6 +84,8 @@ export interface AppPanelsState {
   isHistoryOpen: boolean;
   isGitOpen: boolean;
   findOpen: boolean;
+  /** Goes up each time Find and replace is asked for. */
+  replaceRequest: number;
   quickOpenOpen: boolean;
   globalSearchOpen: boolean;
 }
@@ -95,6 +98,7 @@ export interface AppPanelsApi extends AppPanelsState {
   toggleShortcuts: () => void;
   toggleQuickOpen: () => void;
   toggleFind: () => void;
+  openReplace: () => void;
   toggleGlobalSearch: () => void;
   toggleTemplates: () => void;
   toggleAdvisor: () => void;

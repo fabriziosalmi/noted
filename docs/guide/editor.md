@@ -83,8 +83,24 @@ Three ways to format text:
 
 ## Find in a note
 
-Press <kbd>⌘F</kbd> to open the find bar. It shows the current match position
-(`3/12`), and you can step through matches with Enter and Shift-Enter.
+Press <kbd>⌘F</kbd> to open the find bar. Every match is marked in the note and the current one more strongly;
+the bar shows its position (`3/12`), and Enter and Shift-Enter step through the matches. A phrase that is partly
+bold or a link is found too. **Aa** matches upper and lower case.
+
+Press <kbd>⌘⌥F</kbd> (<kbd>Ctrl+H</kbd> on Windows and Linux), or the arrow at the start of the bar, to replace:
+**Replace** changes the current match and moves to the next, **Replace all** (or <kbd>⌘↩</kbd>) changes every
+match as one step to undo. A replaced word keeps its formatting.
+
+## Links
+
+A web link opens in the browser with <kbd>⌘</kbd>-click (<kbd>Ctrl</kbd>-click on Windows and Linux); a plain
+click puts the caret in it, to edit it. Select text and press <kbd>⌘K</kbd> to link it. Links to your own notes
+(`[[Note]]`) open with a click; <kbd>⌘[</kbd> goes back.
+
+## Right-click
+
+Right-click in a note for Cut, Copy, Paste, Paste as Plain Text and Select All; on a misspelled word, for the
+spelling suggestions and Add to Dictionary; on a web link, for Open Link and Copy Link.
 
 ## Focus and typewriter modes
 
