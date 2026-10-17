@@ -9,7 +9,7 @@
  *  - GitHub tokens are never logged.
  */
 
-import simpleGit, { type SimpleGit, type DefaultLogFields } from 'simple-git';
+import { simpleGit, type SimpleGit, type DefaultLogFields } from 'simple-git';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { withRepoLock } from './repo-lock';
@@ -136,8 +136,24 @@ function validateCommitMessage(msg: string): void {
 export const GIT_TIMEOUT_MS = 120_000;
 const GITHUB_API_TIMEOUT_MS = 30_000;
 
+/**
+ * The GIT_* (and GCM_*) variables of this process that git may see. simple-git 4 strips them from the child's
+ * environment unless they are named here; they are the user's own (GIT_SSH_COMMAND, GIT_ASKPASS, GIT_CONFIG_GLOBAL)
+ * or the app's (GIT_TERMINAL_PROMPT=0 for unattended sync), so they pass as they always did. Read at each call: the
+ * sync sets its variables just before it starts git.
+ */
+export function inheritedGitEnvironment(env: NodeJS.ProcessEnv = process.env): string[] {
+  return Object.keys(env).filter(key => /^(git|gcm)_/i.test(key));
+}
+
 function git(dir: string): SimpleGit {
-  return simpleGit(dir, { binary: 'git', maxConcurrentProcesses: 1, trimmed: true, timeout: { block: GIT_TIMEOUT_MS } });
+  return simpleGit(dir, {
+    binary: 'git',
+    maxConcurrentProcesses: 1,
+    trimmed: true,
+    timeout: { block: GIT_TIMEOUT_MS },
+    allowEnvironment: inheritedGitEnvironment(),
+  });
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
