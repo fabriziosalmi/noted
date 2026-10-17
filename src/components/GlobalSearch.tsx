@@ -42,6 +42,7 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
   const [results, setResults]   = useState<SearchResult[]>([]);
   const [truncated, setTruncated] = useState(false);
   const [loading, setLoading]   = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const inputRef   = useRef<HTMLInputElement>(null);
   const listRef    = useRef<HTMLDivElement>(null);
@@ -61,16 +62,25 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
       setResults([]);
       setTruncated(false);
       setLoading(false);
+      setSearchError(null);
       return;
     }
     setLoading(true);
     const myId = ++queryIdRef.current;
     debounceRef.current = setTimeout(async () => {
-      const res = await window.electronAPI.searchNotesFulltext(query.trim(), syncDirectory ?? undefined);
+      let res: Awaited<ReturnType<typeof window.electronAPI.searchNotesFulltext>> | null = null;
+      let failure: string | null = null;
+      try {
+        res = await window.electronAPI.searchNotesFulltext(query.trim(), syncDirectory ?? undefined);
+        if (!res?.success) failure = res?.error ?? 'failed';
+      } catch (err) {
+        failure = err instanceof Error ? err.message : String(err); // the spinner used to turn forever
+      }
       // Drop the result if a newer query has been fired in the meantime.
       if (myId !== queryIdRef.current) return;
       setResults((res?.data ?? []) as SearchResult[]);
       setTruncated(!!res?.truncated);
+      setSearchError(failure);
       setLoading(false);
     }, 260);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
@@ -148,7 +158,13 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
             </div>
           )}
 
-          {query.trim().length >= 2 && !loading && results.length === 0 && (
+          {query.trim().length === 1 && (
+            <p className="text-center text-sm text-gray-400 py-10">{t('searchMinChars')}</p>
+          )}
+          {searchError && !loading && (
+            <p role="alert" className="text-center text-sm text-red-600 dark:text-red-400 py-10">{t('searchFailed').replace('{error}', searchError)}</p>
+          )}
+          {query.trim().length >= 2 && !loading && !searchError && results.length === 0 && (
             <p className="text-center text-sm text-gray-400 py-10">{t('noNotesFound')}</p>
           )}
 
@@ -166,12 +182,13 @@ export function GlobalSearch({ onSelect, onClose }: GlobalSearchProps) {
             >
               <FileText size={14} className="shrink-0 mt-0.5 text-gray-300 dark:text-gray-600" />
               <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-2 mb-0.5">
-                  <span className={`text-sm font-medium truncate ${i === activeIdx ? 'text-[var(--accent)]' : 'text-gray-800 dark:text-gray-200'}`}>
+                <div className="flex items-baseline gap-2 mb-0.5 min-w-0" title={r.relPath}>
+                  <span className={`text-sm font-medium truncate min-w-0 ${i === activeIdx ? 'text-[var(--accent)]' : 'text-gray-800 dark:text-gray-200'}`}>
                     <HighlightedText text={r.title} terms={r.terms} />
                   </span>
                   {r.relPath.includes('/') && (
-                    <span className="text-[10px] text-gray-400 dark:text-gray-500 shrink-0 font-normal">
+                    // A deep folder no longer squeezes the title away: both truncate, the folder first.
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500 font-normal truncate min-w-0 max-w-[45%] shrink-[2]">
                       {dirnameOf(r.relPath)}
                     </span>
                   )}

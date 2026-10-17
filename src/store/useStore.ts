@@ -612,11 +612,8 @@ export const useStore = create<NoteState>()(
     if (!fileName.endsWith('.md')) fileName += '.md';
     const api = getElectronApi();
     if (!api) throw new Error(translate('errNoElectronApi', get().settings.language));
-    const lang = get().settings.language ?? 'en';
-    const defaultContent = lang === 'it'
-      ? '<h1>Nuova Nota</h1><p>Inizia a scrivere qui…</p>'
-      : '<h1>New Note</h1><p>Start writing here…</p>';
-    const content = initialContent ?? defaultContent;
+    const lang = get().settings.language;
+    const content = initialContent ?? `<h1>${translate('newNoteTitle', lang)}</h1><p>${translate('newNoteBody', lang)}</p>`;
       const res = await api.saveNote(fileName, content, get().settings.syncDirectory || undefined);
     if (!res.success) throw new Error(res.error ?? translate('errCreateNote', get().settings.language));
 

@@ -88,7 +88,7 @@ function NoteRow({
   note: NoteFile; isActive: boolean; isPinned: boolean; isRenaming: boolean;
   renameValue: string; renameInputRef: React.RefObject<HTMLInputElement | null>;
   onSelect: () => void; onDelete: () => void; onTogglePin: () => void;
-  onStartRename: (e: React.MouseEvent) => void;
+  onStartRename: (e: React.SyntheticEvent) => void;
   onRenameChange: (v: string) => void; onRenameBlur: () => void;
   onRenameKeyDown: (e: React.KeyboardEvent) => void;
   onDragStart: (e: React.DragEvent) => void;
@@ -128,12 +128,13 @@ function NoteRow({
           onKeyDown={e => {
             if (e.nativeEvent.isComposing || e.repeat) return;
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(); }
+            if (e.key === 'F2') { e.preventDefault(); onStartRename(e); } // rename without a mouse
           }}
           aria-current={isActive ? 'true' : undefined}
           title={renameHint}
           className={`flex items-start space-x-2 w-full text-left p-2 pl-4 rounded text-sm cursor-pointer transition-all duration-150 ease-out ${
             isActive
-              ? 'bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] text-[var(--accent)] font-medium'
+              ? 'bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] text-[var(--accent-text)] font-medium'
               : 'hover:bg-gray-200/50 dark:hover:bg-gray-800/40 text-gray-700 dark:text-gray-300'
           }`}
         >
@@ -816,6 +817,13 @@ export function Sidebar({
                               setRenamingFolder(row.folder.name);
                               setFolderRenameValue(baseOfPath(row.folder.name));
                             }}
+                            onKeyDown={e => {
+                              if (e.key !== 'F2' || e.repeat) return;
+                              e.preventDefault();
+                              setRenamingFolder(row.folder.name);
+                              setFolderRenameValue(baseOfPath(row.folder.name));
+                            }}
+                            title={t('renameHint')}
                             aria-expanded={!row.isCollapsed}
                             className="flex items-center gap-1 flex-1 min-w-0 cursor-pointer text-left"
                           >
@@ -836,7 +844,8 @@ export function Sidebar({
                         <span className="text-[10px] text-gray-400">{row.folder.notes.length}</span>
 
                         {/* Folder actions */}
-                        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
+                        {/* Shown on hover and when the keyboard is on the row: focus used to land on invisible buttons. */}
+                        <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 flex items-center gap-0.5">
                           <Tooltip label={t('newNoteHere')}>
                             <button
                               type="button"

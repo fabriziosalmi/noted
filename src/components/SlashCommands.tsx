@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
+import { popupPosition, type PopupStyle } from '../lib/popupPosition';
 import { askLLM, AbortedError, describeLlmError } from '../lib/llm';
 import { answerPrompt, loadPrompt, usePromptList, type PromptListing } from '../lib/userPrompts';
 import { slugOf } from '../../shared/prompts/prompt';
@@ -76,7 +77,8 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(0);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [pos, setPos] = useState<PopupStyle | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [running, setRunning] = useState<string | null>(null);
   const [runningLabel, setRunningLabel] = useState('');
   const syncDir = useStore(s => s.settings.syncDirectory) || undefined;
@@ -109,7 +111,7 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
         triggerFromRef.current = from - match[0].length + (match[1].length); // position of /
         setQuery(match[2]);
         const coords = editor.view.coordsAtPos(from);
-        setPos({ top: coords.bottom + 6, left: Math.min(coords.left, window.innerWidth - 280) });
+        setPos(popupPosition(coords, 256));
         setOpen(true);
       } else {
         setOpen(false);
@@ -210,6 +212,11 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
     return () => window.removeEventListener('keydown', handler, true);
   }, [open, filtered, activeIdx, execute]);
 
+  // Arrow keys move the active item; keep it in view when the menu scrolls.
+  useEffect(() => {
+    menuRef.current?.querySelector('[data-active]')?.scrollIntoView?.({ block: 'nearest' });
+  }, [activeIdx, open]);
+
   // Running spinner overlay
   if (running) {
     return (
@@ -235,8 +242,9 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
 
   return (
     <div
-      className="fixed z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-xl shadow-2xl py-1 w-64"
-      style={{ top: pos.top, left: pos.left }}
+      ref={menuRef}
+      className="fixed z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-xl shadow-2xl py-1 w-64 overflow-y-auto"
+      style={pos}
     >
       <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800 mb-1">
         {t('aiActions')}
@@ -251,6 +259,7 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
               <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-t border-gray-100 dark:border-gray-800 mt-1">{t('promptsGroup')}</div>
             )}
             <button
+              data-active={i === activeIdx || undefined}
               onMouseDown={e => { e.preventDefault(); execute(entry); }}
               onMouseEnter={() => setActiveIdx(i)}
               className={`w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors ${

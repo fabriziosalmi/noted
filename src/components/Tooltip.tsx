@@ -1,10 +1,12 @@
-import { useState, useRef, useCallback, useEffect, type ReactNode } from 'react';
+import { useState, useRef, useCallback, useEffect, useLayoutEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 interface TooltipProps {
   label: string;
   children: ReactNode;
   side?: 'top' | 'bottom';
+  /** Classes for the wrapper, e.g. to let it grow in a flex row; `inline-flex` when not given. */
+  className?: string;
 }
 
 /**
@@ -15,7 +17,7 @@ interface TooltipProps {
  * the global `prefers-reduced-motion` rule. Replaces the native `title=`
  * attribute on icon-only controls.
  */
-export function Tooltip({ label, children, side = 'bottom' }: TooltipProps) {
+export function Tooltip({ label, children, side = 'bottom', className = 'inline-flex' }: TooltipProps) {
   const triggerRef = useRef<HTMLSpanElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [coords, setCoords] = useState<{ x: number; y: number } | null>(null);
@@ -37,10 +39,21 @@ export function Tooltip({ label, children, side = 'bottom' }: TooltipProps) {
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
+  // Centred under a control at the edge of the window, the tooltip would run off it: move it back inside.
+  const tipRef = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const tip = tipRef.current;
+    if (!tip) return;
+    const r = tip.getBoundingClientRect();
+    const margin = 4;
+    const shift = r.right > window.innerWidth - margin ? window.innerWidth - margin - r.right : r.left < margin ? margin - r.left : 0;
+    if (shift) tip.style.marginLeft = `${shift}px`;
+  }, [coords]);
+
   return (
     <span
       ref={triggerRef}
-      className="inline-flex"
+      className={className}
       onPointerEnter={show}
       onPointerLeave={hide}
       onPointerDown={hide}
@@ -51,6 +64,7 @@ export function Tooltip({ label, children, side = 'bottom' }: TooltipProps) {
       {coords &&
         createPortal(
           <span
+            ref={tipRef}
             role="tooltip"
             className="fixed z-[9999] whitespace-nowrap px-2 py-1 text-[11px] font-medium rounded text-white bg-gray-800 dark:bg-gray-700 shadow-md pointer-events-none select-none"
             style={{

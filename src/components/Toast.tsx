@@ -34,7 +34,7 @@ function ToastItem({ message, onDismiss }: ToastItemProps) {
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       className={`toast-item flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-lg text-sm text-white ${
-        isSuccess ? 'bg-emerald-600' : 'bg-red-600'
+        isSuccess ? 'bg-emerald-700' : 'bg-red-600' // white on emerald-600 was 3.8:1
       }`}
     >
       {isSuccess ? <CheckCircle size={15} className="shrink-0" /> : <XCircle size={15} className="shrink-0" />}
@@ -60,7 +60,8 @@ export function ToastStack({ messages, onDismiss }: ToastStackProps) {
   const { t } = useI18n();
   if (messages.length === 0) return null;
   return (
-    <div className="fixed bottom-6 right-6 flex flex-col gap-2 z-[100]" aria-label={t('notificationsRegion')}>
+    // Above the editor's corner, where the save status is, so a toast never covers "Save failed".
+    <div role="region" className="fixed bottom-14 right-6 flex flex-col gap-2 z-[100]" aria-label={t('notificationsRegion')}>
       {messages.map(m => (
         <ToastItem key={m.id} message={m} onDismiss={onDismiss} />
       ))}

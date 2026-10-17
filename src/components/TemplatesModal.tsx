@@ -4,6 +4,7 @@ import {
   Users, Rocket, FlaskConical, BookOpen, Lightbulb, FileText,
 } from 'lucide-react';
 import { Modal } from './Modal';
+import { useConfirm } from './ConfirmProvider';
 import { getBuiltinTemplates, type NoteTemplate, type TemplateIconName } from '../lib/templates';
 import { useI18n } from '../lib/i18n';
 
@@ -40,6 +41,12 @@ export function TemplatesModal({ customTemplates, activeNoteContent, activeNoteN
   useEffect(() => {
     if (showSave) saveInputRef.current?.focus();
   }, [showSave]);
+
+  const confirm = useConfirm();
+  // A custom template cannot be brought back: ask first. The button also shows when it has keyboard focus.
+  const confirmDelete = async (tmpl: NoteTemplate) => {
+    if (await confirm({ message: t('deleteTemplateConfirm').replace('{name}', tmpl.name), confirmLabel: t('deleteTemplate'), danger: true })) onDelete(tmpl.id);
+  };
 
   const handleSave = () => {
     const name = savingName.trim() || (activeNoteName?.replace('.md', '') ?? 'Template');
@@ -78,7 +85,12 @@ export function TemplatesModal({ customTemplates, activeNoteContent, activeNoteN
                   {t('use')}
                 </button>
                 {tmpl.id.startsWith('custom_') && (
-                  <button type="button" onClick={() => onDelete(tmpl.id)} aria-label={t('deleteTemplate')} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 p-1">
+                  <button
+                    type="button"
+                    onClick={() => { void confirmDelete(tmpl); }}
+                    aria-label={t('deleteTemplate')}
+                    className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 text-red-400 hover:text-red-600 p-1"
+                  >
                     <Trash2 size={13} />
                   </button>
                 )}

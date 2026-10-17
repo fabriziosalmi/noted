@@ -86,16 +86,24 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
+  // An error stays until it is closed or the next result replaces it: a timer used to take it away after 6 s, and an
+  // older timer could take away a newer error. Success goes by itself; its one timer is reset by each message.
+  const successTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => () => clearTimeout(successTimer.current), []);
+  useEffect(() => { if (error) errorRef.current?.scrollIntoView?.({ block: 'nearest' }); }, [error]);
+
   const showError = (msg: string) => {
+    clearTimeout(successTimer.current);
     setError(msg);
     setSuccess(null);
-    setTimeout(() => setError(null), 6000);
   };
 
   const showSuccess = (msg: string) => {
+    clearTimeout(successTimer.current);
     setSuccess(msg);
     setError(null);
-    setTimeout(() => setSuccess(null), 4000);
+    successTimer.current = setTimeout(() => setSuccess(null), 4000);
   };
 
   // ── Actions ──────────────────────────────────────────────────────────────────
@@ -287,13 +295,16 @@ export function GitPanel({ activeNoteName, onClose }: GitPanelProps) {
 
           {/* Feedback */}
           {error && (
-            <div className="flex items-start gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/40 rounded-lg px-3 py-2 text-xs text-red-700 dark:text-red-300">
+            <div ref={errorRef} role="alert" className="flex items-start gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/40 rounded-lg px-3 py-2 text-xs text-red-700 dark:text-red-300">
               <AlertCircle size={12} className="mt-0.5 shrink-0" />
-              <span>{error}</span>
+              <span className="flex-1 min-w-0 break-words">{error}</span>
+              <button type="button" onClick={() => setError(null)} aria-label={t('close')} className="shrink-0 p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/40">
+                <X size={11} />
+              </button>
             </div>
           )}
           {success && (
-            <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/40 rounded-lg px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300">
+            <div role="status" className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/40 rounded-lg px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300">
               <Check size={12} className="shrink-0" />
               <span>{success}</span>
             </div>

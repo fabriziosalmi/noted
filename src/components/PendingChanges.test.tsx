@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { render } from '../test/test-utils';
 import { PendingChangesBadge } from './PendingChanges';
 import { useStore } from '../store/useStore';
 import type { PendingChange } from '../../shared/vault/pending';
@@ -83,11 +84,30 @@ describe('PendingChangesBadge', () => {
     await waitFor(() => expect(notice).toHaveBeenCalledWith('Could not settle the change: disk full', 'error'));
   });
 
-  it('approve all and reject all go through the whole list', async () => {
+  it('approve all asks first, saying how many notes it deletes, then goes through the whole list', async () => {
+    queue = [...queue, change('c', { kind: 'delete', note: 'old.md', after: null })];
     const dialog = await open();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Approve all' }));
-    await waitFor(() => expect(settlePendingChange).toHaveBeenCalledTimes(2));
+    const ask = (await screen.findByText('Approve all 3 changes? They are written to your notes. 1 of them delete a note.')).closest('[role="dialog"]') as HTMLElement;
+    expect(settlePendingChange).not.toHaveBeenCalled();
+    fireEvent.click(within(ask).getByRole('button', { name: 'Approve all' }));
+    await waitFor(() => expect(settlePendingChange).toHaveBeenCalledTimes(3));
     expect(settlePendingChange.mock.calls.every(c => c[1] === true)).toBe(true);
+  });
+
+  it('reject all can be called off, and failures are reported once, together', async () => {
+    const dialog = await open();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Reject all' }));
+    fireEvent.click(within((await screen.findByText(/Reject all 2 changes\?/)).closest('[role="dialog"]') as HTMLElement).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByText(/Reject all 2 changes\?/)).toBeNull());
+    expect(settlePendingChange).not.toHaveBeenCalled();
+
+    settlePendingChange.mockResolvedValue({ success: false, error: 'disk is read-only' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Reject all' }));
+    fireEvent.click(within((await screen.findByText(/Reject all 2 changes\?/)).closest('[role="dialog"]') as HTMLElement).getByRole('button', { name: 'Reject all' }));
+    await waitFor(() => expect(settlePendingChange).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(notice).toHaveBeenCalledTimes(1));
+    expect(notice).toHaveBeenCalledWith('2 of 2 changes could not be settled: disk is read-only', 'error');
   });
 
   describe('approving part of a change to a note', () => {

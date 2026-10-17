@@ -41,6 +41,8 @@ export interface AppLifecycleArgs {
   activeNoteName: string | null;
   fetchNotes: () => Promise<void>;
   loadApiKey: () => Promise<void>;
+  /** An auto-commit failed: say so (once per distinct error, until one succeeds). */
+  onAutoCommitError?: (message: string) => void;
 }
 
 export interface AppDerivedStateSettings {

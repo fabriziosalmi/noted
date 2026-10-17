@@ -2,6 +2,7 @@ import { useId, useMemo, useState } from 'react';
 import { useI18n } from '../lib/i18n';
 import { compose, reviewable } from '../../shared/diff/hunks';
 import { Modal } from './Modal';
+import { useConfirm } from './ConfirmProvider';
 import { ReviewDiff } from './ReviewDiff';
 
 /**
@@ -21,9 +22,14 @@ export function AiEditReview({ title, original, proposed, onApply, onCancel }: {
   const model = useMemo(() => reviewable(original, proposed), [original, proposed]);
   // Everything is kept to begin with: the usual answer is "yes, that", and a person who wants less drops what they do not want.
   const [accepted, setAccepted] = useState<Set<number>>(() => new Set(model.changes.map(c => c.id)));
+  const confirm = useConfirm();
+  // Escape asks before throwing the proposal away (the model's work); the Discard button is the explicit way.
+  const requestCancel = async () => {
+    if (await confirm({ message: t('reviewDiscardConfirm'), confirmLabel: t('reviewDiscard'), danger: true })) onCancel();
+  };
 
   return (
-    <Modal id="ai-edit-review" onClose={onCancel} labelledBy={titleId} solid dismissOnBackdrop={false} className="w-[760px] max-w-[94vw] max-h-[86vh]">
+    <Modal id="ai-edit-review" onClose={() => { void requestCancel(); }} labelledBy={titleId} solid dismissOnBackdrop={false} className="w-[760px] max-w-[94vw] max-h-[86vh]">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200/60 dark:border-gray-700/60">
         <h2 id={titleId} className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('reviewAiTitle').replace('{action}', title)}</h2>
         <div className="ml-auto flex gap-2">

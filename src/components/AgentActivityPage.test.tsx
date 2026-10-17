@@ -107,4 +107,18 @@ describe('AgentActivityPage', () => {
     page();
     expect(await screen.findByText('Assistants have not changed anything in this vault yet.')).toBeInTheDocument();
   });
+
+  it('says so when the journal or a change cannot be read, instead of showing nothing', async () => {
+    journalDiff.mockResolvedValue({ success: false, error: 'snapshot missing' });
+    const { unmount } = page();
+    const row = (await screen.findByText('Work/old', {}, { timeout: 3000 }).then(() => document.querySelector('[data-entry="e3"]'))) as HTMLElement;
+    fireEvent.click(within(row).getByRole('button', { name: 'Show changes' }));
+    expect(await within(row).findByText('This change could not be shown: snapshot missing')).toBeInTheDocument();
+    unmount();
+
+    journalList.mockResolvedValue({ success: false, error: 'journal is not readable' });
+    page();
+    expect(await screen.findByRole('alert')).toHaveTextContent('The agent journal could not be read: journal is not readable');
+    expect(screen.queryByText('Assistants have not changed anything in this vault yet.')).toBeNull();
+  });
 });

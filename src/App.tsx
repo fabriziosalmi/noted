@@ -109,6 +109,7 @@ function App() {
     activeNoteName,
     fetchNotes,
     loadApiKey,
+    onAutoCommitError: msg => toast(t('autoCommitFailed').replace('{error}', msg), 'error'),
   });
 
   const {

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { simpleGit } from 'simple-git';
-import { classify, commitStaged, getFileVersions, getStatus, initRepo, stageFiles, unstageFiles } from './git-ops';
+import { classify, commitAll, commitStaged, getFileVersions, getStatus, initRepo, stageFiles, unstageFiles } from './git-ops';
 
 // Every test makes a real repository, and starting git is slow on some machines.
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
@@ -207,5 +207,28 @@ describe('initRepo on a machine with no git identity', () => {
     } finally {
       fs.rmSync(own, { recursive: true, force: true });
     }
+  });
+});
+
+describe('commitAll (the auto-commit)', () => {
+  const count = async () => Number((await simpleGit(dir).raw(['rev-list', '--count', 'HEAD'])).trim());
+
+  it('makes no commit when nothing changed, and one when something did', async () => {
+    const before = await count();
+    expect((await commitAll(dir, 'Auto-commit: update notes')).success).toBe(true);
+    expect((await commitAll(dir, 'Auto-commit: update notes')).success).toBe(true);
+    expect(await count()).toBe(before); // used to add an empty commit at every interval
+
+    write('Plan.md', '# Plan\n\nWe ship Monday.\n');
+    expect((await commitAll(dir, 'Auto-commit: update notes')).success).toBe(true);
+    expect(await count()).toBe(before + 1);
+
+    // A deleted or renamed note is a change too.
+    fs.rmSync(path.join(dir, 'Work/Notes.md'));
+    expect((await commitAll(dir, 'Auto-commit: update notes')).success).toBe(true);
+    expect(await count()).toBe(before + 2);
+    fs.renameSync(path.join(dir, 'Plan.md'), path.join(dir, 'Roadmap.md'));
+    expect((await commitAll(dir, 'Auto-commit: update notes')).success).toBe(true);
+    expect(await count()).toBe(before + 3);
   });
 });

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
+import { popupPosition, type PopupStyle } from '../lib/popupPosition';
 
 interface TagSuggestionProps {
   editor: Editor;
@@ -9,7 +10,8 @@ interface TagSuggestionProps {
 export function TagSuggestion({ editor, allTags }: TagSuggestionProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [pos, setPos] = useState<PopupStyle | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const triggerRef = useRef<number | null>(null); // position in doc where # was typed
 
@@ -44,6 +46,11 @@ export function TagSuggestion({ editor, allTags }: TagSuggestionProps) {
     return () => window.removeEventListener('keydown', handler, true);
   }, [open, suggestions, activeIdx, insertTag]);
 
+  // Arrow keys move the active item; keep it in view when the menu scrolls.
+  useEffect(() => {
+    menuRef.current?.querySelector('[data-active]')?.scrollIntoView?.({ block: 'nearest' });
+  }, [activeIdx, open]);
+
   useEffect(() => { setActiveIdx(0); }, [query]);
 
   // Watch editor updates for # trigger
@@ -60,7 +67,7 @@ export function TagSuggestion({ editor, allTags }: TagSuggestionProps) {
 
         // Position dropdown near cursor
         const coords = editor.view.coordsAtPos(from);
-        setPos({ top: coords.bottom + 4, left: coords.left });
+        setPos(popupPosition(coords, 200, undefined, 280, 4));
         setOpen(true);
       } else {
         setOpen(false);
@@ -79,12 +86,14 @@ export function TagSuggestion({ editor, allTags }: TagSuggestionProps) {
 
   return (
     <div
-      className="fixed z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1 min-w-[160px]"
-      style={{ top: pos.top, left: pos.left }}
+      ref={menuRef}
+      className="fixed z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1 min-w-[160px] overflow-y-auto"
+      style={pos}
     >
       {suggestions.map((tag, i) => (
         <button
           key={tag}
+          data-active={i === activeIdx || undefined}
           onMouseDown={e => { e.preventDefault(); insertTag(tag); }}
           onMouseEnter={() => setActiveIdx(i)}
           className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 transition-colors ${

@@ -43,9 +43,10 @@
 /* ─── Accent color (set via JS on :root) ─────────────────────────────── */
 :root {
   --accent: #6366f1;
-  /* Accent tuned for small text on light surfaces: #6366f1 as text on white is
-     ~4.47:1 (just under AA). Darkened to ~5.6:1 for links/labels. */
-  --accent-text: color-mix(in srgb, var(--accent) 82%, #000 18%);
+  /* The accent as small text (links, labels): its lightness is capped, so any accent the user picks reads at
+     about 5.5:1 or more on the light surfaces. A fixed 18% darkening left light accents (green, orange, cyan)
+     near 2.7:1. The dark theme lifts it instead (below). */
+  --accent-text: oklch(from var(--accent) min(l, 0.5) c h);
   --accent-light: color-mix(in srgb, var(--accent) 12%, transparent);
   --accent-mid:   color-mix(in srgb, var(--accent) 25%, transparent);
   --btn-primary-disabled-bg: color-mix(in srgb, var(--accent) 24%, #6b7280 76%);
@@ -63,6 +64,8 @@
    gray-800 = #1F2937). Override the most-used shades to a properly dark scale
    that doesn't glow on OLED screens. */
 .dark { color-scheme: dark; }
+/* On the dark surfaces the accent as text is lifted: the darkened light-theme value was about 3.3:1 there. */
+.dark { --accent-text: oklch(from var(--accent) max(l, 0.72) c h); }
 /* Editor canvas & primary page bg are pure black for OLED-true look.
    Higher surfaces step up in tiny increments so panels still read as layered
    without losing the "everything is black" feel. */
@@ -106,6 +109,14 @@
 .placeholder-gray-400::placeholder { color: #6b7280 !important; }
 .dark .text-gray-400 { color: #9ca3af !important; }
 .dark .placeholder-gray-400::placeholder { color: #9ca3af !important; }
+/* The same for the dark theme: Tailwind's gray-500 and gray-600 are about 4.1:1 and 2.7:1 on the near-black
+   surfaces (WCAG AA wants 4.5:1). Remapped to at least 5:1 and 4.7:1 on every dark surface, gray-800 included.
+   A plain text-gray-500 is remapped only where the element has no dark colour of its own. */
+.dark .dark\:text-gray-500,
+.dark .text-gray-500:not([class*="dark:text-"]) { color: #9098a6 !important; }
+.dark .dark\:text-gray-600 { color: #8b93a1 !important; }
+.dark .dark\:placeholder-gray-500::placeholder,
+.dark .dark\:placeholder-gray-600::placeholder { color: #8a8a93 !important; }
 
 .sepia { color-scheme: light; }
 .sepia body { color: #3d2b1f; background: #fbf3e0; }
@@ -127,7 +138,7 @@
 .sepia .border-gray-200 { border-color: #d8c595 !important; }
 .sepia .border-gray-300 { border-color: #c5b07d !important; }
 
-.sepia .text-gray-400   { color: #8b7a5a !important; }
+.sepia .text-gray-400   { color: #72623f !important; } /* 4.6:1 on the page and the sidebar; #8b7a5a was 3.2-3.9:1 */
 .sepia .text-gray-500   { color: #6e5e42 !important; }
 .sepia .text-gray-600   { color: #5a4a30 !important; }
 .sepia .text-gray-700   { color: #4a3a22 !important; }
@@ -320,13 +331,13 @@ body {
 .ProseMirror p { margin: 0; }
 
 .ProseMirror p.is-editor-empty:first-child::before {
-  color: #8a8a92;
+  color: #6b6b73; /* 4.9:1 on white; #8a8a92 was 3.4:1 */
   content: attr(data-placeholder);
   float: left;
   height: 0;
   pointer-events: none;
 }
-.dark .ProseMirror p.is-editor-empty:first-child::before { color: #48484a; }
+.dark .ProseMirror p.is-editor-empty:first-child::before { color: #8a8a93; } /* #48484a was 2.2:1 */
 
 /* ─── Focus / Typewriter mode ───────────────────────────────────────── */
 /* Everything but the block holding the caret recedes. The dimming is gated on
@@ -561,26 +572,26 @@ body {
 
 /* ─── Wikilinks ──────────────────────────────────────────────────────── */
 .ProseMirror .wikilink {
-  color: #5856d6;
-  background: rgba(88, 86, 214, 0.08);
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   border-radius: 4px;
   padding: 0 3px;
   cursor: pointer;
   text-decoration: none;
   font-weight: 500;
 }
-.ProseMirror .wikilink:hover { background: rgba(88, 86, 214, 0.16); }
-.ProseMirror .wikilink-raw { color: #5856d6; opacity: 0.6; }
-.dark .ProseMirror .wikilink { color: #bf5af2; background: rgba(191, 90, 242, 0.12); }
-.dark .ProseMirror .wikilink:hover { background: rgba(191, 90, 242, 0.22); }
+.ProseMirror .wikilink:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.ProseMirror .wikilink-raw { color: var(--accent-text); opacity: 0.6; }
+.dark .ProseMirror .wikilink { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.dark .ProseMirror .wikilink:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
 
 /* ─── Markdown-only constructs (callouts, raw Markdown, comments) ───────── */
 .ProseMirror div[data-callout] {
   margin: 0.8em 0;
   padding: 0.5em 0.9em 0.6em;
-  border-left: 3px solid #5856d6;
+  border-left: 3px solid var(--accent);
   border-radius: 6px;
-  background: rgba(88, 86, 214, 0.07);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
 }
 .ProseMirror div[data-callout]::before {
   content: attr(data-label);
@@ -589,15 +600,15 @@ body {
   font-size: 0.85em;
   letter-spacing: 0.01em;
   margin-bottom: 0.2em;
-  color: #5856d6;
+  color: var(--accent-text);
 }
 .ProseMirror div[data-callout] > :last-child { margin-bottom: 0; }
 .ProseMirror div[data-callout="warning"], .ProseMirror div[data-callout="caution"], .ProseMirror div[data-callout="danger"], .ProseMirror div[data-callout="error"] { border-left-color: #d9480f; background: rgba(217, 72, 15, 0.08); }
 .ProseMirror div[data-callout="warning"]::before, .ProseMirror div[data-callout="caution"]::before, .ProseMirror div[data-callout="danger"]::before, .ProseMirror div[data-callout="error"]::before { color: #d9480f; }
 .ProseMirror div[data-callout="tip"], .ProseMirror div[data-callout="success"], .ProseMirror div[data-callout="check"] { border-left-color: #2f9e44; background: rgba(47, 158, 68, 0.08); }
 .ProseMirror div[data-callout="tip"]::before, .ProseMirror div[data-callout="success"]::before, .ProseMirror div[data-callout="check"]::before { color: #2f9e44; }
-.dark .ProseMirror div[data-callout]::before { color: #bf5af2; }
-.dark .ProseMirror div[data-callout] { border-left-color: #bf5af2; background: rgba(191, 90, 242, 0.1); }
+.dark .ProseMirror div[data-callout]::before { color: var(--accent-text); }
+.dark .ProseMirror div[data-callout] { border-left-color: var(--accent-text); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 /* The dark rule above outranks the light per-type colours, so each type gets its dark colour here. */
 .dark .ProseMirror div[data-callout="warning"], .dark .ProseMirror div[data-callout="caution"], .dark .ProseMirror div[data-callout="danger"], .dark .ProseMirror div[data-callout="error"] { border-left-color: #ff8a4c; background: rgba(255, 138, 76, 0.12); }
 .dark .ProseMirror div[data-callout="warning"]::before, .dark .ProseMirror div[data-callout="caution"]::before, .dark .ProseMirror div[data-callout="danger"]::before, .dark .ProseMirror div[data-callout="error"]::before { color: #ff8a4c; }
@@ -947,19 +958,19 @@ body {
   display: block;
   margin: 6px 0 10px;
   padding: 8px 12px;
-  border-left: 3px solid #5856d6;
+  border-left: 3px solid var(--accent);
   border-radius: 4px;
-  background: rgba(88, 86, 214, 0.05);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
   max-height: 24rem;
   overflow: auto;
   cursor: pointer;
   user-select: text;
   font-size: 0.95em;
 }
-.ProseMirror .embed:hover { background: rgba(88, 86, 214, 0.09); }
+.ProseMirror .embed:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); }
 .ProseMirror .embed img { max-width: 100%; height: auto; border-radius: 4px; }
 .ProseMirror .embed .embed-missing { color: #8e8e93; font-style: italic; }
 .ProseMirror .embed-body > div > :first-child { margin-top: 0; }
 .ProseMirror .embed-body > div > :last-child { margin-bottom: 0; }
-.dark .ProseMirror .embed { border-left-color: #bf5af2; background: rgba(191, 90, 242, 0.08); }
-.dark .ProseMirror .embed:hover { background: rgba(191, 90, 242, 0.13); }
+.dark .ProseMirror .embed { border-left-color: var(--accent-text); background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.dark .ProseMirror .embed:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
