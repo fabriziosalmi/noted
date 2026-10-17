@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-17
+
 ### Added
 
 - **Help → Show Logs.** The app's background process now keeps a log file (`~/Library/Logs/Noted` on macOS, `%APPDATA%\Noted\logs` on Windows, `~/.config/Noted/logs` on Linux; two files of at most 5 MB). In an installed app its messages went nowhere, so a bug report had nothing to attach.
@@ -531,7 +533,8 @@ The first cross-platform release, and the first that keeps itself up to date.
   backlinks, full-text search, multi-provider AI, Git integration, export, quick
   capture, and a built-in MCP server.
 
-[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.7.1...HEAD
+[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/fabriziosalmi/noted/compare/v1.7.1...v1.8.0
 [1.7.1]: https://github.com/fabriziosalmi/noted/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/fabriziosalmi/noted/compare/v1.6.3...v1.7.0
 [1.6.3]: https://github.com/fabriziosalmi/noted/compare/v1.6.2...v1.6.3
