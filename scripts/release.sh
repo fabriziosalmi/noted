@@ -67,6 +67,12 @@ if [[ "$NOTARIZE_ONLY" == 1 ]]; then
 else
   npm ci
   npm run build
+  # Start the build for this Mac's architecture on a throwaway profile before anything goes to Apple: a window that
+  # does not load, an error in the log or an MCP server that does not answer stops the release here.
+  [[ "$(uname -m)" == arm64 ]] && smoke_app=release/mac-arm64/Noted.app || smoke_app=release/mac/Noted.app
+  echo
+  echo "── Smoke test of $smoke_app ──"
+  node scripts/smoke-packaged.mjs "$smoke_app" || { echo "✗ the packaged app failed its smoke test" >&2; exit 1; }
 fi
 
 # ── Notarize + staple each DMG ────────────────────────────────────────────

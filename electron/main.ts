@@ -75,7 +75,9 @@ app.on('activate', () => {
 });
 
 app.whenReady().then(async () => {
-  // ~/Library/Logs/Noted on macOS, %APPDATA%\Noted\logs on Windows, ~/.config/Noted/logs on Linux.
+  // ~/Library/Logs/Noted on macOS, %APPDATA%\Noted\logs on Windows, ~/.config/Noted/logs on Linux. A run on a profile
+  // of its own (--user-data-dir, as the release smoke test does) keeps its log in that profile, away from the user's.
+  if (app.commandLine.hasSwitch('user-data-dir')) app.setAppLogsPath(path.join(app.getPath('userData'), 'logs'));
   setLogFile(path.join(app.getPath('logs'), 'main.log'));
   logEvent('info', 'app_started', { version: app.getVersion(), platform: process.platform });
   registerAppProtocol();
