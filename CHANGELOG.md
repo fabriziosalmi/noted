@@ -6,6 +6,13 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **A note is never saved into another vault.** When the vault folder you chose was not there (a drive not connected, a cloud folder not synced yet) or was no longer allowed, every read and save went to the default vault instead and reported success, so an autosave could overwrite a note of the same name there while your vault never got the edit. Now nothing is written, the editor keeps your text and says the save failed, and the sidebar says which folder is not available. The list of allowed vault folders is also written so that an interruption cannot damage it.
+- **Connect to Claude Desktop no longer replaces Claude Desktop's settings.** If its configuration file could not be read as JSON (a trailing comma, a comment), Noted replaced it with only its own entry, removing your other MCP servers. Now that file is left as it is and Noted says what to fix; when it does write, the previous version is kept as `claude_desktop_config.json.bak`, and the file is never left half-written.
+- **An assistant connected from Settings works on the vault you have open.** The Claude Desktop entry and the snippets for Claude Code, VS Code and Codex started the server without naming the vault, so with a vault in a folder of your own the assistant read and wrote the default vault, which the app does not show. They now pass `--notes-dir`.
+- **A Git command that stops answering no longer blocks every later commit and sync.** Commands from the Git panel and auto-commit had no time limit (a push to a remote that stopped answering waited for ever); they now stop after two minutes without output, like the background sync, and creating a pull request gives up after 30 seconds.
+
 ## [1.7.1] - 2026-10-17
 
 ### Fixed
