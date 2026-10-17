@@ -4,6 +4,7 @@ import {
   FileText as PdfIcon, FileCode, FileText as DocxIcon, Printer,
 } from 'lucide-react';
 import { useI18n, type TranslationKey } from '../lib/i18n';
+import { useRovingFocus } from '../hooks/useRovingFocus';
 import { getElectronApi } from '../lib/electronApi';
 import { printNoteFromHtml } from '../lib/printNote';
 import { inlineVaultImages } from '../lib/exportContent';
@@ -35,6 +36,11 @@ export function ShareMenu({
   const [open, setOpen] = useState(false);
   const [workflow, dispatchWorkflow] = useReducer(shareWorkflowReducer, initialShareWorkflowState);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuKeys = useRovingFocus(menuRef, '[role="menuitem"]', 'vertical');
+  // A plain list of actions is a menu; the Gist confirmation inside it is a small form, so then it is a dialog.
+  const listMode = workflow.stage === 'idle' || workflow.stage === 'failed';
 
   useEffect(() => {
     if (!open) dispatchWorkflow({ type: 'RESET' });
@@ -45,7 +51,9 @@ export function ShareMenu({
     const onDown = (e: MouseEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); triggerRef.current?.focus(); } };
+    // Opened from the keyboard or the mouse, the first action has the focus, so the arrows work at once.
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])')?.focus();
     window.addEventListener('mousedown', onDown);
     window.addEventListener('keydown', onKey);
     return () => {
@@ -232,6 +240,8 @@ export function ShareMenu({
   // ── UI helpers ────────────────────────────────────────────────────────
   const menuItem = (icon: React.ReactNode, label: string, onClick: () => void, disabled = false) => (
     <button
+      type="button"
+      role={listMode ? 'menuitem' : undefined}
       onClick={onClick}
       disabled={disabled || isShareWorkflowBusy(workflow.stage)}
       className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -242,14 +252,15 @@ export function ShareMenu({
   );
 
   return (
-    <div ref={ref} className="relative inline-block">
+    <div ref={ref} className="relative flex items-center">
       <Tooltip label={t('shareExport')}>
         <button
+          ref={triggerRef}
           type="button"
           onClick={() => setOpen(v => !v)}
           className="p-1.5 rounded transition-colors text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[var(--accent)]"
           aria-label={t('shareExport')}
-          aria-haspopup="true"
+          aria-haspopup="menu"
           aria-expanded={open}
         >
           <Share2 size={15} />
@@ -257,10 +268,18 @@ export function ShareMenu({
       </Tooltip>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-64 max-h-[calc(100vh-7rem)] overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 py-1">
+        <div
+          ref={menuRef}
+          role={listMode ? 'menu' : 'dialog'}
+          aria-label={t('shareExport')}
+          tabIndex={-1}
+          onKeyDown={menuKeys.onKeyDown}
+          onFocus={menuKeys.onFocus}
+          className="absolute right-0 top-full mt-1 w-64 max-h-[calc(100vh-7rem)] overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 py-1"
+        >
 
           {/* Current note — format exports */}
-          <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('shareExportNote')}</div>
+          <div aria-hidden="true" className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('shareExportNote')}</div>
           {menuItem(<FileDown size={14} />, t('exportMarkdown'),  handleExportMd,   !hasNote)}
           {menuItem(<PdfIcon size={14} />,  t('exportPdf'),       handleExportPdf,  !hasNote)}
           {menuItem(<FileCode size={14} />, t('exportHtml'),      handleExportHtml, !hasNote)}
@@ -268,19 +287,21 @@ export function ShareMenu({
           {menuItem(<Printer size={14} />,  t('print'),           handlePrint,      !hasNote)}
           {isMac && menuItem(<Wifi size={14} />,     t('shareAirdrop'),    handleShareNote,  !hasNote)}
 
-          <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
+          <div role="separator" className="border-t border-gray-100 dark:border-gray-700 my-1" />
 
           {/* Vault */}
-          <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('shareExportVault')}</div>
+          <div aria-hidden="true" className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('shareExportVault')}</div>
           {isMac && menuItem(<Cloud size={14} />,      t('copyToICloud'),      handleCopyVaultToICloud)}
           {menuItem(<FolderOpen size={14} />, t('exportVaultFolder'), handleExportVaultToFolder)}
 
           {/* Gist */}
           {hasNote && (
             <>
-              <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
+              <div role="separator" className="border-t border-gray-100 dark:border-gray-700 my-1" />
               {(workflow.stage === 'idle' || workflow.stage === 'failed') && (
                 <button
+                  type="button"
+                  role="menuitem"
                   onClick={() => dispatchWorkflow({ type: 'OPEN_GIST_CONFIRM' })}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                 >

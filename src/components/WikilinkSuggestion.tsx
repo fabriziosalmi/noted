@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useId } from 'react';
+import { useI18n } from '../lib/i18n';
 import { FileText, Hash } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 import { popupPosition, type PopupStyle } from '../lib/popupPosition';
+import { useSuggestionAria, optionId } from '../hooks/useSuggestionAria';
 import { getElectronApi } from '../lib/electronApi';
 import { useStore } from '../store/useStore';
 import { headingLinkText, normalizeHeading, plainHeading } from '../../shared/vault/wikilink';
@@ -121,11 +123,18 @@ export function WikilinkSuggestion({ editor, notes, resolve }: WikilinkSuggestio
     menuRef.current?.querySelector('[data-active]')?.scrollIntoView?.({ block: 'nearest' });
   }, [selected, open]);
 
+  const { t } = useI18n();
+  const listId = useId();
+  useSuggestionAria(editor, open && items.length > 0, listId, selected);
+
   if (!open || items.length === 0) return null;
 
   return (
     <div
       ref={menuRef}
+      id={listId}
+      role="listbox"
+      aria-label={t('suggestNotes')}
       style={{ position: 'fixed', zIndex: 9999, ...pos }}
       className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl w-64 overflow-y-auto"
     >
@@ -133,6 +142,10 @@ export function WikilinkSuggestion({ editor, notes, resolve }: WikilinkSuggestio
         <button
           key={item.key}
           data-active={i === selected || undefined}
+          id={optionId(listId, i)}
+          role="option"
+          aria-selected={i === selected}
+          tabIndex={-1}
           onMouseDown={e => { e.preventDefault(); insert(item.note, item.fragment); }}
           className={`w-full text-left flex items-center gap-2 px-3 py-2 text-sm transition-colors ${i === selected ? 'bg-[var(--accent-light)] text-[var(--accent)] font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
         >

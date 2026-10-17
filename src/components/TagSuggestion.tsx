@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useId } from 'react';
+import { useI18n } from '../lib/i18n';
 import type { Editor } from '@tiptap/react';
 import { popupPosition, type PopupStyle } from '../lib/popupPosition';
+import { useSuggestionAria, optionId } from '../hooks/useSuggestionAria';
 
 interface TagSuggestionProps {
   editor: Editor;
@@ -51,6 +53,10 @@ export function TagSuggestion({ editor, allTags }: TagSuggestionProps) {
     menuRef.current?.querySelector('[data-active]')?.scrollIntoView?.({ block: 'nearest' });
   }, [activeIdx, open]);
 
+  const { t } = useI18n();
+  const listId = useId();
+  useSuggestionAria(editor, open && suggestions.length > 0 && !!pos, listId, activeIdx);
+
   useEffect(() => { setActiveIdx(0); }, [query]);
 
   // Watch editor updates for # trigger
@@ -87,6 +93,9 @@ export function TagSuggestion({ editor, allTags }: TagSuggestionProps) {
   return (
     <div
       ref={menuRef}
+      id={listId}
+      role="listbox"
+      aria-label={t('suggestTags')}
       className="fixed z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1 min-w-[160px] overflow-y-auto"
       style={pos}
     >
@@ -94,6 +103,10 @@ export function TagSuggestion({ editor, allTags }: TagSuggestionProps) {
         <button
           key={tag}
           data-active={i === activeIdx || undefined}
+          id={optionId(listId, i)}
+          role="option"
+          aria-selected={i === activeIdx}
+          tabIndex={-1}
           onMouseDown={e => { e.preventDefault(); insertTag(tag); }}
           onMouseEnter={() => setActiveIdx(i)}
           className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 transition-colors ${

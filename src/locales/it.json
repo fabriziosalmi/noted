@@ -1182,5 +1182,9 @@
   "findReplaceAll": "Sostituisci tutto",
   "findToggleReplace": "Mostra sostituisci",
   "findMatchCase": "Maiuscole/minuscole",
-  "findReplacedCount": "{n} sostituiti"
+  "findReplacedCount": "{n} sostituiti",
+  "formattingToolbar": "Formattazione",
+  "toolbarMore": "Altri strumenti",
+  "suggestNotes": "Note da collegare",
+  "suggestTags": "Tag"
 }

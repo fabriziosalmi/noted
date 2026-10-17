@@ -6,6 +6,11 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The formatting bar stays on one row in a narrow window.** At 720 pixels it wrapped onto three rows and took about 100 pixels from the note. The buttons that do not fit now go, from the end, into a **⋯** menu.
+- **The formatting bar, the share menu and the `/`, `[[` and `#` menus work with a screen reader and the keyboard.** The bar is a toolbar: Tab reaches it at one place, the arrow keys move between its buttons, and each format says whether it is on. The share menu is a menu: it opens with the focus on its first action, the arrow keys move, and Escape returns to the button. The suggestion menus are lists that the editor points at, so the highlighted choice is announced while you keep typing.
+
 ## [1.7.0] - 2026-10-17
 
 ### Added
