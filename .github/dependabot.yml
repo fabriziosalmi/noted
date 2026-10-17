@@ -10,10 +10,21 @@ updates:
     groups:
       tiptap:
         patterns: ['@tiptap/*']
+    ignore:
+      # jsdom 30 needs Node 22.22.2 or later, and the MCP server for Claude Desktop runs on the user's own `node`.
+      - dependency-name: jsdom
+        update-types: ['version-update:semver-major']
+      # @tiptap/extension-mathematics accepts katex ^0.16.4 || ^0.17.0 || ^0.18.0.
+      - dependency-name: katex
+        versions: ['>=0.19.0']
   - package-ecosystem: npm
     directory: /mcp-server/runtime
     schedule:
       interval: weekly
+    ignore:
+      # jsdom 30 needs Node 22.22.2 or later, and the MCP server for Claude Desktop runs on the user's own `node`.
+      - dependency-name: jsdom
+        update-types: ['version-update:semver-major']
   - package-ecosystem: npm
     directory: /docs
     schedule:
