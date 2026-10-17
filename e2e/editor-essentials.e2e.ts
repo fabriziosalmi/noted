@@ -29,22 +29,33 @@ const clickMenu = (app: ElectronApplication, label: string) => app.evaluate(({ M
 }, label);
 
 test.describe('editor essentials', () => {
-  test('right-click shows the edit actions, and on macOS the spelling suggestions, which replace the word', async ({ noted }) => {
-    seed(noted.vault, { 'Spell.md': '<h1>Spell</h1><p>I wrote teh word.</p>' });
-    const { win, app } = await noted.relaunch();
-    await open(win, 'Spell');
-    // Record the menu instead of showing it: a native menu blocks until it is dismissed.
+  // Record the right-click menu instead of showing it: a native menu blocks until it is dismissed.
+  const recordMenus = async (app: ElectronApplication) => {
     await app.evaluate(({ Menu }) => {
       const g = globalThis as unknown as { menus: Electron.Menu[] };
       g.menus = [];
       Menu.prototype.popup = function (this: Electron.Menu) { g.menus.push(this); };
     });
-    const labels = () => app.evaluate(() => (globalThis as unknown as { menus: Electron.Menu[] }).menus.at(-1)?.items.map(i => i.label) ?? []);
+    return () => app.evaluate(() => (globalThis as unknown as { menus: Electron.Menu[] }).menus.at(-1)?.items.map(i => i.label) ?? []);
+  };
 
+  test('right-click in a note shows the edit actions', async ({ noted }) => {
+    seed(noted.vault, { 'Spell.md': '<h1>Spell</h1><p>I wrote a word.</p>' });
+    const { win, app } = await noted.relaunch();
+    await open(win, 'Spell');
+    const labels = await recordMenus(app);
     await win.locator('[contenteditable="true"] p').first().click({ button: 'right' });
     await expect.poll(labels).toEqual(expect.arrayContaining(['Cut', 'Copy', 'Paste', 'Paste as Plain Text', 'Select All']));
+  });
 
-    test.skip(!isMac, 'spelling suggestions come from the macOS spellchecker; elsewhere dictionaries are downloaded at run time');
+  test('a spelling suggestion from the right-click menu replaces the misspelled word', async ({ noted }) => {
+    // The suggestions come from the system spellchecker. On macOS it is the user's; on the hosted macOS runner it gave
+    // none for 20 s in two attempts of the same run (main, 7547f22), so this runs on a real Mac only.
+    test.skip(!isMac || !!process.env.CI, 'spelling suggestions come from the macOS spellchecker of a real machine');
+    seed(noted.vault, { 'Spell.md': '<h1>Spell</h1><p>I wrote teh word.</p>' });
+    const { win, app } = await noted.relaunch();
+    await open(win, 'Spell');
+    const labels = await recordMenus(app);
     // Chromium checks spelling as text is typed, so the misspelling is typed (at the end of the line).
     const word = win.locator('[contenteditable="true"] p').first();
     await word.click();
