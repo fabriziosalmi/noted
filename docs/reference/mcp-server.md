@@ -261,10 +261,12 @@ transport is hardened for local-only use:
 - **A bearer token on every request.** Every request, the one that starts a session and each message after it, must present
   the token, as `Authorization: Bearer <token>` or an `X-MCP-Token` header, compared in constant time. A leaked session id alone
   is not enough. (`?token=` in the URL is accepted only by the deprecated `/sse` handshake, since URLs end up in logs.)
-- **The token** is taken from the `NOTED_MCP_AUTH_TOKEN` environment variable
-  (preferred over a command-line argument, which would be visible in the process
-  list). When Noted starts the server it generates a random token, stores it with
-  owner-only permissions, and passes it to the server through the environment.
+- **The token** is taken from the `NOTED_MCP_AUTH_TOKEN` environment variable, or from `--auth-token <token>` (the
+  environment is preferred: a command-line argument is visible in the process list). When Noted starts the server it
+  generates a random token, stores it with owner-only permissions, and passes it through the environment. A server
+  started by hand with neither makes one itself, saves it in the vault's `.noted/mcp-http-token` (owner-only, not
+  synced by Git), reuses it on the next start, and prints where it is and how to send it. The HTTP transport never runs
+  without a token.
 - **CORS** reflects only the trusted local origin — never a wildcard.
 
 ## Connecting a client

@@ -6,6 +6,12 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **An agent can no longer approve its own checkpoints.** `approve_agent_gate` refuses a gate that the workflow's approval mode requires (plan, action, review, release; all of them in manual) and says to approve it in Noted, from the Agent panel or the Workflows page. Before, an agent could approve its own plan or release and record the approval as coming from "user". It can still reject such a gate, and approve one that an autonomous workflow asked for on its own. Clients that relied on approving through MCP need the user to approve in the app.
+- **Agent events name the MCP client that wrote them.** Events, transitions and decisions made through MCP are recorded as `mcp:<client name>`; an `actor` given by the caller is kept beside it as a label and no longer replaces it. `actor` is now optional in `append_agent_event`.
+- **The MCP server's HTTP transport always requires a token.** Started by hand without `NOTED_MCP_AUTH_TOKEN` or `--auth-token`, it accepted every local connection, including from other users of the same computer. It now makes a token, keeps it in the vault's `.noted/mcp-http-token` (owner-only, not synced) for the next start, and prints where it is. When Noted starts the server nothing changes.
+
 ### Fixed
 
 - **A note is never saved into another vault.** When the vault folder you chose was not there (a drive not connected, a cloud folder not synced yet) or was no longer allowed, every read and save went to the default vault instead and reported success, so an autosave could overwrite a note of the same name there while your vault never got the edit. Now nothing is written, the editor keeps your text and says the save failed, and the sidebar says which folder is not available. The list of allowed vault folders is also written so that an interruption cannot damage it.
