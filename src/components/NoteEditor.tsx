@@ -31,7 +31,7 @@ import { SlashCommands } from './SlashCommands';
 import { SmartTagSuggestion } from './SmartTagSuggestion';
 import { GhostTextExtension, ghostTextKey } from '../lib/ghostTextExtension';
 import { PassageHighlight } from '../lib/passageHighlight';
-import { FindHighlight } from '../lib/findHighlight';
+import { FindHighlight, findHighlightKey } from '../lib/findHighlight';
 import { deriveTitle } from '../lib/noteTitle';
 import { planExternalChange } from '../lib/externalChange';
 import { attachImage, DEFAULT_ATTACHMENTS_FOLDER } from '../lib/imageAttach';
@@ -62,8 +62,16 @@ const parseOptionsFor = (format: ReturnType<typeof currentFormat>) => (format ==
  * autosave writes it to the file.
  */
 function resetUndoHistory(editor: Editor): void {
+  const find = findHighlightKey.getState(editor.state);
   const { doc, selection, plugins } = editor.state;
   editor.view.updateState(EditorState.create({ doc, selection, plugins }));
+  // A fresh state also resets the find bar's plugin: carry its search over, through a transaction so the bar's count
+  // and its Aa toggle follow (not an undo step).
+  if (find?.query) {
+    editor.view.dispatch(editor.state.tr
+      .setMeta(findHighlightKey, { query: find.query, caseSensitive: find.caseSensitive, current: 0 })
+      .setMeta('addToHistory', false));
+  }
 }
 
 /** Where the caret and the scroll were in each note this session, so going back to a note lands where it was left. */
@@ -549,6 +557,10 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [editor, flushSave]);
+
+  // Positions belong to a vault: another vault's notes start at the top.
+  const syncDirectory = useStore(s => s.settings.syncDirectory);
+  useEffect(() => { notePositions.clear(); }, [syncDirectory]);
 
   // While ⌘/Ctrl is held, web links show the pointer: that is when a click opens them.
   useEffect(() => {

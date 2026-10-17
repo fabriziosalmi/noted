@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { GlobalShortcutsArgs } from './contracts';
+import { isMac } from '../lib/platform';
 
 function isTextInputTarget(target: EventTarget | null): boolean {
   if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return true;
@@ -45,7 +46,8 @@ export function useGlobalShortcuts({
       }
       // Find and replace: ⌘⌥F on macOS (Alt turns the key into ƒ, so the physical key is read), Ctrl+H elsewhere,
       // where Ctrl+Alt is left alone for AltGr.
-      if ((e.metaKey && e.altKey && e.code === 'KeyF') || (!e.metaKey && e.ctrlKey && !e.altKey && !e.shiftKey && key === 'h')) {
+      // (On macOS Ctrl+H is the system's delete-backward in text: left alone there.)
+      if ((isMac && e.metaKey && e.altKey && e.code === 'KeyF') || (!isMac && e.ctrlKey && !e.altKey && !e.shiftKey && key === 'h')) {
         e.preventDefault();
         onOpenReplace?.();
         return;

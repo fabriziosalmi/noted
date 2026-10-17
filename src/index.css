@@ -111,10 +111,12 @@
 .dark .placeholder-gray-400::placeholder { color: #9ca3af !important; }
 /* The same for the dark theme: Tailwind's gray-500 and gray-600 are about 4.1:1 and 2.7:1 on the near-black
    surfaces (WCAG AA wants 4.5:1). Remapped to at least 5:1 and 4.7:1 on every dark surface, gray-800 included.
-   A plain text-gray-500 is remapped only where the element has no dark colour of its own. */
-.dark .dark\:text-gray-500,
-.dark .text-gray-500:not([class*="dark:text-"]) { color: #9098a6 !important; }
-.dark .dark\:text-gray-600 { color: #8b93a1 !important; }
+   A plain text-gray-500 is remapped only where the element has no dark colour of its own.
+   Elements with a hover colour of their own are left as they were, so the hover still shows (an !important here
+   would beat it). */
+.dark .dark\:text-gray-500:not([class*="hover:text-"]),
+.dark .text-gray-500:not([class*="dark:text-"]):not([class*="hover:text-"]) { color: #9098a6 !important; }
+.dark .dark\:text-gray-600:not([class*="hover:text-"]) { color: #8b93a1 !important; }
 .dark .dark\:placeholder-gray-500::placeholder,
 .dark .dark\:placeholder-gray-600::placeholder { color: #8a8a93 !important; }
 

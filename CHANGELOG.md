@@ -22,6 +22,7 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **No more "Object has been destroyed" error on macOS after closing the window.** The app stays open without a window there; when a note then changed on disk (a Git pull, a sync, an MCP client), the main process reported it to the closed window and stopped with an error dialog, which also kept the app from quitting.
 - **The auto-commit no longer adds an empty commit every few minutes.** It committed at every interval even when no note had changed; it now commits only when something did (a deleted or renamed note included). When it fails, the app says so once, instead of only writing to its log.
 - **Menus stay inside the window.** The share menu opened past the right edge of the window; the `/`, `[[` and `#` menus ran off the bottom on the last lines of a note (they now open above the line when there is no room below, and scroll); a tooltip at the edge of the window moves back inside it; Settings fits a window at its smallest height, with its title and Done visible.
 - **The side panel's tabs are icons with their names as tooltips.** Their labels were cut ("AI Ass…", "Analyti…") in a panel that can be a fifth of the window.

@@ -244,6 +244,34 @@ describe('EditorToolbar', () => {
     expect(editor.getText()).toBe('dog and Cat and cat'); // replace all is one step
   });
 
+  it('Replace moves on even when the new text still matches (iphone -> iPhone, foo -> foobar)', () => {
+    const editor = findEditor('<p>iphone and iphone</p>');
+    render(<EditorToolbar {...defaultProps} editor={editor} findOpen={true} replaceRequest={1} />);
+    fireEvent.change(screen.getByPlaceholderText('Find in document...'), { target: { value: 'iphone' } });
+    fireEvent.change(screen.getByLabelText('Replace with…'), { target: { value: 'iPhone' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Replace' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Replace' }));
+    expect(editor.getText()).toBe('iPhone and iPhone');
+
+    const grow = findEditor('<p>foo foo</p>');
+    render(<EditorToolbar {...defaultProps} editor={grow} findOpen={true} replaceRequest={1} />);
+    fireEvent.change(screen.getAllByPlaceholderText('Find in document...').at(-1)!, { target: { value: 'foo' } });
+    fireEvent.change(screen.getAllByLabelText('Replace with…').at(-1)!, { target: { value: 'foobar' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Replace' }).at(-1)!);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Replace' }).at(-1)!);
+    expect(grow.getText()).toBe('foobar foobar');
+  });
+
+  it('does not change a note the editor shows read-only', () => {
+    const editor = findEditor('<p>cat cat</p>');
+    render(<EditorToolbar {...defaultProps} editor={editor} findOpen={true} replaceRequest={1} />);
+    fireEvent.change(screen.getByPlaceholderText('Find in document...'), { target: { value: 'cat' } });
+    fireEvent.change(screen.getByLabelText('Replace with…'), { target: { value: 'dog' } });
+    editor.setEditable(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Replace all' }));
+    expect(editor.getText()).toBe('cat cat');
+  });
+
   it('matches case when asked to', () => {
     const editor = findEditor('<p>cat and Cat</p>');
     render(<EditorToolbar {...defaultProps} editor={editor} findOpen={true} />);

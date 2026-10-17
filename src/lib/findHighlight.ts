@@ -93,10 +93,18 @@ export const FindHighlight = Extension.create({
  */
 export function replaceMatches(view: EditorView, replacement: string, all: boolean): number {
   const state = findHighlightKey.getState(view.state);
-  if (!state || state.matches.length === 0) return 0;
+  if (!view.editable || !state || state.matches.length === 0) return 0; // a read-only note (vault conversion) is not changed
   const targets = all ? state.matches : [state.matches[state.current]];
   let tr = view.state.tr;
   for (const m of [...targets].sort((a, b) => b.from - a.from)) tr = tr.insertText(replacement, m.from, m.to); // from the end: earlier positions stay valid
+  if (!all) {
+    // On to the next match after the text just put in: when that text still matches ("iphone" -> "iPhone", "foo" ->
+    // "foobar"), staying at the same index would replace it again and never reach the next one.
+    const end = targets[0].from + replacement.length;
+    const next = findMatches(tr.doc, state.query, state.caseSensitive);
+    const at = next.findIndex(m => m.from >= end);
+    tr = tr.setMeta(findHighlightKey, { current: at === -1 ? 0 : at });
+  }
   view.dispatch(tr);
   return targets.length;
 }

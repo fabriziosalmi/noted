@@ -141,12 +141,12 @@ export function PendingChangesBadge({ onNotice }: { onNotice?: (message: string,
                     {t('pendingBy').replace('{client}', change.client).replace('{time}', new Date(change.createdAt).toLocaleString(language))}
                   </span>
                   <span className="ml-auto flex gap-2">
-                    <button type="button" disabled={conflicts.has(change.id) || (!!models.get(change.id)?.changes.length && keptOf(change).size === 0)} onClick={() => { void settle(change, true); }} className={`${button} text-green-700 dark:text-green-400 disabled:opacity-40`}>
+                    <button type="button" disabled={!!progress || conflicts.has(change.id) || (!!models.get(change.id)?.changes.length && keptOf(change).size === 0)} onClick={() => { void settle(change, true); }} className={`${button} text-green-700 dark:text-green-400 disabled:opacity-40`}>
                       {models.get(change.id) && keptOf(change).size < (models.get(change.id)?.changes.length ?? 0) && keptOf(change).size > 0
                         ? t('pendingApproveSome').replace('{n}', String(keptOf(change).size)).replace('{total}', String(models.get(change.id)?.changes.length))
                         : t('pendingApprove')}
                     </button>
-                    <button type="button" onClick={() => { void settle(change, false); }} className={`${button} text-gray-600 dark:text-gray-300`}>{t('pendingReject')}</button>
+                    <button type="button" disabled={!!progress} onClick={() => { void settle(change, false); }} className={`${button} text-gray-600 dark:text-gray-300 disabled:opacity-40`}>{t('pendingReject')}</button>
                   </span>
                 </header>
                 {conflicts.has(change.id) && <p role="alert" className="px-3 py-1.5 text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30">{t('pendingConflict')}</p>}

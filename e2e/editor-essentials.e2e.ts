@@ -137,6 +137,19 @@ test.describe('editor essentials', () => {
     await expect(win.locator('[contenteditable="true"] p').first()).toHaveText('blue, blue and blue');
   });
 
+  test('the find bar keeps its search when another note is opened, and counts in that note', async ({ noted }) => {
+    seed(noted.vault, { 'One.md': '<h1>One</h1><p>red red</p>', 'Two.md': '<h1>Two</h1><p>red red red</p>' });
+    const { win } = await noted.relaunch();
+    await open(win, 'One');
+    await win.locator('[contenteditable="true"] p').first().click();
+    await win.keyboard.press(`${MOD}+KeyF`);
+    await win.getByPlaceholder('Find in document...').fill('red');
+    await expect(win.getByText('1/2', { exact: true })).toBeVisible();
+    await open(win, 'Two');
+    await expect(win.getByText(/^\d+\/3$/)).toBeVisible();
+    await expect(win.locator('[contenteditable="true"] .find-match')).toHaveCount(3);
+  });
+
   test('a web link opens on ⌘/Ctrl+click only, and ⌘K links the selected text', async ({ noted }) => {
     seed(noted.vault, { 'Links.md': '<h1>Links</h1><p>See <a href="https://example.com/doc">the docs</a> and the plan.</p>' });
     const { win, app } = await noted.relaunch();
