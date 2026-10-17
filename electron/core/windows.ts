@@ -82,6 +82,8 @@ function recoverFromRendererCrash(w: BrowserWindow): void {
     lastReloadAt = Date.now();
     w.webContents.reload();
   });
+  w.webContents.on('did-finish-load', () => logEvent('info', 'renderer_loaded', {}));
+  w.webContents.on('did-fail-load', (_event, code, description) => logEvent('error', 'renderer_load_failed', { code, description }));
   w.webContents.on('unresponsive', () => logEvent('warn', 'renderer_unresponsive', {}));
   w.webContents.on('responsive', () => logEvent('info', 'renderer_responsive', {}));
 }
