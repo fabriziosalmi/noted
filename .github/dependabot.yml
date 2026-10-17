@@ -1,0 +1,24 @@
+# Proposes updates as pull requests; nothing merges by itself. Security updates for a known advisory come as soon as
+# it is published, version updates once a week, grouped so the editor packages move together.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      tiptap:
+        patterns: ['@tiptap/*']
+  - package-ecosystem: npm
+    directory: /mcp-server/runtime
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /docs
+    schedule:
+      interval: monthly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

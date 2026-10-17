@@ -12,6 +12,12 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Agent events name the MCP client that wrote them.** Events, transitions and decisions made through MCP are recorded as `mcp:<client name>`; an `actor` given by the caller is kept beside it as a label and no longer replaces it. `actor` is now optional in `append_agent_event`.
 - **The MCP server's HTTP transport always requires a token.** Started by hand without `NOTED_MCP_AUTH_TOKEN` or `--auth-token`, it accepted every local connection, including from other users of the same computer. It now makes a token, keeps it in the vault's `.noted/mcp-http-token` (owner-only, not synced) for the next start, and prints where it is. When Noted starts the server nothing changes.
 
+### Security
+
+- **Dependency updates for known advisories.** The editor's TipTap packages move together to 3.31.4 (the core was held at 3.23.4 behind extensions at 3.28.0, and 3.23.4 has two advisories: GHSA-cp6q-959q-f8rh and GHSA-j95f-988m-3j2f); simple-git to 4.0.2 (three bypasses of its unsafe-command guard, GHSA-858h-whjf-mvg5, GHSA-g4wm-2vf7-vfgr, GHSA-x6jw-m9v5-85vh); the MCP SDK to 1.31.0. Your `GIT_*` settings (an SSH command, an askpass helper) still reach Git.
+- **Word export only embeds images it can read safely.** The Word exporter carries its own copy of an image reader that loops for ever on crafted ICNS and HEIF images; only embedded PNG, JPEG and GIF images, recognised by their content, are passed to it now, and any other image is replaced by its description.
+- **What ships is what was reviewed.** The MCP server's run-time dependency is installed from a committed lockfile instead of the newest matching version at build time; the release workflows run their actions by commit and the SBOM tool by exact version; the macOS release script builds only from a clean checkout of the release tag, after `npm ci`. Dependabot proposes updates, and CI fails on a dependency with a high advisory or a dependency tree that does not fit together.
+
 ### Fixed
 
 - **A save never overwrites a version written meanwhile by something else.** If an assistant (MCP), a sync client or Git changed the open note after Noted read it, and your autosave came before Noted noticed, your text replaced theirs without a trace. Now the save notices: the other version is kept beside the note as "Note (other version)", as when a change is noticed while you type, and then your text is saved. If the other version cannot be kept, nothing is overwritten.
