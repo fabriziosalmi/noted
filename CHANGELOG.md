@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-10-18
+
 ### Fixed
 
 - **A title changed over several quick pauses names the file after the last one.** When a pause came while the rename for the previous one was still going on, the second rename was asked for the old file name, failed without a word, and the file kept an in-between name. Renames that follow the title now run one after another.
@@ -554,7 +556,8 @@ The first cross-platform release, and the first that keeps itself up to date.
   backlinks, full-text search, multi-provider AI, Git integration, export, quick
   capture, and a built-in MCP server.
 
-[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.9.1...HEAD
+[1.9.1]: https://github.com/fabriziosalmi/noted/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/fabriziosalmi/noted/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/fabriziosalmi/noted/compare/v1.7.1...v1.8.0
 [1.7.1]: https://github.com/fabriziosalmi/noted/compare/v1.7.0...v1.7.1
