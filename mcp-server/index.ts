@@ -52,6 +52,10 @@ import {
   rejectGate,
   applyTaskStatusToWorkflow,
   AgentEngineError,
+  effectiveMode,
+  gateStateOf,
+  governedTypeOf,
+  modeRequiresGate,
   type AgentMetadata,
   type EngineContext,
   type EngineResult,
@@ -1178,7 +1182,7 @@ const TOOLS: Tool[] = [
       'for state changes, command outcomes, approvals, reviews, and output checks.',
     inputSchema: {
       type: 'object',
-      required: ['name', 'event_type', 'actor'],
+      required: ['name', 'event_type'],
       properties: {
         name: {
           type: 'string',
@@ -1190,7 +1194,7 @@ const TOOLS: Tool[] = [
         },
         actor: {
           type: 'string',
-          description: 'Actor writing the event, e.g. "codex", "claude", "gemini", "user".',
+          description: 'A label for who is writing (e.g. "reviewer"). The event is always recorded as coming from this MCP client.',
         },
         node_id: {
           type: 'string',
@@ -1233,7 +1237,7 @@ const TOOLS: Tool[] = [
         },
         actor: {
           type: 'string',
-          description: 'Actor performing the transition, e.g. "codex", "claude", "user". Defaults to "agent".',
+          description: 'A label for who performs it (e.g. "planner"). The transition is always recorded as coming from this MCP client.',
         },
         summary: {
           type: 'string',
@@ -1250,14 +1254,15 @@ const TOOLS: Tool[] = [
   {
     name: TOOL_NAME.APPROVE_AGENT_GATE,
     description:
-      'Approve the pending approval gate on an agent note that is awaiting a decision (plan, review, ' +
-      'release, or action), moving it to the gate\'s approve target. Records a GateApproved event.',
+      'Approve a pending gate on an agent note, moving it to the gate\'s approve target, and record a GateApproved event. ' +
+      'Only for a gate the workflow\'s approval mode does not require: the gates it requires (plan, action, review, ' +
+      'release) are approved by the user in Noted, and this tool refuses them.',
     inputSchema: {
       type: 'object',
       required: ['name'],
       properties: {
         name: { type: 'string', description: 'Agent note awaiting approval.' },
-        actor: { type: 'string', description: 'Approver, e.g. "user". Defaults to "agent".' },
+        actor: { type: 'string', description: 'A label for the approver. Recorded beside this MCP client\'s name.' },
         summary: { type: 'string', description: 'Short human-readable note on the approval.' },
         expected_updated_at: {
           type: 'string',
@@ -1277,7 +1282,7 @@ const TOOLS: Tool[] = [
       required: ['name'],
       properties: {
         name: { type: 'string', description: 'Agent note awaiting approval.' },
-        actor: { type: 'string', description: 'Reviewer, e.g. "user". Defaults to "agent".' },
+        actor: { type: 'string', description: 'A label for the reviewer. Recorded beside this MCP client\'s name.' },
         reason: { type: 'string', description: 'Why the gate was rejected.' },
         summary: { type: 'string', description: 'Short human-readable summary.' },
         expected_updated_at: {
@@ -1882,7 +1887,7 @@ export async function handleAppendAgentEvent(args: Record<string, unknown>) {
   }
 
   const eventType = validateAgentId(args.event_type, 'event_type');
-  const actor = validateNonEmptyString(args.actor, 'actor');
+  const actor = agentActor(args.actor);
   const event: Record<string, unknown> = {
     type: eventType,
     actor,
@@ -1922,7 +1927,16 @@ export async function handleAppendAgentEvent(args: Record<string, unknown>) {
 
 // ─── Agent state-machine tools ────────────────────────────────────────────────
 
-const AGENT_ACTOR_DEFAULT = 'agent';
+/**
+ * Who an agent tool acts as: always the connected client, whatever name the caller gives, so no event, transition or
+ * decision can claim to come from the user. A name the caller gives is kept beside it ("mcp:claude-code (reviewer)").
+ */
+function agentActor(given: unknown): string {
+  const client = `mcp:${serverClientName()}`;
+  if (given === undefined) return client;
+  const said = validateNonEmptyString(given, 'actor');
+  return said === client ? client : `${client} (${said})`;
+}
 
 interface LoadedAgentNote {
   name: string;
@@ -2022,8 +2036,7 @@ function buildAgentContext(
   note: LoadedAgentNote,
   args: Record<string, unknown>,
 ): { ctx: EngineContext; workflow: LoadedAgentNote | null } {
-  const actor = args.actor === undefined ? AGENT_ACTOR_DEFAULT : validateNonEmptyString(args.actor, 'actor');
-  const ctx: EngineContext = { actor, now: new Date().toISOString() };
+  const ctx: EngineContext = { actor: agentActor(args.actor), now: new Date().toISOString() };
   if (args.summary !== undefined) ctx.summary = validateNonEmptyString(args.summary, 'summary');
   if (args.expected_updated_at !== undefined) {
     ctx.expectedUpdatedAt = validateNonEmptyString(args.expected_updated_at, 'expected_updated_at');
@@ -2062,6 +2075,18 @@ export async function handleAdvanceAgentState(args: Record<string, unknown>) {
 export async function handleApproveAgentGate(args: Record<string, unknown>) {
   const note = loadAgentNote(args.name);
   const { ctx, workflow } = buildAgentContext(note, args);
+  // A checkpoint the approval mode requires is the user's to pass, in the app: an agent approving it would approve its
+  // own plan, review or release. A gate state an autonomous workflow entered on its own is not one of those.
+  const type = governedTypeOf(note.meta.type);
+  const gate = type ? gateStateOf(type, note.meta.status ?? '') : null;
+  const mode = effectiveMode(note.meta, ctx);
+  if (gate && modeRequiresGate(mode, gate.kind)) {
+    throw new McpError(
+      ErrorCode.InvalidParams,
+      `Not allowed: the ${gate.kind} approval of ${note.name} is the user's to give (approval mode "${mode}"). ` +
+      'Ask them to approve it in Noted (the Agent panel or the Workflows page); reject_agent_gate can still send it back.',
+    );
+  }
   const result = runEngine(() => approveGate(note.meta, ctx));
   await persistAgentNote(TOOL_NAME.APPROVE_AGENT_GATE, note, result.metadata, result.event);
   syncWorkflowMirror(TOOL_NAME.APPROVE_AGENT_GATE, workflow, note, result.metadata.status as string, ctx.now);
@@ -2270,6 +2295,24 @@ export interface HttpOptions {
   authToken?: string;
   /** Also serve the older HTTP+SSE endpoints (/sse and /messages). */
   legacySse: boolean;
+}
+
+/**
+ * The token HTTP clients must present. The one given (environment or flag) when there is one; otherwise the one saved in
+ * the vault's .noted/ (owner-only, never synced), created on first use, so a server started by hand is never open to every
+ * local process and a client configured once keeps working.
+ */
+export function resolveHttpToken(given: string | undefined, notesDir: string): { token: string; file?: string } {
+  if (given) return { token: given };
+  const file = path.join(notesDir, '.noted', 'mcp-http-token');
+  try {
+    const saved = fs.readFileSync(file, 'utf8').trim();
+    if (saved.length >= 32) return { token: saved, file };
+  } catch { /* none yet */ }
+  const token = crypto.randomBytes(24).toString('hex');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `${token}\n`, { mode: 0o600 });
+  return { token, file };
 }
 
 const MAX_HTTP_SESSIONS = 20;
@@ -2492,9 +2535,13 @@ export async function main() {
     const legacySse = transportType === 'sse' || process.argv.includes('--legacy-sse');
     if (transportType === 'sse') process.stderr.write('[noted-mcp] --transport sse is deprecated: use --transport http (Streamable HTTP at /mcp); add --legacy-sse to keep /sse for older clients.\n');
     // Prefer the token from the environment (not process argv, which any same-user process can read via the process list);
-    // fall back to the flag for manual/backward-compatible starts.
-    const authToken = process.env.NOTED_MCP_AUTH_TOKEN || getArgValue('--auth-token');
-    const serverHttp = http.createServer(createHttpListener({ authToken, legacySse }));
+    // fall back to the flag for manual/backward-compatible starts, and with neither, make one: HTTP is never unauthenticated.
+    const auth = resolveHttpToken(process.env.NOTED_MCP_AUTH_TOKEN || getArgValue('--auth-token'), NOTES_DIR);
+    if (auth.file) {
+      process.stderr.write(`[noted-mcp] No NOTED_MCP_AUTH_TOKEN was given: using the token in ${auth.file}\n`);
+      process.stderr.write(`[noted-mcp] Clients must send it on every request: Authorization: Bearer ${auth.token}\n`);
+    }
+    const serverHttp = http.createServer(createHttpListener({ authToken: auth.token, legacySse }));
     serverHttp.listen(port, '127.0.0.1', () => {
       process.stderr.write(`[noted-mcp] HTTP server listening on http://127.0.0.1:${port}\n`);
       process.stderr.write(`[noted-mcp] Streamable HTTP endpoint: http://localhost:${port}/mcp\n`);
