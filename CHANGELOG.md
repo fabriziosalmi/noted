@@ -10,6 +10,7 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **A title changed over several quick pauses names the file after the last one.** When a pause came while the rename for the previous one was still going on, the second rename was asked for the old file name, failed without a word, and the file kept an in-between name. Renames that follow the title now run one after another.
 - **The sidebar shows the notes as they are now.** When two refreshes of the note list overlapped, the older answer could arrive last and replace the newer one, showing a renamed note under its old name until the next refresh.
+- **Folder pickers start where you last used them.** Since 1.9.0 (Electron 44) the pickers for choosing a vault, exporting it, and importing a vault or Evernote files opened in Downloads every time. Each now starts in the folder it was last used in; choosing a vault starts beside the vault open now the first time.
 
 ## [1.9.0] - 2026-10-17
 
