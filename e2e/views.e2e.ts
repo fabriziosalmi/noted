@@ -248,7 +248,8 @@ test('views: dragging a card with the mouse moves it to another column', async (
     await board.locator('[data-card="Gamma.md"]').dragTo(board.locator('[data-column="done"]'));
     await expect.poll(() => cards('done'), { timeout: 3000 }).toEqual(['Beta.md', 'Gamma.md']);
   }).toPass({ timeout: 30_000 });
-  expect(fs.readFileSync(path.join(vault, 'Gamma.md'), 'utf8')).toBe('---\nstatus: done\n---\n# Gamma\n');
+  // The card moves at once; the note is written right after it, so the file is read until it has been.
+  await expect.poll(() => fs.readFileSync(path.join(vault, 'Gamma.md'), 'utf8'), { timeout: 10_000 }).toBe('---\nstatus: done\n---\n# Gamma\n');
 });
 
 test('views: a note made from a view belongs to it, and opens for writing', async ({ noted }) => {
