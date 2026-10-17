@@ -1,7 +1,7 @@
 # Security Policy
 
-Noted is a local-first macOS app: your notes stay on your machine, there is no
-backend and no telemetry. The most sensitive surfaces are the optional cloud LLM
+Noted is a local-first desktop app for macOS, Windows and Linux: your notes stay
+on your machine, there is no backend and no telemetry. The most sensitive surfaces are the optional cloud LLM
 calls, the Git integration, and the local MCP server — the areas below describe
 how to report an issue in any of them.
 
@@ -15,7 +15,7 @@ how to report an issue in any of them.
 
 Please include:
 
-- affected version (see *Noted → About*, or the release tag) and macOS version;
+- affected version (see *Noted → About*, or the release tag), and your operating system and its version;
 - a description of the issue and its impact;
 - steps to reproduce, a proof-of-concept, or a crash log if you have one.
 
@@ -39,9 +39,11 @@ recent release before reporting.
 Noted already ships a number of local-surface protections; a report that defeats
 one of these is especially valuable:
 
-- **MCP server** — the SSE transport requires a token on every request (checked
-  with a constant-time compare) and validates the request Origin/Host; the
-  credential is passed to the server process via the environment, not argv.
+- **MCP server** — the HTTP transport requires a token on every request (checked
+  with a constant-time compare; a server started without one generates it) and
+  validates the request Origin/Host; when Noted starts it, the credential is
+  passed through the environment, not argv. Approval gates that a workflow's
+  mode requires can only be approved by the user in the app, not over MCP.
 - **Vault access** — file operations are confined to an allowlist of blessed
   vault roots; path traversal in note/folder names is neutralized.
 - **Renderer** — a strict production Content-Security-Policy (`script-src 'self'`,
@@ -50,8 +52,9 @@ one of these is especially valuable:
 - **Outbound requests** — the LLM proxy enforces a host allowlist and blocks
   metadata/link-local/private addresses (SSRF), and PII is masked by default
   before any text leaves the machine for a cloud provider.
-- **Distribution** — release builds are signed with a Developer ID certificate,
-  run with the hardened runtime, and are notarized + stapled by Apple.
+- **Distribution** — macOS builds are signed with a Developer ID certificate,
+  run with the hardened runtime, and are notarized + stapled by Apple. Windows
+  and Linux builds are not code-signed yet.
 
 ### Out of scope
 

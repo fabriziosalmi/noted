@@ -152,12 +152,23 @@ State changes and evidence are append-only events. Prefer the
 | `create_agent_workflow` | Scaffold the workflow, task, runs, reviews, and output notes in a folder |
 | `append_agent_event` | Append a structured JSON event to an agent note |
 | `advance_agent_state` | Move a workflow/task note to a new status (enforcing the machine, gates, and dependencies) |
-| `approve_agent_gate` | Resolve the pending gate, moving to its approve target |
+| `approve_agent_gate` | Resolve a pending gate the approval mode does not require, moving to its approve target |
 | `reject_agent_gate` | Move the pending gate to blocked/cancelled with a reason |
 
 `create_agent_workflow` takes the folder, a workflow id, title, and goal, an
 optional `approval_mode` (default `plan`), and an optional list of tasks (each
 with an id, title, optional `parent_id`, and optional `depends_on`).
+
+## Who approves
+
+A gate the workflow's approval mode requires (`plan`, `action`, `review`, `release`; all four in `manual`) is the
+user's checkpoint: `approve_agent_gate` refuses it and says to approve it in Noted, from the Agent panel or the
+Workflows page. An agent can still send such a gate back with `reject_agent_gate`, and can approve a gate state that an
+`autonomous` workflow entered on its own.
+
+Every event, transition and decision made through MCP is recorded as coming from the connected client
+(`mcp:<client name>`). An `actor` argument is kept beside that name as a label (`mcp:claude-code (reviewer)`); it never
+replaces it, so nothing written by an agent can read as written by the user.
 
 ## Optimistic concurrency
 

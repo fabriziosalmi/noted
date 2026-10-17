@@ -845,12 +845,29 @@ describe('MCP Tool Handlers', () => {
       ).rejects.toThrow(/plan approval/);
     });
 
-    it('routes plan mode through request -> approve', async () => {
+    it('leaves a gate the approval mode requires to the user: an agent cannot approve it, whatever it calls itself', async () => {
       await scaffold('plan');
       await handleAdvanceAgentState({ name: 'noted/wf-WF001-agent-runtime.md', to: 'awaiting_plan_approval' });
-      const res = await handleApproveAgentGate({ name: 'noted/wf-WF001-agent-runtime.md', actor: 'user' });
+      await expect(handleApproveAgentGate({ name: 'noted/wf-WF001-agent-runtime.md', actor: 'user' }))
+        .rejects.toThrow(/plan approval of noted\/wf-WF001-agent-runtime\.md is the user's to give/);
+      expect(wfMeta()?.status).toBe('awaiting_plan_approval');
+      expect(mockFiles.get(WF_PATH)?.content).not.toContain('GateApproved');
+    });
+
+    it('approves a gate an autonomous workflow asked for on its own', async () => {
+      await scaffold('autonomous');
+      await handleAdvanceAgentState({ name: 'noted/wf-WF001-agent-runtime.md', to: 'awaiting_plan_approval' });
+      const res = await handleApproveAgentGate({ name: 'noted/wf-WF001-agent-runtime.md' });
       expect(res.content[0].text).toContain('-> ready');
       expect(wfMeta()?.status).toBe('ready');
+    });
+
+    it('records the MCP client as the actor, never the name the caller claims', async () => {
+      await scaffold('plan');
+      await handleAdvanceAgentState({ name: 'noted/wf-WF001-agent-runtime.md', to: 'awaiting_plan_approval', actor: 'user' });
+      const events = mockFiles.get(WF_PATH)!.content;
+      expect(events).toMatch(/"actor": "mcp:[^"]+ \(user\)"/);
+      expect(events).not.toMatch(/"actor": "user"/);
     });
 
     it('rejects a gate to blocked with a GateRejected event', async () => {
@@ -1018,9 +1035,17 @@ describe('MCP Tool Handlers', () => {
       expect(mockResMsgToken.writeHead).not.toHaveBeenCalledWith(401);
       expect(mockResMsgToken.writeHead).toHaveBeenCalledWith(404);
 
-      // Restore argv for non-token tests
+      // Started with no token at all, the server makes one and requires it: nothing gets through without it.
       process.argv = ['node', 'index.js', '--notes-dir=/mockdir', '--transport=sse', '--port=8080'];
       await main();
+      const madeToken = mockFiles.get('/mockdir/.noted/mcp-http-token')?.content.trim() ?? '';
+      expect(madeToken).toMatch(/^[0-9a-f]{48}$/);
+      const resNoToken = { writeHead: vi.fn(), end: vi.fn(), setHeader: vi.fn() } as any;
+      await httpHandler({ method: 'GET', url: '/sse', headers: {} } as any, resNoToken);
+      expect(resNoToken.writeHead).toHaveBeenCalledWith(401);
+      // The routing checks below present that token.
+      const serve = httpHandler;
+      httpHandler = (req: any, res: any) => serve({ ...req, headers: { 'x-mcp-token': madeToken, ...req.headers } }, res);
       
       // 1. OPTIONS request — a local-origin CORS preflight is reflected, never '*'
       const mockReqOptions = { method: 'OPTIONS', url: '/sse', headers: { origin: 'http://localhost:8080', host: 'localhost:8080' } } as any;
@@ -1439,12 +1464,12 @@ describe('MCP server additional coverage', () => {
 
   it('handles SSE request with undefined url or host', async () => {
     const originalArgv = [...process.argv];
-    process.argv = ['node', 'index.js', '--notes-dir=/mockdir', '--transport=sse'];
+    process.argv = ['node', 'index.js', '--notes-dir=/mockdir', '--transport=sse', '--auth-token=supersecret'];
     const connectSpy = vi.spyOn(Server.prototype, 'connect').mockResolvedValue(undefined as any);
     
     await main();
     
-    const mockReq = { method: 'GET', url: undefined, headers: { host: undefined } } as any;
+    const mockReq = { method: 'GET', url: undefined, headers: { host: undefined, 'x-mcp-token': 'supersecret' } } as any;
     const mockRes = {
       setHeader: vi.fn(),
       writeHead: vi.fn(),
