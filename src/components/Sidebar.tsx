@@ -208,6 +208,7 @@ export function Sidebar({
   }, [confirm, t, onDeleteFolder]);
   
   const sortBy = useStore(state => state.sortBy);
+  const vaultError = useStore(state => state.vaultError);
   const [appVersion, setAppVersion] = useState('');
 
   useEffect(() => {
@@ -697,6 +698,12 @@ export function Sidebar({
             className="w-full bg-white dark:bg-gray-700 border border-[var(--accent)] rounded px-2 py-1 text-xs outline-none"
           />
         </div>
+      )}
+
+      {vaultError && (
+        <p role="alert" data-testid="vault-error" className="mx-2 mb-2 rounded border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-2 py-1.5 text-xs text-red-700 dark:text-red-300">
+          {vaultError}
+        </p>
       )}
 
       {/* Note list */}

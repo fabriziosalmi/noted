@@ -46,6 +46,18 @@ describe('useStore', () => {
     expect(useStore.getState().notes).toEqual([]);
   });
 
+  it('says why a vault cannot be listed, and forgets it once the vault lists again', async () => {
+    const why = 'The vault folder /Volumes/USB/Notes is not available.';
+    window.electronAPI.getNotesTree = vi.fn().mockResolvedValue({ success: false, error: why });
+    window.electronAPI.getNotesList = vi.fn().mockResolvedValue({ success: false, error: why });
+    await useStore.getState().fetchNotes();
+    expect(useStore.getState().vaultError).toBe(why);
+
+    window.electronAPI.getNotesTree = vi.fn().mockResolvedValue({ success: true, data: { rootNotes: [], folders: [] } });
+    await useStore.getState().fetchNotes();
+    expect(useStore.getState().vaultError).toBeNull();
+  });
+
   it('should handle concurrency in createNote gracefully (Draconian analysis)', async () => {
     window.electronAPI.saveNote = vi.fn()
       .mockResolvedValueOnce({ success: true }) // First call succeeds

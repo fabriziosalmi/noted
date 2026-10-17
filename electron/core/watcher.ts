@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { isAppOwnVaultEvent } from '../ipc-utils';
 import { watchVaultTree, type VaultWatcher } from '../vault-watch';
-import { getActiveVaultDir, getTargetDir } from './paths';
+import { availableTargetDir, getActiveVaultDir } from './paths';
+import { logEvent } from '../structured-log';
 import { appWriteMtimes, appDeletes, APP_DELETE_WINDOW_MS } from './app-writes';
 import { fullTextSearchIndex, vaultIndex } from './services';
 import { getMainWindow } from './windows';
@@ -17,11 +18,16 @@ let vaultWatcher: VaultWatcher | null = null;
 let watchedDir: string | null = null;
 
 export function startVaultWatch(): void {
-  const dir = getTargetDir(getActiveVaultDir() || undefined);
-  if (watchedDir === dir && vaultWatcher) return;
+  const dir = availableTargetDir(getActiveVaultDir() || undefined);
+  if (dir !== null && watchedDir === dir && vaultWatcher) return;
   try { vaultWatcher?.close(); } catch { /* ignore */ }
   vaultWatcher = null;
   watchedDir = dir;
+  // The open vault is not there: watch nothing rather than another vault (the next set-active-vault starts again).
+  if (dir === null) {
+    logEvent('warn', 'vault_watch_unavailable', { vault: getActiveVaultDir() });
+    return;
+  }
   // Watch the canonical path. On Windows a vault under a short (8.3) path such as
   // C:\\Users\\RUNNER~1\\... makes Node's recursive watcher compute relative names
   // off by the length difference ("lt/Note.md" for "Note.md"), so changes were

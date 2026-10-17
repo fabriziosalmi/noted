@@ -1203,6 +1203,8 @@
   "errFolderNameInvalid": "Invalid folder name",
   "errNoFreeName": "Could not find a free name for \"{name}\"",
   "errFolderNotFound": "Folder \"{name}\" not found",
+  "errVaultUnavailable": "The vault folder {path} is not available. Connect the drive or wait for it to sync, or choose the folder again in Settings. Nothing was written.",
+  "errClaudeConfigInvalid": "Claude Desktop's configuration file {path} is not valid JSON, so it was left as it is. Fix it (or remove it) and try again.",
   "errFolderMissing": "The folder \"{name}\" does not exist",
   "errFolderExists": "Folder \"{name}\" already exists",
   "errNoteNotFound": "Note \"{name}\" not found",

@@ -3,7 +3,9 @@ import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { logEvent, newRequestId } from '../structured-log';
-import { getTargetDir } from '../core/paths';
+import { getActiveVaultDir, getTargetDir } from '../core/paths';
+import { writeClaudeConfig } from '../claude-config';
+import { mcpServerArgs } from '../../shared/mcp/clientConfig';
 import { tr } from '../core/language';
 
 function getMcpServerPathInternal(): string {
@@ -174,31 +176,11 @@ export function registerMcpHandlers(): void {
         throw new Error(tr('errMcpServerMissing', { path: mcpPath }));
       }
 
-      if (!fs.existsSync(configDir)) {
-        fs.mkdirSync(configDir, { recursive: true });
-      }
-
-      let config: { mcpServers?: Record<string, unknown> } & Record<string, unknown> = { mcpServers: {} };
-      if (fs.existsSync(configPath)) {
-        try {
-          const raw = fs.readFileSync(configPath, 'utf-8');
-          config = JSON.parse(raw);
-        } catch {
-          // if file is corrupted, preserve empty structure
-          config = { mcpServers: {} };
-        }
-      }
-
-      if (!config.mcpServers) {
-        config.mcpServers = {};
-      }
-
-      config.mcpServers.noted = {
-        command: 'node',
-        args: [mcpPath]
-      };
-
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+      // The vault the user has open, named explicitly: without it the server would open the default vault.
+      const vault = getTargetDir(getActiveVaultDir() || undefined);
+      const written = writeClaudeConfig(configPath, { command: 'node', args: mcpServerArgs(mcpPath, vault) });
+      if (!written.ok) return { success: false, error: tr('errClaudeConfigInvalid', { path: configPath }) };
+      logEvent('info', 'claude_config_written', { configPath, backup: written.backup });
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };

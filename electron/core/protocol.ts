@@ -3,7 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { resolveDistPath, vaultRelFromPathname } from '../app-protocol';
 import { readVaultImage } from '../attachments';
-import { getActiveVaultDir, getTargetDir } from './paths';
+import { availableTargetDir, getActiveVaultDir } from './paths';
 import { VITE_DEV_SERVER_URL } from './windows';
 
 /** Serve the renderer bundle, and the vault's images, over app://. */
@@ -19,7 +19,8 @@ export function registerAppProtocol(): void {
       if (filePath) { try { data = await fs.promises.readFile(filePath); } catch { data = null; } }
       if (!data) {
         const rel = vaultRelFromPathname(url.pathname);
-        const img = rel ? readVaultImage(getTargetDir(getActiveVaultDir() || undefined), rel) : null;
+        const vault = availableTargetDir(getActiveVaultDir() || undefined);
+        const img = rel && vault ? readVaultImage(vault, rel) : null;
         if (!img) return new Response('Not Found', { status: 404 });
         return new Response(Buffer.from(img.bytes), {
           headers: { 'Content-Type': img.type.mime, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-cache' },

@@ -3,7 +3,7 @@ import { FullTextSearchReadModel } from '../fulltext-index';
 import { EmbeddingService } from '../embeddings';
 import { VaultIndex } from '../vault-index';
 import { validateFileName } from '../ipc-utils';
-import { getActiveVaultDir, getTargetDir } from './paths';
+import { getActiveVaultDir, availableTargetDir } from './paths';
 import { getMainWindow } from './windows';
 
 export const fullTextSearchIndex = new FullTextSearchReadModel();
@@ -17,7 +17,8 @@ export const embeddingService = new EmbeddingService(fullTextSearchIndex);
 export const vaultIndex = new VaultIndex({
   validateFileName: (name) => validateFileName(name),
   onDelta: (dir, delta) => {
-    if (dir !== path.resolve(getTargetDir(getActiveVaultDir() || undefined))) return;
+    const open = availableTargetDir(getActiveVaultDir() || undefined);
+    if (!open || dir !== path.resolve(open)) return;
     const win = getMainWindow();
     if (win && !win.isDestroyed()) win.webContents.send('vault-index-delta', delta);
   },
