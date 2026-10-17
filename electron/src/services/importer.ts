@@ -7,6 +7,7 @@ import { formatAppleNoteToMarkdown } from '../../ipc-utils.js';
 import { logEvent, newRequestId } from '../../structured-log.js';
 import type { FullTextSearchReadModel } from '../../fulltext-index.js';
 import { assertNotMigrating } from '../../core/migrating.js';
+import { dialogStart, rememberDialogFolder } from '../../core/dialogFolders.js';
 import { readVaultFormat } from '../../../shared/vault/formatFile.js';
 import { normalizeMarkdown } from '../../../shared/markdown/codec.js';
 import { tr } from '../../core/language.js';
@@ -96,9 +97,11 @@ export function registerImporterHandlers(
       const { filePaths, canceled } = await dialog.showOpenDialog({
         title: tr('dlgImportVault'),
         properties: ['openDirectory'],
+        defaultPath: dialogStart('import-vault'),
       });
       if (canceled || !filePaths.length) return { success: false, canceled: true }; // a closed picker: nothing to say
       const srcDir = filePaths[0];
+      rememberDialogFolder('import-vault', path.dirname(srcDir));
       const dest = resolveTargetDir(typeof targetDir === 'string' ? targetDir : undefined);
       // The notes are copied as they are: they are Markdown already, and a Markdown vault reads them natively.
       const importedCount = importVaultRecursive(srcDir, srcDir, dest);
@@ -119,8 +122,10 @@ export function registerImporterHandlers(
         title: tr('dlgImportEnex'),
         properties: ['openFile', 'multiSelections'],
         filters: [{ name: 'Evernote export', extensions: ['enex'] }],
+        defaultPath: dialogStart('import-enex'),
       });
       if (canceled || !filePaths.length) return { success: false, canceled: true }; // a closed picker: nothing to say
+      rememberDialogFolder('import-enex', path.dirname(filePaths[0]));
       const dest = resolveTargetDir(targetDir);
       const format = readVaultFormat(dest);
       const env = await dom();

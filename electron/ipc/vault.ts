@@ -2,6 +2,7 @@ import { ipcMain, dialog } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { validateFileName } from '../ipc-utils';
+import { dialogStart, rememberDialogFolder } from '../core/dialogFolders';
 import { writeVaultConfig, isValidRetentionDays } from '../../shared/vault-config';
 import { previewRewrite } from '../link-rewrite';
 import { readVaultFormat } from '../../shared/vault/formatFile';
@@ -87,11 +88,14 @@ export function registerVaultHandlers(): void {
 
   ipcMain.handle('select-sync-folder', async () => {
     const result = await dialog.showOpenDialog({
-      properties: ['openDirectory', 'createDirectory']
+      properties: ['openDirectory', 'createDirectory'],
+      // The first time, beside the vault open now.
+      defaultPath: dialogStart('choose-vault', path.dirname(getTargetDir())),
     });
     if (result.canceled || result.filePaths.length === 0) {
       return { success: false };
     }
+    rememberDialogFolder('choose-vault', path.dirname(result.filePaths[0]));
     // A native folder pick is a trusted user gesture — bless it as a vault root.
     blessVaultRoot(result.filePaths[0]);
     return { success: true, data: result.filePaths[0] };
@@ -111,9 +115,11 @@ export function registerVaultHandlers(): void {
           title: tr('dlgExportVault'),
           properties: ['openDirectory', 'createDirectory'],
           buttonLabel: tr('dlgExportHere'),
+          defaultPath: dialogStart('export-vault'),
         });
         if (canceled || !filePaths.length) return { success: false, canceled: true };
         destDir = filePaths[0];
+        rememberDialogFolder('export-vault', destDir);
         blessVaultRoot(destDir);
       }
       let copied = 0;
