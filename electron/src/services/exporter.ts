@@ -18,6 +18,35 @@ export function exportFileName(title: unknown, ext: string): string {
 
 const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+const DOCX_IMAGE_TYPES: { mime: string; magic: number[] }[] = [
+  { mime: 'image/png', magic: [0x89, 0x50, 0x4e, 0x47] },
+  { mime: 'image/jpeg', magic: [0xff, 0xd8, 0xff] },
+  { mime: 'image/gif', magic: [0x47, 0x49, 0x46, 0x38] },
+];
+
+// An attribute value as serialized HTML already has its & and " as entities; only < and > can be raw in it.
+const attrToText = (s: string): string => s.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/**
+ * The images html-to-docx may see: embedded PNG, JPEG and GIF, recognised by their first bytes, not by the label. It
+ * carries its own copy of image-size 1.x, whose ICNS and HEIF readers loop for ever on crafted files (GHSA-w3rx-r6r6-pgpr,
+ * GHSA-5p2g-fcmc-qvqq), and it would fetch an image given by address. Any other image is replaced by its alt text.
+ */
+export function docxSafeImages(html: string): string {
+  // A quoted attribute value may hold a ">", so the tag ends at the first ">" outside quotes.
+  return html.replace(/<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi, tag => {
+    const src = /\ssrc\s*=\s*"([^"]*)"/i.exec(tag)?.[1] ?? /\ssrc\s*=\s*'([^']*)'/i.exec(tag)?.[1] ?? '';
+    const data = /^data:(image\/[a-z+.-]+);base64,([A-Za-z0-9+/=\s]+)$/i.exec(src);
+    if (data) {
+      const head = Buffer.from(data[2].slice(0, 16), 'base64');
+      const type = DOCX_IMAGE_TYPES.find(t => t.mime === data[1].toLowerCase());
+      if (type && type.magic.every((b, k) => head[k] === b)) return tag;
+    }
+    const alt = /\salt\s*=\s*"([^"]*)"/i.exec(tag)?.[1] ?? '';
+    return alt ? `<span>${attrToText(alt)}</span>` : '';
+  });
+}
+
 export function registerExporterHandlers() {
   ipcMain.handle('export-markdown', async (_, markdownContent: string, noteTitle?: string) => {
     try {
@@ -210,7 +239,7 @@ export function registerExporterHandlers() {
       });
       if (!filePath) return CANCELED;
 
-      const safe = stripUnsafeHtml(htmlContent);
+      const safe = docxSafeImages(stripUnsafeHtml(htmlContent));
       // Dynamic import — html-to-docx is CJS
       const { default: HTMLtoDOCX } = await import('html-to-docx') as { default: (html: string, header: null, opts: object) => Promise<Buffer> };
       const buf = await HTMLtoDOCX(

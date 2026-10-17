@@ -19,11 +19,11 @@
  * All public functions return a SyncState (or GitResult) and never throw.
  */
 
-import simpleGit, { type SimpleGit } from 'simple-git';
+import { simpleGit, type SimpleGit } from 'simple-git';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { GIT_TIMEOUT_MS, sanitizeGitError, type GitResult } from './git-ops';
+import { GIT_TIMEOUT_MS, inheritedGitEnvironment, sanitizeGitError, type GitResult } from './git-ops';
 import { withRepoLock } from './repo-lock';
 import { tr } from './core/language';
 
@@ -101,6 +101,7 @@ function gitFor(dir: string, trimmed = true): SimpleGit {
     maxConcurrentProcesses: 1,
     trimmed,
     timeout: { block: GIT_TIMEOUT_MS },
+    allowEnvironment: inheritedGitEnvironment(),
   });
 }
 

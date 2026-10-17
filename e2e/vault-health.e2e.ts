@@ -56,8 +56,11 @@ test('vault health: finds what is wrong, fixes it with one click, and saves a re
   // Saved as a note in reports/, and opened
   await page.getByRole('button', { name: 'Save as a note' }).click();
   const reportsDir = path.join(vault, 'reports');
-  await expect.poll(() => (fs.existsSync(reportsDir) ? fs.readdirSync(reportsDir).length : 0), { timeout: 15_000 }).toBe(1);
-  const report = fs.readFileSync(path.join(reportsDir, fs.readdirSync(reportsDir)[0]), 'utf8');
+  // Notes only: a save writes a temporary sibling first and renames it, and reading that one finds it still empty
+  // (seen once on the Windows runner).
+  const reports = () => (fs.existsSync(reportsDir) ? fs.readdirSync(reportsDir).filter(f => f.endsWith('.md')) : []);
+  await expect.poll(() => reports().length, { timeout: 15_000 }).toBe(1);
+  const report = fs.readFileSync(path.join(reportsDir, reports()[0]), 'utf8');
   expect(report).toMatch(/^# Vault health \d{4}-\d{2}-\d{2}/);
   expect(report).toContain('[[Alone]]'); // the isolated note, as a link to open it
   expect(report).toContain('## Links to a missing heading (1)');

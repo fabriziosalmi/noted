@@ -6,7 +6,7 @@ import type * as FsModule from 'node:fs';
 // for ever. Each one is started with a timeout, like the sync's own commands.
 const options: unknown[] = [];
 vi.mock('simple-git', () => ({
-  default: (_dir: string, opts: unknown) => {
+  simpleGit: (_dir: string, opts: unknown) => {
     options.push(opts);
     return { revparse: async () => '.git', raw: async () => '', status: async () => ({ files: [], staged: [], current: 'main', ahead: 0, isClean: () => true }) };
   },

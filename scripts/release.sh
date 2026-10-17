@@ -20,6 +20,22 @@ for arg in "$@"; do
   esac
 done
 
+# ── Build from the release commit, with the locked dependencies ───────────
+# A signed, notarized DMG must be the source at the tag: not uncommitted edits, not another commit, not whatever
+# node_modules happens to hold. Checked before anything else (credentials included). --notarize-only builds nothing.
+VERSION="$(node -p "require('./package.json').version")"
+if [[ "$NOTARIZE_ONLY" != 1 ]]; then
+  if [[ -n "$(git status --porcelain)" ]]; then
+    echo "✗ The working tree has changes: commit or stash them. A release is built from a commit." >&2
+    exit 1
+  fi
+  tag="$(git describe --exact-match --tags HEAD 2>/dev/null || true)"
+  if [[ "$tag" != "v$VERSION" ]]; then
+    echo "✗ HEAD is not tagged v$VERSION (found: ${tag:-no tag}). Check out the release tag first." >&2
+    exit 1
+  fi
+fi
+
 # ── Load credentials ──────────────────────────────────────────────────────
 CREDS="${APPLE_CREDS_ENV:-.env.local}"
 if [[ -f "$CREDS" ]]; then
@@ -49,10 +65,9 @@ node scripts/check-changelog.mjs --release || { echo "✗ fix CHANGELOG.md first
 if [[ "$NOTARIZE_ONLY" == 1 ]]; then
   echo "→ --notarize-only: skipping the build, using existing release/*.dmg"
 else
+  npm ci
   npm run build
 fi
-
-VERSION="$(node -p "require('./package.json').version")"
 
 # ── Notarize + staple each DMG ────────────────────────────────────────────
 # electron-builder signs the .app but does not notarize the DMG file itself, so

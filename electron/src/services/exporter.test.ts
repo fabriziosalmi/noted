@@ -27,7 +27,7 @@ vi.mock('electron', () => ({
   BrowserWindow: class {}, // only referenced by the PDF/print handlers, not exercised here
 }));
 
-import { exportFileName, registerExporterHandlers } from './exporter';
+import { docxSafeImages, exportFileName, registerExporterHandlers } from './exporter';
 
 describe('exporter handlers', () => {
   let dir: string;
@@ -90,5 +90,26 @@ describe('exporter handlers', () => {
     const written = fs.readFileSync(mock.state.savePath, 'utf-8');
     expect(written).not.toContain('<script>');
     expect(written).toContain('<title>&lt;/title&gt;&lt;script&gt;alert(1)&lt;/script&gt;</title>');
+  });
+});
+
+describe('docxSafeImages', () => {
+  const b64 = (bytes: number[]) => Buffer.from([...bytes, ...new Array(20).fill(0)]).toString('base64');
+  const png = `data:image/png;base64,${b64([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])}`;
+  const jpeg = `data:image/jpeg;base64,${b64([0xff, 0xd8, 0xff, 0xe0])}`;
+  const icnsAsPng = `data:image/png;base64,${b64([0x69, 0x63, 0x6e, 0x73])}`; // "icns": what loops image-size 1.x
+
+  it('keeps embedded PNG and JPEG images', () => {
+    const html = `<p><img src="${png}" alt="chart"><img src="${jpeg}"></p>`;
+    expect(docxSafeImages(html)).toBe(html);
+  });
+
+  it('drops an image whose bytes are not what its label says, keeping its alt text', () => {
+    expect(docxSafeImages(`<p><img src="${icnsAsPng}" alt="a &amp; b <c>"></p>`)).toBe('<p><span>a &amp; b &lt;c&gt;</span></p>');
+  });
+
+  it('drops formats outside the safe list and images given by address', () => {
+    const heic = `data:image/heic;base64,${b64([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70])}`;
+    expect(docxSafeImages(`<img src="${heic}"><img src="https://example.com/x.png" alt="remote">`)).toBe('<span>remote</span>');
   });
 });
