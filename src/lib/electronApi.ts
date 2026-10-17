@@ -28,9 +28,10 @@ function withNoteFormat(api: RendererElectronApi): RendererElectronApi {
   const overrides: Record<string, unknown> = {
     readNote: readConverted('readNote', 1, diskToWire),
     readNoteSnapshot: readConverted('readNoteSnapshot', 2, snapshotToWire),
-    saveNote: async (fileName: string, content: string, syncDir?: string) => {
+    saveNote: async (fileName: string, content: string, syncDir?: string, opts?: { force?: boolean }) => {
       const format = await vaultFormatOf(api, syncDir);
-      return api.saveNote(fileName, format === 'markdown' ? wireToDisk(content, format) : content, syncDir);
+      const text = format === 'markdown' ? wireToDisk(content, format) : content;
+      return opts ? api.saveNote(fileName, text, syncDir, opts) : api.saveNote(fileName, text, syncDir);
     },
   };
   // The target is an empty object, not `api`: the preload's object is frozen by contextBridge, and a Proxy

@@ -107,7 +107,8 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 interface NoteEditorProps {
   activeNoteName: string | null;
   activeNoteContent: string;
-  saveActiveNote: (content: string) => Promise<void>;
+  /** Resolves to the name of the copy kept of a version written elsewhere meanwhile, or null. */
+  saveActiveNote: (content: string) => Promise<string | null>;
   onEditorReady: (editor: Editor | null) => void;
   onWordCountChange?: (count: number) => void;
   onAiError?: (msg: string) => void;
@@ -241,6 +242,11 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   // app shares, someone else's formatting replaced by ours).
   const isUnchanged = (content: string): boolean => content === baselineHtmlRef.current;
 
+  // A save found the note written elsewhere meanwhile: that version was kept beside it. Say where.
+  const announceKept = (kept: string | null): void => {
+    if (kept) onNoticeRef.current?.(tRef.current('noteKeptBoth').replace('{name}', kept.replace(/\.md$/i, '')), 'error');
+  };
+
   // Drain the pending autosave immediately to its captured note (durability).
   const flushPending = useCallback((): Promise<void> => {
     const pending = pendingSaveRef.current;
@@ -248,7 +254,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
     pendingSaveRef.current = null;
     if (pending.content === baselineHtmlRef.current) return Promise.resolve();
-    return useStore.getState().flushNoteToDisk(pending.name, pending.content, pending.frontmatter);
+    return useStore.getState().flushNoteToDisk(pending.name, pending.content, pending.frontmatter).then(announceKept);
   }, []);
 
   // Let a vault-wide rewrite (the format conversion) wait for what is typed but not yet saved.
@@ -265,7 +271,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
     setSaveStatus('saving');
     try {
-      await saveActiveNote(content);
+      announceKept(await saveActiveNote(content));
       pendingSaveRef.current = null;
       baselineHtmlRef.current = content;
       if (mountedRef.current) {
@@ -292,7 +298,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
         return;
       }
       try {
-        await saveActiveNote(content);
+        announceKept(await saveActiveNote(content));
         pendingSaveRef.current = null;
         baselineHtmlRef.current = content;
         if (mountedRef.current) {

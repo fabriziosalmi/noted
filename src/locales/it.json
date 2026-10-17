@@ -1204,6 +1204,7 @@
   "errNoFreeName": "Impossibile trovare un nome libero per \"{name}\"",
   "errFolderNotFound": "Cartella \"{name}\" non trovata",
   "errVaultUnavailable": "La cartella del vault {path} non è disponibile. Collega il disco o attendi la sincronizzazione, oppure scegli di nuovo la cartella nelle Impostazioni. Non è stato scritto nulla.",
+  "errNoteChangedOnDisk": "\"{name}\" è stata modificata fuori da Noted dopo che è stata aperta.",
   "errClaudeConfigInvalid": "Il file di configurazione di Claude Desktop {path} non è JSON valido, quindi è stato lasciato com'è. Correggilo (o rimuovilo) e riprova.",
   "errFolderMissing": "La cartella \"{name}\" non esiste",
   "errFolderExists": "La cartella \"{name}\" esiste già",
