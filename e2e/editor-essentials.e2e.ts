@@ -111,7 +111,12 @@ test.describe('editor essentials', () => {
 
   test('the window reopens with the size and place it was left at', async ({ noted }) => {
     const first = await noted.relaunch();
-    const wanted = { x: 140, y: 120, width: 1010, height: 690 };
+    // Inside the screen there is (CI runners have small ones): a size larger than the screen is reduced on purpose.
+    const area = await first.app.evaluate(({ screen }) => screen.getPrimaryDisplay().workArea);
+    const wanted = {
+      x: area.x + 40, y: area.y + 30,
+      width: Math.min(1010, area.width - 80), height: Math.max(500, Math.min(690, area.height - 60)),
+    };
     await first.app.evaluate(({ BrowserWindow }, b) => BrowserWindow.getAllWindows()[0].setBounds(b), wanted);
     const again = await first.relaunch(); // closing the window saves its place
     const got = await again.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds());
