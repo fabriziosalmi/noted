@@ -128,8 +128,16 @@ function validateCommitMessage(msg: string): void {
 
 // ─── Git factory ──────────────────────────────────────────────────────────────
 
+/**
+ * A git command that prints nothing for this long is stopped. Without it one stalled command (a push to a remote that
+ * stopped answering, a signing or credential prompt nobody sees) never settles, and since commits run under the
+ * repository lock, every later commit and sync of that vault would wait behind it for ever.
+ */
+export const GIT_TIMEOUT_MS = 120_000;
+const GITHUB_API_TIMEOUT_MS = 30_000;
+
 function git(dir: string): SimpleGit {
-  return simpleGit(dir, { binary: 'git', maxConcurrentProcesses: 1, trimmed: true });
+  return simpleGit(dir, { binary: 'git', maxConcurrentProcesses: 1, trimmed: true, timeout: { block: GIT_TIMEOUT_MS } });
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -415,6 +423,7 @@ export async function createGitHubPr(params: {
 
     const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls`, {
       method: 'POST',
+      signal: AbortSignal.timeout(GITHUB_API_TIMEOUT_MS),
       headers: {
         Authorization: `Bearer ${params.token}`,
         Accept: 'application/vnd.github+json',

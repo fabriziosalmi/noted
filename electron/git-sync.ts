@@ -23,7 +23,7 @@ import simpleGit, { type SimpleGit } from 'simple-git';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { sanitizeGitError, type GitResult } from './git-ops';
+import { GIT_TIMEOUT_MS, sanitizeGitError, type GitResult } from './git-ops';
 import { withRepoLock } from './repo-lock';
 import { tr } from './core/language';
 
@@ -76,7 +76,6 @@ export interface ConflictResolution {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const GIT_TIMEOUT_MS = 120_000;
 /** Text sides larger than this are not shipped to the renderer. */
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;
 const MAX_ATTEMPTS = 2;
