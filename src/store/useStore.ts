@@ -372,6 +372,11 @@ function scheduleNotesRefresh(run: () => void): void {
 // name to the final one) when the user moves on: after a quiet moment, on a note
 // switch, when the window loses focus, or on quit.
 
+/** Bumped by every fetchNotes: only the latest one's answer is applied. */
+let notesListing = 0;
+/** Title syncs run one after another: each reads the note's name as the previous rename left it. */
+let titleSyncs: Promise<void> = Promise.resolve();
+
 const LINK_REWRITE_DEBOUNCE_MS = 5000;
 let pendingLinkRewrite: PendingRename | null = null;
 let linkRewriteTimer: ReturnType<typeof setTimeout> | null = null;
@@ -483,6 +488,36 @@ function queueLinkRewrite(get: StoreGet, from: string, to: string): void {
 }
 
 const bareName = (n: string) => n.replace(/\.md$/i, '');
+
+/** Rename the open note after its title. Run through syncActiveNoteTitle, one at a time. */
+async function syncTitleNow(get: StoreGet, title: string): Promise<void> {
+  const { activeNoteName, settings } = get();
+  if (!activeNoteName || settings.titleFollowsFilename === false) return;
+  // An Obsidian vault opened in place: another app owns these file names (links in it, and in its plugins, use them).
+  if (peekVaultShared(settings.syncDirectory || undefined)) return;
+  const slash = activeNoteName.lastIndexOf('/');
+  const folder = slash >= 0 ? activeNoteName.slice(0, slash + 1) : '';
+  const currentStem = activeNoteName.slice(slash + 1).replace(/\.md$/, '');
+  const stem = slugifyTitle(title);
+  if (!stem || stem === currentStem) return;
+  // Collision-safe candidate name within the same folder.
+  // Case-insensitive so a rename can't collide with (and overwrite) another
+  // note that differs only by case on a case-insensitive filesystem.
+  const taken = new Set(get().notes.map(n => n.name.toLowerCase()));
+  let candidate = `${folder}${stem}.md`;
+  let n = 2;
+  while (taken.has(candidate.toLowerCase()) && candidate.toLowerCase() !== activeNoteName.toLowerCase()) {
+    candidate = `${folder}${stem} ${n}.md`;
+    n++;
+  }
+  if (candidate.toLowerCase() === activeNoteName.toLowerCase()) return;
+  try {
+    await get().renameNote(activeNoteName, candidate, { reopen: false });
+  } catch {
+    // Best-effort: a failed rename just leaves the filename as-is; we retry
+    // on the next title edit.
+  }
+}
 
 /** How many steps Back remembers. */
 const MAX_NAV_HISTORY = 100;
@@ -634,7 +669,10 @@ export const useStore = create<NoteState>()(
       // Learn the vault's note format now (not awaited: listing the notes must not wait for it), so the
       // first note read or saved finds it already asked.
       void vaultFormatOf(api, syncDir);
+      const listing = ++notesListing;
       const treeRes = await api.getNotesTree?.(syncDir);
+      // A newer listing was asked for meanwhile: its answer is the one that counts, even if this one came back last.
+      if (listing !== notesListing) return;
       if (treeRes?.success && treeRes.data) {
         const { rootNotes, folders } = treeRes.data as { rootNotes: NoteFile[]; folders: FolderInfo[] };
         const allNotes = [...rootNotes, ...folders.flatMap(f => f.notes)];
@@ -647,6 +685,7 @@ export const useStore = create<NoteState>()(
       } else {
         // Fallback to flat list for older preload
         const res = await api.getNotesList(syncDir);
+        if (listing !== notesListing) return;
         if (res.success && res.data) {
           set({ notes: res.data as NoteFile[], isLoading: false, vaultError: null });
           const { activeNoteName, lastOpenedNote } = get();
@@ -1088,33 +1127,10 @@ export const useStore = create<NoteState>()(
   setPendingAnchor: pendingAnchor => set({ pendingAnchor }),
   announce: (message: string) => set({ srAnnouncement: message }),
 
-  syncActiveNoteTitle: async (title: string) => {
-    const { activeNoteName, settings } = get();
-    if (!activeNoteName || settings.titleFollowsFilename === false) return;
-    // An Obsidian vault opened in place: another app owns these file names (links in it, and in its plugins, use them).
-    if (peekVaultShared(settings.syncDirectory || undefined)) return;
-    const slash = activeNoteName.lastIndexOf('/');
-    const folder = slash >= 0 ? activeNoteName.slice(0, slash + 1) : '';
-    const currentStem = activeNoteName.slice(slash + 1).replace(/\.md$/, '');
-    const stem = slugifyTitle(title);
-    if (!stem || stem === currentStem) return;
-    // Collision-safe candidate name within the same folder.
-    // Case-insensitive so a rename can't collide with (and overwrite) another
-    // note that differs only by case on a case-insensitive filesystem.
-    const taken = new Set(get().notes.map(n => n.name.toLowerCase()));
-    let candidate = `${folder}${stem}.md`;
-    let n = 2;
-    while (taken.has(candidate.toLowerCase()) && candidate.toLowerCase() !== activeNoteName.toLowerCase()) {
-      candidate = `${folder}${stem} ${n}.md`;
-      n++;
-    }
-    if (candidate.toLowerCase() === activeNoteName.toLowerCase()) return;
-    try {
-      await get().renameNote(activeNoteName, candidate, { reopen: false });
-    } catch {
-      // Best-effort: a failed rename just leaves the filename as-is; we retry
-      // on the next title edit.
-    }
+  syncActiveNoteTitle: (title: string) => {
+    const run = titleSyncs.then(() => syncTitleNow(get, title));
+    titleSyncs = run.catch(() => undefined);
+    return run;
   },
 
   addNotesToProject: async (slug: string, noteNames: string[]) => {
