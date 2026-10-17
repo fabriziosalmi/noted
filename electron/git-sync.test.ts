@@ -4,6 +4,12 @@ import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+
+// git-sync reaches the 'electron' package through core/language.ts. Without this mock the real package loads, and
+// right after an `npm ci` (which leaves its binary uninstalled) it starts downloading Electron at import time: two test
+// workers doing that at once failed this whole file now and then, with every test in it passing.
+vi.mock('electron', () => ({ app: { getPath: () => os.tmpdir(), getLocale: () => 'en' } }));
+
 import {
   syncNow,
   parseConflictResolutions,

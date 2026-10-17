@@ -10,7 +10,7 @@ import { otherVersionName } from '../lib/externalChange';
 import type { VaultIndexSnapshot, VaultIndexDelta } from '../lib/vaultIndexTypes';
 import { readLinkUpdateMode, foldRename, isNoopRename, type PendingRename } from '../lib/linkUpdate';
 import { getLinkUpdateUi } from '../lib/linkUpdateUi';
-import type { HeadingChange } from '../types';
+import type { HeadingChange, VaultWatchStatus } from '../types';
 import type { FieldValue } from '../../shared/vault/fields';
 import { blankView, newViewId, type View } from '../../shared/views/model';
 import { slugifyTitle } from '../lib/noteTitle';
@@ -224,6 +224,8 @@ interface NoteState {
   isLoading: boolean;
   /** Why the vault could not be listed (it is not there, or cannot be read); null when it was. */
   vaultError: string | null;
+  /** Whether changes made outside the app are noticed (the main process's vault watcher). */
+  vaultWatch: VaultWatchStatus;
   pinnedNotes: string[];
   // Derived from the main-process VaultIndex (snapshot + deltas); never persisted.
   noteLinksIndex: Record<string, string[]>;
@@ -486,6 +488,7 @@ export const useStore = create<NoteState>()(
       setVaultConverting: (converting) => set({ vaultConverting: converting }),
       isLoading: false,
       vaultError: null,
+      vaultWatch: { state: 'on' },
       pinnedNotes: [],
       customTemplates: [],
       noteLinksIndex: {},

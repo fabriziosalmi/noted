@@ -28,7 +28,7 @@ import { assertNotMigrating } from '../core/migrating';
 import { tr } from '../core/language';
 import { getTargetDir, blessVaultRoot, isBlessedRoot, setActiveVaultDir } from '../core/paths';
 import { fullTextSearchIndex, vaultIndex } from '../core/services';
-import { startVaultWatch } from '../core/watcher';
+import { getVaultWatchStatus, startVaultWatch } from '../core/watcher';
 import { rewriteLinks, parseRenames, linkRewriteDeps, rewriteHeadingLinksIn, previewHeadingLinks, parseHeadingChange } from '../core/rewrite';
 
 const MAX_LISTED_TASKS = 2000;
@@ -53,6 +53,9 @@ export function registerVaultHandlers(): void {
     setActiveVaultDir(dir);
     startVaultWatch();
   });
+
+  // Asked once the window has loaded: the status of the watcher started before it is pushed to no one.
+  ipcMain.handle('get-vault-watch-status', () => getVaultWatchStatus());
 
   // Settings the MCP server (possibly started by another program) must share with
   // the app live in <vault>/.noted/config.json; the renderer pushes them here.

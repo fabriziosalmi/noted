@@ -8,6 +8,10 @@ export interface VaultWatcher {
 export interface WatchOptions {
   /** Use the per-directory watcher even where recursive watching is native (tests). */
   forceManual?: boolean;
+  /** A folder that is not watched (it cannot be, or the limit is reached): its changes go unnoticed. */
+  onUnwatched?: (dir: string, reason: string) => void;
+  /** At most this many folders are watched one by one (default MAX_WATCHED_DIRS; lower in tests). */
+  maxDirs?: number;
 }
 
 // inotify watches are a finite, per-user resource; a vault with more folders than
@@ -36,14 +40,19 @@ export function watchVaultTree(
     });
     return w;
   }
-  return watchManually(root, onChange);
+  return watchManually(root, onChange, opts.onUnwatched, opts.maxDirs ?? MAX_WATCHED_DIRS);
 }
 
 function isHidden(name: string): boolean {
   return name.startsWith('.');
 }
 
-function watchManually(root: string, onChange: (relName: string) => void): VaultWatcher {
+function watchManually(
+  root: string,
+  onChange: (relName: string) => void,
+  onUnwatched: ((dir: string, reason: string) => void) | undefined,
+  maxDirs: number,
+): VaultWatcher {
   const watchers = new Map<string, fs.FSWatcher>(); // absolute dir -> watcher
   let closed = false;
 
@@ -61,12 +70,15 @@ function watchManually(root: string, onChange: (relName: string) => void): Vault
   // `announce`: the directory appeared while we were watching, so notes created
   // inside it before the watcher attached would otherwise go unreported.
   function addDir(abs: string, announce: boolean): void {
-    if (closed || watchers.has(abs) || watchers.size >= MAX_WATCHED_DIRS) return;
+    if (closed || watchers.has(abs)) return;
+    if (watchers.size >= maxDirs) { onUnwatched?.(abs, `more than ${maxDirs} folders`); return; }
     let w: fs.FSWatcher;
     try {
       w = fs.watch(abs, (event, filename) => onEvent(abs, event, filename));
-    } catch {
-      return; // vanished, or not watchable: best effort
+    } catch (err) {
+      // Gone since it was listed, or not watchable (the system's inotify limit, a filesystem without notifications).
+      if (fs.existsSync(abs)) onUnwatched?.(abs, (err as NodeJS.ErrnoException).code ?? (err as Error).message);
+      return;
     }
     w.on('error', () => dropDir(abs));
     watchers.set(abs, w);

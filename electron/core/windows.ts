@@ -3,6 +3,8 @@ import path from 'node:path';
 import { tr } from './language';
 import { attachContextMenu } from './contextMenu';
 import { MIN_SIZE, readPlacementFile, restorePlacement, writePlacementFile } from './windowState';
+import { afterRendererGone } from './rendererCrash';
+import { logEvent } from '../structured-log';
 
 let win: BrowserWindow | null;
 export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
@@ -68,6 +70,20 @@ export function createWindow() {
   applyNavigationGuards(win);
   attachContextMenu(win);
   rememberPlacement(win, placement);
+  recoverFromRendererCrash(win);
+}
+
+/** A renderer that crashed leaves a blank window: say why in the log, and load it again (see afterRendererGone). */
+function recoverFromRendererCrash(w: BrowserWindow): void {
+  let lastReloadAt: number | null = null;
+  w.webContents.on('render-process-gone', (_event, details) => {
+    logEvent('error', 'renderer_gone', { reason: details.reason, exitCode: details.exitCode });
+    if (w.isDestroyed() || afterRendererGone(details.reason, lastReloadAt, Date.now()) !== 'reload') return;
+    lastReloadAt = Date.now();
+    w.webContents.reload();
+  });
+  w.webContents.on('unresponsive', () => logEvent('warn', 'renderer_unresponsive', {}));
+  w.webContents.on('responsive', () => logEvent('info', 'renderer_responsive', {}));
 }
 
 /** Restores maximized / full screen, and saves the window's place when it closes and, shortly after, when it moves or is resized. */
