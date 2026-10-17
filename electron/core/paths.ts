@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
+import { tr } from './language';
 
 // Resolved inside app.whenReady() to ensure app paths are available.
 let DEFAULT_NOTES_DIR: string;
@@ -42,7 +43,13 @@ function loadVaultRoots(): Set<string> {
 export function blessVaultRoot(dir: string): void {
   const set = loadVaultRoots();
   set.add(path.resolve(dir));
-  try { fs.writeFileSync(vaultRootsFile(), JSON.stringify([...set]), 'utf8'); } catch { /* best-effort */ }
+  // Written beside and renamed into place: a torn file would read back as "only the default vault is allowed".
+  const file = vaultRootsFile();
+  const tmp = `${file}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(tmp, JSON.stringify([...set]), 'utf8');
+    fs.renameSync(tmp, file);
+  } catch { try { fs.rmSync(tmp, { force: true }); } catch { /* best-effort */ } }
 }
 
 export function isBlessedRoot(dir: string): boolean {
@@ -60,12 +67,36 @@ function isSaneVaultPath(dir: string): boolean {
   } catch { return false; }
 }
 
-export const getTargetDir = (customDir?: string) => {
-  if (customDir && fs.existsSync(customDir) && isBlessedRoot(customDir)) {
-    return customDir;
+/** The configured vault is not there (a drive not mounted, a cloud folder not synced yet) or was never chosen in the folder picker. */
+export class VaultUnavailableError extends Error {
+  readonly code = 'vault-unavailable';
+  readonly dir: string;
+  constructor(dir: string) {
+    super(tr('errVaultUnavailable', { path: dir }));
+    this.name = 'VaultUnavailableError';
+    this.dir = dir;
   }
-  return DEFAULT_NOTES_DIR;
+}
+
+const isDirectory = (dir: string): boolean => {
+  try { return fs.statSync(dir).isDirectory(); } catch { return false; }
 };
+
+/**
+ * The vault a request is for: the default vault when none is configured, the configured one when it is allowlisted
+ * and there. Never another vault in its place: a save meant for a vault that is not there must fail, not land in the
+ * default vault (where it can overwrite a note of the same name) while reporting success.
+ */
+export const getTargetDir = (customDir?: string): string => {
+  if (!customDir || path.resolve(customDir) === path.resolve(DEFAULT_NOTES_DIR)) return DEFAULT_NOTES_DIR;
+  if (isBlessedRoot(customDir) && isDirectory(customDir)) return customDir;
+  throw new VaultUnavailableError(customDir);
+};
+
+/** getTargetDir for background work that must not throw (the watcher, the image protocol): null when the vault is not available. */
+export function availableTargetDir(customDir?: string): string | null {
+  try { return getTargetDir(customDir); } catch { return null; }
+}
 
 // The renderer's configured vault directory, mirrored in main so windows that
 // have no access to the store (quick-capture) still write into the right vault.

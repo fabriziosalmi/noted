@@ -1203,6 +1203,8 @@
   "errFolderNameInvalid": "Nome de pasta inválido",
   "errNoFreeName": "Não foi possível encontrar um nome livre para \"{name}\"",
   "errFolderNotFound": "Pasta \"{name}\" não encontrada",
+  "errVaultUnavailable": "A pasta do vault {path} não está disponível. Ligue o disco ou aguarde a sincronização, ou escolha a pasta novamente nas Definições. Nada foi escrito.",
+  "errClaudeConfigInvalid": "O ficheiro de configuração do Claude Desktop {path} não é JSON válido, por isso foi deixado como estava. Corrija-o (ou remova-o) e tente novamente.",
   "errFolderMissing": "A pasta \"{name}\" não existe",
   "errFolderExists": "A pasta \"{name}\" já existe",
   "errNoteNotFound": "Nota \"{name}\" não encontrada",

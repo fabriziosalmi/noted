@@ -222,6 +222,8 @@ interface NoteState {
   activeNoteContent: string;
   activeNoteFrontmatter: string | null;
   isLoading: boolean;
+  /** Why the vault could not be listed (it is not there, or cannot be read); null when it was. */
+  vaultError: string | null;
   pinnedNotes: string[];
   // Derived from the main-process VaultIndex (snapshot + deltas); never persisted.
   noteLinksIndex: Record<string, string[]>;
@@ -464,6 +466,7 @@ export const useStore = create<NoteState>()(
       vaultConverting: false,
       setVaultConverting: (converting) => set({ vaultConverting: converting }),
       isLoading: false,
+      vaultError: null,
       pinnedNotes: [],
       customTemplates: [],
       noteLinksIndex: {},
@@ -599,7 +602,7 @@ export const useStore = create<NoteState>()(
       if (treeRes?.success && treeRes.data) {
         const { rootNotes, folders } = treeRes.data as { rootNotes: NoteFile[]; folders: FolderInfo[] };
         const allNotes = [...rootNotes, ...folders.flatMap(f => f.notes)];
-        set({ notes: allNotes, noteFolders: folders, isLoading: false });
+        set({ notes: allNotes, noteFolders: folders, isLoading: false, vaultError: null });
         // Auto-reopen last note on startup (only when no note is active yet)
         const { activeNoteName, lastOpenedNote } = get();
         if (!activeNoteName && lastOpenedNote && allNotes.some(n => n.name === lastOpenedNote)) {
@@ -609,13 +612,14 @@ export const useStore = create<NoteState>()(
         // Fallback to flat list for older preload
         const res = await api.getNotesList(syncDir);
         if (res.success && res.data) {
-          set({ notes: res.data as NoteFile[], isLoading: false });
+          set({ notes: res.data as NoteFile[], isLoading: false, vaultError: null });
           const { activeNoteName, lastOpenedNote } = get();
           if (!activeNoteName && lastOpenedNote && (res.data as NoteFile[]).some(n => n.name === lastOpenedNote)) {
             void get().openNote(lastOpenedNote);
           }
         } else {
-          set({ isLoading: false });
+          // Say why instead of showing an empty vault (a vault on a drive that is not mounted lists nothing).
+          set({ isLoading: false, vaultError: treeRes?.error ?? res.error ?? null });
         }
       }
     } else {
