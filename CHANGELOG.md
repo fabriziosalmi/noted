@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-17
+
 ### Added
 
 - **A right-click menu.** Right-click did nothing anywhere in the app. In a note it now offers Cut, Copy, Paste, Paste as Plain Text and Select All; on a misspelled word, the spelling suggestions (picking one replaces the word) and Add to Dictionary; on a web link, Open Link and Copy Link. The quick-capture window has it too.
@@ -490,7 +492,8 @@ The first cross-platform release, and the first that keeps itself up to date.
   backlinks, full-text search, multi-provider AI, Git integration, export, quick
   capture, and a built-in MCP server.
 
-[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.6.3...HEAD
+[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/fabriziosalmi/noted/compare/v1.6.3...v1.7.0
 [1.6.3]: https://github.com/fabriziosalmi/noted/compare/v1.6.2...v1.6.3
 [1.6.2]: https://github.com/fabriziosalmi/noted/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/fabriziosalmi/noted/compare/v1.6.0...v1.6.1
