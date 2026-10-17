@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { safeResolve } from './paths';
+import { recordNoteVersion } from './app-writes';
 
 const MAX_HISTORY_SNAPSHOTS = 20;
 // Don't snapshot every autosave — a 200 KB note × 6000 saves/day is silly.
@@ -77,11 +78,24 @@ export async function fsyncDir(dir: string): Promise<void> {
   }
 }
 
+/** The same recipe for synchronous callers (an import loop): a temporary sibling, flushed, renamed into place. */
+export function writeFileAtomicSync(filePath: string, content: string): void {
+  const tmpPath = `${filePath}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
+  try {
+    fs.writeFileSync(tmpPath, content, { encoding: 'utf8', flush: true });
+    fs.renameSync(tmpPath, filePath);
+  } catch (err) {
+    fs.rmSync(tmpPath, { force: true });
+    throw err;
+  }
+}
+
 /** Durable, atomic note write (temp file, fsync, rename, fsync dir). Same recipe as save-note. */
 export async function writeNoteAtomic(targetDir: string, fileName: string, content: string): Promise<void> {
   const filePath = safeResolve(targetDir, fileName);
   const tmpPath = `${filePath}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
   await writeFileDurable(tmpPath, content);
   await fs.promises.rename(tmpPath, filePath);
+  recordNoteVersion(targetDir, fileName); // the app's own write: not a change to keep apart at the next save
   await fsyncDir(path.dirname(filePath));
 }

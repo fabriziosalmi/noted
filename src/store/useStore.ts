@@ -319,8 +319,9 @@ interface NoteState {
   openNote: (fileName: string, opts?: { record?: boolean }) => Promise<void>;
   /** Back or Forward through the notes opened, skipping any that no longer exist. */
   navigate: (direction: 'back' | 'forward') => Promise<void>;
-  saveActiveNote: (content: string) => Promise<void>;
-  flushNoteToDisk: (name: string, content: string, frontmatter: string | null) => Promise<void>;
+  /** Resolves to the name of the copy kept of a version something else wrote meanwhile, or null. */
+  saveActiveNote: (content: string) => Promise<string | null>;
+  flushNoteToDisk: (name: string, content: string, frontmatter: string | null) => Promise<string | null>;
   deleteNote: (fileName: string) => Promise<void>;
   renameNote: (oldName: string, newName: string, opts?: { reopen?: boolean }) => Promise<void>;
   syncActiveNoteTitle: (title: string) => Promise<void>;
@@ -385,6 +386,24 @@ export type PropertyChange = { ok: true } | { ok: false; conflict?: boolean; err
 
 type StoreGet = () => NoteState;
 type StoreSet = (partial: Partial<NoteState>) => void;
+
+/**
+ * Save a note's text. When something else wrote the file since the app read it (an MCP client, a sync client, git),
+ * that version is kept first as "Note (other version).md" and then this one is saved: neither is lost. If the other
+ * version cannot be kept, nothing is overwritten and the save fails.
+ */
+async function saveKeepingOther(get: StoreGet, name: string, text: string): Promise<{ success: boolean; error?: string; kept: string | null }> {
+  const api = getElectronApi();
+  if (!api) return { success: false, error: 'no api', kept: null };
+  const syncDir = get().settings.syncDirectory || undefined;
+  const first = await api.saveNote(name, text, syncDir);
+  if (first.success || first.code !== 'changed') return { ...first, kept: null };
+  const disk = await api.readNote(name, syncDir);
+  const kept = disk.success && typeof disk.data === 'string' ? await get().saveOtherVersion(name, disk.data) : null;
+  if (!kept) return { success: false, error: first.error, kept: null };
+  const forced = await api.saveNote(name, text, syncDir, { force: true });
+  return { ...forced, kept };
+}
 
 // Saves go one after another, each with the list as it is then: two quick edits can never reach the file in the
 // wrong order, and the file always ends up holding the last list.
@@ -811,7 +830,7 @@ export const useStore = create<NoteState>()(
     if (activeNoteName && api) {
       const frontmatter = get().activeNoteFrontmatter;
       const contentToSave = prependFrontmatterComment(content, frontmatter);
-      const res = await api.saveNote(activeNoteName, contentToSave, get().settings.syncDirectory || undefined);
+      const res = await saveKeepingOther(get, activeNoteName, contentToSave);
       if (!res.success) {
         // Never let a failed write pass silently — the caller (editor autosave)
         // must surface it and keep the buffer dirty, or the app would claim
@@ -830,7 +849,9 @@ export const useStore = create<NoteState>()(
           void api.gitCommitNote(activeNoteName, undefined, syncDirectory || undefined);
         }
       }
+      return res.kept;
     }
+    return null;
   },
 
   // Durability flush: write a specific note's content to disk directly, with its
@@ -838,10 +859,10 @@ export const useStore = create<NoteState>()(
   // note-switch / window-close so the last <debounce edits are never dropped.
   flushNoteToDisk: async (name: string, content: string, frontmatter: string | null) => {
     const api = getElectronApi();
-    if (!api || !name) return;
+    if (!api || !name) return null;
     try {
-      await api.saveNote(name, prependFrontmatterComment(content, frontmatter), get().settings.syncDirectory || undefined);
-    } catch { /* best-effort; the editor's save status surfaces persistent failures */ }
+      return (await saveKeepingOther(get, name, prependFrontmatterComment(content, frontmatter))).kept;
+    } catch { return null; /* best-effort; the editor's save status surfaces persistent failures */ }
   },
 
   applyAgentAction: async (action, editorHtml) => {

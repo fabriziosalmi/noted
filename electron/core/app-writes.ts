@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { safeResolve } from './paths';
 
 export const appWriteMtimes = new Map<string, number>();
@@ -32,4 +33,35 @@ export function markAppDelete(fileName: string): void {
     if (now - at > APP_DELETE_WINDOW_MS) appDeletes.delete(name);
   }
   appDeletes.set(fileName, now);
+}
+
+// The version (mtime) of each note as the app last read or wrote it, so a save can tell whether something else wrote
+// the file in between (an MCP client, a sync client, git): saving over that would lose it without a trace.
+const noteVersions = new Map<string, number>();
+const MAX_NOTE_VERSIONS = 4096;
+const versionKey = (dir: string, fileName: string): string => `${path.resolve(dir)}\0${fileName}`;
+
+function mtimeOf(dir: string, fileName: string): number | null {
+  try { return fs.statSync(safeResolve(dir, fileName)).mtimeMs; } catch { return null; }
+}
+
+/** Remember the note's version now on disk as the one the app knows (after reading it, or after writing it). */
+export function recordNoteVersion(dir: string, fileName: string, mtimeMs: number | null = mtimeOf(dir, fileName)): void {
+  const key = versionKey(dir, fileName);
+  noteVersions.delete(key);
+  if (mtimeMs === null) return;
+  noteVersions.set(key, mtimeMs);
+  while (noteVersions.size > MAX_NOTE_VERSIONS) {
+    const oldest = noteVersions.keys().next().value;
+    if (oldest === undefined) break;
+    noteVersions.delete(oldest);
+  }
+}
+
+/** Was the note written by something else since the app last read or wrote it? False when the app never knew it. */
+export function noteChangedSince(dir: string, fileName: string): boolean {
+  const known = noteVersions.get(versionKey(dir, fileName));
+  if (known === undefined) return false;
+  const now = mtimeOf(dir, fileName);
+  return now !== null && now !== known;
 }

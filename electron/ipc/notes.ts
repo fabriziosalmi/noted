@@ -6,7 +6,7 @@ import { validateFileName } from '../ipc-utils';
 import { assertNotMigrating } from '../core/migrating';
 import { getTargetDir, safeResolve } from '../core/paths';
 import { fullTextSearchIndex, vaultIndex } from '../core/services';
-import { markAppWrite, markAppDelete } from '../core/app-writes';
+import { markAppWrite, markAppDelete, noteChangedSince, recordNoteVersion } from '../core/app-writes';
 import { saveSnapshot, writeFileDurable, fsyncDir } from '../core/note-io';
 import { rewriteLinks } from '../core/rewrite';
 import { getMainWindow } from '../core/windows';
@@ -52,7 +52,12 @@ export function registerNotesHandlers(): void {
       validateFileName(fileName);
       const targetDir = getTargetDir(syncDir);
       const filePath = safeResolve(targetDir, fileName);
+      // The version is taken before the read: a write landing in between then reads as a change at the next save
+      // (both versions kept), never as no change (one lost).
+      let mtimeMs: number | null = null;
+      try { mtimeMs = (await fs.promises.stat(filePath)).mtimeMs; } catch { /* the read below reports it */ }
       const content = await fs.promises.readFile(filePath, 'utf-8');
+      recordNoteVersion(targetDir, fileName, mtimeMs);
       return { success: true, data: content };
     } catch (error: unknown) {
       const err = error as Error;
@@ -60,13 +65,17 @@ export function registerNotesHandlers(): void {
     }
   });
 
-  ipcMain.handle('save-note', async (_, fileName: string, content: string, syncDir?: string) => {
+  ipcMain.handle('save-note', async (_, fileName: string, content: string, syncDir?: string, opts?: { force?: boolean }) => {
     try {
       assertNotMigrating();
       validateFileName(fileName);
       if (typeof content !== 'string') throw new Error('Content must be a string');
       const targetDir = getTargetDir(syncDir);
       const filePath = safeResolve(targetDir, fileName);
+      // Something else wrote the note since the app read it: the caller keeps that version first, then saves with force.
+      if (opts?.force !== true && noteChangedSince(targetDir, fileName)) {
+        return { success: false, code: 'changed', error: tr('errNoteChangedOnDisk', { name: fileName }) };
+      }
       const isNewNote = !fs.existsSync(filePath);
       await saveSnapshot(targetDir, fileName, content);
       // Durable atomic write: write to a unique tmp sibling, fsync it, rename
@@ -81,6 +90,7 @@ export function registerNotesHandlers(): void {
       // hasn't run yet the watcher can't recognise the write as ours and misfires
       // the "changed on disk" warning for the app's own save.
       markAppWrite(targetDir, fileName);
+      recordNoteVersion(targetDir, fileName);
       await fsyncDir(path.dirname(filePath));
       fullTextSearchIndex.upsertFromRaw(targetDir, fileName, content);
       vaultIndex.upsertFromRaw(targetDir, fileName, content);

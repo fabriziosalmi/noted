@@ -160,42 +160,44 @@ export async function isRepo(dir: string): Promise<boolean> {
  * Creates .gitignore and an initial commit.
  */
 export async function initRepo(dir: string): Promise<GitResult> {
-  try {
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const g = git(dir);
-    await g.init();
+  return withRepoLock(dir, async () => {
+    try {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      const g = git(dir);
+      await g.init();
 
-    // Force main as default branch (git 2.28+)
-    try { await g.raw(['checkout', '-b', 'main']); } catch { /* already on main */ }
+      // Force main as default branch (git 2.28+)
+      try { await g.raw(['checkout', '-b', 'main']); } catch { /* already on main */ }
 
-    // Write .gitignore
-    const giPath = path.join(dir, '.gitignore');
-    if (!fs.existsSync(giPath)) {
-      fs.writeFileSync(giPath, [
-        '# Noted — auto-generated',
-        '.DS_Store',
-        '*.tmp',
-        'Thumbs.db',
-        '',
-      ].join('\n'), 'utf8');
+      // Write .gitignore
+      const giPath = path.join(dir, '.gitignore');
+      if (!fs.existsSync(giPath)) {
+        fs.writeFileSync(giPath, [
+          '# Noted — auto-generated',
+          '.DS_Store',
+          '*.tmp',
+          'Thumbs.db',
+          '',
+        ].join('\n'), 'utf8');
+      }
+
+      // Config user identity if not set (avoids "Please tell me who you are" error). `git config <key>` exits with 1
+      // and prints nothing when the key is unset, which simple-git does not report as an error, so the value is checked.
+      const configured = async (key: string): Promise<boolean> => {
+        try { return (await g.raw(['config', key])).trim() !== ''; } catch { return false; }
+      };
+      if (!(await configured('user.email'))) await g.addConfig('user.email', 'noted@local');
+      if (!(await configured('user.name'))) await g.addConfig('user.name', 'Noted');
+
+      // Initial commit
+      await g.add('.gitignore');
+      await g.commit('chore: init Noted notes repository', { '--allow-empty': null });
+
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: sanitizeGitError((err as Error).message) };
     }
-
-    // Config user identity if not set (avoids "Please tell me who you are" error). `git config <key>` exits with 1
-    // and prints nothing when the key is unset, which simple-git does not report as an error, so the value is checked.
-    const configured = async (key: string): Promise<boolean> => {
-      try { return (await g.raw(['config', key])).trim() !== ''; } catch { return false; }
-    };
-    if (!(await configured('user.email'))) await g.addConfig('user.email', 'noted@local');
-    if (!(await configured('user.name'))) await g.addConfig('user.name', 'Noted');
-
-    // Initial commit
-    await g.add('.gitignore');
-    await g.commit('chore: init Noted notes repository', { '--allow-empty': null });
-
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: sanitizeGitError((err as Error).message) };
-  }
+  });
 }
 
 /** A note file: `.md`, not inside a hidden folder (the history and trash folders hold copies, not notes). */
@@ -254,20 +256,22 @@ export async function commitNote(
   noteName: string,
   customMessage?: string,
 ): Promise<GitResult<{ hash: string }>> {
-  try {
-    const g = git(dir);
-    const msg = customMessage?.trim()
-      ? customMessage.trim()
-      : `docs: update ${noteName.replace(/\.md$/, '')}`;
-    validateCommitMessage(msg);
+  return withRepoLock(dir, async () => {
+    try {
+      const g = git(dir);
+      const msg = customMessage?.trim()
+        ? customMessage.trim()
+        : `docs: update ${noteName.replace(/\.md$/, '')}`;
+      validateCommitMessage(msg);
 
-    // Stage the specific note file (safe: noteName validated by Electron IPC before reaching here)
-    await g.add(noteName);
-    const result = await g.commit(msg);
-    return { success: true, data: { hash: result.commit } };
-  } catch (err) {
-    return { success: false, error: sanitizeGitError((err as Error).message) };
-  }
+      // Stage the specific note file (safe: noteName validated by Electron IPC before reaching here)
+      await g.add(noteName);
+      const result = await g.commit(msg);
+      return { success: true, data: { hash: result.commit } };
+    } catch (err) {
+      return { success: false, error: sanitizeGitError((err as Error).message) };
+    }
+  });
 }
 
 /**
@@ -303,51 +307,53 @@ export async function preparePrBranch(
   noteName: string,
   commitMessage?: string,
 ): Promise<GitResult<{ branch: string; hash: string }>> {
-  try {
-    const g = git(dir);
-    const branch = noteBranchName(noteName);
+  return withRepoLock(dir, async () => {
+    try {
+      const g = git(dir);
+      const branch = noteBranchName(noteName);
 
-    // Make sure the note is committed on current branch first
-    await g.add(noteName);
-    const hasStaged = (await g.status()).staged.length > 0;
-    if (hasStaged) {
-      const msg = commitMessage?.trim() || `docs: update ${noteName.replace(/\.md$/, '')}`;
-      validateCommitMessage(msg);
-      await g.commit(msg);
+      // Make sure the note is committed on current branch first
+      await g.add(noteName);
+      const hasStaged = (await g.status()).staged.length > 0;
+      if (hasStaged) {
+        const msg = commitMessage?.trim() || `docs: update ${noteName.replace(/\.md$/, '')}`;
+        validateCommitMessage(msg);
+        await g.commit(msg);
+      }
+
+      // Create / reset the PR branch from current HEAD
+      const branches = await g.branchLocal();
+      if (branches.all.includes(branch)) {
+        await g.deleteLocalBranch(branch, true); // force-delete to reset
+      }
+      await g.checkoutLocalBranch(branch);
+
+      // Switch back to previous branch (usually main)
+      const prevBranch = branches.current || 'main';
+      await g.checkout(prevBranch);
+
+      // Cherry-pick is tricky with a single-file update — instead we use the
+      // branch as a snapshot: checkout branch, ensure note is committed there.
+      await g.checkout(branch);
+      await g.add(noteName);
+      const status = await g.status();
+      let hash = '';
+      if (status.staged.length > 0) {
+        const msg = commitMessage?.trim() || `docs: update ${noteName.replace(/\.md$/, '')}`;
+        const result = await g.commit(msg);
+        hash = result.commit;
+      } else {
+        hash = (await g.log({ maxCount: 1 })).latest?.hash ?? '';
+      }
+
+      // Go back to main / default
+      await g.checkout(prevBranch);
+
+      return { success: true, data: { branch, hash } };
+    } catch (err) {
+      return { success: false, error: sanitizeGitError((err as Error).message) };
     }
-
-    // Create / reset the PR branch from current HEAD
-    const branches = await g.branchLocal();
-    if (branches.all.includes(branch)) {
-      await g.deleteLocalBranch(branch, true); // force-delete to reset
-    }
-    await g.checkoutLocalBranch(branch);
-
-    // Switch back to previous branch (usually main)
-    const prevBranch = branches.current || 'main';
-    await g.checkout(prevBranch);
-
-    // Cherry-pick is tricky with a single-file update — instead we use the
-    // branch as a snapshot: checkout branch, ensure note is committed there.
-    await g.checkout(branch);
-    await g.add(noteName);
-    const status = await g.status();
-    let hash = '';
-    if (status.staged.length > 0) {
-      const msg = commitMessage?.trim() || `docs: update ${noteName.replace(/\.md$/, '')}`;
-      const result = await g.commit(msg);
-      hash = result.commit;
-    } else {
-      hash = (await g.log({ maxCount: 1 })).latest?.hash ?? '';
-    }
-
-    // Go back to main / default
-    await g.checkout(prevBranch);
-
-    return { success: true, data: { branch, hash } };
-  } catch (err) {
-    return { success: false, error: sanitizeGitError((err as Error).message) };
-  }
+  });
 }
 
 /**
@@ -359,26 +365,28 @@ export async function pushBranch(
   branch: string,
   remoteUrl: string,
 ): Promise<GitResult> {
-  try {
-    validateRemoteUrl(remoteUrl);
-    const g = git(dir);
+  return withRepoLock(dir, async () => {
+    try {
+      validateRemoteUrl(remoteUrl);
+      const g = git(dir);
 
-    // Ensure remote 'noted-origin' points to the correct URL
-    const remotes = await g.getRemotes(true);
-    const existing = remotes.find(r => r.name === 'noted-origin');
-    if (existing) {
-      if (existing.refs.push !== remoteUrl) {
-        await g.remote(['set-url', 'noted-origin', remoteUrl]);
+      // Ensure remote 'noted-origin' points to the correct URL
+      const remotes = await g.getRemotes(true);
+      const existing = remotes.find(r => r.name === 'noted-origin');
+      if (existing) {
+        if (existing.refs.push !== remoteUrl) {
+          await g.remote(['set-url', 'noted-origin', remoteUrl]);
+        }
+      } else {
+        await g.addRemote('noted-origin', remoteUrl);
       }
-    } else {
-      await g.addRemote('noted-origin', remoteUrl);
-    }
 
-    await g.push('noted-origin', branch, { '--set-upstream': null });
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: sanitizeGitError((err as Error).message) };
-  }
+      await g.push('noted-origin', branch, { '--set-upstream': null });
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: sanitizeGitError((err as Error).message) };
+    }
+  });
 }
 
 /** Returns the git log for a specific note file (or all notes). */

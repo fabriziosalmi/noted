@@ -300,20 +300,89 @@ function stageChange(change: Omit<PendingChange, 'id' | 'createdAt' | 'client'>)
  * Rewrite marked's output into that shape so the checkboxes are interactive.
  */
 export function taskListsToTiptap(html: string): string {
-  // marked wraps items in <p> for "loose" lists and omits it for "tight" ones,
-  // so both the <p> and its close are optional here.
-  const withItems = html.replace(
-    /<li>\s*(?:<p>\s*)?<input([^>]*?)type="checkbox"([^>]*?)>\s*([\s\S]*?)(?:<\/p>)?\s*<\/li>/g,
-    (_m, pre: string, post: string, text: string) => {
-      const checked = /\bchecked\b/.test(pre) || /\bchecked\b/.test(post);
-      return `<li data-type="taskItem" data-checked="${checked}"><label><input type="checkbox"${checked ? ' checked' : ''}><span></span></label><div><p>${text.trim()}</p></div></li>`;
-    },
-  );
-  // Flag every <ul> that now holds a taskItem as a taskList.
-  return withItems.replace(
-    /<ul>((?:(?!<\/ul>)[\s\S])*?data-type="taskItem"(?:(?!<\/ul>)[\s\S])*?)<\/ul>/g,
-    '<ul data-type="taskList">$1</ul>',
-  );
+  return markTaskLists(convertTaskItems(html));
+}
+
+const isSpace = (c: string | undefined): boolean => c !== undefined && /\s/.test(c);
+const skipSpace = (s: string, i: number): number => { while (isSpace(s[i])) i++; return i; };
+
+/**
+ * One position ahead of a scan that only moves forward: the next index of `needle` at or after `from`, searched again
+ * only when the scan has passed the last answer. Every search starts where the previous one ended, so a whole pass
+ * costs one walk over the text, however many candidates share the same match.
+ */
+function forwardFinder(s: string, needle: string): (from: number) => number {
+  let at = -2;
+  let searchedFrom = -1;
+  return (from: number) => {
+    if (at === -1 && from >= searchedFrom) return -1;
+    if (at < from) { at = s.indexOf(needle, from); searchedFrom = from; }
+    return at;
+  };
+}
+
+/**
+ * marked's `<li>[<p>]<input … type="checkbox" …> text[</p>]</li>` as TipTap task items. The same result as the regex
+ * `/<li>\s*(?:<p>\s*)?<input([^>]*?)type="checkbox"([^>]*?)>\s*([\s\S]*?)(?:<\/p>)?\s*<\/li>/g`, in one forward pass:
+ * that regex, on text an agent sends, took time quadratic in the number of unclosed items.
+ */
+function convertTaskItems(html: string): string {
+  const nextGt = forwardFinder(html, '>');
+  const nextType = forwardFinder(html, 'type="checkbox"');
+  const nextClose = forwardFinder(html, '</li>');
+  let out = '';
+  let copied = 0;
+  let from = 0;
+  for (;;) {
+    const open = html.indexOf('<li>', from);
+    if (open === -1) break;
+    from = open + 1;
+    let i = skipSpace(html, open + 4);
+    if (html.startsWith('<p>', i)) i = skipSpace(html, i + 3);
+    if (!html.startsWith('<input', i)) continue;
+    const tagEnd = nextGt(i + 6);
+    if (tagEnd === -1) break; // no tag closes after here: no later item can match either
+    const type = nextType(i + 6);
+    if (type === -1 || type + 15 > tagEnd) continue;
+    const close = nextClose(tagEnd + 1);
+    if (close === -1) break;
+    const textStart = skipSpace(html, tagEnd + 1);
+    let textEnd = close;
+    while (textEnd > textStart && isSpace(html[textEnd - 1])) textEnd--;
+    if (textEnd - 4 >= textStart && html.startsWith('</p>', textEnd - 4)) textEnd -= 4;
+    const attrs = html.slice(i + 6, type) + html.slice(type + 15, tagEnd);
+    const checked = /\bchecked\b/.test(attrs);
+    const text = html.slice(textStart, Math.max(textStart, textEnd)).trim();
+    out += html.slice(copied, open)
+      + `<li data-type="taskItem" data-checked="${checked}"><label><input type="checkbox"${checked ? ' checked' : ''}><span></span></label><div><p>${text}</p></div></li>`;
+    copied = close + 5;
+    from = copied;
+  }
+  return out + html.slice(copied);
+}
+
+/**
+ * Every `<ul>` whose content up to its first `</ul>` holds a task item, flagged as a task list. The same result as
+ * `/<ul>((?:(?!<\/ul>)[\s\S])*?data-type="taskItem"(?:(?!<\/ul>)[\s\S])*?)<\/ul>/g`, in one forward pass.
+ */
+function markTaskLists(html: string): string {
+  const nextClose = forwardFinder(html, '</ul>');
+  const nextItem = forwardFinder(html, 'data-type="taskItem"');
+  let out = '';
+  let copied = 0;
+  let from = 0;
+  for (;;) {
+    const open = html.indexOf('<ul>', from);
+    if (open === -1) break;
+    const close = nextClose(open + 4);
+    if (close === -1) break;
+    const item = nextItem(open + 4);
+    if (item === -1 || item + 20 > close) { from = open + 1; continue; }
+    out += `${html.slice(copied, open)}<ul data-type="taskList">${html.slice(open + 4, close)}</ul>`;
+    copied = close + 5;
+    from = copied;
+  }
+  return out + html.slice(copied);
 }
 
 export function markdownToHtml(md: string): string {
@@ -420,8 +489,14 @@ function atomicWrite(filePath: string, content: string, tool: string): void {
   if (before !== content) journalChange(tool, noteNameOf(filePath), before === null ? 'create' : 'update', before, content);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const tmp = filePath + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
-  fs.writeFileSync(tmp, content, 'utf8');
+  // flush: the bytes reach the disk before the rename makes them the note, as the app's own saves do (fsync, rename,
+  // fsync the folder); without it a power cut soon after an agent's edit can leave the note empty.
+  fs.writeFileSync(tmp, content, { encoding: 'utf8', flush: true });
   fs.renameSync(tmp, filePath); // atomic on same filesystem
+  try {
+    const fd = fs.openSync(dir, 'r');
+    try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+  } catch { /* not every platform lets a folder be synced; the rename is atomic either way */ }
 }
 
 // ─── Note listing ─────────────────────────────────────────────────────────────

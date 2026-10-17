@@ -1204,6 +1204,7 @@
   "errNoFreeName": "Kein freier Name für \"{name}\" gefunden",
   "errFolderNotFound": "Ordner \"{name}\" nicht gefunden",
   "errVaultUnavailable": "Der Vault-Ordner {path} ist nicht verfügbar. Schließe das Laufwerk an oder warte auf die Synchronisierung, oder wähle den Ordner in den Einstellungen erneut. Es wurde nichts geschrieben.",
+  "errNoteChangedOnDisk": "„{name}\" wurde außerhalb von Noted geändert, seit sie geöffnet wurde.",
   "errClaudeConfigInvalid": "Die Konfigurationsdatei von Claude Desktop {path} ist kein gültiges JSON und wurde unverändert gelassen. Korrigiere sie (oder entferne sie) und versuche es erneut.",
   "errFolderMissing": "Der Ordner \"{name}\" existiert nicht",
   "errFolderExists": "Der Ordner \"{name}\" existiert bereits",

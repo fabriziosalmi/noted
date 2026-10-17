@@ -1204,6 +1204,7 @@
   "errNoFreeName": "Impossible de trouver un nom libre pour « {name} »",
   "errFolderNotFound": "Dossier « {name} » introuvable",
   "errVaultUnavailable": "Le dossier du coffre {path} n'est pas disponible. Branchez le disque ou attendez la synchronisation, ou choisissez à nouveau le dossier dans les Réglages. Rien n'a été écrit.",
+  "errNoteChangedOnDisk": "« {name} » a été modifiée en dehors de Noted depuis son ouverture.",
   "errClaudeConfigInvalid": "Le fichier de configuration de Claude Desktop {path} n'est pas un JSON valide ; il a été laissé tel quel. Corrigez-le (ou supprimez-le) puis réessayez.",
   "errFolderMissing": "Le dossier « {name} » n'existe pas",
   "errFolderExists": "Le dossier « {name} » existe déjà",

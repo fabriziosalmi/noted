@@ -46,6 +46,34 @@ describe('useStore', () => {
     expect(useStore.getState().notes).toEqual([]);
   });
 
+  it('keeps a version written elsewhere beside the note before saving over it', async () => {
+    useStore.setState({ activeNoteName: 'Plan.md', activeNoteFrontmatter: null, notes: [] });
+    const calls: string[] = [];
+    window.electronAPI.saveNote = vi.fn(async (name: string, _text: string, _dir?: string, opts?: { force?: boolean }) => {
+      calls.push(`${name}${opts?.force ? ' (force)' : ''}`);
+      return name === 'Plan.md' && !opts?.force ? { success: false, code: 'changed', error: 'changed elsewhere' } : { success: true };
+    });
+    window.electronAPI.readNote = vi.fn().mockResolvedValue({ success: true, data: '<p>written by an agent</p>' });
+    window.electronAPI.getNotesList = vi.fn().mockResolvedValue({ success: true, data: [] });
+
+    const kept = await useStore.getState().saveActiveNote('<p>typed</p>');
+
+    expect(kept).toBe('Plan (other version).md');
+    expect(calls).toEqual(['Plan.md', 'Plan (other version).md', 'Plan.md (force)']);
+    expect(window.electronAPI.saveNote).toHaveBeenCalledWith('Plan (other version).md', '<p>written by an agent</p>', undefined);
+  });
+
+  it('overwrites nothing when the other version cannot be kept', async () => {
+    useStore.setState({ activeNoteName: 'Plan.md', activeNoteFrontmatter: null, notes: [] });
+    window.electronAPI.saveNote = vi.fn(async (name: string) =>
+      name === 'Plan.md' ? { success: false, code: 'changed', error: 'changed elsewhere' } : { success: false, error: 'disk full' });
+    window.electronAPI.readNote = vi.fn().mockResolvedValue({ success: true, data: '<p>other</p>' });
+    window.electronAPI.getNotesList = vi.fn().mockResolvedValue({ success: true, data: [] });
+
+    await expect(useStore.getState().saveActiveNote('<p>typed</p>')).rejects.toThrow('changed elsewhere');
+    expect(vi.mocked(window.electronAPI.saveNote).mock.calls.some(c => (c[3] as { force?: boolean } | undefined)?.force)).toBe(false);
+  });
+
   it('says why a vault cannot be listed, and forgets it once the vault lists again', async () => {
     const why = 'The vault folder /Volumes/USB/Notes is not available.';
     window.electronAPI.getNotesTree = vi.fn().mockResolvedValue({ success: false, error: why });

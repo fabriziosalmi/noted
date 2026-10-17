@@ -10,7 +10,8 @@ import type { RefObject } from 'react';
 export type ToastVariant = 'success' | 'error';
 export type UpdateSettingsFn = (patch: Partial<SettingsState>) => void;
 export type OpenNoteFn = (name: string) => Promise<void>;
-export type SaveActiveNoteFn = (content: string) => Promise<void>;
+/** Resolves to the name of the copy kept of a version written elsewhere meanwhile, or null. */
+export type SaveActiveNoteFn = (content: string) => Promise<string | null>;
 export type CreateNoteFn = (opts?: { folder?: string; title?: string }) => Promise<void>;
 export type DeleteNoteFn = (name: string) => Promise<void>;
 export type RenameNoteFn = (oldName: string, newName: string) => Promise<void>;

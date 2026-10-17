@@ -3,7 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('electronAPI', {
   getNotesList: (syncDir?: string) => ipcRenderer.invoke('get-notes-list', syncDir),
   readNote: (fileName: string, syncDir?: string) => ipcRenderer.invoke('read-note', fileName, syncDir),
-  saveNote: (fileName: string, content: string, syncDir?: string) => ipcRenderer.invoke('save-note', fileName, content, syncDir),
+  saveNote: (fileName: string, content: string, syncDir?: string, opts?: { force?: boolean }) => ipcRenderer.invoke('save-note', fileName, content, syncDir, opts),
   deleteNote: (fileName: string, syncDir?: string) => ipcRenderer.invoke('delete-note', fileName, syncDir),
   wipeAllNotes: (syncDir?: string) => ipcRenderer.invoke('wipe-all-notes', syncDir),
   selectSyncFolder: () => ipcRenderer.invoke('select-sync-folder'),
