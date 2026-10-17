@@ -1220,5 +1220,10 @@
   "errPdfTooLarge": "Contenuto troppo grande per l'esportazione in PDF",
   "errPrintTooLarge": "Contenuto troppo grande da stampare",
   "errCancelled": "Annullato",
-  "errParse": "Errore di lettura: {error}"
+  "errParse": "Errore di lettura: {error}",
+  "errNameTaken": "\"{name}\" esiste già",
+  "errNotAFolder": "\"{name}\" non è una cartella",
+  "errFolderHasHidden": "\"{name}\" contiene elementi nascosti ({items}). Rimuovili o spostali prima; non è stato cambiato nulla.",
+  "errNameWouldBeInvalid": "\"{name}\" non avrebbe più un nome valido: {reason}. Non è stato cambiato nulla.",
+  "errConversionReadBack": "\"{name}\" non si rilegge com'è stato scritto"
 }

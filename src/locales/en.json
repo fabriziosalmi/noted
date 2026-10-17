@@ -1220,5 +1220,10 @@
   "errPdfTooLarge": "Content too large for PDF export",
   "errPrintTooLarge": "Content too large to print",
   "errCancelled": "Cancelled",
-  "errParse": "Parse error: {error}"
+  "errParse": "Parse error: {error}",
+  "errNameTaken": "\"{name}\" already exists",
+  "errNotAFolder": "\"{name}\" is not a folder",
+  "errFolderHasHidden": "\"{name}\" contains hidden items ({items}). Remove or move them first; nothing was changed.",
+  "errNameWouldBeInvalid": "\"{name}\" would not keep a valid name: {reason}. Nothing was changed.",
+  "errConversionReadBack": "\"{name}\" did not read back as written"
 }

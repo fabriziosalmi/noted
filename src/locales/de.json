@@ -1220,5 +1220,10 @@
   "errPdfTooLarge": "Inhalt zu groß für den PDF-Export",
   "errPrintTooLarge": "Inhalt zu groß zum Drucken",
   "errCancelled": "Abgebrochen",
-  "errParse": "Lesefehler: {error}"
+  "errParse": "Lesefehler: {error}",
+  "errNameTaken": "\"{name}\" existiert bereits",
+  "errNotAFolder": "\"{name}\" ist kein Ordner",
+  "errFolderHasHidden": "\"{name}\" enthält versteckte Elemente ({items}). Entferne oder verschiebe sie zuerst; es wurde nichts geändert.",
+  "errNameWouldBeInvalid": "\"{name}\" hätte keinen gültigen Namen mehr: {reason}. Es wurde nichts geändert.",
+  "errConversionReadBack": "\"{name}\" liest sich nicht so zurück, wie es geschrieben wurde"
 }

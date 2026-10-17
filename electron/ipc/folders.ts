@@ -97,7 +97,9 @@ export function registerFoldersHandlers(): void {
       validateFolderPath(folderName);
       const targetDir = getTargetDir(syncDir);
       const folderPath = safeResolve(targetDir, folderName);
-      if (fs.existsSync(folderPath)) throw new Error(tr('errFolderExists', { name: folderName }));
+      // A stable code beside the message: callers that only need the folder to be there test the code, not the words,
+      // which are in the language of the app.
+      if (fs.existsSync(folderPath)) return { success: false, error: tr('errFolderExists', { name: folderName }), code: 'exists' as const };
       // A new folder goes inside a folder that exists ("Work/Q4" needs "Work"): not a way to build a tree by typing a path.
       const parent = dirnameOf(folderName);
       if (parent && !fs.existsSync(safeResolve(targetDir, parent))) throw new Error(tr('errFolderMissing', { name: parent }));

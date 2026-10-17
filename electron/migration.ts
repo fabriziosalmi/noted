@@ -241,7 +241,7 @@ async function convertVault(dir: string, deps: MigrationDeps, direction: Directi
       await deps.writeNote(item.name, item.next);
       written.push(item);
       const back = await fs.promises.readFile(path.join(dir, item.name), 'utf8');
-      if (back !== item.next) throw new Error(`"${item.name}" did not read back as written`);
+      if (back !== item.next) throw new Error(tr('errConversionReadBack', { name: item.name }));
     }
 
     // 4. the marker changes last

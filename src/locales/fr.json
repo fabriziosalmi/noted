@@ -1220,5 +1220,10 @@
   "errPdfTooLarge": "Contenu trop volumineux pour l'export PDF",
   "errPrintTooLarge": "Contenu trop volumineux pour être imprimé",
   "errCancelled": "Annulé",
-  "errParse": "Erreur de lecture : {error}"
+  "errParse": "Erreur de lecture : {error}",
+  "errNameTaken": "« {name} » existe déjà",
+  "errNotAFolder": "« {name} » n'est pas un dossier",
+  "errFolderHasHidden": "« {name} » contient des éléments masqués ({items}). Supprimez-les ou déplacez-les d'abord ; rien n'a été modifié.",
+  "errNameWouldBeInvalid": "« {name} » n'aurait plus un nom valide : {reason}. Rien n'a été modifié.",
+  "errConversionReadBack": "« {name} » ne se relit pas tel qu'il a été écrit"
 }

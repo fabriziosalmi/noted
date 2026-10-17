@@ -121,7 +121,7 @@ export function moveFolder(vault: string, from: string, to: string, resolve: Res
   const dest = resolve(vault, to);
   let srcStat: fs.Stats;
   try { srcStat = fs.lstatSync(src); } catch { throw new Error(tr('errFolderNotFound', { name: from })); }
-  if (!srcStat.isDirectory()) throw new Error(`"${from}" is not a folder`);
+  if (!srcStat.isDirectory()) throw new Error(tr('errNotAFolder', { name: from }));
 
   const notes = walkVaultSync(src).notes.map(n => `${from}/${n}`);
   const deepest = notes.reduce((a, b) => (b.length > a.length ? b : a), '');
@@ -134,13 +134,13 @@ export function moveFolder(vault: string, from: string, to: string, resolve: Res
   // A case-only rename: the destination "exists" because it is the source under another spelling.
   let sameEntry = false;
   if (present(dest)) {
-    if (from.toLowerCase() !== to.toLowerCase()) throw new Error(`"${to}" already exists`);
+    if (from.toLowerCase() !== to.toLowerCase()) throw new Error(tr('errNameTaken', { name: to }));
     try {
       const a = fs.statSync(src);
       const b = fs.statSync(dest);
       sameEntry = a.ino !== 0 && a.ino === b.ino && a.dev === b.dev;
     } catch { /* treated as not the same */ }
-    if (!sameEntry) throw new Error(`"${to}" already exists`);
+    if (!sameEntry) throw new Error(tr('errNameTaken', { name: to }));
   }
 
   const moves: NoteRename[] = notes.map(n => ({ from: n, to: `${to}/${n.slice(from.length + 1)}` }));
@@ -178,7 +178,7 @@ export function dissolveFolder(vault: string, folder: string, resolve: Resolve):
   const folderPath = resolve(vault, folder);
   let stat: fs.Stats;
   try { stat = fs.lstatSync(folderPath); } catch { throw new Error(tr('errFolderNotFound', { name: folder })); }
-  if (!stat.isDirectory()) throw new Error(`"${folder}" is not a folder`);
+  if (!stat.isDirectory()) throw new Error(tr('errNotAFolder', { name: folder }));
 
   const parent = dirnameOf(folder);
   const parentPath = parent ? resolve(vault, parent) : vault;
@@ -193,7 +193,7 @@ export function dissolveFolder(vault: string, folder: string, resolve: Resolve):
     else movable.push(entry);
   }
   if (hidden.length > 0) {
-    throw new Error(`"${folder}" contains hidden items (${hidden.join(', ')}). Remove or move them first; nothing was changed.`);
+    throw new Error(tr('errFolderHasHidden', { name: folder, items: hidden.join(', ') }));
   }
 
   // Decide every destination first (a move that has not happened yet is invisible to existsSync).
@@ -218,7 +218,7 @@ export function dissolveFolder(vault: string, folder: string, resolve: Resolve):
   }
   for (const m of moves) {
     const bad = checkNotePath(m.to);
-    if (bad) throw new Error(`"${m.from}" would not keep a valid name: ${bad}. Nothing was changed.`);
+    if (bad) throw new Error(tr('errNameWouldBeInvalid', { name: m.from, reason: bad }));
   }
 
   performSteps(steps);
