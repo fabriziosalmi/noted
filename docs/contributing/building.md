@@ -121,7 +121,7 @@ git push --tags                  # triggers the Windows/Linux CI build below
 gh release create v<version> release/Noted-<version>*.dmg
 ```
 
-## Cross-platform builds (CI) {#cross-platform-builds-ci}
+## Cross-platform builds (CI)
 
 Windows and Linux installers are built in CI, because electron-builder cannot
 cross-compile them from macOS. `.github/workflows/release.yml` runs on a `v*`
