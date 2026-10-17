@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-10-17
+
 ### Fixed
 
 - **The formatting bar stays on one row in a narrow window.** At 720 pixels it wrapped onto three rows and took about 100 pixels from the note. The buttons that do not fit now go, from the end, into a **⋯** menu.
@@ -499,7 +501,8 @@ The first cross-platform release, and the first that keeps itself up to date.
   backlinks, full-text search, multi-provider AI, Git integration, export, quick
   capture, and a built-in MCP server.
 
-[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.7.1...HEAD
+[1.7.1]: https://github.com/fabriziosalmi/noted/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/fabriziosalmi/noted/compare/v1.6.3...v1.7.0
 [1.6.3]: https://github.com/fabriziosalmi/noted/compare/v1.6.2...v1.6.3
 [1.6.2]: https://github.com/fabriziosalmi/noted/compare/v1.6.1...v1.6.2
