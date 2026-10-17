@@ -277,4 +277,10 @@ claude mcp add noted -- node /path/to/dist-mcp/index.cjs --notes-dir /path/to/va
 ```
 
 For Claude Desktop, Noted can write the entry into
-`claude_desktop_config.json` for you with a single click.
+`claude_desktop_config.json` for you with a single click. The entry names the vault you have open
+(`--notes-dir`), the rest of the file is kept as it is, and the previous version is saved beside it as
+`claude_desktop_config.json.bak`. A file that is not valid JSON (a trailing comma, a comment) is left alone and
+Noted says so: fix it, or remove it, and try again.
+
+The snippets in Settings → MCP name the open vault too, so a configuration copied while one vault is open keeps
+pointing at it. Copy them again after switching vaults.

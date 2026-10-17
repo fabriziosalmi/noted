@@ -12,6 +12,7 @@ import { useStore } from '../store/useStore';
 import type { LLMProvider } from '../store/useStore';
 import { fetchAvailableModels, isLocalHost } from '../lib/llm';
 import { COMPAT_PRESETS, presetById, presetForUrl } from '../../shared/llm/providers';
+import { mcpServerArgs, shellWord } from '../../shared/mcp/clientConfig';
 import { useI18n, type TranslationKey } from '../lib/i18n';
 import { getElectronApi } from '../lib/electronApi';
 import { importWorkflowReducer, initialImportWorkflowState, isImportWorkflowBusy } from '../lib/importWorkflow';
@@ -219,14 +220,16 @@ function McpTab({ t, copyText, copiedCmd, mcpServer, vaultPath, settings, onUpda
   const serverPath = mcpServer?.path ?? '/path/to/dist-mcp/index.cjs';
   const built = mcpServer?.exists === true;
 
-  const claudeCodeCmd = `claude mcp add noted -- node ${serverPath}`;
+  // Every snippet names the vault that is open: a server started without it opens the default vault instead.
+  const args = mcpServerArgs(serverPath, settings.syncDirectory || null);
+  const claudeCodeCmd = `claude mcp add noted -- node ${args.map(shellWord).join(' ')}`;
   const claudeDesktopJson = JSON.stringify({
-    mcpServers: { noted: { command: 'node', args: [serverPath] } },
+    mcpServers: { noted: { command: 'node', args } },
   }, null, 2);
   const vscodeJson = JSON.stringify({
-    servers: { noted: { type: 'stdio', command: 'node', args: [serverPath] } },
+    servers: { noted: { type: 'stdio', command: 'node', args } },
   }, null, 2);
-  const codexToml = `[mcp_servers.noted]\ncommand = "node"\nargs = ["${serverPath}"]`;
+  const codexToml = `[mcp_servers.noted]\ncommand = "node"\nargs = [${args.map(a => JSON.stringify(a)).join(', ')}]`;
 
   const [setupStatus, setSetupStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [setupError, setSetupError] = useState<string | null>(null);
