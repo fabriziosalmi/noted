@@ -46,16 +46,14 @@ Once installed, Noted keeps itself current: it checks for new releases on launch
 
 ## What it offers today
 
-- Rich TipTap-based editor (text, headings, code blocks, tables, formulas)
+- Rich TipTap-based editor (text, headings, code blocks, tables, formulas), with find and
+  replace, a right-click menu with spelling suggestions, Back/Forward between notes, and zoom
 - Wikilinks, backlinks, and a per-note connections panel
 - Fast note switcher + global full-text search
-- Multi-provider AI:
-  - OpenAI
-  - Anthropic
-  - Gemini
-  - OpenRouter
-  - LM Studio (local)
-  - Ollama (local)
+- AI from the provider you choose:
+  - a cloud service: OpenAI, Anthropic, Google Gemini, OpenRouter, Groq, Mistral AI, DeepSeek,
+    xAI (Grok), Together AI, Fireworks AI, Cerebras, Hugging Face, Perplexity
+  - a model on your own computer: LM Studio, Ollama, Unsloth Studio, llama.cpp server, vLLM, Jan
 - Inline AI suggestions, slash commands, contextual chat
 - Optional PII masking before AI calls
 - Git integration (status, commit, push, PR)
