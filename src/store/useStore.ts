@@ -447,12 +447,26 @@ function reportLinkUpdate(result: { notes: number; links: number; failed: number
   if (result && (result.links > 0 || result.failed > 0)) getLinkUpdateUi()?.notify(result);
 }
 
+/**
+ * Does a note by this name exist now? Asked of the disk, not of the list in the store: that list is refreshed after
+ * a rename, and a blur or a note switch can settle a rewrite before it is, or an older refresh can land after it.
+ */
+async function noteExistsNow(name: string, syncDir: string | undefined): Promise<boolean> {
+  const api = getElectronApi();
+  const tree = await api?.getNotesTree?.(syncDir);
+  const listed = tree?.success && tree.data
+    ? [...tree.data.rootNotes, ...tree.data.folders.flatMap(f => f.notes)]
+    : null;
+  if (!listed) return false;
+  return listed.some(n => n.name.toLowerCase() === name.toLowerCase());
+}
+
 /** Rewrite the links for one (already folded) rename, if the setting and the situation allow. */
 async function settleLinkRewrite(get: StoreGet, pending: PendingRename, quiet = false): Promise<void> {
   const api = getElectronApi();
   if (!api || isNoopRename(pending)) return;
   // A new note has since taken the old name: links to it now mean THAT note.
-  if (get().notes.some(n => n.name.toLowerCase() === pending.from.toLowerCase())) return;
+  if (await noteExistsNow(pending.from, get().settings.syncDirectory || undefined)) return;
   if (!(await wantLinkUpdate(get, [pending], bareName(pending.from), quiet))) return;
   const res = await api.rewriteLinks([pending], get().settings.syncDirectory || undefined);
   if (res.success) reportLinkUpdate(res.data);

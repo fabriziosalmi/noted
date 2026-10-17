@@ -215,9 +215,34 @@ describe('title-driven rename (held back, applied once)', () => {
 
   it('skips when a new note has taken the old name meanwhile (links to it now mean that note)', async () => {
     await rename('A.md', 'B.md', false);
-    useStore.setState({ notes: [note('A.md'), note('B.md')] }); // a new A.md appeared
+    api.getNotesTree.mockResolvedValue({ success: true, data: { rootNotes: [note('A.md'), note('B.md')], folders: [] } }); // a new A.md appeared
     await vi.advanceTimersByTimeAsync(6_000);
     expect(api.rewriteLinks).not.toHaveBeenCalled();
+  });
+
+  it('a blur before the list of notes has caught up with the rename still rewrites the links', async () => {
+    useStore.setState({ activeNoteName: 'A.md', notes: [note('A.md')] });
+    let listed!: (v: unknown) => void;
+    api.getNotesTree.mockReturnValueOnce(new Promise(r => { listed = r; })); // the refresh after the rename is slow
+    const renaming = rename('A.md', 'B.md', false);
+    await vi.waitFor(() => expect(api.getNotesTree).toHaveBeenCalledTimes(1));
+    await useStore.getState().flushPendingLinkRewrite(); // the window loses focus now
+    expect(api.rewriteLinks).toHaveBeenCalledWith([{ from: 'A.md', to: 'B.md' }], undefined);
+    listed({ success: true, data: { rootNotes: [note('B.md')], folders: [] } });
+    await renaming;
+  });
+
+  it('a listing that left before the rename and came back after it does not stop the rewrite', async () => {
+    useStore.setState({ activeNoteName: 'A.md', notes: [note('A.md')] });
+    let lateListing!: (v: unknown) => void;
+    api.getNotesTree.mockReturnValueOnce(new Promise(r => { lateListing = r; })); // e.g. a refresh after a save
+    const early = useStore.getState().fetchNotes();
+    api.getNotesTree.mockResolvedValue({ success: true, data: { rootNotes: [note('B.md')], folders: [] } });
+    await rename('A.md', 'B.md', false);
+    lateListing({ success: true, data: { rootNotes: [note('A.md')], folders: [] } }); // still names A.md
+    await early;
+    await vi.advanceTimersByTimeAsync(6_000);
+    expect(api.rewriteLinks).toHaveBeenCalledWith([{ from: 'A.md', to: 'B.md' }], undefined);
   });
 });
 

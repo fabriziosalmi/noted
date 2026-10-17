@@ -6,6 +6,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Renaming a note through its title always moves the links to it.** The links are rewritten a few seconds after you stop typing, once the app has checked that no new note took the old name, and that check used the list of notes in the sidebar. When the window lost focus or another note was opened before that list caught up with the rename, or an older refresh of the list arrived late, the old name still looked taken and the links were left pointing at it, without a word. The check now asks the disk.
+
 ## [1.8.0] - 2026-10-17
 
 ### Added
