@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import { logEvent, newRequestId } from '../structured-log';
 import { getActiveVaultDir, getTargetDir } from '../core/paths';
 import { writeClaudeConfig } from '../claude-config';
+import { nextRestart } from '../core/restartPolicy';
 import { mcpServerArgs } from '../../shared/mcp/clientConfig';
 import { tr } from '../core/language';
 
@@ -21,8 +22,12 @@ let mcpSseChild: Electron.UtilityProcess | null = null;
 let currentMcpPort: number | null = null;
 let currentMcpSyncDir: string | null = null;
 let currentLegacySse = false;
+// What the user asked to run (null once they turned it off), and when the child last stopped by itself.
+let wantedServer: { port: number; syncDir?: string; legacySse: boolean } | null = null;
+let unexpectedExits: number[] = [];
 
 export function stopMcpSseServer() {
+  wantedServer = null;
   if (mcpSseChild) {
     logEvent('info', 'mcp_sse_stopping', {
       port: currentMcpPort ?? undefined,
@@ -57,6 +62,7 @@ function getMcpSseToken(): string {
 
 function startMcpSseServer(port: number, syncDir?: string, legacySse = false) {
   stopMcpSseServer();
+  wantedServer = { port, syncDir, legacySse };
   const reqId = newRequestId('mcp-sse');
 
   const mcpPath = getMcpServerPathInternal();
@@ -108,8 +114,25 @@ function startMcpSseServer(port: number, syncDir?: string, legacySse = false) {
     child.on('exit', code => {
       logEvent('info', 'mcp_sse_child_exited', { reqId, code: code ?? null });
       // Only clear the slot if it still holds *this* child; a restart may have
-      // already replaced it.
-      if (mcpSseChild === child) mcpSseChild = null;
+      // already replaced it. A child stopped on purpose has already left it.
+      if (mcpSseChild !== child) return;
+      mcpSseChild = null;
+      // It stopped by itself while still wanted: the clients connected to it lost their server. Start it again.
+      const wanted = wantedServer;
+      if (!wanted) return;
+      unexpectedExits = [...unexpectedExits, Date.now()].slice(-10);
+      const next = nextRestart(unexpectedExits, Date.now());
+      if (!next.restart) {
+        logEvent('error', 'mcp_sse_gave_up', { reqId, exits: unexpectedExits.length });
+        return;
+      }
+      logEvent('warn', 'mcp_sse_restarting', { reqId, delayMs: next.delayMs });
+      setTimeout(() => {
+        if (wantedServer !== wanted || mcpSseChild) return; // turned off, or started again, meanwhile
+        try { startMcpSseServer(wanted.port, wanted.syncDir, wanted.legacySse); } catch (err) {
+          logEvent('error', 'mcp_sse_restart_failed', { reqId, error: (err as Error).message });
+        }
+      }, next.delayMs).unref?.();
     });
   } catch (err) {
     logEvent('error', 'mcp_sse_spawn_failed', { reqId, error: (err as Error).message });

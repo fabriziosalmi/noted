@@ -6,6 +6,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Help → Show Logs.** The app's background process now keeps a log file (`~/Library/Logs/Noted` on macOS, `%APPDATA%\Noted\logs` on Windows, `~/.config/Noted/logs` on Linux; two files of at most 5 MB). In an installed app its messages went nowhere, so a bug report had nothing to attach.
+
 ### Changed
 
 - **An agent can no longer approve its own checkpoints.** `approve_agent_gate` refuses a gate that the workflow's approval mode requires (plan, action, review, release; all of them in manual) and says to approve it in Noted, from the Agent panel or the Workflows page. Before, an agent could approve its own plan or release and record the approval as coming from "user". It can still reject such a gate, and approve one that an autonomous workflow asked for on its own. Clients that relied on approving through MCP need the user to approve in the app.
@@ -24,6 +28,9 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **A note written by an assistant survives a power cut.** The MCP server wrote notes to a temporary file and renamed it, but without flushing it to the disk first, as the app's own saves do; Apple Notes imports were written in place. Both are now flushed and renamed.
 - **An assistant can no longer stall the MCP server with one note.** Converting the checklists of a note sent through MCP took time growing with the square of its unclosed lists: a few megabytes kept the server busy for minutes. It is now one pass over the text, with the same result.
 - **Preparing a pull request waits for a sync in progress.** Committing a single note, preparing a pull-request branch (which switches branches in your folder) and pushing it ran beside the background sync instead of after it.
+- **Noted says when it cannot notice changes made outside it.** On some network and FUSE folders, and on Linux past the system's limit of watched folders, changes by another app, a sync client or Git were not noticed, with nothing saying so. The sidebar now says so, and the log records why.
+- **A crashed window reloads instead of staying blank.** If the window's renderer crashed (a huge note, a GPU failure) it stayed blank until the app was quit; it is reloaded once (at most once a minute), and the reason goes to the log.
+- **The MCP server is started again if it stops by itself.** When the server for HTTP clients stopped on its own (a port already taken, an error), connected assistants lost it until it was turned off and on; it is restarted up to three times in five minutes, later each time.
 - **A note is never saved into another vault.** When the vault folder you chose was not there (a drive not connected, a cloud folder not synced yet) or was no longer allowed, every read and save went to the default vault instead and reported success, so an autosave could overwrite a note of the same name there while your vault never got the edit. Now nothing is written, the editor keeps your text and says the save failed, and the sidebar says which folder is not available. The list of allowed vault folders is also written so that an interruption cannot damage it.
 - **Connect to Claude Desktop no longer replaces Claude Desktop's settings.** If its configuration file could not be read as JSON (a trailing comma, a comment), Noted replaced it with only its own entry, removing your other MCP servers. Now that file is left as it is and Noted says what to fix; when it does write, the previous version is kept as `claude_desktop_config.json.bak`, and the file is never left half-written.
 - **An assistant connected from Settings works on the vault you have open.** The Claude Desktop entry and the snippets for Claude Code, VS Code and Codex started the server without naming the vault, so with a vault in a folder of your own the assistant read and wrote the default vault, which the app does not show. They now pass `--notes-dir`.
