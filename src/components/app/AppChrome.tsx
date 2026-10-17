@@ -255,6 +255,7 @@ export function AppChrome({
                 showAiBar={settings.showAiBar}
                 onAiError={onToastError}
                 findOpen={panels.findOpen}
+                replaceRequest={panels.replaceRequest}
                 onCloseFind={() => panels.setFindOpen(false)}
                 onOpenFind={() => panels.setFindOpen(true)}
                 onOpenGlobalSearch={panels.toggleGlobalSearch}

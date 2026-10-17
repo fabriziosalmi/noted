@@ -637,3 +637,47 @@ Here is a table:
     warnSpy.mockRestore();
   });
 });
+
+describe('Back and Forward', () => {
+  const note = (name: string) => ({ name, path: `/${name}`, stats: { mtimeMs: 1, ctimeMs: 1, size: 1 } });
+  beforeEach(() => {
+    useStore.setState({
+      notes: ['a.md', 'b.md', 'c.md', 'd.md'].map(note) as never,
+      activeNoteName: null, navBack: [], navForward: [],
+    });
+    window.electronAPI.readNote = vi.fn(async (name: string) => ({ success: true, data: `<h1>${name}</h1>` }));
+  });
+  const open = (n: string) => useStore.getState().openNote(n);
+  const go = (d: 'back' | 'forward') => useStore.getState().navigate(d);
+  const at = () => useStore.getState().activeNoteName;
+
+  it('goes back through the notes opened and forward again; opening another note drops the way forward', async () => {
+    await open('a.md'); await open('b.md'); await open('c.md');
+    await go('back'); expect(at()).toBe('b.md');
+    await go('back'); expect(at()).toBe('a.md');
+    await go('back'); expect(at()).toBe('a.md'); // nothing before the first
+    await go('forward'); expect(at()).toBe('b.md');
+    await open('d.md');
+    await go('forward'); expect(at()).toBe('d.md');
+    await go('back'); expect(at()).toBe('b.md');
+  });
+
+  it('skips a note deleted since, and follows a rename', async () => {
+    await open('a.md'); await open('b.md'); await open('c.md');
+    useStore.setState({ notes: ['a.md', 'c.md', 'd.md'].map(note) as never }); // b.md deleted
+    await go('back'); expect(at()).toBe('a.md');
+
+    useStore.setState({ navBack: ['a.md'], navForward: [], activeNoteName: 'c.md', notes: ['a2.md', 'c.md'].map(note) as never });
+    window.electronAPI.getNotesTree = vi.fn().mockResolvedValue({ success: true, data: { rootNotes: ['a2.md', 'c.md'].map(note), folders: [] } });
+    await useStore.getState().renameNote('a.md', 'a2.md');
+    await go('back'); expect(at()).toBe('a2.md');
+  });
+
+  it('reopening a renamed note is not a step back', async () => {
+    window.electronAPI.getNotesTree = vi.fn().mockResolvedValue({ success: true, data: { rootNotes: ['a.md', 'b2.md'].map(note), folders: [] } });
+    await open('a.md'); await open('b.md');
+    await useStore.getState().renameNote('b.md', 'b2.md');
+    expect(at()).toBe('b2.md');
+    expect(useStore.getState().navBack).toEqual(['a.md']);
+  });
+});

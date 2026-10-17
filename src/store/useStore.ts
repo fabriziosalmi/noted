@@ -216,6 +216,9 @@ interface NoteState {
   notes: NoteFile[];           // flat list (root + all subfolders) for search/backlinks
   noteFolders: FolderInfo[];   // subfolders with their notes
   activeNoteName: string | null;
+  /** Notes opened before / after the current one, for Back and Forward (this session only). */
+  navBack: string[];
+  navForward: string[];
   activeNoteContent: string;
   activeNoteFrontmatter: string | null;
   isLoading: boolean;
@@ -310,7 +313,10 @@ interface NoteState {
   fetchNotes: () => Promise<void>;
   createNote: (fileName: string, initialContent?: string) => Promise<void>;
   createTitledNote: (title: string, folder?: string) => Promise<void>;
-  openNote: (fileName: string) => Promise<void>;
+  /** `record: false` when the open is not a step of its own (Back/Forward, or reopening a renamed or moved note). */
+  openNote: (fileName: string, opts?: { record?: boolean }) => Promise<void>;
+  /** Back or Forward through the notes opened, skipping any that no longer exist. */
+  navigate: (direction: 'back' | 'forward') => Promise<void>;
   saveActiveNote: (content: string) => Promise<void>;
   flushNoteToDisk: (name: string, content: string, frontmatter: string | null) => Promise<void>;
   deleteNote: (fileName: string) => Promise<void>;
@@ -441,11 +447,16 @@ function queueLinkRewrite(get: StoreGet, from: string, to: string): void {
 
 const bareName = (n: string) => n.replace(/\.md$/i, '');
 
+/** How many steps Back remembers. */
+const MAX_NAV_HISTORY = 100;
+
 export const useStore = create<NoteState>()(
   persist(
     (set, get) => ({
       notes: [],
       activeNoteName: null,
+      navBack: [],
+      navForward: [],
       activeNoteContent: '',
       activeNoteFrontmatter: null,
       vaultConverting: false,
@@ -653,7 +664,7 @@ export const useStore = create<NoteState>()(
     await get().createNote(candidate, `<h1>${safeTitle}</h1><p></p>`);
   },
 
-  openNote: async (fileName: string) => {
+  openNote: async (fileName: string, opts?: { record?: boolean }) => {
     // Moving on to another note: settle any held-back link rewrite now.
     if (fileName !== get().activeNoteName) void get().flushPendingLinkRewrite();
     const api = getElectronApi();
@@ -661,7 +672,10 @@ export const useStore = create<NoteState>()(
       const res = await api.readNote(fileName, get().settings.syncDirectory || undefined);
       if (res.success && res.data !== undefined) {
         const { content, frontmatter } = parseNoteFile(res.data as string);
+        const previous = get().activeNoteName;
+        const record = opts?.record !== false && !!previous && previous !== fileName;
         set({
+          ...(record ? { navBack: [...get().navBack, previous].slice(-MAX_NAV_HISTORY), navForward: [] } : {}),
           activeNoteName: fileName,
           activeNoteContent: content,
           activeNoteFrontmatter: frontmatter,
@@ -675,6 +689,22 @@ export const useStore = create<NoteState>()(
         });
       }
     }
+  },
+
+  navigate: async (direction) => {
+    const exists = new Set(get().notes.map(n => n.name));
+    const current = get().activeNoteName;
+    const from = [...(direction === 'back' ? get().navBack : get().navForward)];
+    const to = [...(direction === 'back' ? get().navForward : get().navBack)];
+    let target = from.pop();
+    while (target !== undefined && (!exists.has(target) || target === current)) target = from.pop(); // deleted since, or a repeat
+    if (target === undefined) {
+      set(direction === 'back' ? { navBack: from } : { navForward: from });
+      return;
+    }
+    if (current) to.push(current);
+    set(direction === 'back' ? { navBack: from, navForward: to } : { navForward: from, navBack: to });
+    await get().openNote(target, { record: false });
   },
 
   applyVaultIndexSnapshot: (snapshot: VaultIndexSnapshot) => {
@@ -898,6 +928,9 @@ export const useStore = create<NoteState>()(
 
     // Pins follow the rename; links and tags are re-indexed by the main process.
     set(state => ({ pinnedNotes: state.pinnedNotes.map(n => n === oldName ? newName : n) }));
+    // So does Back/Forward.
+    const renamed = (n: string) => (n === oldName ? newName : n);
+    set(state => ({ navBack: state.navBack.map(renamed), navForward: state.navForward.map(renamed) }));
 
     // Retarget the active name synchronously (before the async fetchNotes) for a
     // self-rename, so a debounced autosave firing during fetchNotes can't save
@@ -912,8 +945,8 @@ export const useStore = create<NoteState>()(
     await get().fetchNotes();
 
     if (wasActive && opts?.reopen !== false) {
-      // Re-open by name so activeNoteContent is in sync with the renamed file.
-      await get().openNote(newName);
+      // Re-open by name so activeNoteContent is in sync with the renamed file (the same note: not a Back step).
+      await get().openNote(newName, { record: false });
     }
   },
 
@@ -1219,13 +1252,16 @@ export const useStore = create<NoteState>()(
     if (newPath) {
       const currentNotesOrder = get().customNotesOrder || [];
       const newNotesOrder = currentNotesOrder.map(n => n === fileName ? newPath : n);
-      set({
+      const moved = (n: string) => (n === fileName ? newPath : n);
+      set(state => ({
         customNotesOrder: newNotesOrder,
-      });
+        navBack: state.navBack.map(moved),
+        navForward: state.navForward.map(moved),
+      }));
     }
 
     if (activeNoteName === fileName && res.data) {
-      await get().openNote(res.data);
+      await get().openNote(res.data, { record: false });
     }
     await get().fetchNotes();
   },

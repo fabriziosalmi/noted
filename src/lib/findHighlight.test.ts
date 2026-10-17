@@ -37,4 +37,10 @@ describe('findMatches', () => {
     const d = doc({ type: 'heading', attrs: { level: 1 }, content: [text('Plan')] }, { type: 'codeBlock', content: [text('const plan = 1')] });
     expect(found(d, 'plan')).toEqual(['Plan', 'plan']);
   });
+
+  it('matches case only when asked to', () => {
+    const d = doc(para(text('Plan, plan and PLAN')));
+    expect(found(d, 'plan')).toEqual(['Plan', 'plan', 'PLAN']);
+    expect(findMatches(d, 'plan', true).map(m => d.textBetween(m.from, m.to))).toEqual(['plan']);
+  });
 });
