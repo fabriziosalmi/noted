@@ -1,5 +1,6 @@
 import { Menu, clipboard, shell, type BrowserWindow, type ContextMenuParams, type MenuItemConstructorOptions } from 'electron';
 import { tr } from './language';
+import { logEvent } from '../structured-log';
 
 /** What the menu can do; passed in, so the menu itself can be built and checked without a window. */
 export interface ContextMenuActions {
@@ -69,7 +70,11 @@ export function attachContextMenu(win: BrowserWindow): void {
       replaceMisspelling: word => wc.replaceMisspelling(word),
       addToDictionary: word => { wc.session.addWordToSpellCheckerDictionary(word); },
       openLink: url => { void shell.openExternal(url); },
-      copyLink: url => clipboard.writeText(url),
+      // A Promise since Electron 44: a refused write is logged, not left unhandled in the main process.
+      copyLink: url => {
+        void Promise.resolve(clipboard.writeText(url))
+          .catch((err: unknown) => logEvent('warn', 'copy_link_failed', { error: err instanceof Error ? err.message : String(err) }));
+      },
     });
     if (template.length) Menu.buildFromTemplate(template).popup({ window: win });
   });

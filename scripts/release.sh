@@ -133,6 +133,16 @@ path_file="$(awk '/^path:/{print $2; exit}' "$YML")"
 urls=()
 while IFS= read -r u; do urls+=("$u"); done < <(awk '/^  - url:/{print $3}' "$YML")
 release_date="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+# The oldest macOS this build opens on, from the built app, as the Darwin version electron-updater compares with:
+# without it, a Mac below that minimum downloads an update it cannot open.
+min_app=""
+for app in release/mac-arm64/Noted.app release/mac/Noted.app; do
+  [[ -d "$app" ]] && { min_app="$app"; break; }
+done
+[[ -n "$min_app" ]] || { echo "✗ no built Noted.app in release/ to read the minimum macOS from" >&2; exit 1; }
+min_macos="$(/usr/libexec/PlistBuddy -c 'Print LSMinimumSystemVersion' "$min_app/Contents/Info.plist")"
+min_darwin="$(node scripts/mac-min-darwin.mjs "$min_macos")" || exit 1
+echo "  minimum macOS $min_macos (Darwin $min_darwin)"
 {
   echo "version: $VERSION"
   echo "files:"
@@ -145,6 +155,7 @@ release_date="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
   done
   echo "path: $path_file"
   echo "sha512: $(sha_b64 "release/$path_file")"
+  echo "minimumSystemVersion: $min_darwin"
   echo "releaseDate: '$release_date'"
 } > "$YML.tmp" && mv "$YML.tmp" "$YML"
 echo "  ✓ regenerated with post-staple hashes"
@@ -155,6 +166,7 @@ const fs = require('fs'), crypto = require('crypto');
 const yml = fs.readFileSync(process.argv[2], 'utf8');
 const entries = [...yml.matchAll(/- url: (.+)\n\s+sha512: (.+)\n\s+size: (\d+)/g)];
 let bad = 0;
+if (!/^minimumSystemVersion: \d+\.\d+\.\d+$/m.test(yml)) { console.log('  BAD minimumSystemVersion missing'); bad++; }
 for (const [, url, sha, size] of entries) {
   const buf = fs.readFileSync('release/' + url.trim());
   const got = crypto.createHash('sha512').update(buf).digest('base64');

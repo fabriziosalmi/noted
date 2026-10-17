@@ -6,6 +6,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Noted needs macOS 13 Ventura or later.** The app moves to Electron 44 (Chromium 152, Node 24.21), which no longer runs on macOS 12 Monterey. The documentation said macOS 11, which had not been true since Electron 42 (macOS 12). A Mac on Monterey keeps the version it has: the macOS update feed now states the oldest system each release opens on, so it is not offered an update it cannot open.
+
 ### Security
 
 - **KaTeX 0.18.11.** Math in notes is drawn with KaTeX, and 0.16.47 has an advisory (GHSA-238p-pmpm-9mq7, low: a prototype pollution elsewhere in the page could get past its `trust` setting). 0.18.11 is the newest release the editor's math extension accepts. The editor's TipTap packages move together to 3.32.0.
