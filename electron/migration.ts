@@ -15,6 +15,7 @@ import type { DomEnv } from '../shared/markdown/html';
 import { convertHtmlNote, convertMarkdownNoteToHtml, isLegacyHtml, type Verdict } from '../shared/markdown/migrate';
 import { MIGRATION_LOCK_STALE_MS, migrationLockPath, readVaultFormat, writeVaultFormat } from '../shared/vault/formatFile';
 import type { NoteFormat } from '../shared/vault/format';
+import { tr } from './core/language';
 
 export type Direction = 'to-markdown' | 'to-html';
 
@@ -201,7 +202,7 @@ function acquireLock(dir: string): () => void {
     fd = take();
   } catch {
     // Left behind by a run that died: older than any real migration.
-    if (Date.now() - fs.statSync(file).mtimeMs < MIGRATION_LOCK_STALE_MS) throw new Error('A conversion is already running on this vault');
+    if (Date.now() - fs.statSync(file).mtimeMs < MIGRATION_LOCK_STALE_MS) throw new Error(tr('errConversionRunning'));
     fs.rmSync(file, { force: true });
     fd = take();
   }

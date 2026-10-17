@@ -10,6 +10,7 @@ import { markAppWrite, markAppDelete } from '../core/app-writes';
 import { saveSnapshot, writeFileDurable, fsyncDir } from '../core/note-io';
 import { rewriteLinks } from '../core/rewrite';
 import { getMainWindow } from '../core/windows';
+import { tr } from '../core/language';
 
 export function registerNotesHandlers(): void {
   // FS IPC Handlers
@@ -135,7 +136,7 @@ export function registerNotesHandlers(): void {
       const targetDir = getTargetDir(syncDir);
       const oldPath = safeResolve(targetDir, oldName);
       const newPath = safeResolve(targetDir, newName);
-      if (fs.existsSync(newPath)) throw new Error(`A note named "${newName}" already exists`);
+      if (fs.existsSync(newPath)) throw new Error(tr('errNoteExists', { name: newName }));
       // The old name vanishes from the vault — claim it like a delete, or the
       // watcher reports the rename as an external removal.
       markAppDelete(oldName);

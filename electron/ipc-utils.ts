@@ -1,6 +1,7 @@
 import type TurndownService from 'turndown';
 import { stripUnsafeHtml } from '../shared/security/htmlPolicy.node.js';
 import { checkFolderPath, checkNotePath } from '../shared/vault/paths.js';
+import { tr } from './core/language';
 
 /** A note path inside the vault, at any depth: see shared/vault/paths.ts for the rules and why they are what they are. */
 export function validateFileName(fileName: unknown): asserts fileName is string {
@@ -10,8 +11,8 @@ export function validateFileName(fileName: unknown): asserts fileName is string 
 
 /** One folder name, not a path (a new folder, or a folder renamed within its parent). */
 export function validateFolderName(name: unknown): asserts name is string {
-  if (!name || typeof name !== 'string' || !name.trim()) throw new Error('Folder name must be a non-empty string');
-  if (name.includes('..') || name.includes('/') || name.includes('\\')) throw new Error('Invalid folder name');
+  if (!name || typeof name !== 'string' || !name.trim()) throw new Error(tr('errFolderNameEmpty'));
+  if (name.includes('..') || name.includes('/') || name.includes('\\')) throw new Error(tr('errFolderNameInvalid'));
   const problem = checkFolderPath(name);
   if (problem) throw new Error(problem);
 }

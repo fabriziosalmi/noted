@@ -8,6 +8,7 @@ import { readVaultFormat } from '../../shared/vault/formatFile';
 import { noteFormatIn } from '../../shared/vault/noteFormat';
 import { buildLinkResolver } from '../../shared/vault/resolve';
 import { findMentions, linkMention, snippetAround, type Snippet } from '../../shared/vault/mentions';
+import { tr } from '../core/language';
 
 const MAX_LISTED = 50;
 
@@ -69,7 +70,7 @@ export function registerMentionHandlers(): void {
       const format = noteFormatIn(readVaultFormat(dir), raw);
       const phrases = namesOf(target, vaultIndex.get(dir, target)?.aliases ?? []);
       const found = findMentions(raw, phrases, format);
-      if (found.length === 0) return { success: false, error: 'The mention is not there any more' };
+      if (found.length === 0) return { success: false, error: tr('errMentionGone') };
 
       // The shortest text that finds the target from the source: its name, or its path when the name is shared.
       const stem = target.replace(/\.md$/i, '');

@@ -25,6 +25,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { sanitizeGitError, type GitResult } from './git-ops';
 import { withRepoLock } from './repo-lock';
+import { tr } from './core/language';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -370,7 +371,7 @@ async function mergeInWorktree(
     } else if (!pending) {
       // The merge neither conflicted nor staged anything: a real failure
       // (unrelated histories, dirty temp tree, ...). Surface it.
-      throw mergeError ?? new Error('Merge produced no result.');
+      throw mergeError ?? new Error(tr('errGitMergeNoResult'));
     } else if (resolutions && resolutions.length > 0) {
       throw new StaleResolution('The conflicts were resolved by someone else in the meantime. Sync again.');
     }
@@ -484,7 +485,7 @@ async function cycle(
   const counts = (await g.raw(['rev-list', '--left-right', '--count', `HEAD...${upstream}`])).trim().split(/\s+/);
   const ahead = Number(counts[0]);
   const behind = Number(counts[1]);
-  if (!Number.isFinite(ahead) || !Number.isFinite(behind)) throw new Error('Could not compare with the remote.');
+  if (!Number.isFinite(ahead) || !Number.isFinite(behind)) throw new Error(tr('errGitCompareRemote'));
 
   if (behind > 0 && ahead > 0) {
     const key = path.resolve(dir);

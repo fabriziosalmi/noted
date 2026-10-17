@@ -96,7 +96,7 @@ export function registerImporterHandlers(
         title: tr('dlgImportVault'),
         properties: ['openDirectory'],
       });
-      if (canceled || !filePaths.length) return { success: false, error: 'Cancelled' };
+      if (canceled || !filePaths.length) return { success: false, error: tr('errCancelled') };
       const srcDir = filePaths[0];
       const dest = resolveTargetDir(typeof targetDir === 'string' ? targetDir : undefined);
       // The notes are copied as they are: they are Markdown already, and a Markdown vault reads them natively.
@@ -119,7 +119,7 @@ export function registerImporterHandlers(
         properties: ['openFile', 'multiSelections'],
         filters: [{ name: 'Evernote export', extensions: ['enex'] }],
       });
-      if (canceled || !filePaths.length) return { success: false, error: 'Cancelled' };
+      if (canceled || !filePaths.length) return { success: false, error: tr('errCancelled') };
       const dest = resolveTargetDir(targetDir);
       const format = readVaultFormat(dest);
       const env = await dom();
@@ -399,7 +399,7 @@ export function registerImporterHandlers(
             resolve({ success: true, data: imported });
           } catch (err) {
             logEvent('error', 'import_apple_parse_failed', { reqId, error: (err as Error).message });
-            resolve({ success: false, error: `Parse error: ${(err as Error).message}` });
+            resolve({ success: false, error: tr('errParse', { error: (err as Error).message }) });
           }
         });
 

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { logEvent, newRequestId } from '../structured-log';
 import { getTargetDir } from '../core/paths';
+import { tr } from '../core/language';
 
 function getMcpServerPathInternal(): string {
   let candidate = path.join(__dirname, '..', 'dist-mcp', 'index.cjs');
@@ -160,7 +161,7 @@ export function registerMcpHandlers(): void {
   ipcMain.handle('setup-claude-mcp', async () => {
     try {
       const homeDir = app.getPath('home');
-      if (!homeDir) throw new Error('Could not determine the home directory');
+      if (!homeDir) throw new Error(tr('errHomeDir'));
       const configDir = resolveClaudeConfigDir(homeDir, process.platform, process.env.APPDATA);
       const configPath = path.join(configDir, 'claude_desktop_config.json');
 
@@ -170,7 +171,7 @@ export function registerMcpHandlers(): void {
         : path.join(__dirname, '../dist-mcp/index.cjs');
 
       if (!fs.existsSync(mcpPath)) {
-        throw new Error(`MCP server not found at ${mcpPath}. Build it first.`);
+        throw new Error(tr('errMcpServerMissing', { path: mcpPath }));
       }
 
       if (!fs.existsSync(configDir)) {

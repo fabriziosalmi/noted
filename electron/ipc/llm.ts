@@ -1,5 +1,6 @@
 import { ipcMain, type WebContents } from 'electron';
 import { assertFetchAllowed, setConfiguredLlmHosts } from '../llm-guard';
+import { tr } from '../core/language';
 
 // Proxy LLM HTTP requests from renderer — avoids CORS/CSP issues.
 // Hard timeout in main so a slow/hung provider can't hang the renderer.
@@ -29,7 +30,7 @@ export function registerLlmHandlers(opts: { streamIdleMs?: number } = {}): void 
     let idle: ReturnType<typeof setTimeout> | undefined;
     const arm = () => {
       clearTimeout(idle);
-      idle = setTimeout(() => controller.abort(new Error(`No data for ${idleMs / 1000}s`)), idleMs);
+      idle = setTimeout(() => controller.abort(new Error(tr('errLlmIdle', { seconds: idleMs / 1000 }))), idleMs);
     };
     const cleanup = () => { clearTimeout(idle); streams.delete(key); };
     const live = () => !webContents.isDestroyed();
@@ -58,7 +59,7 @@ export function registerLlmHandlers(opts: { streamIdleMs?: number } = {}): void 
             const { value, done } = await reader.read();
             if (done) break;
             total += value.byteLength;
-            if (total > LLM_FETCH_MAX_BODY_BYTES) throw new Error('Response exceeded 10 MB cap');
+            if (total > LLM_FETCH_MAX_BODY_BYTES) throw new Error(tr('errLlmTooLarge'));
             if (!live()) { controller.abort(); break; }
             arm();
             const text = decoder.decode(value, { stream: true });
@@ -111,7 +112,7 @@ export function registerLlmHandlers(opts: { streamIdleMs?: number } = {}): void 
           total += value.byteLength;
           if (total > LLM_FETCH_MAX_BODY_BYTES) {
             await reader.cancel();
-            throw new Error('Response exceeded 10 MB cap');
+            throw new Error(tr('errLlmTooLarge'));
           }
           text += decoder.decode(value, { stream: true });
         }

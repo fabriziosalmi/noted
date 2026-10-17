@@ -10,6 +10,7 @@ import { getTargetDir, safeResolve } from '../core/paths';
 import { fullTextSearchIndex, vaultIndex } from '../core/services';
 import { rewriteLinks } from '../core/rewrite';
 import { notePreview } from '../../shared/search/textExtract';
+import { tr } from '../core/language';
 
 // ─── Multi-folder / notebooks ─────────────────────────────────────────────────
 
@@ -96,10 +97,10 @@ export function registerFoldersHandlers(): void {
       validateFolderPath(folderName);
       const targetDir = getTargetDir(syncDir);
       const folderPath = safeResolve(targetDir, folderName);
-      if (fs.existsSync(folderPath)) throw new Error(`Folder "${folderName}" already exists`);
+      if (fs.existsSync(folderPath)) throw new Error(tr('errFolderExists', { name: folderName }));
       // A new folder goes inside a folder that exists ("Work/Q4" needs "Work"): not a way to build a tree by typing a path.
       const parent = dirnameOf(folderName);
-      if (parent && !fs.existsSync(safeResolve(targetDir, parent))) throw new Error(`The folder "${parent}" does not exist`);
+      if (parent && !fs.existsSync(safeResolve(targetDir, parent))) throw new Error(tr('errFolderMissing', { name: parent }));
       fs.mkdirSync(folderPath);
       fullTextSearchIndex.markDirty(targetDir);
       return { success: true };
@@ -156,8 +157,8 @@ export function registerFoldersHandlers(): void {
       const destPath = toFolder
         ? safeResolve(targetDir, `${toFolder}/${baseName}`)
         : safeResolve(targetDir, baseName);
-      if (!fs.existsSync(srcPath)) throw new Error(`Note "${fileName}" not found`);
-      if (fs.existsSync(destPath)) throw new Error(`A note named "${baseName}" already exists at the destination`);
+      if (!fs.existsSync(srcPath)) throw new Error(tr('errNoteNotFound', { name: fileName }));
+      if (fs.existsSync(destPath)) throw new Error(tr('errNoteExistsAtDestination', { name: baseName }));
       if (toFolder) {
         const folderPath = safeResolve(targetDir, toFolder);
         if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath, { recursive: true });

@@ -1,5 +1,7 @@
 // SSRF guard for the llm-fetch proxy: which hosts the renderer may reach.
 
+import { tr } from './core/language';
+
 // SSRF guard: enforce http(s) via URL parsing and block the classic exfil
 // targets (cloud metadata + link-local). Public provider APIs and localhost/LAN
 // LLM endpoints (LM Studio / Ollama) stay allowed, so real setups keep working.
@@ -51,10 +53,10 @@ function isLoopbackHost(h: string): boolean {
 export function assertFetchAllowed(rawUrl: string): void {
   let u: URL;
   try { u = new URL(rawUrl); } catch { throw new Error('Invalid URL'); }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('Only http(s) URLs are allowed');
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error(tr('errLlmHttpOnly'));
   const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, '');
   if (LLM_HOST_ALLOWLIST.has(host) || isLoopbackHost(host) || configuredLlmHosts.has(host)) return;
-  throw new Error(`Blocked host (not an allowlisted LLM endpoint): ${host}`);
+  throw new Error(tr('errLlmBlockedHost', { host }));
 }
 
 /** Replace the hosts of the user's configured endpoints (from the renderer's settings). */

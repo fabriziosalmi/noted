@@ -4,6 +4,7 @@ import type { NoteRename } from '../shared/vault/links';
 import { checkNotePath, dirnameOf } from '../shared/vault/paths';
 import { walkVaultSync } from '../shared/vault/walk';
 import { baseOfPath, checkFolderMove } from '../shared/vault/folderOps';
+import { tr } from './core/language';
 
 /**
  * Folder-level vault operations that move files around, at any folder depth.
@@ -51,7 +52,7 @@ export function uniqueNameInDir(
     const candidate = `${stem} (${folder}) ${n}${ext}`;
     if (!exists(candidate)) return candidate;
   }
-  throw new Error(`Could not find a free name for "${baseName}"`);
+  throw new Error(tr('errNoFreeName', { name: baseName }));
 }
 
 type Resolve = (dir: string, relName: string) => string;
@@ -119,7 +120,7 @@ export function moveFolder(vault: string, from: string, to: string, resolve: Res
   const src = resolve(vault, from);
   const dest = resolve(vault, to);
   let srcStat: fs.Stats;
-  try { srcStat = fs.lstatSync(src); } catch { throw new Error(`Folder "${from}" not found`); }
+  try { srcStat = fs.lstatSync(src); } catch { throw new Error(tr('errFolderNotFound', { name: from })); }
   if (!srcStat.isDirectory()) throw new Error(`"${from}" is not a folder`);
 
   const notes = walkVaultSync(src).notes.map(n => `${from}/${n}`);
@@ -128,7 +129,7 @@ export function moveFolder(vault: string, from: string, to: string, resolve: Res
   if (problem) throw new Error(problem);
 
   const parent = dirnameOf(to);
-  if (parent && !fs.existsSync(resolve(vault, parent))) throw new Error(`The folder "${parent}" does not exist`);
+  if (parent && !fs.existsSync(resolve(vault, parent))) throw new Error(tr('errFolderMissing', { name: parent }));
 
   // A case-only rename: the destination "exists" because it is the source under another spelling.
   let sameEntry = false;
@@ -176,7 +177,7 @@ export interface DissolveFolderResult {
 export function dissolveFolder(vault: string, folder: string, resolve: Resolve): DissolveFolderResult {
   const folderPath = resolve(vault, folder);
   let stat: fs.Stats;
-  try { stat = fs.lstatSync(folderPath); } catch { throw new Error(`Folder "${folder}" not found`); }
+  try { stat = fs.lstatSync(folderPath); } catch { throw new Error(tr('errFolderNotFound', { name: folder })); }
   if (!stat.isDirectory()) throw new Error(`"${folder}" is not a folder`);
 
   const parent = dirnameOf(folder);

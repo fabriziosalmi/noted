@@ -42,5 +42,23 @@ test.describe('interface language', () => {
     const again = await noted.relaunch();
     expect((await menuLabels(again.app)).items.slice(0, 4)).toEqual(['Nuova nota', 'Nota del giorno', 'Nota da una pagina web o da un testo…', 'Cattura rapida']);
   });
+
+  test('a refusal from the main process is in the language of the app', async ({ noted }) => {
+    const { win } = noted;
+    await win.getByRole('button', { name: 'Settings' }).click();
+    await win.getByRole('tab', { name: 'Appearance' }).click();
+    await win.getByRole('combobox', { name: 'Language' }).selectOption('it');
+    await expect(win.getByRole('combobox', { name: 'Lingua' })).toBeVisible({ timeout: 15_000 });
+    await win.keyboard.press('Escape');
+
+    // Rename "Beta notes" to the name of a note that exists: refused, and said in Italian.
+    const row = win.getByRole('button', { name: /^Beta notes/ }).first();
+    await row.click();
+    await row.dblclick();
+    const input = win.getByRole('textbox', { name: 'Rinomina' });
+    await input.fill('Alpha plan');
+    await input.press('Enter');
+    await expect(win.getByText(/Esiste già una nota "Alpha plan\.md"/)).toBeVisible({ timeout: 15_000 });
+  });
 });
 

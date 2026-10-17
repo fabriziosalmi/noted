@@ -10,6 +10,7 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **The formatting bar stays on one row in a narrow window.** At 720 pixels it wrapped onto three rows and took about 100 pixels from the note. The buttons that do not fit now go, from the end, into a **⋯** menu.
 - **The formatting bar, the share menu and the `/`, `[[` and `#` menus work with a screen reader and the keyboard.** The bar is a toolbar: Tab reaches it at one place, the arrow keys move between its buttons, and each format says whether it is on. The share menu is a menu: it opens with the focus on its first action, the arrow keys move, and Escape returns to the button. The suggestion menus are lists that the editor points at, so the highlighted choice is announced while you keep typing.
+- **Messages from the app's background process are in your language.** About 35 messages came only in English whatever the language of the app: a rename onto a name already taken, a folder that does not exist, Git (a missing or too long commit message, nothing staged, a note too large to compare), an export too large, an AI answer that stopped coming, an AI address that is not allowed, a vault conversion already running. They now follow the language chosen in Settings. Checks that only a bug could trigger stay in English, for whoever investigates it.
 
 ## [1.7.0] - 2026-10-17
 

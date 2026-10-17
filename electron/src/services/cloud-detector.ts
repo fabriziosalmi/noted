@@ -1,6 +1,7 @@
 import { app, ipcMain } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
+import { tr } from '../../core/language.js';
 
 export type CloudProviderId = 'icloud' | 'googledrive' | 'dropbox' | 'onedrive';
 
@@ -176,7 +177,7 @@ export function registerCloudDetectorHandlers(blessRoot?: (dir: string) => void)
       // Only a folder belonging to a provider detected on this machine may be
       // created and activated — never an arbitrary renderer-supplied path.
       if (!isDetectedProviderPath(home, notedPath)) {
-        return { success: false, error: 'Not a detected cloud provider folder' };
+        return { success: false, error: tr('errNotCloudFolder') };
       }
       if (!fs.existsSync(notedPath)) fs.mkdirSync(notedPath, { recursive: true });
       // Activating a provider makes it the vault: bless it, or every read and
