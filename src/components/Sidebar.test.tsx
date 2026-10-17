@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '../test/test-utils';
 import { Sidebar } from './Sidebar';
-import type { NoteFile } from '../store/useStore';
+import { useStore, type NoteFile } from '../store/useStore';
 
 // react-virtual measures the scroll container to decide which rows to render.
 // In jsdom the container has zero height, so nothing renders. We stub the
@@ -46,6 +46,32 @@ const defaults = {
 };
 
 beforeEach(() => vi.clearAllMocks());
+
+describe('Sidebar: what the vault cannot do right now', () => {
+  beforeEach(() => useStore.setState({ vaultError: null, vaultWatch: { state: 'on' } }));
+
+  it('says why the vault could not be listed', () => {
+    useStore.setState({ vaultError: 'The vault folder /Volumes/USB/Notes is not available.' });
+    render(<Sidebar {...defaults} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('/Volumes/USB/Notes is not available');
+  });
+
+  it('says when changes made outside Noted are not noticed', () => {
+    useStore.setState({ vaultWatch: { state: 'off', reason: 'ENOSYS' } });
+    const { unmount } = render(<Sidebar {...defaults} />);
+    expect(screen.getByTestId('vault-watch')).toHaveTextContent('are not noticed here');
+    unmount();
+    useStore.setState({ vaultWatch: { state: 'partial', skipped: 12, reason: 'ENOSPC' } });
+    render(<Sidebar {...defaults} />);
+    expect(screen.getByTestId('vault-watch')).toHaveTextContent('in 12 folders');
+  });
+
+  it('says nothing when the vault is there and watched', () => {
+    render(<Sidebar {...defaults} />);
+    expect(screen.queryByTestId('vault-watch')).toBeNull();
+    expect(screen.queryByTestId('vault-error')).toBeNull();
+  });
+});
 
 describe('Sidebar', () => {
   it('renders all note names without the .md extension', () => {

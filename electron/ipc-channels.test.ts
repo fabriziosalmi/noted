@@ -51,7 +51,7 @@ describe('IPC channels', () => {
     expect(pushed).toEqual([
       'app-will-quit-for-update', 'flush-before-quit', 'git-sync-state', 'llm-stream-chunk', 'llm-stream-end', 'menu-command',
       'migration-progress', 'native-theme-updated', 'note-changed-externally', 'refresh-notes',
-      'update-download-progress', 'vault-format-changed', 'vault-index-delta',
+      'update-download-progress', 'vault-format-changed', 'vault-index-delta', 'vault-watch-status',
     ]);
   });
 
@@ -86,6 +86,7 @@ describe('IPC channels', () => {
     'get-notes-list',
     'get-notes-tree',
     'get-vault-format',
+    'get-vault-watch-status',
     'git-commit-all',
     'git-commit-note',
     'git-commit-staged',

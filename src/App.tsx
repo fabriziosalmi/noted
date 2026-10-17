@@ -13,6 +13,7 @@ import { useEmbeddingSync } from './hooks/useEmbeddingSync';
 import { useVaultIndex } from './hooks/useVaultIndex';
 import { useViews } from './hooks/useViews';
 import { useVaultFormatSync } from './hooks/useVaultFormatSync';
+import { useVaultWatchStatus } from './hooks/useVaultWatchStatus';
 import { useLanguageSync } from './hooks/useLanguageSync';
 import { registerLinkUpdateUi } from './lib/linkUpdateUi';
 import { useGitSyncStore } from './store/gitSyncStore';
@@ -102,6 +103,7 @@ function App() {
   useVaultIndex(settings.syncDirectory || undefined);
   useViews(settings.syncDirectory || undefined);
   useVaultFormatSync();
+  useVaultWatchStatus();
   useLanguageSync();
 
   useAppLifecycle({

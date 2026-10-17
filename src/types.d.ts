@@ -118,6 +118,9 @@ declare global {
       migrationRevert: (syncDir?: string) => Promise<MigrationOutcome>;
       onMigrationProgress: (cb: (p: MigrationProgress) => void) => () => void;
       onVaultFormatChanged: (cb: () => void) => () => void;
+      /** Whether changes made outside the app are noticed (see electron/core/watcher.ts). */
+      getVaultWatchStatus: () => Promise<VaultWatchStatus>;
+      onVaultWatchStatus: (cb: (status: VaultWatchStatus) => void) => () => void;
       setLanguage: (language: string) => Promise<{ success: boolean }>;
       unlinkedMentions: (noteName: string, syncDir?: string) => Promise<{ success: boolean; data?: { items: UnlinkedMention[] }; error?: string }>;
       linkMention: (source: string, target: string, syncDir?: string) => Promise<{ success: boolean; data?: { remaining: number }; error?: string }>;
@@ -150,6 +153,11 @@ declare global {
     };
   }
 }
+
+export type VaultWatchStatus =
+  | { state: 'on' }
+  | { state: 'off'; reason: string }
+  | { state: 'partial'; skipped: number; reason: string };
 
 interface GitResult<T = undefined> {
   success: boolean;

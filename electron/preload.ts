@@ -131,6 +131,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('migration-progress', listener);
     return () => ipcRenderer.removeListener('migration-progress', listener);
   },
+  getVaultWatchStatus: () => ipcRenderer.invoke('get-vault-watch-status'),
+  onVaultWatchStatus: (cb: (status: unknown) => void) => {
+    const listener = (_e: unknown, status: unknown) => cb(status);
+    ipcRenderer.on('vault-watch-status', listener);
+    return () => ipcRenderer.removeListener('vault-watch-status', listener);
+  },
   onVaultFormatChanged: (cb: () => void) => {
     const listener = () => cb();
     ipcRenderer.on('vault-format-changed', listener);

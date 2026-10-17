@@ -17,6 +17,26 @@ import { getMainWindow } from './windows';
 let vaultWatcher: VaultWatcher | null = null;
 let watchedDir: string | null = null;
 
+/**
+ * Whether changes made outside the app are being noticed. When they are not, the editor's protection against
+ * overwriting them (reload, or keep both versions) does not run either, so the renderer says so instead of failing
+ * silently.
+ */
+export type VaultWatchStatus =
+  | { state: 'on' }
+  | { state: 'off'; reason: string }
+  | { state: 'partial'; skipped: number; reason: string };
+let watchStatus: VaultWatchStatus = { state: 'on' };
+
+export function getVaultWatchStatus(): VaultWatchStatus {
+  return watchStatus;
+}
+
+function reportWatch(next: VaultWatchStatus): void {
+  watchStatus = next;
+  getMainWindow()?.webContents.send('vault-watch-status', next);
+}
+
 export function startVaultWatch(): void {
   const dir = availableTargetDir(getActiveVaultDir() || undefined);
   if (dir !== null && watchedDir === dir && vaultWatcher) return;
@@ -26,6 +46,7 @@ export function startVaultWatch(): void {
   // The open vault is not there: watch nothing rather than another vault (the next set-active-vault starts again).
   if (dir === null) {
     logEvent('warn', 'vault_watch_unavailable', { vault: getActiveVaultDir() });
+    reportWatch({ state: 'off', reason: 'vault-unavailable' });
     return;
   }
   // Watch the canonical path. On Windows a vault under a short (8.3) path such as
@@ -35,6 +56,17 @@ export function startVaultWatch(): void {
   let watchRoot = dir;
   try { watchRoot = fs.realpathSync.native(dir); } catch { /* keep the configured path */ }
   void vaultIndex.ensure(dir);
+  let skipped = 0;
+  let firstReason = '';
+  let starting = true;
+  const onUnwatched = (folder: string, reason: string) => {
+    skipped++;
+    if (skipped === 1) {
+      firstReason = reason;
+      logEvent('warn', 'vault_watch_partial', { vault: dir, folder, reason });
+    }
+    if (!starting) reportWatch({ state: 'partial', skipped, reason: firstReason });
+  };
   try {
     vaultWatcher = watchVaultTree(watchRoot, (name) => {
       // Only a note is a note change: not the app's own bookkeeping (version history, MCP trash and config), and not
@@ -57,6 +89,13 @@ export function startVaultWatch(): void {
         deleteWindowMs: APP_DELETE_WINDOW_MS,
       })) return;
       getMainWindow()?.webContents.send('note-changed-externally', name);
-    });
-  } catch { /* fs.watch may be unsupported on some filesystems — best-effort */ }
+    }, { onUnwatched });
+    starting = false;
+    reportWatch(skipped > 0 ? { state: 'partial', skipped, reason: firstReason } : { state: 'on' });
+  } catch (err) {
+    // fs.watch is not available on every filesystem (some network and FUSE mounts).
+    const reason = (err as NodeJS.ErrnoException).code ?? (err as Error).message;
+    logEvent('error', 'vault_watch_failed', { vault: dir, reason });
+    reportWatch({ state: 'off', reason });
+  }
 }

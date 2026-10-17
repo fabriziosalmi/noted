@@ -91,3 +91,14 @@ describe('watchVaultTree (per-directory)', () => {
     expect(seen).toEqual([]);
   });
 });
+
+describe('watchVaultTree: folders it cannot watch', () => {
+  it('says which folders go unwatched once the folder limit is reached', () => {
+    dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'noted-watch-many-')));
+    for (let i = 0; i < 5; i++) fs.mkdirSync(path.join(dir, `f${i}`));
+    const unwatched: { folder: string; reason: string }[] = [];
+    watcher = watchVaultTree(dir, () => undefined, { forceManual: true, maxDirs: 3, onUnwatched: (folder, reason) => unwatched.push({ folder, reason }) });
+    expect(unwatched).toHaveLength(3); // the root and two folders are watched; the other three are not
+    expect(unwatched.every(u => u.folder.startsWith(dir) && u.reason === 'more than 3 folders')).toBe(true);
+  });
+});

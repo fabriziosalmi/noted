@@ -209,6 +209,7 @@ export function Sidebar({
   
   const sortBy = useStore(state => state.sortBy);
   const vaultError = useStore(state => state.vaultError);
+  const vaultWatch = useStore(state => state.vaultWatch);
   const [appVersion, setAppVersion] = useState('');
 
   useEffect(() => {
@@ -703,6 +704,11 @@ export function Sidebar({
       {vaultError && (
         <p role="alert" data-testid="vault-error" className="mx-2 mb-2 rounded border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-2 py-1.5 text-xs text-red-700 dark:text-red-300">
           {vaultError}
+        </p>
+      )}
+      {!vaultError && vaultWatch.state !== 'on' && (
+        <p role="status" data-testid="vault-watch" className="mx-2 mb-2 rounded border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 px-2 py-1.5 text-xs text-amber-800 dark:text-amber-300">
+          {vaultWatch.state === 'off' ? t('vaultWatchOff') : t('vaultWatchPartial').replace('{count}', String(vaultWatch.skipped))}
         </p>
       )}
 
