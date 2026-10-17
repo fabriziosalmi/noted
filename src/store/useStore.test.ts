@@ -60,7 +60,7 @@ describe('useStore', () => {
 
     expect(kept).toBe('Plan (other version).md');
     expect(calls).toEqual(['Plan.md', 'Plan (other version).md', 'Plan.md (force)']);
-    expect(window.electronAPI.saveNote).toHaveBeenCalledWith('Plan (other version).md', '<p>written by an agent</p>', undefined);
+    expect(window.electronAPI.saveNote).toHaveBeenCalledWith('Plan (other version).md', '<p>written by an agent</p>', undefined, { format: 'html' });
   });
 
   it('overwrites nothing when the other version cannot be kept', async () => {
@@ -181,11 +181,11 @@ describe('useStore', () => {
 
     // First: filename follows the title, in the given folder, with the title as <h1>.
     await useStore.getState().createTitledNote('Ideas', 'Work');
-    expect(window.electronAPI.saveNote).toHaveBeenCalledWith('Work/Ideas.md', '<h1>Ideas</h1><p></p>', undefined);
+    expect(window.electronAPI.saveNote).toHaveBeenCalledWith('Work/Ideas.md', '<h1>Ideas</h1><p></p>', undefined, { format: 'html' });
 
     // Second with the same title: collision-safe, appends " 2" — no lost title, no stray folder.
     await useStore.getState().createTitledNote('Ideas', 'Work');
-    expect(window.electronAPI.saveNote).toHaveBeenLastCalledWith('Work/Ideas 2.md', '<h1>Ideas</h1><p></p>', undefined);
+    expect(window.electronAPI.saveNote).toHaveBeenLastCalledWith('Work/Ideas 2.md', '<h1>Ideas</h1><p></p>', undefined, { format: 'html' });
   });
 
   it('should save active note', async () => {
@@ -194,7 +194,7 @@ describe('useStore', () => {
 
     await useStore.getState().saveActiveNote('new content');
 
-    expect(window.electronAPI.saveNote).toHaveBeenCalledWith('test.md', 'new content', undefined);
+    expect(window.electronAPI.saveNote).toHaveBeenCalledWith('test.md', 'new content', undefined, { format: 'html' });
     expect(useStore.getState().activeNoteContent).toBe('new content');
   });
 
@@ -509,6 +509,7 @@ Here is a table:
       'markdown-note.md',
       expect.stringContaining('<!--noted-frontmatter:'),
       undefined,
+      { format: 'html' },
     );
     expect((window.electronAPI.saveNote as ReturnType<typeof vi.fn>).mock.calls[0][1]).toContain('<h1>Welcome back</h1>');
   });

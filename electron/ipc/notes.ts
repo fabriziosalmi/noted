@@ -11,6 +11,7 @@ import { saveSnapshot, writeFileDurable, fsyncDir } from '../core/note-io';
 import { rewriteLinks } from '../core/rewrite';
 import { getMainWindow } from '../core/windows';
 import { tr } from '../core/language';
+import { readVaultFormat } from '../../shared/vault/formatFile';
 
 export function registerNotesHandlers(): void {
   // FS IPC Handlers
@@ -65,13 +66,17 @@ export function registerNotesHandlers(): void {
     }
   });
 
-  ipcMain.handle('save-note', async (_, fileName: string, content: string, syncDir?: string, opts?: { force?: boolean }) => {
+  ipcMain.handle('save-note', async (_, fileName: string, content: string, syncDir?: string, opts?: { force?: boolean; format?: unknown }) => {
     try {
       assertNotMigrating();
       validateFileName(fileName);
       if (typeof content !== 'string') throw new Error('Content must be a string');
       const targetDir = getTargetDir(syncDir);
       const filePath = safeResolve(targetDir, fileName);
+      // Text prepared for the format the vault had before a conversion: the caller prepares it again for the new one.
+      if (opts?.format !== undefined && opts.format !== readVaultFormat(targetDir)) {
+        return { success: false, code: 'format-changed', error: tr('errVaultFormatChanged') };
+      }
       // Something else wrote the note since the app read it: the caller keeps that version first, then saves with force.
       if (opts?.force !== true && noteChangedSince(targetDir, fileName)) {
         return { success: false, code: 'changed', error: tr('errNoteChangedOnDisk', { name: fileName }) };

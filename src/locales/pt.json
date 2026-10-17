@@ -784,6 +784,7 @@
   "dlgExportHere": "Exportar aqui",
   "dlgImportVault": "Importar vault (Obsidian / Bear / pasta Markdown)",
   "errVaultBeingConverted": "O vault está a ser convertido para outro formato de notas. Tente novamente daqui a pouco.",
+  "errVaultFormatChanged": "Entretanto o vault foi convertido para outro formato de notas, por isso este texto não foi guardado. Tente novamente.",
   "mcpRevealInExplorer": "Mostrar no Explorador",
   "mcpRevealInFileManager": "Mostrar no gestor de ficheiros",
   "newSubfolder": "Nova pasta dentro",

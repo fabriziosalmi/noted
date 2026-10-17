@@ -1,4 +1,4 @@
-import { diskToWire, snapshotToWire, vaultFormatOf, wireToDisk } from './noteIo';
+import { diskToWire, forgetVaultFormat, snapshotToWire, vaultFormatOf, wireToDisk } from './noteIo';
 
 export type RendererElectronApi = Window['electronAPI'];
 
@@ -28,10 +28,18 @@ function withNoteFormat(api: RendererElectronApi): RendererElectronApi {
   const overrides: Record<string, unknown> = {
     readNote: readConverted('readNote', 1, diskToWire),
     readNoteSnapshot: readConverted('readNoteSnapshot', 2, snapshotToWire),
+    // The text is prepared for the format the vault had when last asked, and says so: if a conversion ran since,
+    // the main process refuses it, and it is prepared again for the format the vault has now.
     saveNote: async (fileName: string, content: string, syncDir?: string, opts?: { force?: boolean }) => {
-      const format = await vaultFormatOf(api, syncDir);
-      const text = format === 'markdown' ? wireToDisk(content, format) : content;
-      return opts ? api.saveNote(fileName, text, syncDir, opts) : api.saveNote(fileName, text, syncDir);
+      const save = async () => {
+        const format = await vaultFormatOf(api, syncDir);
+        const text = format === 'markdown' ? wireToDisk(content, format) : content;
+        return api.saveNote(fileName, text, syncDir, { ...opts, format });
+      };
+      const res = await save();
+      if (res.success || res.code !== 'format-changed') return res;
+      forgetVaultFormat(syncDir);
+      return save();
     },
   };
   // The target is an empty object, not `api`: the preload's object is frozen by contextBridge, and a Proxy
