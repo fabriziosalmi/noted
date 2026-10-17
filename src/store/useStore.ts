@@ -449,6 +449,8 @@ const bareName = (n: string) => n.replace(/\.md$/i, '');
 
 /** How many steps Back remembers. */
 const MAX_NAV_HISTORY = 100;
+/** A Back or Forward step is under way. */
+let navigating = false;
 
 export const useStore = create<NoteState>()(
   persist(
@@ -570,7 +572,9 @@ export const useStore = create<NoteState>()(
           // and `partialize` below keeps it out of localStorage. Blanking it here made the field reject every keystroke.
           api.storeApiKey(newSettings.llmApiKey);
         }
-        set({ settings: { ...get().settings, ...newSettings } });
+        // Another vault: Back/Forward named notes of the one left, so they start over.
+        const vaultChanged = newSettings.syncDirectory !== undefined && newSettings.syncDirectory !== get().settings.syncDirectory;
+        set({ settings: { ...get().settings, ...newSettings }, ...(vaultChanged ? { navBack: [], navForward: [] } : {}) });
       },
 
       loadApiKey: async () => {
@@ -692,19 +696,27 @@ export const useStore = create<NoteState>()(
   },
 
   navigate: async (direction) => {
-    const exists = new Set(get().notes.map(n => n.name));
-    const current = get().activeNoteName;
-    const from = [...(direction === 'back' ? get().navBack : get().navForward)];
-    const to = [...(direction === 'back' ? get().navForward : get().navBack)];
-    let target = from.pop();
-    while (target !== undefined && (!exists.has(target) || target === current)) target = from.pop(); // deleted since, or a repeat
-    if (target === undefined) {
-      set(direction === 'back' ? { navBack: from } : { navForward: from });
-      return;
+    // One step at a time: a second Back pressed before the first note had opened read a stale current note and lost
+    // an entry from the history.
+    if (navigating) return;
+    navigating = true;
+    try {
+      const exists = new Set(get().notes.map(n => n.name));
+      const current = get().activeNoteName;
+      const from = [...(direction === 'back' ? get().navBack : get().navForward)];
+      const to = [...(direction === 'back' ? get().navForward : get().navBack)];
+      let target = from.pop();
+      while (target !== undefined && (!exists.has(target) || target === current)) target = from.pop(); // deleted since, or a repeat
+      if (target === undefined) {
+        set(direction === 'back' ? { navBack: from } : { navForward: from });
+        return;
+      }
+      if (current) to.push(current);
+      set(direction === 'back' ? { navBack: from, navForward: to } : { navForward: from, navBack: to });
+      await get().openNote(target, { record: false });
+    } finally {
+      navigating = false;
     }
-    if (current) to.push(current);
-    set(direction === 'back' ? { navBack: from, navForward: to } : { navForward: from, navBack: to });
-    await get().openNote(target, { record: false });
   },
 
   applyVaultIndexSnapshot: (snapshot: VaultIndexSnapshot) => {
@@ -1197,16 +1209,20 @@ export const useStore = create<NoteState>()(
       return n;
     });
 
-    set({
+    // Back/Forward follow the notes under the renamed folder.
+    const underRenamed = (n: string) => (n.startsWith(`${oldName}/`) ? `${newName}/${n.slice(oldName.length + 1)}` : n);
+    set(state => ({
       customFoldersOrder: newFoldersOrder,
       customNotesOrder: newNotesOrder,
-    });
+      navBack: state.navBack.map(underRenamed),
+      navForward: state.navForward.map(underRenamed),
+    }));
 
     const { activeNoteName } = get();
     await get().fetchNotes();
     if (activeNoteName?.startsWith(`${oldName}/`)) {
       const newNoteName = `${newName}/${activeNoteName.slice(oldName.length + 1)}`;
-      await get().openNote(newNoteName);
+      await get().openNote(newNoteName, { record: false }); // the same note under its new path: not a Back step
     }
   },
 
@@ -1225,12 +1241,17 @@ export const useStore = create<NoteState>()(
     const currentNotesOrder = get().customNotesOrder || [];
     // The folder is gone, and the folders that were under it are now one level up.
     const parent = dirnameOf(name);
-    set({
+    // Back/Forward follow the notes moved up (a note renamed to avoid a clash is skipped later, as a missing one).
+    const movedUp = new Map(upMoves.map(m => [m.from, m.to]));
+    const up = (n: string) => movedUp.get(n) ?? n;
+    set(state => ({
       customFoldersOrder: currentFoldersOrder
         .filter(f => f !== name)
         .map(f => (f.startsWith(`${name}/`) ? `${parent ? `${parent}/` : ''}${f.slice(name.length + 1)}` : f)),
       customNotesOrder: currentNotesOrder.filter(n => !n.startsWith(`${name}/`)),
-    });
+      navBack: state.navBack.map(up),
+      navForward: state.navForward.map(up),
+    }));
 
     await get().fetchNotes();
     // Notes moved out of the folder are renamed rather than overwritten when a

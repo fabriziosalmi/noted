@@ -680,4 +680,35 @@ describe('Back and Forward', () => {
     expect(at()).toBe('b2.md');
     expect(useStore.getState().navBack).toEqual(['a.md']);
   });
+
+  it('follows a folder rename, and reopening the note under the new path is not a step back', async () => {
+    useStore.setState({ notes: ['Work/a.md', 'Work/b.md', 'c.md'].map(note) as never });
+    window.electronAPI.renameFolder = vi.fn().mockResolvedValue({ success: true });
+    window.electronAPI.getNotesTree = vi.fn().mockResolvedValue({ success: true, data: { rootNotes: [note('c.md')], folders: [{ name: 'Projects', notes: [note('Projects/a.md'), note('Projects/b.md')] }] } });
+    await open('Work/b.md'); await open('Work/a.md');
+    await useStore.getState().renameFolder('Work', 'Projects');
+    expect(at()).toBe('Projects/a.md');
+    expect(useStore.getState().navBack).toEqual(['Projects/b.md']);
+    useStore.setState({ notes: ['Projects/a.md', 'Projects/b.md', 'c.md'].map(note) as never });
+    await go('back'); expect(at()).toBe('Projects/b.md');
+  });
+
+  it('takes one step at a time when Back is pressed again before the note has opened', async () => {
+    await open('a.md'); await open('b.md'); await open('c.md');
+    let release!: () => void;
+    window.electronAPI.readNote = vi.fn((name: string) => new Promise(resolve => { release = () => resolve({ success: true, data: `<h1>${name}</h1>` }); })) as never;
+    const first = go('back');
+    const second = go('back'); // ignored: the first step is still opening its note
+    release();
+    await first; await second;
+    expect(at()).toBe('b.md');
+    expect(useStore.getState().navBack).toEqual(['a.md']);
+    expect(useStore.getState().navForward).toEqual(['c.md']);
+  });
+
+  it('starts over in another vault', async () => {
+    await open('a.md'); await open('b.md');
+    useStore.getState().updateSettings({ syncDirectory: '/elsewhere' });
+    expect(useStore.getState().navBack).toEqual([]);
+  });
 });

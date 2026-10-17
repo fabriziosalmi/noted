@@ -13,7 +13,8 @@ export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
 // that slips past HTML sanitization.
 export function applyNavigationGuards(w: BrowserWindow) {
   w.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+    // Web links in the browser, mailto: in the mail app (a ⌘-clicked mailto: link used to do nothing).
+    if (/^https?:\/\//i.test(url) || /^mailto:/i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
   w.webContents.on('will-navigate', (event, url) => {
@@ -141,7 +142,10 @@ export function openCaptureWindow() {
 
 /** The main window, or null before it exists / after it is closed. */
 export function getMainWindow(): BrowserWindow | null {
-  return win;
+  // Null once the window is gone. On macOS the app outlives its window; a caller (the vault watcher, the updater,
+  // a menu command) that still got it would send to a destroyed object, an uncaught exception in the main process
+  // that also showed an error dialog and held up quitting.
+  return win && !win.isDestroyed() && !win.webContents.isDestroyed() ? win : null;
 }
 
 /** Close the quick-capture window if it is open. */

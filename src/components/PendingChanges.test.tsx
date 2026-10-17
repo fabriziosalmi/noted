@@ -110,6 +110,18 @@ describe('PendingChangesBadge', () => {
     expect(notice).toHaveBeenCalledWith('2 of 2 changes could not be settled: disk is read-only', 'error');
   });
 
+  it('a change cannot be settled on its own while approve all is running', async () => {
+    let release!: () => void;
+    settlePendingChange.mockImplementation(() => new Promise(resolve => { release = () => resolve({ success: true }); }));
+    const dialog = await open();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Approve all' }));
+    const ask = (await screen.findByText(/Approve all 2 changes\?/)).closest('[role="dialog"]') as HTMLElement;
+    fireEvent.click(within(ask).getByRole('button', { name: 'Approve all' }));
+    await waitFor(() => expect(settlePendingChange).toHaveBeenCalledTimes(1));
+    for (const b of within(dialog).getAllByRole('button', { name: /^(Approve|Reject)$/ })) expect(b).toBeDisabled();
+    release();
+  });
+
   describe('approving part of a change to a note', () => {
     const before = 'intro\nquarterly roadmap\nmiddle\nmiddle two\nmiddle three\nmiddle four\nclosing words\n';
     const after = 'intro\nyearly roadmap\nmiddle\nmiddle two\nmiddle three\nmiddle four\nfinal words\n';
@@ -148,4 +160,3 @@ describe('PendingChangesBadge', () => {
     });
   });
 });
-
