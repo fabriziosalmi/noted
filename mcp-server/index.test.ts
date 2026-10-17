@@ -179,6 +179,17 @@ const {
   taskListsToTiptap,
 } = await import('./index');
 
+describe('MCP note writes', () => {
+  it('flush the bytes to disk before renaming them into place', async () => {
+    const fsModule = await import('node:fs');
+    const writes = vi.spyOn(fsModule, 'writeFileSync');
+    await handleCreateNote({ name: 'Durable.md', content: 'kept after a power cut' });
+    const tmpWrite = writes.mock.calls.find(c => String(c[0]).includes('Durable.md') && String(c[0]).endsWith('.tmp'));
+    expect(tmpWrite?.[2]).toMatchObject({ flush: true });
+    writes.mockRestore();
+  });
+});
+
 describe('MCP taskListsToTiptap', () => {
   it('rewrites a tight GFM task list into TipTap taskList markup', () => {
     const html = markdownToHtml('- [x] done\n- [ ] todo');

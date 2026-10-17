@@ -17,6 +17,7 @@ import { importEnex, vaultWriter } from '../../import-enex.js';
 import { dom } from '../../core/dom.js';
 import { attachmentsFolderFor } from '../../core/rewrite.js';
 import { safeResolve } from '../../core/paths.js';
+import { writeFileAtomicSync } from '../../core/note-io.js';
 
 /** One folder name made safe to create: no reserved characters, no trailing dot or space. */
 const cleanSegment = (segment: string): string =>
@@ -389,7 +390,8 @@ export function registerImporterHandlers(
                 turndown
               );
 
-              fs.writeFileSync(finalDestPath, inMarkdownVault ? normalizeMarkdown(fm) : fm, 'utf-8');
+              // Never a half-written note if the import is interrupted: a temporary file renamed into place.
+              writeFileAtomicSync(finalDestPath, inMarkdownVault ? normalizeMarkdown(fm) : fm);
               imported++;
             }
             /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/prefer-for-of */
