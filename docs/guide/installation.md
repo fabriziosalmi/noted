@@ -7,7 +7,7 @@ source.
 
 ## Requirements
 
-- **macOS 11 (Big Sur) or later** (Apple Silicon or Intel), **Windows 10/11**,
+- **macOS 13 (Ventura) or later** (Apple Silicon or Intel), **Windows 10/11**,
   or a modern **Linux** desktop (x64 or arm64).
 
 ## Download a release

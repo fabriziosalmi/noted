@@ -40,7 +40,7 @@ Grab the latest build from the [**Releases page**](https://github.com/fabriziosa
 - **Windows** — `Noted-<version>-x64-setup.exe`
 - **Linux** — `Noted-<version>.AppImage` or `.deb`
 
-The macOS builds are **signed & notarized** by Apple, so they open without the "unidentified developer" warning (requires **macOS 11 Big Sur or later**). Windows and Linux installers are produced automatically for each tagged release by the [build workflow](.github/workflows/release.yml); they are not code-signed yet, so expect a SmartScreen/Gatekeeper prompt on first launch. Prefer to build it yourself? See [Development setup](#development-setup).
+The macOS builds are **signed & notarized** by Apple, so they open without the "unidentified developer" warning (requires **macOS 13 Ventura or later**). Windows and Linux installers are produced automatically for each tagged release by the [build workflow](.github/workflows/release.yml); they are not code-signed yet, so expect a SmartScreen/Gatekeeper prompt on first launch. Prefer to build it yourself? See [Development setup](#development-setup).
 
 Once installed, Noted keeps itself current: it checks for new releases on launch and offers a one-click update (**{App menu} → Check for Updates…**). Nothing downloads without your say-so.
 
