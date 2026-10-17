@@ -29,7 +29,7 @@ declare global {
       getNotesList: (syncDir?: string) => Promise<{ success: boolean; data?: unknown[]; error?: string }>;
       readNote: (fileName: string, syncDir?: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       /** `code: 'changed'`: something else wrote the note since the app read it; keep that version, then save with force. */
-      saveNote: (fileName: string, content: string, syncDir?: string, opts?: { force?: boolean }) => Promise<{ success: boolean; error?: string; code?: string }>;
+      saveNote: (fileName: string, content: string, syncDir?: string, opts?: { force?: boolean; format?: 'html' | 'markdown' }) => Promise<{ success: boolean; error?: string; code?: string }>;
       deleteNote: (fileName: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       wipeAllNotes: (syncDir?: string) => Promise<{ success: boolean; error?: string }>;
       selectSyncFolder: () => Promise<{ success: boolean; data?: string }>;

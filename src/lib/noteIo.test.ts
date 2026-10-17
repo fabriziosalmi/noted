@@ -137,6 +137,45 @@ describe('the wrapped electron API', () => {
     expect(await vaultFormatOf({ getVaultFormat: () => Promise.resolve({ success: false }) }, '/z')).toBe('html');
   });
 
+  it('says which format the text was prepared for', async () => {
+    install('markdown', '# T\n');
+    await getElectronApi()!.saveNote('a.md', '<p>x</p>', undefined);
+    expect((window.electronAPI.saveNote as ReturnType<typeof vi.fn>).mock.calls[0][3]).toEqual({ format: 'markdown' });
+  });
+
+  it('a save prepared before a conversion and refused after it is prepared again, in the new format', async () => {
+    let vaultFormat: 'html' | 'markdown' = 'html';
+    const saved: string[] = [];
+    (window as unknown as { electronAPI: unknown }).electronAPI = {
+      getVaultFormat: vi.fn(async () => ({ success: true, data: vaultFormat })),
+      saveNote: vi.fn(async (_n: string, content: string, _d?: string, opts?: { format?: string }) => {
+        if (opts?.format && opts.format !== vaultFormat) return { success: false, code: 'format-changed', error: 'converted' };
+        saved.push(content);
+        return { success: true };
+      }),
+    };
+    const api = getElectronApi()!;
+    await api.saveNote('a.md', '<p>before</p>', undefined); // the app learns "html"
+    vaultFormat = 'markdown'; // the conversion runs; the app has not heard yet
+    const res = await api.saveNote('a.md', '<h1>Alpha</h1><p>typed</p>', undefined);
+    expect(res).toEqual({ success: true });
+    expect(saved).toEqual(['<p>before</p>', '# Alpha\n\ntyped\n']);
+    expect(peekVaultFormat()).toBe('markdown');
+  });
+
+  it('a format answer asked before the vault was forgotten is not kept after it', async () => {
+    let answer!: (v: unknown) => void;
+    const ask = vi.fn()
+      .mockReturnValueOnce(new Promise(r => { answer = r; }))
+      .mockResolvedValue({ success: true, data: 'markdown' });
+    const asked = vaultFormatOf({ getVaultFormat: ask }, '/v');
+    forgetVaultFormat('/v'); // a conversion finished while the question was out
+    answer({ success: true, data: 'html' }); // the stale answer comes back
+    await asked;
+    expect(await vaultFormatOf({ getVaultFormat: ask }, '/v')).toBe('markdown');
+    expect(ask).toHaveBeenCalledTimes(2);
+  });
+
   it('does not touch failed reads', async () => {
     (window as unknown as { electronAPI: unknown }).electronAPI = {
       getVaultFormat: vi.fn().mockResolvedValue({ success: true, data: 'markdown' }),

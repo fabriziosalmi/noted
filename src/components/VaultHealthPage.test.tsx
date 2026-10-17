@@ -84,7 +84,7 @@ describe('VaultHealthPage', () => {
   it('creates the note a link names, without leaving the page, and checks again', async () => {
     await page();
     fireEvent.click(within(item('bl2')).getByRole('button', { name: 'Create the note' }));
-    await waitFor(() => expect(api.saveNote).toHaveBeenCalledWith('Gone.md', '<h1>Gone</h1><p></p>', undefined));
+    await waitFor(() => expect(api.saveNote).toHaveBeenCalledWith('Gone.md', '<h1>Gone</h1><p></p>', undefined, { format: 'html' }));
     await waitFor(() => expect(vaultLint).toHaveBeenCalledTimes(2));
     expect(openNote).not.toHaveBeenCalled();
     expect(notice).toHaveBeenCalledWith('Done.', 'success');
@@ -95,7 +95,7 @@ describe('VaultHealthPage', () => {
     api.createFolder.mockResolvedValueOnce({ success: false, error: 'Folder "Work" already exists', code: 'exists' }).mockResolvedValueOnce({ success: true });
     await page();
     fireEvent.click(within(item('deep')).getByRole('button', { name: 'Create the note' }));
-    await waitFor(() => expect(api.saveNote).toHaveBeenCalledWith('Work/Q4/Plan.md', '<h1>Plan</h1><p></p>', undefined));
+    await waitFor(() => expect(api.saveNote).toHaveBeenCalledWith('Work/Q4/Plan.md', '<h1>Plan</h1><p></p>', undefined, { format: 'html' }));
     expect(api.createFolder.mock.calls.map(c => c[0])).toEqual(['Work', 'Work/Q4']);
   });
 

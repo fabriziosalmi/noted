@@ -9,6 +9,7 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - **Renaming a note through its title always moves the links to it.** The links are rewritten a few seconds after you stop typing, once the app has checked that no new note took the old name, and that check used the list of notes in the sidebar. When the window lost focus or another note was opened before that list caught up with the rename, or an older refresh of the list arrived late, the old name still looked taken and the links were left pointing at it, without a word. The check now asks the disk.
+- **Text typed just before converting a vault is saved in the vault's new format.** A save prepared before a conversion and arriving after it was written as it was, so a note in a Markdown vault could end up holding HTML (or the reverse). Each save now says which format it was prepared for; one that no longer matches is refused and prepared again for the format the vault has now. An answer about the vault's format that comes back after a conversion is no longer remembered either.
 
 ## [1.8.0] - 2026-10-17
 

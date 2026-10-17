@@ -51,6 +51,8 @@ const formats = new Map<string, NoteFormat>();
 /** Vaults another app shares (an Obsidian vault opened in place): their files are not ours to rename. */
 const shared = new Map<string, boolean>();
 const asking = new Map<string, Promise<NoteFormat>>();
+/** Bumped by forgetVaultFormat: an answer to a question asked before it is not remembered. */
+let generation = 0;
 const keyOf = (syncDir?: string): string => syncDir ?? '';
 
 /** The format of the vault at `syncDir`, asked of the main process once (concurrent callers share the answer) and then remembered. */
@@ -63,13 +65,17 @@ export function vaultFormatOf(
   if (known) return Promise.resolve(known);
   let pending = asking.get(key);
   if (!pending) {
-    pending = (async () => {
+    const askedIn = generation;
+    const current = (async () => {
       const res = await api.getVaultFormat?.(syncDir).catch(() => undefined);
       const format: NoteFormat = res?.success && res.data === 'markdown' ? 'markdown' : 'html';
-      formats.set(key, format);
-      shared.set(key, res?.success === true && res.shared === true);
+      if (askedIn === generation) {
+        formats.set(key, format);
+        shared.set(key, res?.success === true && res.shared === true);
+      }
       return format;
-    })().finally(() => asking.delete(key));
+    })().finally(() => { if (asking.get(key) === current) asking.delete(key); });
+    pending = current;
     asking.set(key, pending);
   }
   return pending;
@@ -87,6 +93,7 @@ export function peekVaultShared(syncDir?: string): boolean {
 
 /** After a migration (or a change from outside): forget what was remembered. */
 export function forgetVaultFormat(syncDir?: string): void {
+  generation++;
   if (syncDir === undefined) {
     formats.clear();
     shared.clear();

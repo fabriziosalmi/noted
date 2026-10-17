@@ -784,6 +784,7 @@
   "dlgExportHere": "Hierhin exportieren",
   "dlgImportVault": "Vault importieren (Obsidian / Bear / Markdown-Ordner)",
   "errVaultBeingConverted": "Der Vault wird in ein anderes Notizformat umgewandelt. Versuche es gleich noch einmal.",
+  "errVaultFormatChanged": "Der Vault wurde inzwischen in ein anderes Notizformat umgewandelt, daher wurde dieser Text nicht gespeichert. Versuche es noch einmal.",
   "mcpRevealInExplorer": "Im Explorer anzeigen",
   "mcpRevealInFileManager": "Im Dateimanager anzeigen",
   "newSubfolder": "Neuer Ordner darin",
