@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act } from 'react';
 import { Editor } from '@tiptap/core';
-import { render, screen, fireEvent } from '../test/test-utils';
+import { render, screen, fireEvent, within } from '../test/test-utils';
 import { documentExtensions } from '../../shared/markdown/schema';
 import { FindHighlight } from '../lib/findHighlight';
 import { EditorToolbar } from './EditorToolbar';
@@ -287,6 +287,65 @@ describe('EditorToolbar', () => {
     expect(screen.queryByLabelText('Replace with…')).toBeNull();
     rerender(<EditorToolbar {...defaultProps} editor={findEditor()} findOpen={true} replaceRequest={1} />);
     expect(screen.getByLabelText('Replace with…')).toBeInTheDocument();
+  });
+
+  describe('as a toolbar', () => {
+    const narrow = (width: number) => {
+      class FakeObserver {
+        constructor(private cb: ResizeObserverCallback) {}
+        observe() { this.cb([{ contentRect: { width } } as ResizeObserverEntry], this as unknown as ResizeObserver); }
+        disconnect() { /* nothing to stop */ }
+        unobserve() { /* nothing to stop */ }
+      }
+      vi.stubGlobal('ResizeObserver', FakeObserver);
+    };
+    afterEach(() => { vi.unstubAllGlobals(); });
+
+    it('is a toolbar with one Tab stop, arrows between its buttons, and the on/off state of each format', () => {
+      const editor = findEditor('<p><strong>bold</strong> text</p>');
+      editor.commands.setTextSelection(2);
+      render(<EditorToolbar {...defaultProps} editor={editor} />);
+      const bar = screen.getByRole('toolbar', { name: 'Formatting' });
+      const buttons = within(bar).getAllByRole('button');
+      expect(buttons.filter(b => b.tabIndex === 0)).toHaveLength(1);
+      expect(within(bar).getByRole('button', { name: /^Bold/ })).toHaveAttribute('aria-pressed', 'true');
+      expect(within(bar).getByRole('button', { name: /^Italic/ })).toHaveAttribute('aria-pressed', 'false');
+      expect(within(bar).getByRole('button', { name: 'Undo' })).not.toHaveAttribute('aria-pressed');
+
+      buttons[0].focus();
+      fireEvent.keyDown(buttons[0], { key: 'ArrowRight' });
+      expect(document.activeElement).toBe(buttons[1]);
+      fireEvent.keyDown(buttons[1], { key: 'End' });
+      expect(document.activeElement).toBe(buttons.at(-1));
+    });
+
+    it('puts the groups that do not fit into a "more" menu instead of wrapping', () => {
+      narrow(420);
+      const editor = findEditor('<p>text</p>');
+      render(<EditorToolbar {...defaultProps} editor={editor} />);
+      const bar = screen.getByRole('toolbar', { name: 'Formatting' });
+      expect(within(bar).queryByRole('button', { name: 'Insert table' })).toBeNull();
+      const more = within(bar).getByRole('button', { name: 'More tools' });
+      fireEvent.click(more);
+      const menu = screen.getByRole('menu', { name: 'More tools' });
+      expect(within(menu).getByRole('menuitem', { name: 'Insert table' })).toBeInTheDocument();
+      expect(document.activeElement).toBe(menu.querySelector('[role^="menuitem"]'));
+
+      fireEvent.keyDown(menu, { key: 'Escape' });
+      expect(screen.queryByRole('menu')).toBeNull();
+      expect(document.activeElement).toBe(more);
+
+      fireEvent.click(more);
+      fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Insert table' }));
+      expect(editor.getHTML()).toContain('<table');
+    });
+
+    it('shows every group, and no "more" button, when the bar is wide enough', () => {
+      narrow(2000);
+      render(<EditorToolbar {...defaultProps} editor={findEditor()} />);
+      expect(screen.queryByRole('button', { name: 'More tools' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'Insert table' })).toBeInTheDocument();
+    });
   });
 
   it('calls editor commands when formatting buttons are clicked', () => {

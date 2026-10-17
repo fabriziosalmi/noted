@@ -1182,5 +1182,9 @@
   "findReplaceAll": "Tout remplacer",
   "findToggleReplace": "Afficher le remplacement",
   "findMatchCase": "Respecter la casse",
-  "findReplacedCount": "{n} remplacé(s)"
+  "findReplacedCount": "{n} remplacé(s)",
+  "formattingToolbar": "Mise en forme",
+  "toolbarMore": "Plus d'outils",
+  "suggestNotes": "Notes à lier",
+  "suggestTags": "Étiquettes"
 }

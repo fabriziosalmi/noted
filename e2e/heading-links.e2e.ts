@@ -21,7 +21,7 @@ test('heading links: complete the headings after #, follow a heading link and a 
 
   // After `[[Plan#` the headings of Plan are offered, filtered as you type
   await win.keyboard.type(' see [[Plan#');
-  const menu = win.getByRole('button', { name: /^H[1-6]$|Budget|Risks/ });
+  const menu = win.getByRole('option', { name: /^H[1-6]$|Budget|Risks/ }); // the suggestion list's options
   await expect(menu.filter({ hasText: 'Budget' })).toBeVisible({ timeout: 15_000 });
   await win.keyboard.type('risk');
   await expect(menu.filter({ hasText: 'Budget' })).toHaveCount(0);

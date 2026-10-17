@@ -1182,5 +1182,9 @@
   "findReplaceAll": "Alle ersetzen",
   "findToggleReplace": "Ersetzen anzeigen",
   "findMatchCase": "Groß-/Kleinschreibung beachten",
-  "findReplacedCount": "{n} ersetzt"
+  "findReplacedCount": "{n} ersetzt",
+  "formattingToolbar": "Formatierung",
+  "toolbarMore": "Weitere Werkzeuge",
+  "suggestNotes": "Notizen zum Verlinken",
+  "suggestTags": "Tags"
 }

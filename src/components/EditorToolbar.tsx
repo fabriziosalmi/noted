@@ -1,14 +1,16 @@
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { Fragment, useRef, useState, useCallback, useEffect } from 'react';
 import { useI18n } from '../lib/i18n';
 import { modKey, shiftKey } from '../lib/platform';
 import type { Editor } from '@tiptap/react';
 import {
   Bold, Italic, Strikethrough, Heading1, Heading2, Heading3,
   Table as TableIcon, Code, Search, X, ChevronUp, ChevronDown, ChevronRight,
-  List, ListOrdered, ListChecks, Quote, Sparkles, Highlighter, Link2, Undo2, Redo2,
+  List, ListOrdered, ListChecks, Quote, Sparkles, Highlighter, Link2, Undo2, Redo2, MoreHorizontal,
 } from 'lucide-react';
 import { findHighlightKey, replaceMatches, type FindMeta } from '../lib/findHighlight';
 import { promptForLink } from '../lib/linkPrompt';
+import { groupsThatFit } from '../lib/toolbarFit';
+import { useRovingFocus } from '../hooks/useRovingFocus';
 import { AiActionsBar } from './AiActionsBar';
 import { Tooltip } from './Tooltip';
 import { usePrompt } from './ConfirmProvider';
@@ -17,9 +19,12 @@ const btnBase = 'p-1.5 rounded transition-colors';
 const btnActive = 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white';
 const btnIdle = 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700';
 
+/** A control of the formatting bar. `pressed` is set for those that are on or off (bold, a heading…). */
+interface TbItem { key: string; label: string; icon: React.ReactNode; onClick: () => void; pressed?: boolean }
+
 /** Icon-only toolbar control: styled tooltip + correct button semantics. */
-function TbButton({ onClick, active = false, label, children }: {
-  onClick: () => void; active?: boolean; label: string; children: React.ReactNode;
+function TbButton({ onClick, active = false, pressed, label, children }: {
+  onClick: () => void; active?: boolean; pressed?: boolean; label: string; children: React.ReactNode;
 }) {
   return (
     <Tooltip label={label}>
@@ -27,11 +32,70 @@ function TbButton({ onClick, active = false, label, children }: {
         type="button"
         onClick={onClick}
         aria-label={label}
+        aria-pressed={pressed}
         className={`${btnBase} ${active ? btnActive : btnIdle}`}
       >
         {children}
       </button>
     </Tooltip>
+  );
+}
+
+/** The "more" button at the end of a narrow formatting bar: the groups that did not fit, as a menu. */
+function ToolbarOverflow({ items, label }: { items: TbItem[]; label: string }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuKeys = useRovingFocus(menuRef, '[role^="menuitem"]', 'vertical');
+
+  useEffect(() => {
+    if (!open) return;
+    menuRef.current?.querySelector<HTMLElement>('[role^="menuitem"]')?.focus();
+    const onDown = (e: MouseEvent) => { if (!wrapRef.current?.contains(e.target as Node)) setOpen(false); };
+    window.addEventListener('mousedown', onDown);
+    return () => window.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  const close = () => { setOpen(false); triggerRef.current?.focus(); };
+  return (
+    <div ref={wrapRef} className="relative shrink-0 flex items-center">
+      <Tooltip label={label}>
+        <button ref={triggerRef} type="button" aria-label={label} aria-haspopup="menu" aria-expanded={open}
+          onClick={() => setOpen(v => !v)} className={`${btnBase} ${open ? btnActive : btnIdle}`}>
+          <MoreHorizontal size={15} />
+        </button>
+      </Tooltip>
+      {open && (
+        <div
+          ref={menuRef}
+          role="menu"
+          aria-label={label}
+          tabIndex={-1}
+          onKeyDown={e => {
+            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
+            if (e.key === 'Tab') { setOpen(false); return; }
+            menuKeys.onKeyDown(e);
+          }}
+          onFocus={menuKeys.onFocus}
+          className="absolute right-0 top-full mt-1 z-50 min-w-[12rem] max-h-[calc(100vh-7rem)] overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1"
+        >
+          {items.map(item => (
+            <button
+              key={item.key}
+              type="button"
+              role={item.pressed === undefined ? 'menuitem' : 'menuitemcheckbox'}
+              aria-checked={item.pressed}
+              onClick={() => { setOpen(false); item.onClick(); }}
+              className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 ${item.pressed ? 'text-[var(--accent-text)]' : 'text-gray-700 dark:text-gray-300'}`}
+            >
+              <span className="shrink-0" aria-hidden="true">{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -65,6 +129,18 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
   const matchCount = findInfo.count;
   const matchIndex = findInfo.current;
   const findInputRef = useRef<HTMLInputElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const toolbarKeys = useRovingFocus(toolbarRef, 'button:not([role^="menuitem"])');
+  // The width the buttons have, followed as the window or the side panels change (null: not measured, show all).
+  const [barWidth, setBarWidth] = useState<number | null>(null);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => setBarWidth(Math.floor(entry.contentRect.width)));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [showToolbar, editor]);
 
   // Insert/edit/remove a link on the current selection via the in-app prompt.
   // Empty input clears the link; the mark range is extended so editing works
@@ -143,81 +219,79 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
 
   if (!editor) return null;
 
-  const sep = <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-0.5 shrink-0" />;
+  const sep = <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-0.5 shrink-0" aria-hidden="true" />;
+  // The formatting bar as groups: those that do not fit the width go, from the end, into the "more" menu instead of
+  // wrapping the bar onto two or three rows in a narrow window.
+  const groups: TbItem[][] = [
+    [
+      { key: 'undo', label: t('undo'), icon: <Undo2 size={15} />, onClick: () => editor.chain().focus().undo().run() },
+      { key: 'redo', label: t('redo'), icon: <Redo2 size={15} />, onClick: () => editor.chain().focus().redo().run() },
+    ],
+    [
+      { key: 'h1', label: t('heading1'), icon: <Heading1 size={15} />, pressed: editor.isActive('heading', { level: 1 }), onClick: () => editor.chain().focus().toggleHeading({ level: 1 }).run() },
+      { key: 'h2', label: t('heading2'), icon: <Heading2 size={15} />, pressed: editor.isActive('heading', { level: 2 }), onClick: () => editor.chain().focus().toggleHeading({ level: 2 }).run() },
+      { key: 'h3', label: t('heading3'), icon: <Heading3 size={15} />, pressed: editor.isActive('heading', { level: 3 }), onClick: () => editor.chain().focus().toggleHeading({ level: 3 }).run() },
+    ],
+    [
+      { key: 'bold', label: t('bold'), icon: <Bold size={15} />, pressed: editor.isActive('bold'), onClick: () => editor.chain().focus().toggleBold().run() },
+      { key: 'italic', label: t('italic'), icon: <Italic size={15} />, pressed: editor.isActive('italic'), onClick: () => editor.chain().focus().toggleItalic().run() },
+      { key: 'strike', label: t('strikethrough'), icon: <Strikethrough size={15} />, pressed: editor.isActive('strike'), onClick: () => editor.chain().focus().toggleStrike().run() },
+      { key: 'code', label: t('inlineCode'), icon: <Code size={15} />, pressed: editor.isActive('code'), onClick: () => editor.chain().focus().toggleCode().run() },
+      { key: 'highlight', label: t('highlight'), icon: <Highlighter size={15} />, pressed: editor.isActive('highlight'), onClick: () => editor.chain().focus().toggleHighlight().run() },
+      { key: 'link', label: t('link'), icon: <Link2 size={15} />, pressed: editor.isActive('link'), onClick: () => { void handleLink(); } },
+    ],
+    [
+      { key: 'bullets', label: t('bulletList'), icon: <List size={15} />, pressed: editor.isActive('bulletList'), onClick: () => editor.chain().focus().toggleBulletList().run() },
+      { key: 'numbers', label: t('numberedList'), icon: <ListOrdered size={15} />, pressed: editor.isActive('orderedList'), onClick: () => editor.chain().focus().toggleOrderedList().run() },
+      { key: 'quote', label: t('blockquote'), icon: <Quote size={15} />, pressed: editor.isActive('blockquote'), onClick: () => editor.chain().focus().toggleBlockquote().run() },
+      { key: 'tasks', label: t('taskList'), icon: <ListChecks size={15} />, pressed: editor.isActive('taskList'), onClick: () => editor.chain().focus().toggleTaskList().run() },
+    ],
+    [
+      { key: 'table', label: t('insertTable'), icon: <TableIcon size={15} />, onClick: () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
+    ],
+    [
+      { key: 'find', label: t('findAriaLabel'), icon: <Search size={15} />, pressed: findOpen, onClick: onOpenFind },
+      ...(onOpenGlobalSearch ? [{
+        key: 'search-all', label: `${t('shortcutSearchAll')} (${modKey}${shiftKey}F)`, onClick: onOpenGlobalSearch,
+        icon: (
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            <path d="M11 8v6M8 11h6" strokeWidth="1.8"/>
+          </svg>
+        ),
+      }] : []),
+    ],
+    [
+      { key: 'ai-bar', label: t('showAiBar'), icon: <Sparkles size={15} />, pressed: showAiBar, onClick: () => onToggleAiBar?.() },
+    ],
+  ];
+  const shown = barWidth === null ? groups.length : groupsThatFit(groups.map(g => g.length), barWidth);
+  const overflow = groups.slice(shown).flat();
+
   return (
     <div className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shrink-0">
       {/* Row 1: Formatting Toolbar */}
       {showToolbar && (
-        <div className="flex items-center justify-between px-4 py-1.5 flex-wrap gap-2">
-          <div className="flex items-center gap-0.5 flex-wrap">
-            <TbButton onClick={() => editor.chain().focus().undo().run()} label={t('undo')}>
-              <Undo2 size={15} />
-            </TbButton>
-            <TbButton onClick={() => editor.chain().focus().redo().run()} label={t('redo')}>
-              <Redo2 size={15} />
-            </TbButton>
-            {sep}
-            <TbButton onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={editor.isActive('heading', { level: 1 })} label={t('heading1')}>
-              <Heading1 size={15} />
-            </TbButton>
-            <TbButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading', { level: 2 })} label={t('heading2')}>
-              <Heading2 size={15} />
-            </TbButton>
-            <TbButton onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={editor.isActive('heading', { level: 3 })} label={t('heading3')}>
-              <Heading3 size={15} />
-            </TbButton>
-            {sep}
-            <TbButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} label={t('bold')}>
-              <Bold size={15} />
-            </TbButton>
-            <TbButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} label={t('italic')}>
-              <Italic size={15} />
-            </TbButton>
-            <TbButton onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')} label={t('strikethrough')}>
-              <Strikethrough size={15} />
-            </TbButton>
-            <TbButton onClick={() => editor.chain().focus().toggleCode().run()} active={editor.isActive('code')} label={t('inlineCode')}>
-              <Code size={15} />
-            </TbButton>
-            <TbButton onClick={() => editor.chain().focus().toggleHighlight().run()} active={editor.isActive('highlight')} label={t('highlight')}>
-              <Highlighter size={15} />
-            </TbButton>
-            <TbButton onClick={handleLink} active={editor.isActive('link')} label={t('link')}>
-              <Link2 size={15} />
-            </TbButton>
-            {sep}
-            <TbButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} label={t('bulletList')}>
-              <List size={15} />
-            </TbButton>
-            <TbButton onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} label={t('numberedList')}>
-              <ListOrdered size={15} />
-            </TbButton>
-            <TbButton onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} label={t('blockquote')}>
-              <Quote size={15} />
-            </TbButton>
-            <TbButton onClick={() => editor.chain().focus().toggleTaskList().run()} active={editor.isActive('taskList')} label={t('taskList')}>
-              <ListChecks size={15} />
-            </TbButton>
-            {sep}
-            <TbButton onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} label={t('insertTable')}>
-              <TableIcon size={15} />
-            </TbButton>
-            {sep}
-            <TbButton onClick={onOpenFind} active={findOpen} label={t('findAriaLabel')}>
-              <Search size={15} />
-            </TbButton>
-            {onOpenGlobalSearch && (
-              <TbButton onClick={onOpenGlobalSearch} label={`${t('shortcutSearchAll')} (${modKey}${shiftKey}F)`}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                  <path d="M11 8v6M8 11h6" strokeWidth="1.8"/>
-                </svg>
-              </TbButton>
-            )}
-            {sep}
-            <TbButton onClick={() => onToggleAiBar?.()} active={showAiBar} label={t('showAiBar')}>
-              <Sparkles size={15} />
-            </TbButton>
+        <div
+          ref={toolbarRef}
+          role="toolbar"
+          aria-label={t('formattingToolbar')}
+          onKeyDown={toolbarKeys.onKeyDown}
+          onFocus={toolbarKeys.onFocus}
+          className="flex items-center justify-between px-4 py-1.5 gap-2"
+        >
+          <div ref={barRef} className="flex-1 min-w-0 flex items-center gap-0.5">
+            {groups.slice(0, shown).map((group, i) => (
+              <Fragment key={group[0].key}>
+                {i > 0 && sep}
+                {group.map(item => (
+                  <TbButton key={item.key} onClick={item.onClick} active={item.pressed} pressed={item.pressed} label={item.label}>
+                    {item.icon}
+                  </TbButton>
+                ))}
+              </Fragment>
+            ))}
+            {overflow.length > 0 && <ToolbarOverflow items={overflow} label={t('toolbarMore')} />}
           </div>
           {/* Share menu stays anchored in row 1 whenever the formatting bar is
               shown, so toggling the AI bar below never changes row 1's height

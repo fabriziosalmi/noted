@@ -93,4 +93,25 @@ describe('SlashCommands with prompts', () => {
     await waitFor(() => expect(screen.getByText('AI Actions')).toBeInTheDocument());
     expect(screen.queryByText('Your prompts')).toBeNull();
   });
+
+  it('is a list the editor controls: the active option is announced, and the editor stops pointing at it once closed', async () => {
+    render(<SlashCommands editor={editor} />);
+    type('');
+    const list = await screen.findByRole('listbox', { name: 'AI Actions' });
+    const options = screen.getAllByRole('option');
+    expect(options[0]).toHaveAttribute('aria-selected', 'true');
+    const dom = editor.view.dom;
+    expect(dom.getAttribute('aria-controls')).toBe(list.id);
+    expect(dom.getAttribute('aria-activedescendant')).toBe(options[0].id);
+
+    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    await waitFor(() => expect(dom.getAttribute('aria-activedescendant')).toBe(options[1].id));
+    expect(options[1]).toHaveAttribute('aria-selected', 'true');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+    expect(dom.hasAttribute('aria-activedescendant')).toBe(false);
+    expect(dom.hasAttribute('aria-controls')).toBe(false);
+  });
 });
+

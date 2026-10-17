@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, useId } from 'react';
 import type { Editor } from '@tiptap/react';
 import { popupPosition, type PopupStyle } from '../lib/popupPosition';
+import { useSuggestionAria, optionId } from '../hooks/useSuggestionAria';
 import { askLLM, AbortedError, describeLlmError } from '../lib/llm';
 import { answerPrompt, loadPrompt, usePromptList, type PromptListing } from '../lib/userPrompts';
 import { slugOf } from '../../shared/prompts/prompt';
@@ -217,6 +218,9 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
     menuRef.current?.querySelector('[data-active]')?.scrollIntoView?.({ block: 'nearest' });
   }, [activeIdx, open]);
 
+  const listId = useId();
+  useSuggestionAria(editor, open && filtered.length > 0 && !!pos && !running, listId, activeIdx);
+
   // Running spinner overlay
   if (running) {
     return (
@@ -243,10 +247,13 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
   return (
     <div
       ref={menuRef}
+      id={listId}
+      role="listbox"
+      aria-label={t('aiActions')}
       className="fixed z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-xl shadow-2xl py-1 w-64 overflow-y-auto"
       style={pos}
     >
-      <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800 mb-1">
+      <div aria-hidden="true" className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800 mb-1">
         {t('aiActions')}
       </div>
       {filtered.map((entry, i) => {
@@ -256,10 +263,14 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
         return (
           <div key={entry.id}>
             {firstPrompt && (
-              <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-t border-gray-100 dark:border-gray-800 mt-1">{t('promptsGroup')}</div>
+              <div aria-hidden="true" className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-t border-gray-100 dark:border-gray-800 mt-1">{t('promptsGroup')}</div>
             )}
             <button
               data-active={i === activeIdx || undefined}
+              id={optionId(listId, i)}
+              role="option"
+              aria-selected={i === activeIdx}
+              tabIndex={-1}
               onMouseDown={e => { e.preventDefault(); execute(entry); }}
               onMouseEnter={() => setActiveIdx(i)}
               className={`w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors ${
@@ -277,7 +288,7 @@ export function SlashCommands({ editor, onAiError }: SlashCommandsProps) {
           </div>
         );
       })}
-      <div className="px-3 py-1.5 border-t border-gray-100 dark:border-gray-800 mt-1 flex gap-3 text-[10px] text-gray-400">
+      <div aria-hidden="true" className="px-3 py-1.5 border-t border-gray-100 dark:border-gray-800 mt-1 flex gap-3 text-[10px] text-gray-400">
         <span>{t('navigate')}</span><span>{t('execute')}</span><span>{t('escClose')}</span>
       </div>
     </div>
