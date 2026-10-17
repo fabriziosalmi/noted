@@ -94,6 +94,8 @@ test.describe('editor essentials', () => {
 
     await open(win, 'Other');
     await open(win, 'Long');
+    // The caret is put back a moment after the note shows; typing before that would land on the sidebar row.
+    await expect(win.locator('[contenteditable="true"]').first()).toBeFocused();
     await expect.poll(() => scroller.evaluate(el => el.scrollTop)).toBeGreaterThan(top - 5);
     await win.keyboard.type(' HERE');
     await expect(target).toHaveText('Line 60 of a long note. HERE');

@@ -106,7 +106,7 @@ export function useAppActions({
     if (res.success) {
       toast(`${res.data ?? 0} ${t('notesImported')}`, 'success');
       void fetchNotes();
-    } else {
+    } else if (!res.canceled) {
       toast(res.error ?? t('importError'), 'error');
     }
   }, [t, syncDirectory, fetchNotes, toast]);

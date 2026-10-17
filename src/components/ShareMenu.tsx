@@ -51,7 +51,13 @@ export function ShareMenu({
     const onDown = (e: MouseEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); triggerRef.current?.focus(); } };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      // Back to the button only when the focus was in the menu: Escape in the find field must leave it where it is.
+      const inside = !!ref.current?.contains(document.activeElement);
+      setOpen(false);
+      if (inside) triggerRef.current?.focus();
+    };
     // Opened from the keyboard or the mouse, the first action has the focus, so the arrows work at once.
     menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])')?.focus();
     window.addEventListener('mousedown', onDown);
@@ -257,6 +263,7 @@ export function ShareMenu({
         <button
           ref={triggerRef}
           type="button"
+          data-toolbar-item
           onClick={() => setOpen(v => !v)}
           className="p-1.5 rounded transition-colors text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[var(--accent)]"
           aria-label={t('shareExport')}

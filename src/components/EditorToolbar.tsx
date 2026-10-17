@@ -33,6 +33,7 @@ function TbButton({ onClick, active = false, pressed, label, children }: {
         onClick={onClick}
         aria-label={label}
         aria-pressed={pressed}
+        data-toolbar-item
         className={`${btnBase} ${active ? btnActive : btnIdle}`}
       >
         {children}
@@ -61,7 +62,7 @@ function ToolbarOverflow({ items, label }: { items: TbItem[]; label: string }) {
   return (
     <div ref={wrapRef} className="relative shrink-0 flex items-center">
       <Tooltip label={label}>
-        <button ref={triggerRef} type="button" aria-label={label} aria-haspopup="menu" aria-expanded={open}
+        <button ref={triggerRef} type="button" aria-label={label} aria-haspopup="menu" aria-expanded={open} data-toolbar-item
           onClick={() => setOpen(v => !v)} className={`${btnBase} ${open ? btnActive : btnIdle}`}>
           <MoreHorizontal size={15} />
         </button>
@@ -86,7 +87,12 @@ function ToolbarOverflow({ items, label }: { items: TbItem[]; label: string }) {
               type="button"
               role={item.pressed === undefined ? 'menuitem' : 'menuitemcheckbox'}
               aria-checked={item.pressed}
-              onClick={() => { setOpen(false); item.onClick(); }}
+              onClick={() => {
+                setOpen(false);
+                item.onClick();
+                // An item that does not move the focus itself (the AI bar toggle) would leave it nowhere once the menu is gone.
+                requestAnimationFrame(() => { if (document.activeElement === document.body) triggerRef.current?.focus(); });
+              }}
               className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 ${item.pressed ? 'text-[var(--accent-text)]' : 'text-gray-700 dark:text-gray-300'}`}
             >
               <span className="shrink-0" aria-hidden="true">{item.icon}</span>
@@ -131,7 +137,8 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
   const findInputRef = useRef<HTMLInputElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
-  const toolbarKeys = useRovingFocus(toolbarRef, 'button:not([role^="menuitem"])');
+  // Only the bar's own controls take part, never what a menu or the share dialog holds inside it.
+  const toolbarKeys = useRovingFocus(toolbarRef, '[data-toolbar-item]');
   // The width the buttons have, followed as the window or the side panels change (null: not measured, show all).
   const [barWidth, setBarWidth] = useState<number | null>(null);
   useEffect(() => {

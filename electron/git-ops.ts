@@ -14,6 +14,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { withRepoLock } from './repo-lock';
 import { checkNotePath } from '../shared/vault/paths';
+import { tr } from './core/language';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,7 +88,7 @@ export function sanitizeGitError(msg: string): string {
 
 export function validateRemoteUrl(url: string): void {
   if (!GITHUB_HTTPS.test(url) && !GITHUB_SSH.test(url)) {
-    throw new Error('Remote URL must be a valid GitHub HTTPS or SSH URL');
+    throw new Error(tr('errGitRemoteUrl'));
   }
 }
 
@@ -116,12 +117,12 @@ export function noteBranchName(noteName: string): string {
 
 /** Validates a custom commit message — no shell metacharacters. */
 function validateCommitMessage(msg: string): void {
-  if (msg.length > 500) throw new Error('Commit message too long (max 500 chars)');
+  if (msg.length > 500) throw new Error(tr('errCommitTooLong'));
   // simple-git passes the message as a string arg, not a shell command,
   // but we still strip potential control characters
   // eslint-disable-next-line no-control-regex
   if (/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(msg)) {
-    throw new Error('Commit message contains invalid characters');
+    throw new Error(tr('errCommitInvalidChars'));
   }
 }
 
@@ -407,8 +408,8 @@ export async function createGitHubPr(params: {
   body: string;
 }): Promise<GitResult<PrData>> {
   try {
-    if (!params.token) throw new Error('GitHub token is required');
-    if (!params.title.trim()) throw new Error('PR title is required');
+    if (!params.token) throw new Error(tr('errGithubToken'));
+    if (!params.title.trim()) throw new Error(tr('errPrTitle'));
     validateRemoteUrl(params.remoteUrl);
     const { owner, repo } = parseGitHubRepo(params.remoteUrl);
 
@@ -464,17 +465,17 @@ export async function getFileVersions(dir: string, file: string): Promise<GitRes
     const g = simpleGit(dir, { binary: 'git', maxConcurrentProcesses: 1, trimmed: false });
     const status = await g.status();
     const entry = status.files.find(f => f.path === file);
-    if (!entry) return { success: false, error: 'This note has no changes' };
+    if (!entry) return { success: false, error: tr('errNoteNoChanges') };
 
     let before: string | null = null;
     try { before = await g.raw(['show', `HEAD:${file}`]); } catch { /* new note, or no commit yet */ }
     let after: string | null = null;
     const abs = path.join(dir, file);
     if (fs.existsSync(abs)) {
-      if (fs.statSync(abs).size > MAX_DIFF_BYTES) return { success: false, error: 'This note is too large to compare' };
+      if (fs.statSync(abs).size > MAX_DIFF_BYTES) return { success: false, error: tr('errNoteTooLargeToCompare') };
       after = fs.readFileSync(abs, 'utf8');
     }
-    if ((before?.length ?? 0) > MAX_DIFF_BYTES) return { success: false, error: 'This note is too large to compare' };
+    if ((before?.length ?? 0) > MAX_DIFF_BYTES) return { success: false, error: tr('errNoteTooLargeToCompare') };
     return { success: true, data: { before, after, state: classify(file, entry.index, entry.working_dir).state } };
   } catch (err) {
     return { success: false, error: sanitizeGitError((err as Error).message) };
@@ -520,10 +521,10 @@ export async function commitStaged(dir: string, message: string): Promise<GitRes
   return withRepoLock(dir, async () => {
     try {
       const msg = message.trim();
-      if (!msg) throw new Error('Commit message required');
+      if (!msg) throw new Error(tr('errCommitMessageRequired'));
       validateCommitMessage(msg);
       const g = git(dir);
-      if ((await g.status()).staged.length === 0) throw new Error('Nothing is staged');
+      if ((await g.status()).staged.length === 0) throw new Error(tr('errNothingStaged'));
       const result = await g.commit(msg);
       return { success: true, data: { hash: result.commit } };
     } catch (err) {

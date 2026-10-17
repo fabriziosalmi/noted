@@ -39,7 +39,7 @@ export function registerExporterHandlers() {
   ipcMain.handle('export-pdf', async (_event, htmlContent: string, noteTitle?: string) => {
     try {
       if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
-      if (htmlContent.length > 5_000_000) throw new Error('Content too large for PDF export');
+      if (htmlContent.length > 5_000_000) throw new Error(tr('errPdfTooLarge'));
       // Show save dialog
       const { filePath } = await dialog.showSaveDialog({
         title: tr('dlgExportPdf'),
@@ -105,7 +105,7 @@ export function registerExporterHandlers() {
   ipcMain.handle('print-note', async (_event, htmlContent: string, title?: string) => {
     try {
       if (typeof htmlContent !== 'string') throw new Error('htmlContent must be a string');
-      if (htmlContent.length > 5_000_000) throw new Error('Content too large to print');
+      if (htmlContent.length > 5_000_000) throw new Error(tr('errPrintTooLarge'));
 
       const printWin = new BrowserWindow({
         show: false,

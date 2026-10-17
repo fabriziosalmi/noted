@@ -10,11 +10,10 @@ export function useSuggestionAria(editor: Editor | null, open: boolean, listId: 
     const dom = editor && !editor.isDestroyed ? editor.view.dom : null;
     if (!dom || !open) return;
     dom.setAttribute('aria-controls', listId);
-    dom.setAttribute('aria-expanded', 'true');
     dom.setAttribute('aria-autocomplete', 'list');
     dom.setAttribute('aria-activedescendant', optionId(listId, activeIndex));
     return () => {
-      for (const a of ['aria-controls', 'aria-expanded', 'aria-autocomplete', 'aria-activedescendant']) dom.removeAttribute(a);
+      for (const a of ['aria-controls', 'aria-autocomplete', 'aria-activedescendant']) dom.removeAttribute(a);
     };
   }, [editor, open, listId, activeIndex]);
 }

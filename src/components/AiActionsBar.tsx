@@ -326,7 +326,7 @@ export function AiActionsBar({ editor, onError }: AiActionsBarProps) {
     while (taken.has(nameOf().toLowerCase())) n++;
     const name = nameOf();
     const folder = await api?.createFolder(PROMPTS_FOLDER, syncDir);
-    if (folder && !folder.success && !/already exists/i.test(folder.error ?? '')) { onError?.(t('promptsCreateFailed').replace('{error}', folder.error ?? 'failed')); return; }
+    if (folder && !folder.success && folder.code !== 'exists') { onError?.(t('promptsCreateFailed').replace('{error}', folder.error ?? 'failed')); return; }
     const res = await api?.saveNote(name, diskToWire(promptTemplateNote(n === 1 ? base : `${base} ${n}`), 'markdown'), syncDir);
     if (!res?.success) { onError?.(t('promptsCreateFailed').replace('{error}', res?.error ?? 'failed')); return; }
     await useStore.getState().fetchNotes();

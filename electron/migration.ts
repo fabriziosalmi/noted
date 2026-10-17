@@ -15,6 +15,7 @@ import type { DomEnv } from '../shared/markdown/html';
 import { convertHtmlNote, convertMarkdownNoteToHtml, isLegacyHtml, type Verdict } from '../shared/markdown/migrate';
 import { MIGRATION_LOCK_STALE_MS, migrationLockPath, readVaultFormat, writeVaultFormat } from '../shared/vault/formatFile';
 import type { NoteFormat } from '../shared/vault/format';
+import { tr } from './core/language';
 
 export type Direction = 'to-markdown' | 'to-html';
 
@@ -201,7 +202,7 @@ function acquireLock(dir: string): () => void {
     fd = take();
   } catch {
     // Left behind by a run that died: older than any real migration.
-    if (Date.now() - fs.statSync(file).mtimeMs < MIGRATION_LOCK_STALE_MS) throw new Error('A conversion is already running on this vault');
+    if (Date.now() - fs.statSync(file).mtimeMs < MIGRATION_LOCK_STALE_MS) throw new Error(tr('errConversionRunning'));
     fs.rmSync(file, { force: true });
     fd = take();
   }
@@ -240,7 +241,7 @@ async function convertVault(dir: string, deps: MigrationDeps, direction: Directi
       await deps.writeNote(item.name, item.next);
       written.push(item);
       const back = await fs.promises.readFile(path.join(dir, item.name), 'utf8');
-      if (back !== item.next) throw new Error(`"${item.name}" did not read back as written`);
+      if (back !== item.next) throw new Error(tr('errConversionReadBack', { name: item.name }));
     }
 
     // 4. the marker changes last

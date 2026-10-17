@@ -5,6 +5,7 @@ import { render, screen, fireEvent, within } from '../test/test-utils';
 import { documentExtensions } from '../../shared/markdown/schema';
 import { FindHighlight } from '../lib/findHighlight';
 import { EditorToolbar } from './EditorToolbar';
+import { ShareMenu } from './ShareMenu';
 
 const editors: Editor[] = [];
 afterEach(() => { for (const e of editors.splice(0)) { e.destroy(); e.options.element?.remove(); } });
@@ -338,6 +339,24 @@ describe('EditorToolbar', () => {
       fireEvent.click(more);
       fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Insert table' }));
       expect(editor.getHTML()).toContain('<table');
+    });
+
+    it('keeps the arrow keys and Tab to its own buttons: the form in the share dialog stays reachable with Tab', () => {
+      const share = (
+        <ShareMenu getCurrentNoteContent={() => '# Note'} getCurrentNoteTitle={() => 'Note'} getCurrentNoteFileName={() => 'Note.md'}
+          getCurrentNoteHtml={() => '<h1>Note</h1>'} onToast={vi.fn()} hasNote={true} />
+      );
+      const editor = findEditor();
+      const { rerender } = render(<EditorToolbar {...defaultProps} editor={editor} shareSlot={share} />);
+      fireEvent.click(screen.getByRole('button', { name: /share/i }));
+      fireEvent.click(screen.getByRole('menuitem', { name: /gist/i }));
+      rerender(<EditorToolbar {...defaultProps} editor={editor} shareSlot={share} />); // the app re-renders it often
+      const form = screen.getByRole('dialog');
+      for (const b of within(form).getAllByRole('button')) expect(b.tabIndex).not.toBe(-1);
+      const first = within(form).getAllByRole('button')[0];
+      first.focus();
+      fireEvent.keyDown(first, { key: 'ArrowRight' });
+      expect(form.contains(document.activeElement)).toBe(true); // not walked out into the formatting buttons
     });
 
     it('shows every group, and no "more" button, when the bar is wide enough', () => {

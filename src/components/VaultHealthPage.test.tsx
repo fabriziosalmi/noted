@@ -92,7 +92,7 @@ describe('VaultHealthPage', () => {
 
   it('a link that names a folder gets its folders first, one level at a time, and a folder that is already there is no error', async () => {
     current = report([{ id: 'deep', kind: 'broken-link', note: 'Hub.md', target: 'Work/Q4/Plan', suggestion: null }]);
-    api.createFolder.mockResolvedValueOnce({ success: false, error: 'Folder "Work" already exists' }).mockResolvedValueOnce({ success: true });
+    api.createFolder.mockResolvedValueOnce({ success: false, error: 'Folder "Work" already exists', code: 'exists' }).mockResolvedValueOnce({ success: true });
     await page();
     fireEvent.click(within(item('deep')).getByRole('button', { name: 'Create the note' }));
     await waitFor(() => expect(api.saveNote).toHaveBeenCalledWith('Work/Q4/Plan.md', '<h1>Plan</h1><p></p>', undefined));

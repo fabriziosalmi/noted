@@ -9,7 +9,7 @@ export async function ensureFolders(file: string, syncDir: string | undefined): 
   const parts = file.split('/').slice(0, -1);
   for (let i = 0; i < parts.length; i++) {
     const res = await api?.createFolder(parts.slice(0, i + 1).join('/'), syncDir);
-    if (res && !res.success && !/already exists/i.test(res.error ?? '')) return res.error ?? 'failed';
+    if (res && !res.success && res.code !== 'exists') return res.error ?? 'failed';
   }
   return null;
 }

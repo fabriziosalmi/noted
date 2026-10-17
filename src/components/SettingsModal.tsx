@@ -588,7 +588,7 @@ export function SettingsModal({ settings, onUpdate, onSelectFolder, onImportVaul
       if (res.success) {
         dispatchImportWorkflow({ type: 'IMPORT_SUCCESS', count: res.data ?? 0, summary: res.summary });
         void fetchNotes();
-      } else if (res.error !== 'Cancelled') {
+      } else if (!res.canceled) {
         dispatchImportWorkflow({ type: 'FAILED', message: res.error ?? t('importFailed') });
       } else {
         dispatchImportWorkflow({ type: 'RESET' });

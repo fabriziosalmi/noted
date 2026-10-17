@@ -63,14 +63,14 @@ declare global {
       onNoteChangedExternally?: (cb: (fileName: string) => void) => () => void;
       exportHtml: (htmlContent: string, title: string) => Promise<{ success: boolean; data?: string; error?: string; canceled?: boolean }>;
       exportDocx: (htmlContent: string, title: string) => Promise<{ success: boolean; data?: string; error?: string; canceled?: boolean }>;
-      importVault: (targetDir?: string) => Promise<{ success: boolean; data?: number; error?: string }>;
+      importVault: (targetDir?: string) => Promise<{ success: boolean; data?: number; error?: string; canceled?: boolean }>;
       getICloudPath: () => Promise<{ success: boolean; data?: string; error?: string }>;
       detectCloudProviders: () => Promise<{ success: boolean; data?: { id: string; name: string; basePath: string; notedPath: string; available: boolean }[]; error?: string }>;
       activateCloudProvider: (notedPath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       copyVaultToFolder: (args: { destDir?: string; syncDir?: string }) => Promise<{ success: boolean; canceled?: boolean; data?: { copied: number; destDir: string }; error?: string }>;
       shareNoteMacOS: (args: { content: string; title: string }) => Promise<{ success: boolean; fallback?: boolean; error?: string }>;
       getNotesTree: (syncDir?: string) => Promise<{ success: boolean; data?: NotesTree; error?: string }>;
-      createFolder: (name: string, syncDir?: string) => Promise<{ success: boolean; error?: string }>;
+      createFolder: (name: string, syncDir?: string) => Promise<{ success: boolean; error?: string; code?: 'exists' }>;
       renameFolder: (oldName: string, newName: string, syncDir?: string, opts?: LinkUpdateOptions) => Promise<{ success: boolean; links?: LinkUpdateResult; error?: string }>;
       deleteFolder: (name: string, syncDir?: string, opts?: LinkUpdateOptions) => Promise<{ success: boolean; data?: { moved: number; renamed: string[] }; links?: LinkUpdateResult; error?: string }>;
       moveNote: (fileName: string, toFolder: string, syncDir?: string, opts?: LinkUpdateOptions) => Promise<{ success: boolean; data?: string; links?: LinkUpdateResult; error?: string }>;
@@ -142,7 +142,7 @@ declare global {
       searchNotesFulltext: (query: string, syncDir?: string) => Promise<{ success: boolean; data?: { relPath: string; title: string; snippet: string; score: number; terms: string[] }[]; truncated?: boolean; error?: string }>;
       setupClaudeMcp: () => Promise<{ success: boolean; error?: string }>;
       importEnex: (targetDir?: string, attachmentsFolder?: string) =>
-        Promise<{ success: boolean; data?: number; summary?: ImportSummary; error?: string }>;
+        Promise<{ success: boolean; data?: number; summary?: ImportSummary; error?: string; canceled?: boolean }>;
       importAppleNotes: (targetDir?: string) => Promise<{ success: boolean; data?: number; error?: string }>;
       updateMcpSseConfig: (config: { enabled: boolean; port: number; syncDir?: string; legacySse?: boolean }) => Promise<{ success: boolean; error?: string }>;
       getAppVersion: () => Promise<string>;

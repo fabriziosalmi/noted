@@ -10,6 +10,7 @@ import { getMainWindow } from '../core/windows';
 import { dom } from '../core/dom';
 import { readVaultFormat } from '../../shared/vault/formatFile';
 import { readableVersions } from '../../shared/markdown/migrate';
+import { tr } from '../core/language';
 
 export function registerGitHandlers(): void {
   // ─── Git IPC ──────────────────────────────────────────────────────────────────
@@ -32,7 +33,7 @@ export function registerGitHandlers(): void {
   });
 
   ipcMain.handle('git-commit-all', async (_, message: string, syncDir?: string) => {
-    if (!message || typeof message !== 'string') return { success: false, error: 'Commit message required' };
+    if (!message || typeof message !== 'string') return { success: false, error: tr('errCommitMessageRequired') };
     const dir = getTargetDir(syncDir);
     return gitOps.commitAll(dir, message);
   });
@@ -67,7 +68,7 @@ export function registerGitHandlers(): void {
   });
 
   ipcMain.handle('git-commit-staged', async (_, message: unknown, syncDir?: string) => {
-    if (typeof message !== 'string' || !message.trim()) return { success: false, error: 'Commit message required' };
+    if (typeof message !== 'string' || !message.trim()) return { success: false, error: tr('errCommitMessageRequired') };
     return gitOps.commitStaged(getTargetDir(syncDir), message);
   });
 
@@ -145,8 +146,8 @@ export function registerGitHandlers(): void {
   ipcMain.handle('git-save-as-gist', async (_, params: {
     fileName: string; content: string; isPublic: boolean; token: string;
   }) => {
-    if (!params?.token) return { success: false, error: 'GitHub token required' };
-    if (!params.content) return { success: false, error: 'Content required' };
+    if (!params?.token) return { success: false, error: tr('errGithubToken') };
+    if (!params.content) return { success: false, error: tr('errContentRequired') };
     const safeName = path.basename(params.fileName || 'note.md');
     const body = JSON.stringify({
       description: safeName.replace(/\.md$/, ''),
