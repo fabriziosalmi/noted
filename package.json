@@ -72,7 +72,7 @@
     "katex": "^0.18.11",
     "lowlight": "^3.3.0",
     "lucide-react": "^1.16.0",
-    "markdown-it": "^15.0.2",
+    "markdown-it": "^15.0.3",
     "prosemirror-markdown": "^1.13.8",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
