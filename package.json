@@ -104,7 +104,7 @@
     "@types/turndown": "^5.0.6",
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/coverage-v8": "^5.0.1",
-    "electron": "^44.7.2",
+    "electron": "^44.9.1",
     "electron-builder": "^26.8.1",
     "esbuild": "^0.28.2",
     "eslint": "^10.12.0",
