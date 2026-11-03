@@ -835,11 +835,11 @@
    "cat": "inline",
    "ext": false,
    "golden": "Use ``a `tick` inside`` code.",
-   "out": "Use `a `tick` inside` code.",
+   "out": "Use ``a `tick` inside`` code.",
    "error": null,
-   "exact": false,
-   "stable": false,
-   "meaning": false,
+   "exact": true,
+   "stable": true,
+   "meaning": true,
    "kept": true
   },
   {
@@ -919,11 +919,11 @@
    "cat": "inline",
    "ext": false,
    "golden": "Not a list: 1986\\. A good year, and \\*not italic\\*.",
-   "out": "Not a list: 1986 A good year, and not italic.",
+   "out": "Not a list: 1986. A good year, and \\*not italic\\*.",
    "error": null,
    "exact": false,
    "stable": true,
-   "meaning": false,
+   "meaning": true,
    "kept": true
   },
   {
@@ -1099,11 +1099,11 @@
    "cat": "block",
    "ext": false,
    "golden": "A claim.[^1]\n\n[^1]: The source.",
-   "out": "A claim.[^1]\n\n[^1]: The source.",
+   "out": "A claim.\\[^1\\]\n\n\\[^1\\]: The source.",
    "error": null,
-   "exact": true,
+   "exact": false,
    "stable": true,
-   "meaning": true,
+   "meaning": false,
    "kept": true
   },
   {
@@ -1267,11 +1267,11 @@
    "cat": "table",
    "ext": false,
    "golden": "| Expr | Meaning |\n| --- | --- |\n| a \\| b | either |",
-   "out": "| Expr  | Meaning |\n| ----- | ------- |\n| a | b | either  |",
+   "out": "| Expr   | Meaning |\n| ------ | ------- |\n| a \\| b | either  |",
    "error": null,
    "exact": false,
-   "stable": false,
-   "meaning": false,
+   "stable": true,
+   "meaning": true,
    "kept": true
   },
   {
@@ -1423,36 +1423,36 @@
    "cat": "ext",
    "ext": true,
    "golden": "> [!note]\n> A callout body.",
-   "out": "> [!note]\n> A callout body.",
+   "out": "> \\[!note\\]\n> A callout body.",
    "error": null,
-   "exact": true,
+   "exact": false,
    "stable": true,
    "meaning": true,
-   "kept": true
+   "kept": false
   },
   {
    "id": "callout-title",
    "cat": "ext",
    "ext": true,
    "golden": "> [!warning] Careful\n> Body of the warning\n> on two lines.",
-   "out": "> [!warning] Careful\n> Body of the warning\n> on two lines.",
+   "out": "> \\[!warning\\] Careful\n> Body of the warning\n> on two lines.",
    "error": null,
-   "exact": true,
+   "exact": false,
    "stable": true,
    "meaning": true,
-   "kept": true
+   "kept": false
   },
   {
    "id": "callout-fold",
    "cat": "ext",
    "ext": true,
    "golden": "> [!tip]- Folded by default\n> Hidden until opened.",
-   "out": "> [!tip]- Folded by default\n> Hidden until opened.",
+   "out": "> \\[!tip\\]- Folded by default\n> Hidden until opened.",
    "error": null,
-   "exact": true,
+   "exact": false,
    "stable": true,
    "meaning": true,
-   "kept": true
+   "kept": false
   },
   {
    "id": "tag-inline",
@@ -1605,11 +1605,11 @@
    "cat": "inline",
    "ext": false,
    "golden": "Use ``a `tick` inside`` code.",
-   "out": "Use `a `tick` inside` code.",
+   "out": "Use ``a `tick` inside`` code.",
    "error": null,
-   "exact": false,
-   "stable": false,
-   "meaning": false,
+   "exact": true,
+   "stable": true,
+   "meaning": true,
    "kept": true
   },
   {
@@ -1689,11 +1689,11 @@
    "cat": "inline",
    "ext": false,
    "golden": "Not a list: 1986\\. A good year, and \\*not italic\\*.",
-   "out": "Not a list: 1986 A good year, and not italic.",
+   "out": "Not a list: 1986. A good year, and \\*not italic\\*.",
    "error": null,
    "exact": false,
    "stable": true,
-   "meaning": false,
+   "meaning": true,
    "kept": true
   },
   {
@@ -1869,11 +1869,11 @@
    "cat": "block",
    "ext": false,
    "golden": "A claim.[^1]\n\n[^1]: The source.",
-   "out": "A claim.[^1]\n\n[^1]: The source.",
+   "out": "A claim.\\[^1\\]\n\n\\[^1\\]: The source.",
    "error": null,
-   "exact": true,
+   "exact": false,
    "stable": true,
-   "meaning": true,
+   "meaning": false,
    "kept": true
   },
   {
@@ -2037,11 +2037,11 @@
    "cat": "table",
    "ext": false,
    "golden": "| Expr | Meaning |\n| --- | --- |\n| a \\| b | either |",
-   "out": "| Expr  | Meaning |\n| ----- | ------- |\n| a | b | either  |",
+   "out": "| Expr   | Meaning |\n| ------ | ------- |\n| a \\| b | either  |",
    "error": null,
    "exact": false,
-   "stable": false,
-   "meaning": false,
+   "stable": true,
+   "meaning": true,
    "kept": true
   },
   {
@@ -2193,36 +2193,36 @@
    "cat": "ext",
    "ext": true,
    "golden": "> [!note]\n> A callout body.",
-   "out": "> [!note]\n> A callout body.",
+   "out": "> \\[!note\\]\n> A callout body.",
    "error": null,
-   "exact": true,
+   "exact": false,
    "stable": true,
    "meaning": true,
-   "kept": true
+   "kept": false
   },
   {
    "id": "callout-title",
    "cat": "ext",
    "ext": true,
    "golden": "> [!warning] Careful\n> Body of the warning\n> on two lines.",
-   "out": "> [!warning] Careful\n> Body of the warning\n> on two lines.",
+   "out": "> \\[!warning\\] Careful\n> Body of the warning\n> on two lines.",
    "error": null,
-   "exact": true,
+   "exact": false,
    "stable": true,
    "meaning": true,
-   "kept": true
+   "kept": false
   },
   {
    "id": "callout-fold",
    "cat": "ext",
    "ext": true,
    "golden": "> [!tip]- Folded by default\n> Hidden until opened.",
-   "out": "> [!tip]- Folded by default\n> Hidden until opened.",
+   "out": "> \\[!tip\\]- Folded by default\n> Hidden until opened.",
    "error": null,
-   "exact": true,
+   "exact": false,
    "stable": true,
    "meaning": true,
-   "kept": true
+   "kept": false
   },
   {
    "id": "tag-inline",
