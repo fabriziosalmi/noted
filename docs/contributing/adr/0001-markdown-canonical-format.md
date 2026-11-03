@@ -49,10 +49,15 @@ came back verbatim. Block-joining blank lines are not counted as damage.
 | Pipeline | exact | stable | same meaning | extensions kept | custom code |
 | --- | --- | --- | --- | --- | --- |
 | `remark` alone (ceiling of option B, no editor) | 46/64 | 64/64 | 64/64 | **6/17** | none |
-| A: `@tiptap/markdown`, stock | 38/64 | 60/64 | 44/64 | 8/17 | none |
-| A: `@tiptap/markdown` + our extensions | 49/64 | 61/64 | 55/64 | 17/17 | ~120 lines |
+| A: `@tiptap/markdown`, stock | 35/64 | 62/64 | 46/64 | 5/17 | none |
+| A: `@tiptap/markdown` + our extensions | 46/64 | 63/64 | 57/64 | 14/17 | ~120 lines |
 | **D: `prosemirror-markdown` + `markdown-it`** | **59/64** | **64/64** | **63/64** | **17/17** | ~400 lines |
 | C: CodeMirror 6 | 64/64 by construction (the text is the document) | | | | rewrite of the editor |
+
+*Re-run on 2026-11-03.* The spike's old `@tiptap` pins no longer installed, so it was re-run with `@tiptap` 3.32.0, the
+version the app resolves (#269). The two A rows above are the numbers of that run; the earlier figures (stock 38/64 exact,
+8/17 extensions; with our extensions 49/64 exact, 17/17 extensions) were measured on the old pins. With our extensions, A
+now loses the three callout snippets. The `remark` and D rows did not change, and the decision (option D) is unaffected.
 
 What the numbers hide:
 
