@@ -327,7 +327,9 @@ describe('MCP markdownToHtml (escaping and inline elements)', () => {
     expect(html).toContain('<strong>also bold</strong>');
     expect(html).toContain('<em>italic</em>');
     expect(html).toContain('<em>also italic</em>');
-    expect(html).toContain('<a href="http://x.com?a=1&b=2">link</a>');
+    // marked >= 18.1 escapes `&` in href (markedjs/marked#4053); the attribute
+    // value a browser or DOMParser reads back is still http://x.com?a=1&b=2.
+    expect(html).toContain('<a href="http://x.com?a=1&amp;b=2">link</a>');
   });
 
   it('renders GFM pipe tables correctly', () => {
