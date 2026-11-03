@@ -21,7 +21,7 @@
     "@tiptap/starter-kit": "3.23.4",
     "@types/markdown-it": "^14.2.0",
     "jsdom": "^29.1.1",
-    "markdown-it": "^15.0.2",
+    "markdown-it": "^15.0.3",
     "prosemirror-markdown": "^1.13.8",
     "remark-frontmatter": "^5.0.0",
     "remark-gfm": "^4.0.1",
