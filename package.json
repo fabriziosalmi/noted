@@ -115,7 +115,7 @@
     "globals": "^17.13.0",
     "marked": "^18.1.1",
     "playwright": "^1.60.0",
-    "tailwindcss": "^4.3.0",
+    "tailwindcss": "^4.3.4",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.3.4",
