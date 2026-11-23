@@ -39,3 +39,9 @@ describe('codec covers the whole schema', () => {
     expect(marks.filter((m) => !(m in schema.marks))).toEqual([]);
   });
 });
+
+describe('highlight mark', () => {
+  it('carries a color attribute (multicolor)', () => {
+    expect(documentSchema().marks.highlight.spec.attrs).toHaveProperty('color');
+  });
+});
