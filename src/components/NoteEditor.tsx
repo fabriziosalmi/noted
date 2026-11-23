@@ -12,7 +12,7 @@ import { Link } from '@tiptap/extension-link';
 import { Focus } from '@tiptap/extension-focus';
 import { createLowlight, common } from 'lowlight';
 import 'katex/dist/katex.min.css';
-import { Bold, Italic, Strikethrough, Code, FileText, CheckCheck, AlertTriangle, Highlighter, Link2, RemoveFormatting, Table as TableIcon, ListTree, Copy, ArrowUpDown, Eraser } from 'lucide-react';
+import { Bold, Italic, Strikethrough, Code, FileText, CheckCheck, AlertTriangle, Highlighter, Link2, RemoveFormatting, Table as TableIcon, ListTree, Copy, ArrowUpDown, Eraser, WrapText } from 'lucide-react';
 import { askLLM } from '../lib/llm';
 import { useStore, parseNoteFile } from '../store/useStore';
 import { WikilinkMark, createWikilinkHighlightPlugin } from '../lib/WikilinkExtension';
@@ -41,6 +41,7 @@ import { MoveBlockExtension } from '../lib/moveBlock';
 import { copySelectionAsMarkdown } from '../lib/copySelectionMd';
 import { toggleSortLines } from '../lib/sortLines';
 import { removeBlankAndDuplicateLines } from '../lib/cleanLines';
+import { joinSelectedLines } from '../lib/joinLines';
 import { cycleTextCase, type TextCaseMode } from '../lib/textCase';
 import { computeTextStats, formatReadingTime, formatStatsLabel } from '../lib/selectionStats';
 import { parseTextTable, tableDataToHtml } from '../lib/textTable';
@@ -1060,6 +1061,22 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
                 }}
                 className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
                 <Eraser size={14} />
+              </button>
+            );
+          })()}
+          {(() => {
+            const { from, to, empty } = editor.state.selection;
+            if (empty) return null;
+            const selected = editor.state.doc.textBetween(from, to, '\n');
+            if (!selected.includes('\n')) return null;
+            return (
+              <button type="button" aria-label="Join lines" title="Join lines"
+                onClick={() => {
+                  const joined = joinSelectedLines(selected);
+                  editor.chain().focus().insertContentAt({ from, to }, joined).setTextSelection({ from, to: from + joined.length }).run();
+                }}
+                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
+                <WrapText size={14} />
               </button>
             );
           })()}
