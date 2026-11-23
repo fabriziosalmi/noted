@@ -411,6 +411,7 @@
   "italic": "Italic (⌘I)",
   "strikethrough": "Strikethrough",
   "inlineCode": "Inline code",
+  "clearFormatting": "Clear formatting",
   "bulletList": "Bullet list",
   "undo": "Undo",
   "redo": "Redo",

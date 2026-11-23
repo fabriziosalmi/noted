@@ -328,6 +328,7 @@
   "italic": "Corsivo (⌘I)",
   "strikethrough": "Barrato",
   "inlineCode": "Codice inline",
+  "clearFormatting": "Rimuovi formattazione",
   "bulletList": "Elenco puntato",
   "undo": "Annulla",
   "redo": "Ripeti",

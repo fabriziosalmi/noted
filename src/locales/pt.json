@@ -183,6 +183,7 @@
   "italic": "Itálico (⌘I)",
   "strikethrough": "Rasurado",
   "inlineCode": "Código em linha",
+  "clearFormatting": "Limpar formatação",
   "insertTable": "Inserir tabela",
   "findShortcut": "Pesquisar (⌘F)",
   "findPlaceholder": "Pesquisar no documento...",
