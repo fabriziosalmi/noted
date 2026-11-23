@@ -42,6 +42,7 @@ import { copySelectionAsMarkdown } from '../lib/copySelectionMd';
 import { toggleSortLines } from '../lib/sortLines';
 import { removeBlankAndDuplicateLines } from '../lib/cleanLines';
 import { joinSelectedLines } from '../lib/joinLines';
+import { CALLOUT_KINDS, toggleWrapCallout } from '../lib/calloutWrap';
 import { cycleTextCase, type TextCaseMode } from '../lib/textCase';
 import { computeTextStats, formatReadingTime, formatStatsLabel } from '../lib/selectionStats';
 import { parseTextTable, tableDataToHtml } from '../lib/textTable';
@@ -1032,6 +1033,23 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
             className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
             <Copy size={14} />
           </button>
+          <span className="flex items-center border-l border-gray-200 dark:border-gray-700 pl-1 gap-0.5">
+            {CALLOUT_KINDS.map((c) => {
+              const active = editor.isActive('callout', { kind: c.kind });
+              return (
+                <button
+                  key={c.kind}
+                  type="button"
+                  aria-label={`Callout ${c.label}`}
+                  title={`Wrap in ${c.label} callout`}
+                  onClick={() => toggleWrapCallout(editor, c.kind)}
+                  className={`px-1.5 py-0.5 rounded text-[11px] font-medium ${active ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                >
+                  {c.label}
+                </button>
+              );
+            })}
+          </span>
           {(() => {
             const { from, to, empty } = editor.state.selection;
             if (empty) return null;
