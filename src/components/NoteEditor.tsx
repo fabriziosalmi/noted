@@ -33,6 +33,7 @@ import { GhostTextExtension, ghostTextKey } from '../lib/ghostTextExtension';
 import { PassageHighlight } from '../lib/passageHighlight';
 import { FindHighlight, findHighlightKey } from '../lib/findHighlight';
 import { WordFormatExtension } from '../lib/wordFormat';
+import { cycleTextCase, type TextCaseMode } from '../lib/textCase';
 import { deriveTitle } from '../lib/noteTitle';
 import { planExternalChange } from '../lib/externalChange';
 import { attachImage, DEFAULT_ATTACHMENTS_FOLDER } from '../lib/imageAttach';
@@ -146,6 +147,7 @@ function hasShortcutModifier(event: Pick<MouseEvent, 'metaKey' | 'ctrlKey' | 'al
 export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError, allNoteNames = [], allTags = [], backlinks = [], onSelectNote, notesCount = 0, onCreateNote, onOpenDaily, onOpenSettings, onOpenShortcuts, onNotice, statusHost }: NoteEditorProps) {
   const { t } = useI18n();
   const prompt = usePrompt();
+  const caseModeRef = useRef<TextCaseMode>('lower');
   const llmProvider = useStore(s => s.settings.llmProvider);
   const llmApiKey = useStore(s => s.settings.llmApiKey);
   const llmModel = useStore(s => s.settings.llmModel);
@@ -933,6 +935,19 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
             }}
             className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('link') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
             <Link2 size={14} />
+          </button>
+          <button type="button" aria-label="Change case"
+            onClick={() => {
+              const { from, to, empty } = editor.state.selection;
+              if (empty) return;
+              const selected = editor.state.doc.textBetween(from, to, '\n');
+              if (!selected) return;
+              const { mode, text } = cycleTextCase(selected, caseModeRef.current);
+              caseModeRef.current = mode;
+              editor.chain().focus().insertContentAt({ from, to }, text).setTextSelection({ from, to: from + text.length }).run();
+            }}
+            className="px-1.5 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-[11px] font-semibold leading-none">
+            Aa
           </button>
           <button type="button" aria-label={t('clearFormatting')} onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
             className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
