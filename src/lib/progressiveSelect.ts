@@ -1,65 +1,64 @@
-import { Extension, type Editor } from '@tiptap/core';
+import { Extension } from '@tiptap/core';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { findWordRange } from './wordFormat';
 
-type Range = { from: number; to: number };
+interface Range { from: number; to: number }
 
 const LEAF_PLACEHOLDER = '￼';
 const SENTENCE = /[^.!?]+[.!?]*/g;
 
-function findSentenceRange(doc: ProseMirrorNode, selection: Range): Range | null {
-  const $from = doc.resolve(selection.from);
-  const block = $from.parent;
-  if (!block.isTextblock || selection.to > $from.end()) return null;
+/** Trimmed sentence range (bounded by `[.!?]+`) containing `pos`, or null when `pos` is outside a non-empty textblock. */
+export function findSentenceRange(doc: ProseMirrorNode, pos: number): Range | null {
+  if (pos < 0 || pos > doc.content.size) return null;
+  const $pos = doc.resolve(pos);
+  const block = $pos.parent;
+  if (!block.isTextblock) return null;
 
   const text = block.textBetween(0, block.content.size, undefined, LEAF_PLACEHOLDER);
-  const blockStart = $from.start();
+  const offset = $pos.parentOffset;
+  const blockStart = $pos.start();
   for (const match of text.matchAll(SENTENCE)) {
     const raw = match[0];
     const start = match.index + (raw.length - raw.trimStart().length);
     const end = match.index + raw.trimEnd().length;
-    if (start >= end) continue;
-    const range = { from: blockStart + start, to: blockStart + end };
-    if (strictlyContains(range, selection)) return range;
+    if (start >= end || offset < start || offset >= end) continue;
+    return { from: blockStart + start, to: blockStart + end };
   }
   return null;
 }
 
-function findBlockRange(doc: ProseMirrorNode, selection: Range): Range | null {
-  const $from = doc.resolve(selection.from);
-  if (!$from.parent.isTextblock || selection.to > $from.end()) return null;
-  const range = { from: $from.start(), to: $from.end() };
-  return range.from < range.to ? range : null;
+/** Whole non-empty textblock containing `pos`, or null for empty blocks and non-textblock positions. */
+export function findBlockRange(doc: ProseMirrorNode, pos: number): Range | null {
+  if (pos < 0 || pos > doc.content.size) return null;
+  const $pos = doc.resolve(pos);
+  if (!$pos.parent.isTextblock) return null;
+  const from = $pos.start();
+  const to = $pos.end();
+  return from < to ? { from, to } : null;
 }
 
-function strictlyContains(outer: Range, inner: Range): boolean {
-  return outer.from <= inner.from && outer.to >= inner.to && outer.to - outer.from > inner.to - inner.from;
+/** First of word, sentence, textblock that strictly contains `{ from, to }`, or null when none is larger. */
+export function nextProgressiveSelection(doc: ProseMirrorNode, from: number, to: number): Range | null {
+  if (from < 0 || to > doc.content.size || from > to) return null;
+  const candidates = [findWordRange(doc, from), findSentenceRange(doc, from), findBlockRange(doc, from)];
+  for (const range of candidates) {
+    if (!range) continue;
+    const strictlyContains = range.from <= from && range.to >= to && (range.from < from || range.to > to);
+    if (strictlyContains) return range;
+  }
+  return null;
 }
 
-/** Next larger range (word, sentence, textblock) strictly containing `selection`, or null when none does. */
-export function nextProgressiveRange(doc: ProseMirrorNode, selection: Range): Range | null {
-  if (selection.from < 0 || selection.to > doc.content.size || selection.from > selection.to) return null;
-  const word = findWordRange(doc, selection.from);
-  if (word && strictlyContains(word, selection)) return word;
-  const sentence = findSentenceRange(doc, selection);
-  if (sentence) return sentence;
-  const block = findBlockRange(doc, selection);
-  return block && strictlyContains(block, selection) ? block : null;
-}
-
-/** Expands the selection to the next word, sentence or textblock; false when it cannot grow. */
-export function expandSelection(editor: Editor): boolean {
-  const { from, to } = editor.state.selection;
-  const range = nextProgressiveRange(editor.state.doc, { from, to });
-  if (!range) return false;
-  return editor.commands.setTextSelection(range);
-}
-
+/** F8 expands the selection to the next word, sentence or textblock; false when it cannot grow. */
 export const ProgressiveSelectExtension = Extension.create({
   name: 'progressiveSelect',
   addKeyboardShortcuts() {
     return {
-      F8: () => expandSelection(this.editor),
+      F8: () => {
+        const { from, to } = this.editor.state.selection;
+        const range = nextProgressiveSelection(this.editor.state.doc, from, to);
+        return range ? this.editor.commands.setTextSelection(range) : false;
+      },
     };
   },
 });
