@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
-import { expandSelection, nextProgressiveRange, ProgressiveSelectExtension } from './progressiveSelect';
+import {
+  findBlockRange,
+  findSentenceRange,
+  nextProgressiveSelection,
+  ProgressiveSelectExtension,
+} from './progressiveSelect';
 
 let editor: Editor | null = null;
 
@@ -18,57 +23,98 @@ afterEach(() => {
 // "Hello big world. Second one!" -> paragraph text starts at position 1.
 const HTML = '<p>Hello big world. Second one!</p>';
 
-describe('nextProgressiveRange', () => {
+describe('findSentenceRange', () => {
+  it('returns the trimmed sentence containing the position', () => {
+    const { doc } = make(HTML).state;
+    expect(findSentenceRange(doc, 8)).toEqual({ from: 1, to: 17 });
+    expect(findSentenceRange(doc, 20)).toEqual({ from: 18, to: 29 });
+  });
+
+  it('returns null in the whitespace between sentences', () => {
+    const { doc } = make(HTML).state;
+    expect(findSentenceRange(doc, 17)).toBeNull();
+  });
+
+  it('returns null outside textblocks, for empty blocks and out of range', () => {
+    expect(findSentenceRange(make(HTML).state.doc, 0)).toBeNull();
+    expect(findSentenceRange(make('<p></p>').state.doc, 1)).toBeNull();
+    expect(findSentenceRange(make(HTML).state.doc, 99)).toBeNull();
+  });
+});
+
+describe('findBlockRange', () => {
+  it('returns the whole non-empty textblock', () => {
+    const { doc } = make(HTML).state;
+    expect(findBlockRange(doc, 8)).toEqual({ from: 1, to: 29 });
+  });
+
+  it('returns null for empty blocks and non-textblock positions', () => {
+    expect(findBlockRange(make('<p></p>').state.doc, 1)).toBeNull();
+    expect(findBlockRange(make(HTML).state.doc, 0)).toBeNull();
+  });
+});
+
+describe('nextProgressiveSelection', () => {
   it('progresses word -> sentence -> block -> null', () => {
     const { doc } = make(HTML).state;
-    const word = nextProgressiveRange(doc, { from: 8, to: 8 });
+
+    const word = nextProgressiveSelection(doc, 8, 8);
     expect(word).toEqual({ from: 7, to: 10 });
-    const sentence = nextProgressiveRange(doc, word!);
+
+    const sentence = nextProgressiveSelection(doc, word!.from, word!.to);
     expect(sentence).toEqual({ from: 1, to: 17 });
-    const block = nextProgressiveRange(doc, sentence!);
+
+    const block = nextProgressiveSelection(doc, sentence!.from, sentence!.to);
     expect(block).toEqual({ from: 1, to: 29 });
-    expect(nextProgressiveRange(doc, block!)).toBeNull();
+
+    expect(nextProgressiveSelection(doc, block!.from, block!.to)).toBeNull();
   });
 
-  it('trims whitespace around sentences', () => {
+  it('grows a selected word to its sentence', () => {
     const { doc } = make(HTML).state;
-    expect(nextProgressiveRange(doc, { from: 19, to: 25 })).toEqual({ from: 18, to: 29 });
+    expect(nextProgressiveSelection(doc, 18, 24)).toEqual({ from: 18, to: 29 });
   });
 
-  it('skips the word step when the caret is not on a word', () => {
-    const { doc } = make('<p>a&nbsp;&nbsp;b.</p>').state;
-    expect(nextProgressiveRange(doc, { from: 3, to: 3 })).toEqual({ from: 1, to: 6 });
+  it('skips missing word and sentence steps', () => {
+    const { doc } = make(HTML).state;
+    expect(nextProgressiveSelection(doc, 17, 17)).toEqual({ from: 1, to: 29 });
   });
 
-  it('returns null for empty blocks and selections spanning blocks', () => {
-    const { doc } = make('<p></p><p>one</p><p>two</p>').state;
-    expect(nextProgressiveRange(doc, { from: 1, to: 1 })).toBeNull();
-    expect(nextProgressiveRange(doc, { from: 3, to: 7 })).toBeNull();
+  it('returns null for empty blocks and invalid ranges', () => {
+    expect(nextProgressiveSelection(make('<p></p>').state.doc, 1, 1)).toBeNull();
+    expect(nextProgressiveSelection(make(HTML).state.doc, 10, 5)).toBeNull();
+    expect(nextProgressiveSelection(make(HTML).state.doc, -1, 0)).toBeNull();
+    expect(nextProgressiveSelection(make(HTML).state.doc, 0, 999)).toBeNull();
   });
 });
 
 describe('ProgressiveSelectExtension', () => {
-  it('expandSelection grows the editor selection and stops at the block', () => {
-    const ed = make(HTML);
-    ed.commands.setTextSelection(8);
-    expect(expandSelection(ed)).toBe(true);
-    expect(ed.state.selection.from).toBe(7);
-    expect(ed.state.selection.to).toBe(10);
-    expect(expandSelection(ed)).toBe(true);
-    expect(expandSelection(ed)).toBe(true);
-    expect(ed.state.selection.from).toBe(1);
-    expect(ed.state.selection.to).toBe(29);
-    expect(expandSelection(ed)).toBe(false);
-  });
-
-  it('binds F8', () => {
-    const ed = make(HTML);
-    const shortcuts = ed.extensionManager.extensions
+  function shortcuts(ed: Editor): Record<string, () => boolean> {
+    return ed.extensionManager.extensions
       .find((e) => e.name === 'progressiveSelect')!
       .config.addKeyboardShortcuts!.call({ editor: ed } as never) as Record<string, () => boolean>;
-    expect(Object.keys(shortcuts)).toEqual(['F8']);
+  }
+
+  it('binds F8 to expand the selection up to the block', () => {
+    const ed = make(HTML);
+    const keys = shortcuts(ed);
+    expect(Object.keys(keys)).toEqual(['F8']);
+
     ed.commands.setTextSelection(8);
-    expect(shortcuts.F8()).toBe(true);
+    expect(keys.F8()).toBe(true);
+    expect(ed.state.selection.from).toBe(7);
     expect(ed.state.selection.to).toBe(10);
+
+    expect(keys.F8()).toBe(true);
+    expect(ed.state.selection.from).toBe(1);
+    expect(ed.state.selection.to).toBe(17);
+
+    expect(keys.F8()).toBe(true);
+    expect(ed.state.selection.from).toBe(1);
+    expect(ed.state.selection.to).toBe(29);
+
+    expect(keys.F8()).toBe(false);
+    expect(ed.state.selection.from).toBe(1);
+    expect(ed.state.selection.to).toBe(29);
   });
 });
