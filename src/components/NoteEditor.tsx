@@ -12,7 +12,7 @@ import { Link } from '@tiptap/extension-link';
 import { Focus } from '@tiptap/extension-focus';
 import { createLowlight, common } from 'lowlight';
 import 'katex/dist/katex.min.css';
-import { Bold, Italic, Strikethrough, Code, FileText, CheckCheck, AlertTriangle, Highlighter, Link2, RemoveFormatting, Table as TableIcon } from 'lucide-react';
+import { Bold, Italic, Strikethrough, Code, FileText, CheckCheck, AlertTriangle, Highlighter, Link2, RemoveFormatting, Table as TableIcon, ListTree } from 'lucide-react';
 import { askLLM } from '../lib/llm';
 import { useStore, parseNoteFile } from '../store/useStore';
 import { WikilinkMark, createWikilinkHighlightPlugin } from '../lib/WikilinkExtension';
@@ -21,6 +21,7 @@ import { parseWikilinkText } from '../../shared/vault/wikilink';
 import { scrollToAnchor } from '../lib/anchors';
 import { extractOutline } from '../lib/outline';
 import { diffHeadings } from '../lib/headingRename';
+import { extractHeadings, jumpToHeading } from '../lib/headingJump';
 import { EmbedExtension, setEmbedContext } from '../lib/EmbedExtension';
 import { TagSuggestion } from './TagSuggestion';
 import { BacklinksPanel } from './BacklinksPanel';
@@ -158,6 +159,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   const llmModel = useStore(s => s.settings.llmModel);
   const createTitledNote = useStore(s => s.createTitledNote);
   const noteAliases = useStore(s => s.noteAliasesIndex);
+  const [headingsOpen, setHeadingsOpen] = useState(false);
 
   // One resolver for the vault as it is now: the link rules are Obsidian's (case-insensitive; a bare name finds the
   // note in any folder; aliases), from the note holding the link.
@@ -884,6 +886,47 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
           {t('tabAccept')}
         </span>
       )}
+      {(() => {
+        const headings = editor ? extractHeadings(editor) : [];
+        if (headings.length === 0) return null;
+        return (
+          <div className="relative">
+            <button
+              type="button"
+              aria-label="Jump to heading"
+              aria-expanded={headingsOpen}
+              data-testid="heading-jump-btn"
+              onClick={() => setHeadingsOpen(o => !o)}
+              className="p-1 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              <ListTree size={13} />
+            </button>
+            {headingsOpen && (
+              <div
+                role="menu"
+                data-testid="heading-jump-menu"
+                className="absolute bottom-full right-0 mb-2 w-60 max-h-64 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-1 z-30"
+              >
+                {headings.map((h) => (
+                  <button
+                    key={`${h.pos}-${h.text}`}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      if (editor) jumpToHeading(editor, h);
+                      setHeadingsOpen(false);
+                    }}
+                    style={{ paddingLeft: `${(h.level - 1) * 10 + 8}px` }}
+                    className="w-full text-left text-xs py-1 pr-2 rounded truncate text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    {h.text || `H${h.level}`}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
       {wordCount > 0 && (
         <span data-testid="reading-time" className="text-xs text-gray-500 dark:text-gray-400">
           {wordCount} {t(wordCount === 1 ? 'word' : 'words')} · {formatReadingTime(wordCount)}
