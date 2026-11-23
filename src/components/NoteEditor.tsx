@@ -33,6 +33,7 @@ import { GhostTextExtension, ghostTextKey } from '../lib/ghostTextExtension';
 import { PassageHighlight } from '../lib/passageHighlight';
 import { FindHighlight, findHighlightKey } from '../lib/findHighlight';
 import { WordFormatExtension } from '../lib/wordFormat';
+import { ProgressiveSelectExtension } from '../lib/progressiveSelect';
 import { cycleTextCase, type TextCaseMode } from '../lib/textCase';
 import { computeTextStats, formatStatsLabel } from '../lib/selectionStats';
 import { parseTextTable, tableDataToHtml } from '../lib/textTable';
@@ -454,6 +455,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       FindHighlight,
       ClearFormattingShortcut,
       WordFormatExtension,
+      ProgressiveSelectExtension,
     ],
     content: activeNoteContent,
     editable: !useStore.getState().vaultConverting,
