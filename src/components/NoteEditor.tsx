@@ -29,6 +29,7 @@ import { EditorState } from '@tiptap/pm/state';
 import { CodeBlockView } from './CodeBlockView';
 import { SlashCommands } from './SlashCommands';
 import { SmartTagSuggestion } from './SmartTagSuggestion';
+import { TableBar } from './TableBar';
 import { GhostTextExtension, ghostTextKey } from '../lib/ghostTextExtension';
 import { PassageHighlight } from '../lib/passageHighlight';
 import { FindHighlight, findHighlightKey } from '../lib/findHighlight';
@@ -993,6 +994,8 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
           onDismiss={() => setDismissedProjects(prev => new Set(prev).add(projectSuggestion.slug))}
         />
       )}
+
+      <TableBar editor={editor} />
 
       <div
         role="presentation"
