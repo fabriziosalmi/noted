@@ -2,6 +2,12 @@ import type { Editor } from '@tiptap/core';
 
 export type CalloutKind = string;
 
+export const CALLOUT_KINDS: readonly { kind: CalloutKind; label: string }[] = [
+  { kind: 'note', label: 'Note' },
+  { kind: 'warning', label: 'Warning' },
+  { kind: 'tip', label: 'Tip' },
+];
+
 export interface CalloutWrapResult {
   action: 'wrapped' | 'switched' | 'lifted';
 }
