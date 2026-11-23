@@ -16,6 +16,12 @@ export function computeTextStats(text: string): SelectionStats {
   };
 }
 
+export function formatReadingTime(wordCount: number, wordsPerMinute = 200): string {
+  if (!Number.isFinite(wordCount) || wordCount <= 0) return '';
+  const minutes = Math.max(1, Math.ceil(wordCount / wordsPerMinute));
+  return `~${minutes} min`;
+}
+
 export function formatStatsLabel(stats: SelectionStats): string {
   if (stats.chars === 0) return '';
   return `${stats.words}w · ${stats.chars}c · ~${stats.tokensEstimate}t`;

@@ -36,7 +36,7 @@ import { FindHighlight, findHighlightKey } from '../lib/findHighlight';
 import { WordFormatExtension } from '../lib/wordFormat';
 import { ProgressiveSelectExtension } from '../lib/progressiveSelect';
 import { cycleTextCase, type TextCaseMode } from '../lib/textCase';
-import { computeTextStats, formatStatsLabel } from '../lib/selectionStats';
+import { computeTextStats, formatReadingTime, formatStatsLabel } from '../lib/selectionStats';
 import { parseTextTable, tableDataToHtml } from '../lib/textTable';
 import { SEMANTIC_HIGHLIGHTS, toggleSemanticHighlight } from '../lib/highlightColors';
 import { deriveTitle } from '../lib/noteTitle';
@@ -885,7 +885,9 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
         </span>
       )}
       {wordCount > 0 && (
-        <span className="text-xs text-gray-500 dark:text-gray-400">{wordCount} {t(wordCount === 1 ? 'word' : 'words')}</span>
+        <span data-testid="reading-time" className="text-xs text-gray-500 dark:text-gray-400">
+          {wordCount} {t(wordCount === 1 ? 'word' : 'words')} · {formatReadingTime(wordCount)}
+        </span>
       )}
       {saveStatus !== 'idle' && (
         <div aria-hidden="true" className={`text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5 ${
