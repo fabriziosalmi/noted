@@ -128,6 +128,7 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
   const [replacement, setReplacement] = useState('');
   const [showReplace, setShowReplace] = useState(false);
   const [caseSensitive, setCaseSensitive] = useState(false);
+  const [useRegex, setUseRegex] = useState(false);
   const [replacedCount, setReplacedCount] = useState<number | null>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
   // Mirrors the find plugin (lib/findHighlight), which keeps the matches right while the note is edited.
@@ -207,6 +208,12 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
     setCaseSensitive(next);
     showMatch({ caseSensitive: next, current: 0 });
   }, [caseSensitive, showMatch]);
+
+  const toggleRegex = useCallback(() => {
+    const next = !useRegex;
+    setUseRegex(next);
+    showMatch({ useRegex: next, current: 0 });
+  }, [useRegex, showMatch]);
 
   const replace = useCallback((all: boolean) => {
     if (!editor) return;
@@ -352,6 +359,10 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
           <button type="button" onClick={toggleCase} aria-pressed={caseSensitive} aria-label={t('findMatchCase')}
             className={`px-1 rounded text-[11px] font-semibold ${caseSensitive ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
             Aa
+          </button>
+          <button type="button" onClick={toggleRegex} aria-pressed={useRegex} aria-label={t('findUseRegex')}
+            className={`px-1 rounded text-[11px] font-semibold ${useRegex ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
+            .*
           </button>
           {findQuery && (
             <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0" role="status">

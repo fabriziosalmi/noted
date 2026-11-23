@@ -1186,6 +1186,7 @@
   "findReplaceAll": "Alle ersetzen",
   "findToggleReplace": "Ersetzen anzeigen",
   "findMatchCase": "Groß-/Kleinschreibung beachten",
+  "findUseRegex": "Regulären Ausdruck verwenden",
   "findReplacedCount": "{n} ersetzt",
   "formattingToolbar": "Formatierung",
   "toolbarMore": "Weitere Werkzeuge",
