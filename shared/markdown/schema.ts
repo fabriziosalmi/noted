@@ -204,7 +204,23 @@ export function documentExtensions(overrides: DocumentExtensionOverrides = {}): 
     TableHeader.extend({ addAttributes() { return { ...this.parent?.(), ...alignAttribute }; } }),
     Image.configure({ inline: false, allowBase64: true }),
     Mathematics,
-    Highlight,
+    Highlight.configure({ multicolor: true }).extend({
+      addAttributes() {
+        return {
+          color: {
+            default: null,
+            parseHTML: (element) => element.getAttribute('data-color') || element.style.backgroundColor || null,
+            renderHTML: (attributes) => {
+              if (!attributes.color) return {};
+              return {
+                'data-color': attributes.color,
+                style: `background-color: ${attributes.color}; color: inherit`,
+              };
+            },
+          },
+        };
+      },
+    }),
     overrides.link ?? Link.configure({ openOnClick: false }),
     overrides.wikilink ?? WikilinkMark,
     CommentMark,

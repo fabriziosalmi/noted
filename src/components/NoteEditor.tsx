@@ -37,6 +37,7 @@ import { ProgressiveSelectExtension } from '../lib/progressiveSelect';
 import { cycleTextCase, type TextCaseMode } from '../lib/textCase';
 import { computeTextStats, formatStatsLabel } from '../lib/selectionStats';
 import { parseTextTable, tableDataToHtml } from '../lib/textTable';
+import { SEMANTIC_HIGHLIGHTS, toggleSemanticHighlight } from '../lib/highlightColors';
 import { deriveTitle } from '../lib/noteTitle';
 import { planExternalChange } from '../lib/externalChange';
 import { attachImage, DEFAULT_ATTACHMENTS_FOLDER } from '../lib/imageAttach';
@@ -928,6 +929,21 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
             className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('highlight') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
             <Highlighter size={14} />
           </button>
+          {SEMANTIC_HIGHLIGHTS.map((h) => {
+            const active = editor.isActive('highlight', { color: h.color });
+            return (
+              <button
+                key={h.id}
+                type="button"
+                aria-label={`Highlight: ${h.label}`}
+                title={`Highlight: ${h.label}`}
+                onClick={() => toggleSemanticHighlight(editor, h.color)}
+                className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center ${active ? 'ring-1 ring-gray-500 dark:ring-gray-300' : ''}`}
+              >
+                <span className="w-2.5 h-2.5 rounded-full border border-black/15" style={{ backgroundColor: h.color }} />
+              </button>
+            );
+          })}
           <button type="button" aria-label={t('link')}
             onClick={async () => {
               const prev = (editor.getAttributes('link').href as string | undefined) ?? '';
