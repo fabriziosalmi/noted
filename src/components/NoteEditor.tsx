@@ -37,6 +37,7 @@ import { FindHighlight, findHighlightKey } from '../lib/findHighlight';
 import { WordFormatExtension } from '../lib/wordFormat';
 import { ProgressiveSelectExtension } from '../lib/progressiveSelect';
 import { DuplicateBlockExtension } from '../lib/duplicateBlock';
+import { MoveBlockExtension } from '../lib/moveBlock';
 import { cycleTextCase, type TextCaseMode } from '../lib/textCase';
 import { computeTextStats, formatReadingTime, formatStatsLabel } from '../lib/selectionStats';
 import { parseTextTable, tableDataToHtml } from '../lib/textTable';
@@ -460,6 +461,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       FindHighlight,
       ClearFormattingShortcut,
       DuplicateBlockExtension,
+      MoveBlockExtension,
       WordFormatExtension,
       ProgressiveSelectExtension,
     ],
