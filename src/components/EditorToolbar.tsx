@@ -6,6 +6,7 @@ import {
   Bold, Italic, Strikethrough, Heading1, Heading2, Heading3,
   Table as TableIcon, Code, Search, X, ChevronUp, ChevronDown, ChevronRight,
   List, ListOrdered, ListChecks, Quote, Sparkles, Highlighter, Link2, Undo2, Redo2, MoreHorizontal,
+  RemoveFormatting,
 } from 'lucide-react';
 import { findHighlightKey, replaceMatches, type FindMeta } from '../lib/findHighlight';
 import { promptForLink } from '../lib/linkPrompt';
@@ -262,6 +263,9 @@ export function EditorToolbar({ editor, showToolbar, showAiBar, onAiError, findO
     ],
     [
       { key: 'table', label: t('insertTable'), icon: <TableIcon size={15} />, onClick: () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
+    ],
+    [
+      { key: 'clear-formatting', label: t('clearFormatting'), icon: <RemoveFormatting size={15} />, onClick: () => editor.chain().focus().unsetAllMarks().clearNodes().run() },
     ],
     [
       { key: 'find', label: t('findAriaLabel'), icon: <Search size={15} />, pressed: findOpen, onClick: onOpenFind },

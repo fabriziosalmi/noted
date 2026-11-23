@@ -12,7 +12,7 @@ import { Link } from '@tiptap/extension-link';
 import { Focus } from '@tiptap/extension-focus';
 import { createLowlight, common } from 'lowlight';
 import 'katex/dist/katex.min.css';
-import { Bold, Italic, Strikethrough, Code, FileText, CheckCheck, AlertTriangle, Highlighter, Link2 } from 'lucide-react';
+import { Bold, Italic, Strikethrough, Code, FileText, CheckCheck, AlertTriangle, Highlighter, Link2, RemoveFormatting } from 'lucide-react';
 import { askLLM } from '../lib/llm';
 import { useStore, parseNoteFile } from '../store/useStore';
 import { WikilinkMark, createWikilinkHighlightPlugin } from '../lib/WikilinkExtension';
@@ -73,6 +73,15 @@ function resetUndoHistory(editor: Editor): void {
       .setMeta('addToHistory', false));
   }
 }
+
+const ClearFormattingShortcut = Extension.create({
+  name: 'clearFormattingShortcut',
+  addKeyboardShortcuts() {
+    return {
+      'Mod-\\': () => this.editor.chain().focus().unsetAllMarks().clearNodes().run(),
+    };
+  },
+});
 
 /** Where the caret and the scroll were in each note this session, so going back to a note lands where it was left. */
 const notePositions = new Map<string, { from: number; to: number; scrollTop: number }>();
@@ -438,6 +447,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       GhostTextExtension,
       PassageHighlight,
       FindHighlight,
+      ClearFormattingShortcut,
     ],
     content: activeNoteContent,
     editable: !useStore.getState().vaultConverting,
@@ -921,6 +931,10 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
             }}
             className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('link') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
             <Link2 size={14} />
+          </button>
+          <button type="button" aria-label={t('clearFormatting')} onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
+            className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
+            <RemoveFormatting size={14} />
           </button>
         </BubbleMenu>
       )}

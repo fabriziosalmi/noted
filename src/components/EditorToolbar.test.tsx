@@ -15,6 +15,8 @@ const zeroRect = () => ({ x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, widt
 Range.prototype.getClientRects ??= emptyRects;
 Range.prototype.getBoundingClientRect ??= zeroRect;
 
+const chainCalls: string[] = [];
+
 const mockEditor = {
   isActive: vi.fn().mockReturnValue(false),
   chain: vi.fn().mockImplementation(() => {
@@ -29,6 +31,8 @@ const mockEditor = {
       toggleOrderedList: () => chainObj,
       toggleBlockquote: () => chainObj,
       insertTable: () => chainObj,
+      unsetAllMarks: () => { chainCalls.push('unsetAllMarks'); return chainObj; },
+      clearNodes: () => { chainCalls.push('clearNodes'); return chainObj; },
       run: vi.fn(),
     };
     return chainObj;
@@ -65,6 +69,7 @@ describe('EditorToolbar', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    chainCalls.length = 0;
   });
 
   it('renders formatting buttons when showToolbar is true', () => {
@@ -421,5 +426,16 @@ describe('EditorToolbar', () => {
     expect(sparklesBtn).toBeInTheDocument();
     fireEvent.click(sparklesBtn);
     expect(onToggleAiBar).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears all marks and block nodes when Clear formatting is clicked', () => {
+    render(<EditorToolbar {...defaultProps} showToolbar={true} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear formatting' }));
+
+    expect(mockEditor.chain).toHaveBeenCalledTimes(1);
+    expect(chainCalls).toEqual(['unsetAllMarks', 'clearNodes']);
+    const chainObj = mockEditor.chain.mock.results[0].value;
+    expect(chainObj.run).toHaveBeenCalledTimes(1);
   });
 });
