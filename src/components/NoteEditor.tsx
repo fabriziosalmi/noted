@@ -32,6 +32,7 @@ import { SmartTagSuggestion } from './SmartTagSuggestion';
 import { GhostTextExtension, ghostTextKey } from '../lib/ghostTextExtension';
 import { PassageHighlight } from '../lib/passageHighlight';
 import { FindHighlight, findHighlightKey } from '../lib/findHighlight';
+import { WordFormatExtension } from '../lib/wordFormat';
 import { deriveTitle } from '../lib/noteTitle';
 import { planExternalChange } from '../lib/externalChange';
 import { attachImage, DEFAULT_ATTACHMENTS_FOLDER } from '../lib/imageAttach';
@@ -448,6 +449,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
       PassageHighlight,
       FindHighlight,
       ClearFormattingShortcut,
+      WordFormatExtension,
     ],
     content: activeNoteContent,
     editable: !useStore.getState().vaultConverting,
