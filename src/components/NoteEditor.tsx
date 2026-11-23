@@ -34,6 +34,7 @@ import { PassageHighlight } from '../lib/passageHighlight';
 import { FindHighlight, findHighlightKey } from '../lib/findHighlight';
 import { WordFormatExtension } from '../lib/wordFormat';
 import { cycleTextCase, type TextCaseMode } from '../lib/textCase';
+import { computeTextStats, formatStatsLabel } from '../lib/selectionStats';
 import { deriveTitle } from '../lib/noteTitle';
 import { planExternalChange } from '../lib/externalChange';
 import { attachImage, DEFAULT_ATTACHMENTS_FOLDER } from '../lib/imageAttach';
@@ -953,6 +954,17 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
             className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
             <RemoveFormatting size={14} />
           </button>
+          {(() => {
+            const { from, to, empty } = editor.state.selection;
+            if (empty) return null;
+            const label = formatStatsLabel(computeTextStats(editor.state.doc.textBetween(from, to, '\n')));
+            if (!label) return null;
+            return (
+              <span data-testid="selection-stats" className="px-1.5 text-[11px] text-gray-400 dark:text-gray-500 border-l border-gray-200 dark:border-gray-700 select-none self-center whitespace-nowrap">
+                {label}
+              </span>
+            );
+          })()}
         </BubbleMenu>
       )}
 
