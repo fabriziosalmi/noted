@@ -9,6 +9,8 @@ export interface FindState {
   query: string;
   /** Match upper and lower case as typed. */
   caseSensitive: boolean;
+  /** Treat `query` as a regular expression instead of literal text. */
+  useRegex: boolean;
   /** Index of the match the find bar is on. */
   current: number;
   matches: FindMatch[];
@@ -16,7 +18,7 @@ export interface FindState {
 }
 
 /** What the find bar sends: a new query, a new current match, or both. */
-export type FindMeta = Partial<Pick<FindState, 'query' | 'current' | 'caseSensitive'>>;
+export type FindMeta = Partial<Pick<FindState, 'query' | 'current' | 'caseSensitive' | 'useRegex'>>;
 
 export const findHighlightKey = new PluginKey<FindState>('findHighlight');
 
@@ -27,10 +29,21 @@ const OBJECT = '￼';
  * Every occurrence of `query`, ignoring case unless `caseSensitive`. The text of each block is searched as one string,
  * so a phrase that is partly bold or partly a link is still found.
  */
-export function findMatches(doc: ProseMirrorNode, query: string, caseSensitive = false): FindMatch[] {
+export function findMatches(doc: ProseMirrorNode, query: string, caseSensitive = false, useRegex = false): FindMatch[] {
   const results: FindMatch[] = [];
   if (!query.trim()) return results;
-  const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? 'g' : 'gi');
+  const flags = caseSensitive ? 'g' : 'gi';
+  const literal = () => new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
+  let regex: RegExp;
+  if (useRegex) {
+    try {
+      regex = new RegExp(query, flags);
+    } catch {
+      regex = literal(); // invalid pattern: fall back to literal matching rather than throwing
+    }
+  } else {
+    regex = literal();
+  }
   doc.descendants((node, pos) => {
     if (!node.isTextblock) return true;
     let text = '';
@@ -47,7 +60,10 @@ export function findMatches(doc: ProseMirrorNode, query: string, caseSensitive =
     });
     let m: RegExpExecArray | null;
     while ((m = regex.exec(text)) !== null) {
-      results.push({ from: at[m.index], to: at[m.index + m[0].length - 1] + 1 });
+      const start = m.index;
+      const end = start + m[0].length;
+      if (end > start) results.push({ from: at[start], to: at[end - 1] + 1 });
+      if (regex.lastIndex <= start) regex.lastIndex = start + 1; // a zero-length match would not advance on its own
     }
     return false;
   });
@@ -68,17 +84,18 @@ export const FindHighlight = Extension.create({
       new Plugin<FindState>({
         key: findHighlightKey,
         state: {
-          init: () => ({ query: '', caseSensitive: false, current: 0, matches: [], decorations: DecorationSet.empty }),
+          init: () => ({ query: '', caseSensitive: false, useRegex: false, current: 0, matches: [], decorations: DecorationSet.empty }),
           apply(tr, prev, _old, state) {
             const meta = tr.getMeta(findHighlightKey) as FindMeta | undefined;
             if (!meta && !tr.docChanged) return prev;
             const query = meta?.query ?? prev.query;
             const caseSensitive = meta?.caseSensitive ?? prev.caseSensitive;
-            if (!query.trim()) return { query, caseSensitive, current: 0, matches: [], decorations: DecorationSet.empty };
-            const matches = findMatches(state.doc, query, caseSensitive);
+            const useRegex = meta?.useRegex ?? prev.useRegex;
+            if (!query.trim()) return { query, caseSensitive, useRegex, current: 0, matches: [], decorations: DecorationSet.empty };
+            const matches = findMatches(state.doc, query, caseSensitive, useRegex);
             const wanted = meta?.current ?? prev.current;
             const current = matches.length === 0 ? 0 : Math.min(Math.max(wanted, 0), matches.length - 1);
-            return { query, caseSensitive, current, matches, decorations: decorate(state.doc, matches, current) };
+            return { query, caseSensitive, useRegex, current, matches, decorations: decorate(state.doc, matches, current) };
           },
         },
         props: { decorations: state => findHighlightKey.getState(state)?.decorations },
@@ -101,7 +118,7 @@ export function replaceMatches(view: EditorView, replacement: string, all: boole
     // On to the next match after the text just put in: when that text still matches ("iphone" -> "iPhone", "foo" ->
     // "foobar"), staying at the same index would replace it again and never reach the next one.
     const end = targets[0].from + replacement.length;
-    const next = findMatches(tr.doc, state.query, state.caseSensitive);
+    const next = findMatches(tr.doc, state.query, state.caseSensitive, state.useRegex);
     const at = next.findIndex(m => m.from >= end);
     tr = tr.setMeta(findHighlightKey, { current: at === -1 ? 0 : at });
   }

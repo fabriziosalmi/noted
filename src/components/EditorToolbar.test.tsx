@@ -3,7 +3,7 @@ import { act } from 'react';
 import { Editor } from '@tiptap/core';
 import { render, screen, fireEvent, within } from '../test/test-utils';
 import { documentExtensions } from '../../shared/markdown/schema';
-import { FindHighlight } from '../lib/findHighlight';
+import { FindHighlight, findHighlightKey } from '../lib/findHighlight';
 import { EditorToolbar } from './EditorToolbar';
 import { ShareMenu } from './ShareMenu';
 
@@ -281,6 +281,26 @@ describe('EditorToolbar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Match case' }));
     expect(screen.getByText('1/1')).toBeInTheDocument();
     expect(selected(editor)).toEqual({ from: 9, to: 12 });
+  });
+
+  it('matches a regular expression when the toggle is on', () => {
+    const editor = findEditor('<p>cat 123 dog 456</p>');
+    render(<EditorToolbar {...defaultProps} editor={editor} findOpen={true} />);
+    fireEvent.change(screen.getByPlaceholderText('Find in document...'), { target: { value: '\\d+' } });
+    expect(screen.getByText('0 results')).toBeInTheDocument();
+
+    const toggle = screen.getByRole('button', { name: 'Use regular expression' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(findHighlightKey.getState(editor.state)?.useRegex).toBe(true);
+    expect(findHighlightKey.getState(editor.state)?.matches).toHaveLength(2);
+    expect(screen.getByText('1/2')).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(findHighlightKey.getState(editor.state)?.useRegex).toBe(false);
+    expect(screen.getByText('0 results')).toBeInTheDocument();
   });
 
   it('shows the replace row when Find and replace is asked for', () => {

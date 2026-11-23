@@ -1186,6 +1186,7 @@
   "findReplaceAll": "Reemplazar todo",
   "findToggleReplace": "Mostrar reemplazar",
   "findMatchCase": "Coincidir mayúsculas y minúsculas",
+  "findUseRegex": "Usar expresión regular",
   "findReplacedCount": "{n} reemplazados",
   "formattingToolbar": "Formato",
   "toolbarMore": "Más herramientas",

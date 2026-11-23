@@ -1186,6 +1186,7 @@
   "findReplaceAll": "Tout remplacer",
   "findToggleReplace": "Afficher le remplacement",
   "findMatchCase": "Respecter la casse",
+  "findUseRegex": "Utiliser une expression régulière",
   "findReplacedCount": "{n} remplacé(s)",
   "formattingToolbar": "Mise en forme",
   "toolbarMore": "Plus d'outils",

@@ -69,7 +69,7 @@ function resetUndoHistory(editor: Editor): void {
   // and its Aa toggle follow (not an undo step).
   if (find?.query) {
     editor.view.dispatch(editor.state.tr
-      .setMeta(findHighlightKey, { query: find.query, caseSensitive: find.caseSensitive, current: 0 })
+      .setMeta(findHighlightKey, { query: find.query, caseSensitive: find.caseSensitive, useRegex: find.useRegex, current: 0 })
       .setMeta('addToHistory', false));
   }
 }
