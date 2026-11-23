@@ -43,4 +43,34 @@ describe('findMatches', () => {
     expect(found(d, 'plan')).toEqual(['Plan', 'plan', 'PLAN']);
     expect(findMatches(d, 'plan', true).map(m => d.textBetween(m.from, m.to))).toEqual(['plan']);
   });
+
+  it('treats regex characters literally when useRegex is absent or false', () => {
+    const d = doc(para(text('cost (a+b) is $5.00')));
+    expect(found(d, '(a+b)')).toEqual(['(a+b)']);
+    expect(findMatches(d, '(a+b)', false, false).map(m => d.textBetween(m.from, m.to))).toEqual(['(a+b)']);
+  });
+
+  it('matches a regex when useRegex is true', () => {
+    const d = doc(para(text('cat 42 cot 7 cut')));
+    expect(findMatches(d, 'c[a-z]t', false, true).map(m => d.textBetween(m.from, m.to))).toEqual(['cat', 'cot', 'cut']);
+    expect(findMatches(d, '\\d+', false, true).map(m => d.textBetween(m.from, m.to))).toEqual(['42', '7']);
+  });
+
+  it('respects caseSensitive together with useRegex', () => {
+    const d = doc(para(text('Plan and plan')));
+    expect(findMatches(d, 'plan', true, true).map(m => d.textBetween(m.from, m.to))).toEqual(['plan']);
+  });
+
+  it('falls back to literal matching for invalid regex syntax without throwing', () => {
+    const d = doc(para(text('a (b [c')));
+    expect(() => findMatches(d, '(b', false, true)).not.toThrow();
+    expect(findMatches(d, '(', false, true).map(m => d.textBetween(m.from, m.to))).toEqual(['(']);
+  });
+
+  it('does not loop forever on zero-length matches', () => {
+    const d = doc(para(text('ba')));
+    expect(findMatches(d, 'x*', false, true)).toEqual([]); // a pattern that only matches empty strings yields no spans
+    // a pattern with both a real match and zero-length matches terminates and keeps the real one
+    expect(findMatches(d, 'a*', false, true).map(m => d.textBetween(m.from, m.to))).toEqual(['a']);
+  });
 });
