@@ -1,6 +1,29 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { computeTextStats, formatStatsLabel } from './selectionStats';
+import { computeTextStats, formatReadingTime, formatStatsLabel } from './selectionStats';
+
+describe('formatReadingTime', () => {
+  it('is empty for zero, negative and non-finite word counts', () => {
+    expect(formatReadingTime(0)).toBe('');
+    expect(formatReadingTime(-5)).toBe('');
+    expect(formatReadingTime(NaN)).toBe('');
+    expect(formatReadingTime(Infinity)).toBe('');
+  });
+
+  it('rounds 1 and 200 words to one minute', () => {
+    expect(formatReadingTime(1)).toBe('~1 min');
+    expect(formatReadingTime(200)).toBe('~1 min');
+  });
+
+  it('rounds up past the minute boundary', () => {
+    expect(formatReadingTime(201)).toBe('~2 min');
+  });
+
+  it('honors a custom reading speed', () => {
+    expect(formatReadingTime(500, 100)).toBe('~5 min');
+    expect(formatReadingTime(501, 100)).toBe('~6 min');
+  });
+});
 
 describe('computeTextStats', () => {
   it('returns zeros for an empty string', () => {
