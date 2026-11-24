@@ -12,7 +12,7 @@ import { Link } from '@tiptap/extension-link';
 import { Focus } from '@tiptap/extension-focus';
 import { createLowlight, common } from 'lowlight';
 import 'katex/dist/katex.min.css';
-import { Bold, Italic, Strikethrough, Code, FileText, CheckCheck, AlertTriangle, Highlighter, Link2, RemoveFormatting, Table as TableIcon, ListTree, Copy, ArrowUpDown, ArrowDownUp, Eraser, WrapText, ListOrdered, Quote } from 'lucide-react';
+import { Bold, Italic, Strikethrough, Code, FileText, CheckCheck, AlertTriangle, Highlighter, Link2, RemoveFormatting, Table as TableIcon, ListTree, Copy, ArrowUpDown, ArrowDownUp, Eraser, WrapText, ListOrdered, Quote, List } from 'lucide-react';
 import { askLLM } from '../lib/llm';
 import { useStore, parseNoteFile } from '../store/useStore';
 import { WikilinkMark, createWikilinkHighlightPlugin } from '../lib/WikilinkExtension';
@@ -1146,6 +1146,19 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
                 }}
                 className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
                 <Quote size={14} />
+              </button>
+            );
+          })()}
+          {(() => {
+            const { from, to, empty } = editor.state.selection;
+            if (empty) return null;
+            const selected = editor.state.doc.textBetween(from, to, '\n');
+            if (!selected.includes('\n')) return null;
+            return (
+              <button type="button" aria-label="Bullet lines" title="Bullet lines"
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
+                <List size={14} />
               </button>
             );
           })()}
