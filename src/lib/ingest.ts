@@ -12,7 +12,7 @@ import {
   clipForModel, composeSourceNote, parseSummary, relatedNotes, sourceNoteName, SUMMARY_SYSTEM, tidy,
   type SourceNoteInput, type SourceSummary,
 } from '../../shared/ingest/source';
-import type { Reviewable } from '../../shared/diff/hunks';
+import { compose, type Reviewable } from '../../shared/diff/hunks';
 import { MIN_SUPPORTING_SIMILARITY } from '../../shared/search/citations';
 
 export type IngestInput = { kind: 'url'; url: string } | { kind: 'text'; text: string; title: string };
@@ -160,7 +160,6 @@ export function buildNote(prepared: Prepared, title: string) {
 
 /** Writes the note: with the related links that were kept, in `sources/`, under a name that is not taken. Returns the name. */
 export async function writeSourceNote(prepared: Prepared, title: string, kept: ReadonlySet<number>, taken: ReadonlySet<string>, syncDir: string | undefined): Promise<string> {
-  const { compose } = await import('../../shared/diff/hunks');
   const note = buildNote(prepared, title);
   const markdown = tidy(compose(note.before, note.after, note.review, kept), prepared.input.labels.related);
   const name = sourceNoteName(title.trim() || prepared.input.title, taken);

@@ -202,6 +202,9 @@ test.describe('editor essentials', () => {
       BrowserWindow.getAllWindows()[0].focus();
     });
     await expect.poll(() => win.evaluate(() => document.hasFocus())).toBe(true);
+    // Ensure ProseMirror itself has synced the DOM selection and holds focus before ⌘K (#234).
+    await expect.poll(() => win.evaluate(() => Boolean(document.activeElement?.closest('[contenteditable="true"]')))).toBe(true);
+    await expect(win.getByTestId('selection-stats')).toBeVisible();
     await win.keyboard.press(`${MOD}+KeyK`);
     const input = win.getByPlaceholder('https://example.com');
     await input.fill('https://example.com/plan');

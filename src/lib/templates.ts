@@ -1,4 +1,4 @@
-import { translate, type TranslationKey } from './i18n';
+import { translate, type TranslationKey } from './translate';
 
 export type TemplateIconName =
   | 'meeting'

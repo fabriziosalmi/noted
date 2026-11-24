@@ -78,6 +78,7 @@ export function EditorBubbleMenu({ editor, prompt }: EditorBubbleMenuProps) {
       <button
         type="button"
         aria-label={t('bold')}
+        title={t('bold')}
         onClick={() => editor.chain().focus().toggleBold().run()}
         className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('bold') ? BTN_ACTIVE : 'text-gray-600 dark:text-gray-300'}`}
       >
@@ -86,6 +87,7 @@ export function EditorBubbleMenu({ editor, prompt }: EditorBubbleMenuProps) {
       <button
         type="button"
         aria-label={t('italic')}
+        title={t('italic')}
         onClick={() => editor.chain().focus().toggleItalic().run()}
         className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('italic') ? BTN_ACTIVE : 'text-gray-600 dark:text-gray-300'}`}
       >
@@ -94,6 +96,7 @@ export function EditorBubbleMenu({ editor, prompt }: EditorBubbleMenuProps) {
       <button
         type="button"
         aria-label={t('strikethrough')}
+        title={t('strikethrough')}
         onClick={() => editor.chain().focus().toggleStrike().run()}
         className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('strike') ? BTN_ACTIVE : 'text-gray-600 dark:text-gray-300'}`}
       >
@@ -102,6 +105,7 @@ export function EditorBubbleMenu({ editor, prompt }: EditorBubbleMenuProps) {
       <button
         type="button"
         aria-label={t('inlineCode')}
+        title={t('inlineCode')}
         onClick={() => editor.chain().focus().toggleCode().run()}
         className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('code') ? BTN_ACTIVE : 'text-gray-600 dark:text-gray-300'}`}
       >
@@ -110,6 +114,7 @@ export function EditorBubbleMenu({ editor, prompt }: EditorBubbleMenuProps) {
       <button
         type="button"
         aria-label={t('highlight')}
+        title={t('highlight')}
         onClick={() => editor.chain().focus().toggleHighlight().run()}
         className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('highlight') ? BTN_ACTIVE : 'text-gray-600 dark:text-gray-300'}`}
       >
@@ -133,6 +138,7 @@ export function EditorBubbleMenu({ editor, prompt }: EditorBubbleMenuProps) {
       <button
         type="button"
         aria-label={t('link')}
+        title={t('link')}
         onClick={async () => {
           const prev = (editor.getAttributes('link').href as string | undefined) ?? '';
           const url = await prompt({
@@ -156,6 +162,7 @@ export function EditorBubbleMenu({ editor, prompt }: EditorBubbleMenuProps) {
       <button
         type="button"
         aria-label="Change case"
+        title="Change case"
         onClick={() => {
           if (!selectedText) return;
           const { mode, text } = cycleTextCase(selectedText, caseModeRef.current);
@@ -169,6 +176,7 @@ export function EditorBubbleMenu({ editor, prompt }: EditorBubbleMenuProps) {
       <button
         type="button"
         aria-label={t('clearFormatting')}
+        title={t('clearFormatting')}
         onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
         className={BTN_BASE}
       >
@@ -227,6 +235,7 @@ export function EditorBubbleMenu({ editor, prompt }: EditorBubbleMenuProps) {
             <button
               type="button"
               aria-label="Convert to table"
+              title="Convert to table"
               onClick={() => editor.chain().focus().deleteSelection().insertContent(tableDataToHtml(tableRows)).run()}
               className={BTN_BASE}
             >

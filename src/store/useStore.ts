@@ -14,7 +14,7 @@ import type { HeadingChange, VaultWatchStatus } from '../types';
 import type { FieldValue } from '../../shared/vault/fields';
 import { blankView, newViewId, type View } from '../../shared/views/model';
 import { slugifyTitle } from '../lib/noteTitle';
-import { translate } from '../lib/i18n';
+import { translate } from '../lib/translate';
 import { getElectronApi } from '../lib/electronApi';
 import {
   extractHtmlFrontmatterComment,
