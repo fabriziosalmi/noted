@@ -3,6 +3,8 @@
 version: 2
 updates:
   - package-ecosystem: npm
+    cooldown:
+      default-days: 7
     directory: /
     schedule:
       interval: weekly
@@ -21,6 +23,8 @@ updates:
       - dependency-name: katex
         versions: ['>=0.19.0']
   - package-ecosystem: npm
+    cooldown:
+      default-days: 7
     directory: /mcp-server/runtime
     schedule:
       interval: weekly
@@ -29,10 +33,14 @@ updates:
       - dependency-name: jsdom
         update-types: ['version-update:semver-major']
   - package-ecosystem: npm
+    cooldown:
+      default-days: 7
     directory: /docs
     schedule:
       interval: monthly
   - package-ecosystem: github-actions
+    cooldown:
+      default-days: 7
     directory: /
     schedule:
       interval: weekly
