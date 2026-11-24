@@ -2,7 +2,6 @@ import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n } from '../lib/i18n';
 import { useEditor, EditorContent, ReactNodeViewRenderer, type Editor } from '@tiptap/react';
-import { BubbleMenu } from '@tiptap/react/menus';
 import Placeholder from '@tiptap/extension-placeholder';
 import Typography from '@tiptap/extension-typography';
 import { Table } from '@tiptap/extension-table';
@@ -12,7 +11,7 @@ import { Link } from '@tiptap/extension-link';
 import { Focus } from '@tiptap/extension-focus';
 import { createLowlight, common } from 'lowlight';
 import 'katex/dist/katex.min.css';
-import { Bold, Italic, Strikethrough, Code, FileText, CheckCheck, AlertTriangle, Highlighter, Link2, RemoveFormatting, Table as TableIcon, ListTree, Copy, ArrowUpDown, ArrowDownUp, Eraser, WrapText, ListOrdered, Quote } from 'lucide-react';
+import { FileText, CheckCheck, AlertTriangle, ListTree } from 'lucide-react';
 import { askLLM } from '../lib/llm';
 import { useStore, parseNoteFile } from '../store/useStore';
 import { WikilinkMark, createWikilinkHighlightPlugin } from '../lib/WikilinkExtension';
@@ -31,6 +30,7 @@ import { CodeBlockView } from './CodeBlockView';
 import { SlashCommands } from './SlashCommands';
 import { SmartTagSuggestion } from './SmartTagSuggestion';
 import { TableBar } from './TableBar';
+import { EditorBubbleMenu } from './EditorBubbleMenu';
 import { GhostTextExtension, ghostTextKey } from '../lib/ghostTextExtension';
 import { PassageHighlight } from '../lib/passageHighlight';
 import { FindHighlight, findHighlightKey } from '../lib/findHighlight';
@@ -38,18 +38,7 @@ import { WordFormatExtension } from '../lib/wordFormat';
 import { ProgressiveSelectExtension } from '../lib/progressiveSelect';
 import { DuplicateBlockExtension } from '../lib/duplicateBlock';
 import { MoveBlockExtension } from '../lib/moveBlock';
-import { copySelectionAsMarkdown } from '../lib/copySelectionMd';
-import { toggleSortLines } from '../lib/sortLines';
-import { removeBlankAndDuplicateLines } from '../lib/cleanLines';
-import { joinSelectedLines } from '../lib/joinLines';
-import { toggleNumberLines } from '../lib/numberLines';
-import { reverseSelectedLines } from '../lib/reverseLines';
-import { toggleQuoteLines } from '../lib/quoteLines';
-import { CALLOUT_KINDS, toggleWrapCallout } from '../lib/calloutWrap';
-import { cycleTextCase, type TextCaseMode } from '../lib/textCase';
-import { computeTextStats, formatReadingTime, formatStatsLabel } from '../lib/selectionStats';
-import { parseTextTable, tableDataToHtml } from '../lib/textTable';
-import { SEMANTIC_HIGHLIGHTS, toggleSemanticHighlight } from '../lib/highlightColors';
+import { formatReadingTime } from '../lib/selectionStats';
 import { deriveTitle } from '../lib/noteTitle';
 import { planExternalChange } from '../lib/externalChange';
 import { attachImage, DEFAULT_ATTACHMENTS_FOLDER } from '../lib/imageAttach';
@@ -163,7 +152,6 @@ function hasShortcutModifier(event: Pick<MouseEvent, 'metaKey' | 'ctrlKey' | 'al
 export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, onEditorReady, onWordCountChange, onAiError, allNoteNames = [], allTags = [], backlinks = [], onSelectNote, notesCount = 0, onCreateNote, onOpenDaily, onOpenSettings, onOpenShortcuts, onNotice, statusHost }: NoteEditorProps) {
   const { t } = useI18n();
   const prompt = usePrompt();
-  const caseModeRef = useRef<TextCaseMode>('lower');
   const llmProvider = useStore(s => s.settings.llmProvider);
   const llmApiKey = useStore(s => s.settings.llmApiKey);
   const llmModel = useStore(s => s.settings.llmModel);
@@ -255,6 +243,9 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   // so it can be flushed to the right file before a switch/close even if the
   // active note has already changed.
   const pendingSaveRef = useRef<{ name: string; content: string; frontmatter: string | null } | null>(null);
+  // Active save promise currently in flight so flushPending waits for it instead
+  // of starting a concurrent second write for the same note (#243).
+  const inFlightSaveRef = useRef<Promise<void> | null>(null);
   // The editor's own HTML for the content it last loaded or saved. Opening a note
   // makes the editor emit an update that arms an autosave of the UNCHANGED text;
   // comparing the pending buffer with this baseline tells that echo apart from
@@ -276,14 +267,28 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     if (kept) onNoticeRef.current?.(tRef.current('noteKeptBoth').replace('{name}', kept.replace(/\.md$/i, '')), 'error');
   };
 
-  // Drain the pending autosave immediately to its captured note (durability).
+  // Drain any in-flight and/or pending autosave sequentially to its captured note (durability).
   const flushPending = useCallback((): Promise<void> => {
+    const prevInFlight = inFlightSaveRef.current;
     const pending = pendingSaveRef.current;
-    if (!pending) return Promise.resolve();
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
     pendingSaveRef.current = null;
-    if (pending.content === baselineHtmlRef.current) return Promise.resolve();
-    return useStore.getState().flushNoteToDisk(pending.name, pending.content, pending.frontmatter).then(announceKept);
+    if (!pending) return prevInFlight ?? Promise.resolve();
+    const runFlush = (): Promise<void> => {
+      if (pending.content === baselineHtmlRef.current) return Promise.resolve();
+      return useStore.getState()
+        .flushNoteToDisk(pending.name, pending.content, pending.frontmatter)
+        .then((kept) => {
+          announceKept(kept);
+          baselineHtmlRef.current = pending.content;
+        });
+    };
+    const next = (prevInFlight ? prevInFlight.catch(() => undefined).then(runFlush) : runFlush());
+    const tracked = next.finally(() => {
+      if (inFlightSaveRef.current === tracked) inFlightSaveRef.current = null;
+    });
+    inFlightSaveRef.current = tracked;
+    return tracked;
   }, []);
 
   // Let a vault-wide rewrite (the format conversion) wait for what is typed but not yet saved.
@@ -298,20 +303,31 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   const flushSave = useCallback(async (content: string) => {
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
     if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    const prevInFlight = inFlightSaveRef.current;
+    const snap = pendingSaveRef.current;
+    pendingSaveRef.current = null;
     setSaveStatus('saving');
-    try {
-      announceKept(await saveActiveNote(content));
-      pendingSaveRef.current = null;
-      baselineHtmlRef.current = content;
-      if (mountedRef.current) {
-        setSaveStatus('saved');
-        savedTimerRef.current = setTimeout(() => { if (mountedRef.current) setSaveStatus('idle'); }, 1500);
+    const run = (async () => {
+      if (prevInFlight) await prevInFlight.catch(() => undefined);
+      try {
+        announceKept(await saveActiveNote(content));
+        baselineHtmlRef.current = content;
+        if (mountedRef.current) {
+          setSaveStatus('saved');
+          savedTimerRef.current = setTimeout(() => { if (mountedRef.current) setSaveStatus('idle'); }, 1500);
+        }
+      } catch {
+        // Keep the editor buffer as-is (dirty) and surface the failure — never
+        // report "Saved" over a write that didn't land.
+        if (!pendingSaveRef.current && snap) pendingSaveRef.current = snap;
+        if (mountedRef.current) setSaveStatus('error');
       }
-    } catch {
-      // Keep the editor buffer as-is (dirty) and surface the failure — never
-      // report "Saved" over a write that didn't land.
-      if (mountedRef.current) setSaveStatus('error');
-    }
+    })();
+    const tracked = run.finally(() => {
+      if (inFlightSaveRef.current === tracked) inFlightSaveRef.current = null;
+    });
+    inFlightSaveRef.current = tracked;
+    await tracked;
   }, [saveActiveNote]);
 
   const debouncedSave = useCallback((content: string) => {
@@ -320,24 +336,34 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     const st = useStore.getState();
     pendingSaveRef.current = { name: st.activeNoteName ?? '', content, frontmatter: st.activeNoteFrontmatter };
     setSaveStatus('saving');
-    saveTimerRef.current = setTimeout(async () => {
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      const snap = pendingSaveRef.current;
+      pendingSaveRef.current = null;
       if (isUnchanged(content)) {
-        pendingSaveRef.current = null;
         if (mountedRef.current) setSaveStatus('idle');
         return;
       }
-      try {
-        announceKept(await saveActiveNote(content));
-        pendingSaveRef.current = null;
-        baselineHtmlRef.current = content;
-        if (mountedRef.current) {
-          setSaveStatus('saved');
-          savedTimerRef.current = setTimeout(() => { if (mountedRef.current) setSaveStatus('idle'); }, 1500);
+      const prevInFlight = inFlightSaveRef.current;
+      const run = (async () => {
+        if (prevInFlight) await prevInFlight.catch(() => undefined);
+        try {
+          announceKept(await saveActiveNote(content));
+          baselineHtmlRef.current = content;
+          if (mountedRef.current) {
+            setSaveStatus('saved');
+            savedTimerRef.current = setTimeout(() => { if (mountedRef.current) setSaveStatus('idle'); }, 1500);
+          }
+        } catch {
+          // Restore pendingSaveRef so a later flush (switch/close) retries the write.
+          if (!pendingSaveRef.current && snap) pendingSaveRef.current = snap;
+          if (mountedRef.current) setSaveStatus('error');
         }
-      } catch {
-        // Keep pendingSaveRef so a later flush (switch/close) retries the write.
-        if (mountedRef.current) setSaveStatus('error');
-      }
+      })();
+      const tracked = run.finally(() => {
+        if (inFlightSaveRef.current === tracked) inFlightSaveRef.current = null;
+      });
+      inFlightSaveRef.current = tracked;
     }, 600);
   }, [saveActiveNote]);
 
@@ -753,25 +779,17 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     const api = getElectronApi();
     if (!api?.onFlushBeforeQuit) return;
     return api.onFlushBeforeQuit(() => {
-      const pending = pendingSaveRef.current && pendingSaveRef.current.content !== baselineHtmlRef.current ? pendingSaveRef.current : null;
-      pendingSaveRef.current = null;
-      // After the note is on disk: settle a held-back link rewrite (never prompting
-      // — nobody is there to answer), so quitting right after a retitle does not
-      // leave other notes linking to the old name.
+      // After any in-flight or pending note save lands on disk: settle a held-back
+      // link rewrite (never prompting — nobody is there to answer), so quitting
+      // right after a retitle does not leave other notes linking to the old name.
       const ack = () => {
         void useStore.getState().flushPendingLinkRewrite({ quiet: true })
           .catch(() => undefined)
           .finally(() => api.notifyFlushed?.());
       };
-      if (pending?.name) {
-        void useStore.getState()
-          .flushNoteToDisk(pending.name, pending.content, pending.frontmatter)
-          .finally(ack);
-      } else {
-        ack();
-      }
+      void flushPending().catch(() => undefined).finally(ack);
     });
-  }, []);
+  }, [flushPending]);
 
   // Capture-time project cohesion: when the title you're typing recurs across
   // notes, surface a nudge to group them under a #project/ tag.
@@ -964,219 +982,7 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   return (
     <>
       {/* Bubble menu for inline selection formatting */}
-      {editor && (
-        // @ts-expect-error tippyOptions valid but untyped
-        <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }} className="flex space-x-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-lg p-1">
-          <button type="button" aria-label={t('bold')} onClick={() => editor.chain().focus().toggleBold().run()}
-            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('bold') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
-            <Bold size={14} />
-          </button>
-          <button type="button" aria-label={t('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}
-            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('italic') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
-            <Italic size={14} />
-          </button>
-          <button type="button" aria-label={t('strikethrough')} onClick={() => editor.chain().focus().toggleStrike().run()}
-            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('strike') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
-            <Strikethrough size={14} />
-          </button>
-          <button type="button" aria-label={t('inlineCode')} onClick={() => editor.chain().focus().toggleCode().run()}
-            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('code') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
-            <Code size={14} />
-          </button>
-          <button type="button" aria-label={t('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()}
-            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('highlight') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
-            <Highlighter size={14} />
-          </button>
-          {SEMANTIC_HIGHLIGHTS.map((h) => {
-            const active = editor.isActive('highlight', { color: h.color });
-            return (
-              <button
-                key={h.id}
-                type="button"
-                aria-label={`Highlight: ${h.label}`}
-                title={`Highlight: ${h.label}`}
-                onClick={() => toggleSemanticHighlight(editor, h.color)}
-                className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center ${active ? 'ring-1 ring-gray-500 dark:ring-gray-300' : ''}`}
-              >
-                <span className="w-2.5 h-2.5 rounded-full border border-black/15" style={{ backgroundColor: h.color }} />
-              </button>
-            );
-          })}
-          <button type="button" aria-label={t('link')}
-            onClick={async () => {
-              const prev = (editor.getAttributes('link').href as string | undefined) ?? '';
-              const url = await prompt({ title: t('linkPromptTitle'), placeholder: 'https://example.com', defaultValue: prev, confirmLabel: t('linkApply') });
-              if (url === null) return; // cancelled
-              const href = url.trim();
-              if (!href) { editor.chain().focus().extendMarkRange('link').unsetLink().run(); return; }
-              editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
-            }}
-            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${editor.isActive('link') ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>
-            <Link2 size={14} />
-          </button>
-          <button type="button" aria-label="Change case"
-            onClick={() => {
-              const { from, to, empty } = editor.state.selection;
-              if (empty) return;
-              const selected = editor.state.doc.textBetween(from, to, '\n');
-              if (!selected) return;
-              const { mode, text } = cycleTextCase(selected, caseModeRef.current);
-              caseModeRef.current = mode;
-              editor.chain().focus().insertContentAt({ from, to }, text).setTextSelection({ from, to: from + text.length }).run();
-            }}
-            className="px-1.5 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-[11px] font-semibold leading-none">
-            Aa
-          </button>
-          <button type="button" aria-label={t('clearFormatting')} onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
-            className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-            <RemoveFormatting size={14} />
-          </button>
-          <button type="button" aria-label="Copy as Markdown" title="Copy as Markdown"
-            onClick={() => { void copySelectionAsMarkdown(editor); }}
-            className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-            <Copy size={14} />
-          </button>
-          <span className="flex items-center border-l border-gray-200 dark:border-gray-700 pl-1 gap-0.5">
-            {CALLOUT_KINDS.map((c) => {
-              const active = editor.isActive('callout', { kind: c.kind });
-              return (
-                <button
-                  key={c.kind}
-                  type="button"
-                  aria-label={`Callout ${c.label}`}
-                  title={`Wrap in ${c.label} callout`}
-                  onClick={() => toggleWrapCallout(editor, c.kind)}
-                  className={`px-1.5 py-0.5 rounded text-[11px] font-medium ${active ? 'bg-gray-200 dark:bg-gray-700 text-black dark:text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-                >
-                  {c.label}
-                </button>
-              );
-            })}
-          </span>
-          {(() => {
-            const { from, to, empty } = editor.state.selection;
-            if (empty) return null;
-            const selected = editor.state.doc.textBetween(from, to, '\n');
-            if (!selected.includes('\n')) return null;
-            return (
-              <button type="button" aria-label="Sort lines" title="Sort lines"
-                onClick={() => {
-                  const sorted = toggleSortLines(selected);
-                  editor.chain().focus().insertContentAt({ from, to }, sorted).setTextSelection({ from, to: from + sorted.length }).run();
-                }}
-                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-                <ArrowUpDown size={14} />
-              </button>
-            );
-          })()}
-          {(() => {
-            const { from, to, empty } = editor.state.selection;
-            if (empty) return null;
-            const selected = editor.state.doc.textBetween(from, to, '\n');
-            if (!selected.includes('\n')) return null;
-            return (
-              <button type="button" aria-label="Remove blank and duplicate lines" title="Remove blank & duplicate lines"
-                onClick={() => {
-                  const cleaned = removeBlankAndDuplicateLines(selected);
-                  editor.chain().focus().insertContentAt({ from, to }, cleaned).setTextSelection({ from, to: from + cleaned.length }).run();
-                }}
-                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-                <Eraser size={14} />
-              </button>
-            );
-          })()}
-          {(() => {
-            const { from, to, empty } = editor.state.selection;
-            if (empty) return null;
-            const selected = editor.state.doc.textBetween(from, to, '\n');
-            if (!selected.includes('\n')) return null;
-            return (
-              <button type="button" aria-label="Join lines" title="Join lines"
-                onClick={() => {
-                  const joined = joinSelectedLines(selected);
-                  editor.chain().focus().insertContentAt({ from, to }, joined).setTextSelection({ from, to: from + joined.length }).run();
-                }}
-                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-                <WrapText size={14} />
-              </button>
-            );
-          })()}
-          {(() => {
-            const { from, to, empty } = editor.state.selection;
-            if (empty) return null;
-            const selected = editor.state.doc.textBetween(from, to, '\n');
-            if (!selected.includes('\n')) return null;
-            return (
-              <button type="button" aria-label="Number lines" title="Number lines"
-                onClick={() => {
-                  const numbered = toggleNumberLines(selected);
-                  editor.chain().focus().insertContentAt({ from, to }, numbered).setTextSelection({ from, to: from + numbered.length }).run();
-                }}
-                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-                <ListOrdered size={14} />
-              </button>
-            );
-          })()}
-          {(() => {
-            const { from, to, empty } = editor.state.selection;
-            if (empty) return null;
-            const selected = editor.state.doc.textBetween(from, to, '\n');
-            if (!selected.includes('\n')) return null;
-            return (
-              <button type="button" aria-label="Reverse lines" title="Reverse lines"
-                onClick={() => {
-                  const reversed = reverseSelectedLines(selected);
-                  editor.chain().focus().insertContentAt({ from, to }, reversed).setTextSelection({ from, to: from + reversed.length }).run();
-                }}
-                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-                <ArrowDownUp size={14} />
-              </button>
-            );
-          })()}
-          {(() => {
-            const { from, to, empty } = editor.state.selection;
-            if (empty) return null;
-            const selected = editor.state.doc.textBetween(from, to, '\n');
-            if (!selected.includes('\n')) return null;
-            return (
-              <button type="button" aria-label="Quote lines" title="Quote lines"
-                onClick={() => {
-                  const quoted = toggleQuoteLines(selected);
-                  editor.chain().focus().insertContentAt({ from, to }, quoted).setTextSelection({ from, to: from + quoted.length }).run();
-                }}
-                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-                <Quote size={14} />
-              </button>
-            );
-          })()}
-          {(() => {
-            const { from, to, empty } = editor.state.selection;
-            if (empty) return null;
-            const selected = editor.state.doc.textBetween(from, to, '\n');
-            if (!selected.includes('\n')) return null;
-            const rows = parseTextTable(selected);
-            if (rows.length < 2 || rows[0].length < 2) return null;
-            return (
-              <button type="button" aria-label="Convert to table"
-                onClick={() => editor.chain().focus().deleteSelection().insertContent(tableDataToHtml(rows)).run()}
-                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-                <TableIcon size={14} />
-              </button>
-            );
-          })()}
-          {(() => {
-            const { from, to, empty } = editor.state.selection;
-            if (empty) return null;
-            const label = formatStatsLabel(computeTextStats(editor.state.doc.textBetween(from, to, '\n')));
-            if (!label) return null;
-            return (
-              <span data-testid="selection-stats" className="px-1.5 text-[11px] text-gray-400 dark:text-gray-500 border-l border-gray-200 dark:border-gray-700 select-none self-center whitespace-nowrap">
-                {label}
-              </span>
-            );
-          })()}
-        </BubbleMenu>
-      )}
+      {editor && <EditorBubbleMenu editor={editor} prompt={prompt} />}
 
       {projectSuggestion && (
         <ProjectSuggestionHint

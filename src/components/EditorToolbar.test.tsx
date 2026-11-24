@@ -5,7 +5,33 @@ import { render, screen, fireEvent, within } from '../test/test-utils';
 import { documentExtensions } from '../../shared/markdown/schema';
 import { FindHighlight, findHighlightKey } from '../lib/findHighlight';
 import { EditorToolbar } from './EditorToolbar';
+import { NoteEditor } from './NoteEditor';
 import { ShareMenu } from './ShareMenu';
+
+// Render the selection menu inline because jsdom cannot position floating menus.
+vi.mock('@tiptap/react/menus', () => ({ BubbleMenu: ({ children }: { children: React.ReactNode }) => children }));
+
+it('toggles selected paragraphs as list items and preserves inline formatting on removal', () => {
+  const content = '<p><strong>one</strong></p><p>two</p><p>outside</p>';
+  let editor!: Editor;
+  const props = {
+    activeNoteName: 'sample.md',
+    activeNoteContent: content,
+    saveActiveNote: vi.fn().mockResolvedValue(null),
+    onEditorReady: (value: Editor | null) => { if (value) editor = value; },
+  };
+  const { rerender } = render(<NoteEditor {...props} />);
+  expect(screen.queryByRole('button', { name: 'Bullet lines' })).toBeNull();
+  act(() => { editor.commands.setTextSelection({ from: 1, to: editor.state.doc.child(0).nodeSize + editor.state.doc.child(1).nodeSize - 1 }); });
+  rerender(<NoteEditor {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Bullet lines' }));
+  const list = editor.state.doc.firstChild!;
+  expect(list.type.name).toBe('bulletList');
+  expect(list.childCount).toBe(2);
+  expect(list.firstChild?.type.name).toBe('listItem');
+  fireEvent.click(screen.getByRole('button', { name: 'Bullet lines' }));
+  expect(editor.getHTML()).toBe(content);
+});
 
 const editors: Editor[] = [];
 afterEach(() => { for (const e of editors.splice(0)) { e.destroy(); e.options.element?.remove(); } });

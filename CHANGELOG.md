@@ -6,6 +6,23 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Selection BubbleMenu line and text transforms.** Selecting text now offers semantic highlight colors, case cycling (`Aa`), clear formatting (`Mod+\`), Copy as Markdown, live selection word/character/token stats, Callout wrapping, text-to-table conversion, and multi-line transforms (sort, remove blank/duplicate, join, number, reverse, quote, bullet). The menu wraps cleanly inside the viewport instead of overflowing horizontally.
+- **Faster keyboard editing and navigation.** Added `Mod+Shift+D` to duplicate the current block, `Alt+Up`/`Alt+Down` to move blocks, `F8` progressive selection (word -> sentence -> block), word-under-caret formatting for `Mod+B`/`Mod+I`/`Mod+\``, a contextual `TableBar` when the cursor is inside a table, regex toggle in Find & Replace, estimated reading time in the status bar, and a quick jump-to-heading menu.
+
+### Changed
+
+- **Electron 45.2.1 and async secret encryption.** Upgraded Electron from 44.10.1 to 45.2.1 and migrated API key / GitHub token encryption to the async `safeStorage` API required for Electron 46 compatibility.
+
+### Fixed
+
+- **Flushing during an in-flight autosave no longer writes twice (#243).** Switching notes, converting vault format, or quitting while a debounced autosave is already in flight now waits for that save to finish before flushing any newer edit, preventing spurious `(other version)` conflict copies.
+
+### Security
+
+- **Toolchain and docs dependency updates.** Updated `minimatch` to 11.0.9 (GHSA-g3hv-75wg-m249), `vite` in the docs site to 6.4.5, and `undici`.
+
 ## [1.9.1] - 2026-10-18
 
 ### Fixed
