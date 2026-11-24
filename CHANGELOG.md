@@ -575,7 +575,8 @@ The first cross-platform release, and the first that keeps itself up to date.
   backlinks, full-text search, multi-provider AI, Git integration, export, quick
   capture, and a built-in MCP server.
 
-[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.9.1...HEAD
+[Unreleased]: https://github.com/fabriziosalmi/noted/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/fabriziosalmi/noted/compare/v1.9.1...v1.10.0
 [1.9.1]: https://github.com/fabriziosalmi/noted/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/fabriziosalmi/noted/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/fabriziosalmi/noted/compare/v1.7.1...v1.8.0
