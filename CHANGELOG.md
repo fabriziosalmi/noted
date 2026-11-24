@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-11-24
+
 ### Added
 
 - **Selection BubbleMenu line and text transforms.** Selecting text now offers semantic highlight colors, case cycling (`Aa`), clear formatting (`Mod+\`), Copy as Markdown, live selection word/character/token stats, Callout wrapping, text-to-table conversion, and multi-line transforms (sort, remove blank/duplicate, join, number, reverse, quote, bullet). The menu wraps cleanly inside the viewport instead of overflowing horizontally.
