@@ -255,6 +255,9 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   // so it can be flushed to the right file before a switch/close even if the
   // active note has already changed.
   const pendingSaveRef = useRef<{ name: string; content: string; frontmatter: string | null } | null>(null);
+  // Active save promise currently in flight so flushPending waits for it instead
+  // of starting a concurrent second write for the same note (#243).
+  const inFlightSaveRef = useRef<Promise<void> | null>(null);
   // The editor's own HTML for the content it last loaded or saved. Opening a note
   // makes the editor emit an update that arms an autosave of the UNCHANGED text;
   // comparing the pending buffer with this baseline tells that echo apart from
@@ -276,14 +279,28 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     if (kept) onNoticeRef.current?.(tRef.current('noteKeptBoth').replace('{name}', kept.replace(/\.md$/i, '')), 'error');
   };
 
-  // Drain the pending autosave immediately to its captured note (durability).
+  // Drain any in-flight and/or pending autosave sequentially to its captured note (durability).
   const flushPending = useCallback((): Promise<void> => {
+    const prevInFlight = inFlightSaveRef.current;
     const pending = pendingSaveRef.current;
-    if (!pending) return Promise.resolve();
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
     pendingSaveRef.current = null;
-    if (pending.content === baselineHtmlRef.current) return Promise.resolve();
-    return useStore.getState().flushNoteToDisk(pending.name, pending.content, pending.frontmatter).then(announceKept);
+    if (!pending) return prevInFlight ?? Promise.resolve();
+    const runFlush = (): Promise<void> => {
+      if (pending.content === baselineHtmlRef.current) return Promise.resolve();
+      return useStore.getState()
+        .flushNoteToDisk(pending.name, pending.content, pending.frontmatter)
+        .then((kept) => {
+          announceKept(kept);
+          baselineHtmlRef.current = pending.content;
+        });
+    };
+    const next = (prevInFlight ? prevInFlight.catch(() => undefined).then(runFlush) : runFlush());
+    const tracked = next.finally(() => {
+      if (inFlightSaveRef.current === tracked) inFlightSaveRef.current = null;
+    });
+    inFlightSaveRef.current = tracked;
+    return tracked;
   }, []);
 
   // Let a vault-wide rewrite (the format conversion) wait for what is typed but not yet saved.
@@ -298,20 +315,31 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
   const flushSave = useCallback(async (content: string) => {
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
     if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    const prevInFlight = inFlightSaveRef.current;
+    const snap = pendingSaveRef.current;
+    pendingSaveRef.current = null;
     setSaveStatus('saving');
-    try {
-      announceKept(await saveActiveNote(content));
-      pendingSaveRef.current = null;
-      baselineHtmlRef.current = content;
-      if (mountedRef.current) {
-        setSaveStatus('saved');
-        savedTimerRef.current = setTimeout(() => { if (mountedRef.current) setSaveStatus('idle'); }, 1500);
+    const run = (async () => {
+      if (prevInFlight) await prevInFlight.catch(() => undefined);
+      try {
+        announceKept(await saveActiveNote(content));
+        baselineHtmlRef.current = content;
+        if (mountedRef.current) {
+          setSaveStatus('saved');
+          savedTimerRef.current = setTimeout(() => { if (mountedRef.current) setSaveStatus('idle'); }, 1500);
+        }
+      } catch {
+        // Keep the editor buffer as-is (dirty) and surface the failure — never
+        // report "Saved" over a write that didn't land.
+        if (!pendingSaveRef.current && snap) pendingSaveRef.current = snap;
+        if (mountedRef.current) setSaveStatus('error');
       }
-    } catch {
-      // Keep the editor buffer as-is (dirty) and surface the failure — never
-      // report "Saved" over a write that didn't land.
-      if (mountedRef.current) setSaveStatus('error');
-    }
+    })();
+    const tracked = run.finally(() => {
+      if (inFlightSaveRef.current === tracked) inFlightSaveRef.current = null;
+    });
+    inFlightSaveRef.current = tracked;
+    await tracked;
   }, [saveActiveNote]);
 
   const debouncedSave = useCallback((content: string) => {
@@ -320,24 +348,34 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     const st = useStore.getState();
     pendingSaveRef.current = { name: st.activeNoteName ?? '', content, frontmatter: st.activeNoteFrontmatter };
     setSaveStatus('saving');
-    saveTimerRef.current = setTimeout(async () => {
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      const snap = pendingSaveRef.current;
+      pendingSaveRef.current = null;
       if (isUnchanged(content)) {
-        pendingSaveRef.current = null;
         if (mountedRef.current) setSaveStatus('idle');
         return;
       }
-      try {
-        announceKept(await saveActiveNote(content));
-        pendingSaveRef.current = null;
-        baselineHtmlRef.current = content;
-        if (mountedRef.current) {
-          setSaveStatus('saved');
-          savedTimerRef.current = setTimeout(() => { if (mountedRef.current) setSaveStatus('idle'); }, 1500);
+      const prevInFlight = inFlightSaveRef.current;
+      const run = (async () => {
+        if (prevInFlight) await prevInFlight.catch(() => undefined);
+        try {
+          announceKept(await saveActiveNote(content));
+          baselineHtmlRef.current = content;
+          if (mountedRef.current) {
+            setSaveStatus('saved');
+            savedTimerRef.current = setTimeout(() => { if (mountedRef.current) setSaveStatus('idle'); }, 1500);
+          }
+        } catch {
+          // Restore pendingSaveRef so a later flush (switch/close) retries the write.
+          if (!pendingSaveRef.current && snap) pendingSaveRef.current = snap;
+          if (mountedRef.current) setSaveStatus('error');
         }
-      } catch {
-        // Keep pendingSaveRef so a later flush (switch/close) retries the write.
-        if (mountedRef.current) setSaveStatus('error');
-      }
+      })();
+      const tracked = run.finally(() => {
+        if (inFlightSaveRef.current === tracked) inFlightSaveRef.current = null;
+      });
+      inFlightSaveRef.current = tracked;
     }, 600);
   }, [saveActiveNote]);
 
@@ -753,25 +791,17 @@ export function NoteEditor({ activeNoteName, activeNoteContent, saveActiveNote, 
     const api = getElectronApi();
     if (!api?.onFlushBeforeQuit) return;
     return api.onFlushBeforeQuit(() => {
-      const pending = pendingSaveRef.current && pendingSaveRef.current.content !== baselineHtmlRef.current ? pendingSaveRef.current : null;
-      pendingSaveRef.current = null;
-      // After the note is on disk: settle a held-back link rewrite (never prompting
-      // — nobody is there to answer), so quitting right after a retitle does not
-      // leave other notes linking to the old name.
+      // After any in-flight or pending note save lands on disk: settle a held-back
+      // link rewrite (never prompting — nobody is there to answer), so quitting
+      // right after a retitle does not leave other notes linking to the old name.
       const ack = () => {
         void useStore.getState().flushPendingLinkRewrite({ quiet: true })
           .catch(() => undefined)
           .finally(() => api.notifyFlushed?.());
       };
-      if (pending?.name) {
-        void useStore.getState()
-          .flushNoteToDisk(pending.name, pending.content, pending.frontmatter)
-          .finally(ack);
-      } else {
-        ack();
-      }
+      void flushPending().catch(() => undefined).finally(ack);
     });
-  }, []);
+  }, [flushPending]);
 
   // Capture-time project cohesion: when the title you're typing recurs across
   // notes, surface a nudge to group them under a #project/ tag.
