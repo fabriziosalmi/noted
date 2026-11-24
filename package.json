@@ -64,7 +64,7 @@
     "@tiptap/starter-kit": "^3.34.0",
     "@tiptap/suggestion": "^3.34.0",
     "dompurify": "^3.4.17",
-    "electron-updater": "^6.8.9",
+    "electron-updater": "^6.8.11",
     "fuse.js": "^7.5.0",
     "html-to-docx": "^1.8.0",
     "jsdom": "^29.1.1",
