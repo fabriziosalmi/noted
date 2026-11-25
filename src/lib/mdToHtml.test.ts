@@ -72,7 +72,7 @@ describe('an AI answer cannot make the editor load or run anything', () => {
 
   it('keeps a link quote from breaking out of href', () => {
     const html = mdToHtml('[click](https://a.example" onmouseover="alert(1))');
-    expect(html).toContain('href="https://a.example&quot; onmouseover=&quot;alert(1"');
+    expect(html).toContain('href="https://a.example&quot; onmouseover=&quot;alert(1)"');
   });
 
   it.each([
@@ -122,6 +122,31 @@ describe('the Markdown the AI actions ask for still turns into the same HTML', (
     expect(mdToHtml('| H1 | H2 |\n|---|---|\n| A | B |')).toBe(
       '<table><tr><th>H1</th><th>H2</th></tr><tr><td>A</td><td>B</td></tr></table>',
     );
+  });
+
+  it('keeps balanced parentheses inside a link target', () => {
+    expect(mdToHtml('[Foo](https://en.wikipedia.org/wiki/Foo_(bar))')).toBe(
+      '<p><a href="https://en.wikipedia.org/wiki/Foo_(bar)">Foo</a></p>',
+    );
+    expect(mdToHtml('see [a](https://a.example/x) and [b](https://b.example/(y)) now')).toBe(
+      '<p>see <a href="https://a.example/x">a</a> and <a href="https://b.example/(y)">b</a> now</p>',
+    );
+  });
+
+  it.each([
+    ['an empty task box', '- [ ] todo', '<ul><li>[ ] todo</li></ul>'],
+    ['a bracket with no target', 'a [b] c', '<p>a [b] c</p>'],
+    ['a target left open', '[x](https://a.example/(b)', '<p>[x](https://a.example/(b)</p>'],
+    ['an unclosed bracket', '[x(https://a.example)', '<p>[x(https://a.example)</p>'],
+  ])('leaves %s as text', (_name, md, html) => {
+    expect(mdToHtml(md)).toBe(html);
+  });
+
+  it('turns a long run of unclosed links into text in bounded time', () => {
+    const md = '[a](' + '('.repeat(20000) + 'x'.repeat(20000);
+    const start = performance.now();
+    expect(mdToHtml(md)).toBe(`<p>${md}</p>`);
+    expect(performance.now() - start).toBeLessThan(1000);
   });
 
   it('keeps a comparison and an ampersand readable', () => {
