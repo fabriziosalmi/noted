@@ -88,9 +88,13 @@ function linkHtml(label: string, href: string): string {
   return '<a href="' + safeHref + '">' + label + '</a>';
 }
 
+// A link target may hold one level of balanced parentheses, as in https://en.wikipedia.org/wiki/Foo_(bar).
+// The two alternatives never start on the same character, so a target left open fails in linear time.
+const LINK = /\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)/g;
+
 function inlineFormat(text: string): string {
   return text
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label: string, href: string) => linkHtml(label, href))
+    .replace(LINK, (_m, label: string, href: string) => linkHtml(label, href))
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
