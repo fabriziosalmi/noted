@@ -1,8 +1,15 @@
 // The small Markdown the AI actions get back (paragraphs, lists, headings, tables, quotes, code, inline emphasis and links), as the HTML
 // the editor takes in. Not a full Markdown parser: what the actions ask the model for is what it reads.
 
+// The model's text is escaped before any Markdown is turned into tags: HTML it writes stays text. A raw
+// <img src="https://..."> in an answer would otherwise become an image the editor loads from that server
+// as soon as the answer is put in, a request the person never made, carrying whatever the URL holds.
+function escapeText(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+}
+
 export function mdToHtml(md: string): string {
-  return md
+  return escapeText(md)
     .split('\n\n')
     .map(block => {
       const trimmed = block.trim();
@@ -73,7 +80,7 @@ export function mdToHtml(md: string): string {
 
 function inlineFormat(text: string): string {
   return text
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label: string, href: string) => `<a href="${href.replace(/"/g, '&quot;')}">${label}</a>`)
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
