@@ -134,12 +134,12 @@ describe('the Markdown the AI actions ask for still turns into the same HTML', (
   });
 
   it.each([
-    ['underscores', 'https://a.example/a_b_c'],
-    ['asterisks', 'https://a.example/*x*/y'],
-    ['backticks', 'https://a.example/`q`'],
-    ['double asterisks', 'https://a.example/**x**'],
-  ])('keeps %s inside a link target out of the formatting', (_name, href) => {
-    expect(mdToHtml(`[x](${href})`)).toBe(`<p><a href="${href}">x</a></p>`);
+    ['underscores', '[x](https://a.example/a_b_c)', '<p><a href="https://a.example/a_b_c">x</a></p>'],
+    ['asterisks', '[x](https://a.example/*x*/y)', '<p><a href="https://a.example/*x*/y">x</a></p>'],
+    ['backticks', '[x](https://a.example/`q`)', '<p><a href="https://a.example/`q`">x</a></p>'],
+    ['double asterisks', '[x](https://a.example/**x**)', '<p><a href="https://a.example/**x**">x</a></p>'],
+  ])('keeps %s inside a link target out of the formatting', (_name, md, html) => {
+    expect(mdToHtml(md)).toBe(html);
   });
 
   it('formats the label and the words around a link as before', () => {
@@ -151,7 +151,7 @@ describe('the Markdown the AI actions ask for still turns into the same HTML', (
     );
   });
 
-  it('drops placeholder characters the model writes, so it cannot forge a link', () => {
+  it('drops marker characters the model writes, so it cannot forge a link', () => {
     expect(mdToHtml('a \uE0000\uE001b\uE002 [x](https://a.example)')).toBe(
       '<p>a 0b <a href="https://a.example">x</a></p>',
     );

@@ -82,10 +82,10 @@ export function mdToHtml(md: string): string {
 // (javascript:, data:, vbscript:...) leaves just the label, whatever the editor would make of it.
 const SAFE_HREF = /^(?:https?:\/\/|mailto:|#|\/(?!\/))/i;
 
-// While emphasis and code are applied, a link's opening tag waits outside the text as a numbered
-// placeholder, so `_`, `*` or a backtick inside an address never becomes markup inside href. The label
-// stays in the text and is formatted like the words around it.
-// The markers are private-use characters, removed from the model's text first so it cannot forge one.
+// While emphasis and code are applied, a link's opening tag waits outside the text behind a numbered
+// marker, so `_`, `*` or a backtick inside an address never becomes markup inside href. The label stays
+// in the text and is formatted like the words around it. The markers are private-use characters,
+// removed from the model's text first so it cannot forge one.
 const OPEN = '\uE000';
 const CLOSE = '\uE001';
 const END = '\uE002';
@@ -95,18 +95,18 @@ const END = '\uE002';
 const LINK = /\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)/g;
 
 function inlineFormat(text: string): string {
-  const opening: string[] = [];
+  const openingTags: string[] = [];
   return text
     .replace(/[\uE000-\uE002]/g, '')
     .replace(LINK, (_m, label: string, href: string) => {
       if (!SAFE_HREF.test(href)) return label;
-      opening.push('<a href="' + href.replace(/"/g, '&quot;') + '">');
-      return OPEN + (opening.length - 1) + CLOSE + label + END;
+      openingTags.push('<a href="' + href.replace(/"/g, '&quot;') + '">');
+      return OPEN + (openingTags.length - 1) + CLOSE + label + END;
     })
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
     .replace(/_([^_]+)_/g, '<em>$1</em>')
-    .replace(/\uE000(\d+)\uE001/g, (_m, i: string) => opening[Number(i)])
+    .replace(/\uE000(\d+)\uE001/g, (_m, i: string) => openingTags[Number(i)])
     .replace(/\uE002/g, '</a>');
 }
