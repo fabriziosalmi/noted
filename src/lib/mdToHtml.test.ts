@@ -15,7 +15,11 @@ function insert(md: string): string {
     extensions: documentExtensions({
       codeBlock: withCodeInfo(CodeBlockLowlight.configure({ lowlight: createLowlight(common) })),
       table: Table.configure({ resizable: true }),
-      link: Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { rel: 'noopener noreferrer nofollow', target: '_blank' } }),
+      link: Link.configure({
+        openOnClick: false,
+        autolink: true,
+        HTMLAttributes: { rel: 'noopener noreferrer nofollow', target: '_blank' },
+      }),
       wikilink: WikilinkMark,
     }),
     content: '<p>x</p>',
@@ -67,11 +71,34 @@ describe('an AI answer cannot make the editor load or run anything', () => {
   });
 
   it('keeps a link quote from breaking out of href', () => {
-    expect(mdToHtml('[click](https://a.example" onmouseover="alert(1))')).toContain('href="https://a.example&quot; onmouseover=&quot;alert(1"');
+    const html = mdToHtml('[click](https://a.example" onmouseover="alert(1))');
+    expect(html).toContain('href="https://a.example&quot; onmouseover=&quot;alert(1"');
+  });
+
+  it.each([
+    ['javascript:alert'],
+    ['JaVaScRiPt:void'],
+    ['data:text/html;base64,PHNjcmlwdD4='],
+    ['vbscript:msgbox'],
+    ['//evil.example/x'],
+  ])('writes no anchor for a link to %s, only its label', (href) => {
+    expect(mdToHtml(`[click](${href})`)).toBe('<p>click</p>');
+  });
+
+  it.each([
+    ['https://example.com/a?b=1', '<p><a href="https://example.com/a?b=1">x</a></p>'],
+    ['http://example.com', '<p><a href="http://example.com">x</a></p>'],
+    ['mailto:me@example.com', '<p><a href="mailto:me@example.com">x</a></p>'],
+    ['#section', '<p><a href="#section">x</a></p>'],
+    ['/notes/a', '<p><a href="/notes/a">x</a></p>'],
+  ])('keeps a link to %s', (href, html) => {
+    expect(mdToHtml(`[x](${href})`)).toBe(html);
   });
 
   it('keeps HTML inside a code block as code text', () => {
-    expect(insert('```\n<img src=x onerror=alert(1)>\n```')).toBe('<pre><code>&lt;img src=x onerror=alert(1)&gt;\n</code></pre><p></p>');
+    expect(insert('```\n<img src=x onerror=alert(1)>\n```')).toBe(
+      '<pre><code>&lt;img src=x onerror=alert(1)&gt;\n</code></pre><p></p>',
+    );
   });
 });
 
@@ -92,7 +119,9 @@ describe('the Markdown the AI actions ask for still turns into the same HTML', (
   });
 
   it('renders a table with its header and drops the separator row', () => {
-    expect(mdToHtml('| H1 | H2 |\n|---|---|\n| A | B |')).toBe('<table><tr><th>H1</th><th>H2</th></tr><tr><td>A</td><td>B</td></tr></table>');
+    expect(mdToHtml('| H1 | H2 |\n|---|---|\n| A | B |')).toBe(
+      '<table><tr><th>H1</th><th>H2</th></tr><tr><td>A</td><td>B</td></tr></table>',
+    );
   });
 
   it('keeps a comparison and an ampersand readable', () => {

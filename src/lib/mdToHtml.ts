@@ -78,9 +78,19 @@ export function mdToHtml(md: string): string {
     .join('');
 }
 
+// A link keeps its target only for web, mail, in-page and root-relative addresses; any other scheme
+// (javascript:, data:, vbscript:...) leaves just the label, whatever the editor would make of it.
+const SAFE_HREF = /^(?:https?:\/\/|mailto:|#|\/(?!\/))/i;
+
+function linkHtml(label: string, href: string): string {
+  if (!SAFE_HREF.test(href)) return label;
+  const safeHref = href.replace(/"/g, '&quot;');
+  return '<a href="' + safeHref + '">' + label + '</a>';
+}
+
 function inlineFormat(text: string): string {
   return text
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label: string, href: string) => `<a href="${href.replace(/"/g, '&quot;')}">${label}</a>`)
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label: string, href: string) => linkHtml(label, href))
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
