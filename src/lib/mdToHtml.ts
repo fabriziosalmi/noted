@@ -1,8 +1,15 @@
 // The small Markdown the AI actions get back (paragraphs, lists, headings, tables, quotes, code, inline emphasis and links), as the HTML
 // the editor takes in. Not a full Markdown parser: what the actions ask the model for is what it reads.
 
+// The model's text is escaped before any Markdown is turned into tags: HTML it writes stays text. A raw
+// <img src="https://..."> in an answer would otherwise become an image the editor loads from that server
+// as soon as the answer is put in, a request the person never made, carrying whatever the URL holds.
+function escapeText(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+}
+
 export function mdToHtml(md: string): string {
-  return md
+  return escapeText(md)
     .split('\n\n')
     .map(block => {
       const trimmed = block.trim();
@@ -71,9 +78,19 @@ export function mdToHtml(md: string): string {
     .join('');
 }
 
+// A link keeps its target only for web, mail, in-page and root-relative addresses; any other scheme
+// (javascript:, data:, vbscript:...) leaves just the label, whatever the editor would make of it.
+const SAFE_HREF = /^(?:https?:\/\/|mailto:|#|\/(?!\/))/i;
+
+function linkHtml(label: string, href: string): string {
+  if (!SAFE_HREF.test(href)) return label;
+  const safeHref = href.replace(/"/g, '&quot;');
+  return '<a href="' + safeHref + '">' + label + '</a>';
+}
+
 function inlineFormat(text: string): string {
   return text
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label: string, href: string) => linkHtml(label, href))
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
