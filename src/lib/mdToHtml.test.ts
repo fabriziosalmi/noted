@@ -134,6 +134,30 @@ describe('the Markdown the AI actions ask for still turns into the same HTML', (
   });
 
   it.each([
+    ['underscores', '[x](https://a.example/a_b_c)', '<p><a href="https://a.example/a_b_c">x</a></p>'],
+    ['asterisks', '[x](https://a.example/*x*/y)', '<p><a href="https://a.example/*x*/y">x</a></p>'],
+    ['backticks', '[x](https://a.example/`q`)', '<p><a href="https://a.example/`q`">x</a></p>'],
+    ['double asterisks', '[x](https://a.example/**x**)', '<p><a href="https://a.example/**x**">x</a></p>'],
+  ])('keeps %s inside a link target out of the formatting', (_name, md, html) => {
+    expect(mdToHtml(md)).toBe(html);
+  });
+
+  it('formats the label and the words around a link as before', () => {
+    expect(mdToHtml('[*w* and `c`](https://a.example/a_b)')).toBe(
+      '<p><a href="https://a.example/a_b"><em>w</em> and <code>c</code></a></p>',
+    );
+    expect(mdToHtml('**see [a](https://a.example/x_y_z) now**')).toBe(
+      '<p><strong>see <a href="https://a.example/x_y_z">a</a> now</strong></p>',
+    );
+  });
+
+  it('drops marker characters the model writes, so it cannot forge a link', () => {
+    expect(mdToHtml('a \uE0000\uE001b\uE002 [x](https://a.example)')).toBe(
+      '<p>a 0b <a href="https://a.example">x</a></p>',
+    );
+  });
+
+  it.each([
     ['an empty task box', '- [ ] todo', '<ul><li>[ ] todo</li></ul>'],
     ['a bracket with no target', 'a [b] c', '<p>a [b] c</p>'],
     ['a target left open', '[x](https://a.example/(b)', '<p>[x](https://a.example/(b)</p>'],
