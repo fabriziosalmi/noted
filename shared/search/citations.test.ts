@@ -48,6 +48,12 @@ describe('readCitations', () => {
     expect(r.invalid).toEqual([]);
     expect(readCitations('```\nsee [7]\n```', 1)).toMatchObject({ cited: [], invalid: [] });
   });
+
+  it('keeps runs of spaces inside fenced and inline code', () => {
+    const t = 'Code [1]:\n```py\nx  = 1   # pad\n```\nand `a  b` [7].';
+    expect(readCitations(t, 1).text).toBe('Code [1]:\n```py\nx  = 1   # pad\n```\nand `a  b`.');
+    expect(stripCitations(t)).toBe('Code:\n```py\nx  = 1   # pad\n```\nand `a  b`.');
+  });
 });
 
 describe('stripCitations and citationNumbers', () => {
