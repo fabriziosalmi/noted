@@ -56,6 +56,45 @@ describe('readCitations', () => {
   });
 });
 
+describe('readCitations and stripCitations keep line starts and ends', () => {
+  it('a hard line break survives', () => {
+    expect(readCitations('Line one  \nline two [1].', 1).text).toBe('Line one  \nline two [1].');
+    expect(stripCitations('Line one  \nline two [1].')).toBe('Line one  \nline two.');
+    expect(readCitations('A  \r\nB', 1).text).toBe('A  \r\nB');
+  });
+
+  it('nested list items and list continuations keep their indentation', () => {
+    const t = '- a [1].\n    - b\n        - c [1].';
+    expect(readCitations(t, 1).text).toBe(t);
+    expect(stripCitations(t)).toBe('- a.\n    - b\n        - c.');
+    expect(readCitations('1. x\n   continued [1]', 1).text).toBe('1. x\n   continued [1]');
+  });
+
+  it('the spaces a removed marker leaves between two words still collapse', () => {
+    expect(readCitations('A [7] B', 1).text).toBe('A B');
+    expect(readCitations('  - item [7] more', 1).text).toBe('  - item more');
+    expect(stripCitations('x [1] [2] y')).toBe('x y');
+  });
+
+  it('spaces next to inline code in the middle of a line collapse as between words', () => {
+    expect(stripCitations('Call `f(a[2])`  now [1].')).toBe('Call `f(a[2])` now.');
+    expect(readCitations('see [7] `x`  and `y`  [7] too', 1).text).toBe('see `x` and `y` too');
+    expect(readCitations('```\ncode\n```\n    - indented after a fence', 1).text).toBe('```\ncode\n```\n    - indented after a fence');
+  });
+});
+
+describe('a long run of spaces in an answer', () => {
+  it('is read in linear time', () => {
+    const answer = `a${' '.repeat(50_000)}b [1] .`;
+    const t0 = performance.now();
+    const read = readCitations(answer, 1).text;
+    const stripped = stripCitations(answer);
+    expect(performance.now() - t0).toBeLessThan(200);
+    expect(read).toBe('a b [1].');
+    expect(stripped).toBe('a b.');
+  });
+});
+
 describe('stripCitations and citationNumbers', () => {
   it('an earlier answer loses its markers, and the space before punctuation they leave', () => {
     expect(stripCitations('It is due Friday [1]. The rest [2, 3] is open.')).toBe('It is due Friday. The rest is open.');
