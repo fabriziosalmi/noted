@@ -57,6 +57,17 @@ describe('sectionsOf', () => {
     expect(sectionsOf(md).map(s => s.title)).toEqual(['One', 'Two']);
     expect(md.slice(sectionsOf(md)[1].start)).toBe('## Two');
   });
+
+  it('closes a fence only on the same character, at least as long, with nothing after it (CommonMark)', () => {
+    const titles = (...lines: string[]) => sectionsOf(lines.join('\n')).map(s => s.title);
+    // noted's serializer writes four backticks around code that holds three
+    expect(titles('## A', '````md', '```', '## inside', '```', '````', '## B')).toEqual(['A', 'B']);
+    expect(titles('## A', '~~~~', '~~~', '## inside', '~~~~', '## B')).toEqual(['A', 'B']);
+    expect(titles('## A', '```', '~~~', '## inside', '```', '## B')).toEqual(['A', 'B']);
+    expect(titles('## A', '```', '```js', '## inside', '```', '## B')).toEqual(['A', 'B']);
+    expect(titles('## A', '```js', '## inside', '`````', '## B')).toEqual(['A', 'B']);
+    expect(titles('## A', '````', '## inside', '````  \r', '## B')).toEqual(['A', 'B']);
+  });
 });
 
 describe('findSection', () => {

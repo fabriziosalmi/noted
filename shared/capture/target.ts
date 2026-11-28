@@ -52,13 +52,15 @@ function sectionStarts(source: string[]): number[] {
     const end = source.findIndex((l, n) => n > 0 && l.trim() === '---');
     if (end > 0) i = end + 1;
   }
-  let fence: string | null = null;
+  let fence: { char: string; length: number } | null = null;
   for (; i < source.length; i++) {
     const line = source[i];
-    const f = /^\s*(```+|~~~+)/.exec(line)?.[1];
+    const f = /^\s*(`{3,}|~{3,})(.*)$/.exec(line.replace(/\r$/, ''));
     if (f) {
-      if (fence === null) fence = f[0];
-      else if (f[0] === fence) fence = null;
+      const run = f[1];
+      // CommonMark: a fence closes only on a line of the same character, at least as long, with nothing but spaces after it.
+      if (fence === null) fence = { char: run[0], length: run.length };
+      else if (run[0] === fence.char && run.length >= fence.length && /^[ \t]*$/.test(f[2])) fence = null;
       continue;
     }
     if (fence === null && /^##\s/.test(line)) starts.push(i);
