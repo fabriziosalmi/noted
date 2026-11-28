@@ -41,6 +41,9 @@ const inProse = (answer: string, f: (prose: string) => string): string =>
 // (a nested list item) and its trailing spaces (a Markdown hard line break) stay as written. Code is left out, but it
 // stands for a word, so the spaces next to `code` in the middle of a line still collapse.
 const BETWEEN_WORDS = /(\S) {2,}(?=\S)/g;
+// The space a removed marker leaves before punctuation ("Done [2]." -> "Done ."). The lookbehind starts a match only
+// at the first space of a run: without it every space of a long run was tried again, quadratic (1.5 s on 50,000 spaces).
+const BEFORE_PUNCTUATION = /(?<![ \t])[ \t]+([.,;:!?])/g;
 const CODE_STAND_IN = '\u0000';
 
 function tidySpaces(text: string): string {
@@ -62,13 +65,13 @@ export function readCitations(answer: string, sourceCount: number): CitedAnswer 
       else if (!invalid.includes(n)) invalid.push(n);
     }
     return good.length === 0 ? '' : good.length === numbers.length ? whole : `[${good.join(', ')}]`;
-  }).replace(/[ \t]+([.,;:!?])/g, '$1')));
+  }).replace(BEFORE_PUNCTUATION, '$1')));
   return { text, cited, invalid };
 }
 
 /** An earlier answer, without its markers: the numbers belonged to the sources of that turn, not of the next one. */
 export function stripCitations(answer: string): string {
-  return tidySpaces(inProse(answer, prose => prose.replace(GROUP, '').replace(/[ \t]+([.,;:!?])/g, '$1')));
+  return tidySpaces(inProse(answer, prose => prose.replace(GROUP, '').replace(BEFORE_PUNCTUATION, '$1')));
 }
 
 /** The numbers of a "[1, 2]" marker's text, for a click handler. */

@@ -83,6 +83,18 @@ describe('readCitations and stripCitations keep line starts and ends', () => {
   });
 });
 
+describe('a long run of spaces in an answer', () => {
+  it('is read in linear time', () => {
+    const answer = `a${' '.repeat(50_000)}b [1] .`;
+    const t0 = performance.now();
+    const read = readCitations(answer, 1).text;
+    const stripped = stripCitations(answer);
+    expect(performance.now() - t0).toBeLessThan(200);
+    expect(read).toBe('a b [1].');
+    expect(stripped).toBe('a b.');
+  });
+});
+
 describe('stripCitations and citationNumbers', () => {
   it('an earlier answer loses its markers, and the space before punctuation they leave', () => {
     expect(stripCitations('It is due Friday [1]. The rest [2, 3] is open.')).toBe('It is due Friday. The rest is open.');
