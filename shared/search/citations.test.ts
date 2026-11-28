@@ -40,6 +40,20 @@ describe('readCitations', () => {
     expect(readCitations('[1][2] both say so.', 2).cited).toEqual([1, 2]);
     expect(readCitations('Claim [1][5].', 2).text).toBe('Claim [1].');
   });
+
+  it('leaves fenced and inline code exactly as written, and still reads prose citations', () => {
+    const r = readCitations('By [1].\n```js\n    if (a[3]) { return a[3]; }\n```\nInline `x[1]` and `c[2]` stay.', 1);
+    expect(r.text).toBe('By [1].\n```js\n    if (a[3]) { return a[3]; }\n```\nInline `x[1]` and `c[2]` stay.');
+    expect(r.cited).toEqual([1]);
+    expect(r.invalid).toEqual([]);
+    expect(readCitations('```\nsee [7]\n```', 1)).toMatchObject({ cited: [], invalid: [] });
+  });
+
+  it('keeps runs of spaces inside fenced and inline code', () => {
+    const t = 'Code [1]:\n```py\nx  = 1   # pad\n```\nand `a  b` [7].';
+    expect(readCitations(t, 1).text).toBe('Code [1]:\n```py\nx  = 1   # pad\n```\nand `a  b`.');
+    expect(stripCitations(t)).toBe('Code:\n```py\nx  = 1   # pad\n```\nand `a  b`.');
+  });
 });
 
 describe('stripCitations and citationNumbers', () => {
@@ -52,6 +66,10 @@ describe('stripCitations and citationNumbers', () => {
     expect(citationNumbers('[1, 12]')).toEqual([1, 12]);
     expect(citationNumbers('[a]')).toEqual([]);
     expect(citationNumbers('1')).toEqual([]);
+  });
+  it('leaves fenced and inline code exactly as written', () => {
+    expect(stripCitations('```\n    return a[3]\n```\nand `x[1]` after [1].')).toBe('```\n    return a[3]\n```\nand `x[1]` after.');
+    expect(stripCitations('prose [1] with `b[1]`')).toBe('prose with `b[1]`');
   });
 });
 

@@ -32,11 +32,16 @@ export interface CitedAnswer {
   invalid: number[];
 }
 
+// Splits prose from code (fenced and inline) the way linkCitations does, so code is left as written: in a fenced block
+// "    return a[3]" keeps its indentation and index, and inline `x[1]` is not read as a citation. Even indexes are prose.
+const inProse = (answer: string, f: (prose: string) => string): string =>
+  answer.split(CODE).map((part, i) => (i % 2 === 1 ? part : f(part))).join('');
+
 /** Reads the citations of an answer against the number of sources that were offered. */
 export function readCitations(answer: string, sourceCount: number): CitedAnswer {
   const cited: number[] = [];
   const invalid: number[] = [];
-  const text = answer.replace(GROUP, (whole, list: string) => {
+  const text = inProse(answer, prose => prose.replace(GROUP, (whole, list: string) => {
     const numbers = list.split(',').map(x => Number(x.trim()));
     const good = numbers.filter(n => n >= 1 && n <= sourceCount);
     for (const n of numbers) {
@@ -44,13 +49,13 @@ export function readCitations(answer: string, sourceCount: number): CitedAnswer 
       else if (!invalid.includes(n)) invalid.push(n);
     }
     return good.length === 0 ? '' : good.length === numbers.length ? whole : `[${good.join(', ')}]`;
-  }).replace(/[ \t]+([.,;:!?])/g, '$1').replace(/ {2,}/g, ' ');
+  }).replace(/[ \t]+([.,;:!?])/g, '$1').replace(/ {2,}/g, ' '));
   return { text, cited, invalid };
 }
 
 /** An earlier answer, without its markers: the numbers belonged to the sources of that turn, not of the next one. */
 export function stripCitations(answer: string): string {
-  return answer.replace(GROUP, '').replace(/[ \t]+([.,;:!?])/g, '$1').replace(/ {2,}/g, ' ');
+  return inProse(answer, prose => prose.replace(GROUP, '').replace(/[ \t]+([.,;:!?])/g, '$1').replace(/ {2,}/g, ' '));
 }
 
 /** The numbers of a "[1, 2]" marker's text, for a click handler. */
