@@ -37,11 +37,24 @@ export interface CitedAnswer {
 const inProse = (answer: string, f: (prose: string) => string): string =>
   answer.split(CODE).map((part, i) => (i % 2 === 1 ? part : f(part))).join('');
 
+// The spaces a removed marker leaves between two words ("A [7] B" -> "A  B"). Only those collapse: a line's indentation
+// (a nested list item) and its trailing spaces (a Markdown hard line break) stay as written. Code is left out, but it
+// stands for a word, so the spaces next to `code` in the middle of a line still collapse.
+const BETWEEN_WORDS = /(\S) {2,}(?=\S)/g;
+const CODE_STAND_IN = '\u0000';
+
+function tidySpaces(text: string): string {
+  const parts = text.split(CODE);
+  if (text.includes(CODE_STAND_IN)) return parts.map((p, i) => (i % 2 === 1 ? p : p.replace(BETWEEN_WORDS, '$1 '))).join('');
+  const prose = parts.filter((_, i) => i % 2 === 0).join(CODE_STAND_IN).replace(BETWEEN_WORDS, '$1 ').split(CODE_STAND_IN);
+  return parts.map((p, i) => (i % 2 === 1 ? p : prose[i / 2])).join('');
+}
+
 /** Reads the citations of an answer against the number of sources that were offered. */
 export function readCitations(answer: string, sourceCount: number): CitedAnswer {
   const cited: number[] = [];
   const invalid: number[] = [];
-  const text = inProse(answer, prose => prose.replace(GROUP, (whole, list: string) => {
+  const text = tidySpaces(inProse(answer, prose => prose.replace(GROUP, (whole, list: string) => {
     const numbers = list.split(',').map(x => Number(x.trim()));
     const good = numbers.filter(n => n >= 1 && n <= sourceCount);
     for (const n of numbers) {
@@ -49,13 +62,13 @@ export function readCitations(answer: string, sourceCount: number): CitedAnswer 
       else if (!invalid.includes(n)) invalid.push(n);
     }
     return good.length === 0 ? '' : good.length === numbers.length ? whole : `[${good.join(', ')}]`;
-  }).replace(/[ \t]+([.,;:!?])/g, '$1').replace(/ {2,}/g, ' '));
+  }).replace(/[ \t]+([.,;:!?])/g, '$1')));
   return { text, cited, invalid };
 }
 
 /** An earlier answer, without its markers: the numbers belonged to the sources of that turn, not of the next one. */
 export function stripCitations(answer: string): string {
-  return inProse(answer, prose => prose.replace(GROUP, '').replace(/[ \t]+([.,;:!?])/g, '$1').replace(/ {2,}/g, ' '));
+  return tidySpaces(inProse(answer, prose => prose.replace(GROUP, '').replace(/[ \t]+([.,;:!?])/g, '$1')));
 }
 
 /** The numbers of a "[1, 2]" marker's text, for a click handler. */
