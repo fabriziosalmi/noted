@@ -20,7 +20,7 @@ export interface Task {
 }
 
 const ITEM = /^(\s*)(?:[-*+]|\d{1,9}[.)])[ \t]+\[([ xX])\][ \t]+(.*?)\s*$/;
-const FENCE = /^[ \t]{0,3}(```|~~~)/;
+const FENCE = /^[ \t]{0,3}(`{3,}|~{3,})/;
 const FRONTMATTER = /^---[ \t]*\r?\n(?:[\s\S]*?\r?\n)?---[ \t]*(?:\r?\n|$)/;
 const DUE_EMOJI = /\s*(?:📅|🗓️?)[ \t]*(\d{4}-\d{2}-\d{2})/;
 const DUE_FIELD = /\s*\[?\bdue::[ \t]*(\d{4}-\d{2}-\d{2})\]?/i;
@@ -43,7 +43,7 @@ export function extractTasks(markdown: string): Task[] {
   const bom = markdown.startsWith('﻿') ? 1 : 0;
   const skip = bom + (FRONTMATTER.exec(markdown.slice(bom))?.[0].length ?? 0);
   const tasks: Task[] = [];
-  let fence: string | null = null;
+  let fence: { char: string; length: number } | null = null;
   let at = 0;
   let line = 0;
   for (const raw of markdown.split('\n')) {
@@ -54,8 +54,11 @@ export function extractTasks(markdown: string): Task[] {
     const text = raw.replace(/\r$/, '');
     const fenced = FENCE.exec(text);
     if (fenced) {
-      if (fence === null) fence = fenced[1];
-      else if (fenced[1] === fence) fence = null;
+      const char = fenced[1][0];
+      const length = fenced[1].length;
+      if (fence === null) fence = { char, length };
+      // A fence closes only on a line of the same character at least as long, with nothing but spaces after it (CommonMark).
+      else if (char === fence.char && length >= fence.length && /^[ \t]*$/.test(text.slice(fenced[0].length))) fence = null;
       continue;
     }
     if (fence !== null) continue;
