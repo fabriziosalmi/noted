@@ -26,7 +26,7 @@ export interface Section {
 }
 
 const HEADING = /^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$/;
-const FENCE = /^[ \t]{0,3}(```|~~~)/;
+const FENCE = /^[ \t]{0,3}(`{3,}|~{3,})(.*)$/;
 const FRONTMATTER = /^---[ \t]*\r?\n(?:[\s\S]*?\r?\n)?---[ \t]*(?:\r?\n|$)/;
 
 /** Every heading of the note, in order, with where its section runs. */
@@ -34,7 +34,7 @@ export function sectionsOf(markdown: string): Section[] {
   const bom = markdown.startsWith('﻿') ? 1 : 0;
   const skip = bom + (FRONTMATTER.exec(markdown.slice(bom))?.[0].length ?? 0);
   const found: Omit<Section, 'end' | 'ownEnd'>[] = [];
-  let fence: string | null = null;
+  let fence: { char: string; length: number } | null = null;
   let at = 0;
   let line = 0;
   for (const raw of markdown.split('\n')) {
@@ -45,8 +45,10 @@ export function sectionsOf(markdown: string): Section[] {
     const text = raw.replace(/\r$/, '');
     const fenced = FENCE.exec(text);
     if (fenced) {
-      if (fence === null) fence = fenced[1];
-      else if (fenced[1] === fence) fence = null;
+      const run = fenced[1];
+      // CommonMark: a fence closes only on a line of the same character, at least as long, with nothing but spaces after it.
+      if (fence === null) fence = { char: run[0], length: run.length };
+      else if (run[0] === fence.char && run.length >= fence.length && /^[ \t]*$/.test(fenced[2])) fence = null;
       continue;
     }
     if (fence !== null) continue;

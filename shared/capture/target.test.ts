@@ -78,3 +78,17 @@ describe('adding a capture to a daily note', () => {
     expect(out.replace('NEW\n\n', '')).toBe(note);
   });
 });
+
+describe('a capture next to fenced code', () => {
+  const at = (...lines: string[]) => insertCapture(lines.join('\n'), '- NEW', 'markdown', true);
+
+  it('a "##" line inside a block opened with an info string is not a section', () => {
+    expect(at('## A', 'a', '```js', '## inside code', '```', '## B', 'b', ''))
+      .toBe('## A\na\n```js\n## inside code\n```\n\n- NEW\n\n## B\nb\n');
+  });
+
+  it('a block opened with four backticks is not closed by an inner three-backtick line', () => {
+    expect(at('## A', '````md', '```', '## inside code', '```', '````', '## B', 'b', ''))
+      .toBe('## A\n````md\n```\n## inside code\n```\n````\n\n- NEW\n\n## B\nb\n');
+  });
+});
