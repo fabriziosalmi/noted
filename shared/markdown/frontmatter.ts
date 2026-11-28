@@ -1,4 +1,4 @@
-const YAML_FRONTMATTER_PATTERN = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/;
+const YAML_FRONTMATTER_PATTERN = /^---\r?\n(?:[^\r\n]*\r?\n)*?---(?:\r?\n|$)/;
 const FRONTMATTER_COMMENT_PATTERN = /<!--noted-frontmatter:([\s\S]*?)-->\s*/;
 
 export interface FrontmatterExtraction {
